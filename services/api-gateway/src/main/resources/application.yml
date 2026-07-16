@@ -30,6 +30,22 @@ spring:
           uri: ${CROP_CYCLE_SERVICE_URL:http://localhost:8084}
           predicates:
             - Path=/api/v1/crop-cycles/**
+        - id: work-service
+          uri: ${WORK_SERVICE_URL:http://localhost:8085}
+          predicates:
+            - Path=/api/v1/work-tasks/**
+        - id: inventory-service
+          uri: ${INVENTORY_SERVICE_URL:http://localhost:8086}
+          predicates:
+            - Path=/api/v1/inventory/**
+        - id: harvest-service
+          uri: ${HARVEST_SERVICE_URL:http://localhost:8087}
+          predicates:
+            - Path=/api/v1/harvests/**
+        - id: traceability-service
+          uri: ${TRACEABILITY_SERVICE_URL:http://localhost:8092}
+          predicates:
+            - Path=/api/v1/traceability/**,/public/api/v1/traceability/**
 
 management:
   endpoints:

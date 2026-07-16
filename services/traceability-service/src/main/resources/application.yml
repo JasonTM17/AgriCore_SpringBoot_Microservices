@@ -1,0 +1,26 @@
+server:
+  port: ${TRACEABILITY_PORT:8092}
+spring:
+  application:
+    name: traceability-service
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5434}/agricore_traceability
+    username: ${POSTGRES_USER:agricore}
+    password: ${POSTGRES_PASSWORD:agricore_dev_change_me}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+agricore:
+  public-base-url: ${TRACEABILITY_PUBLIC_BASE_URL:http://localhost:8080/public/api/v1/traceability}
