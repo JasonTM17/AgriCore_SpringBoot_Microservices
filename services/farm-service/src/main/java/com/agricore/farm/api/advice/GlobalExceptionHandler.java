@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -44,6 +45,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(
                 ApiError.validation("Request validation failed", request.getRequestURI(), null, violations)
         );
+    }
+
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    public ResponseEntity<ApiError> handleAuthorizationDenied(
+            AuthorizationDeniedException ex,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiError.of(
+                403, "Forbidden", "ACCESS_DENIED", "Insufficient privileges for this operation",
+                request.getRequestURI(), null
+        ));
     }
 
     @ExceptionHandler(Exception.class)
