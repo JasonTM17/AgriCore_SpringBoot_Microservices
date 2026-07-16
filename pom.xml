@@ -13,6 +13,7 @@
 
     <modules>
         <module>libs/common-lib</module>
+        <module>libs/common-security</module>
         <module>services/identity-service</module>
         <module>services/farm-service</module>
         <module>services/crop-catalog-service</module>
@@ -64,6 +65,11 @@
             <dependency>
                 <groupId>com.agricore</groupId>
                 <artifactId>common-lib</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.agricore</groupId>
+                <artifactId>common-security</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
