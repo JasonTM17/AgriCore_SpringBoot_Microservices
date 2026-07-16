@@ -56,7 +56,7 @@ public class HarvestCompletedKafkaListener {
                     uuidOrNull(payload, "plotId"),
                     textOrDefault(payload, "farmName", "Farm"),
                     textOrDefault(payload, "plotCode", "PLOT"),
-                    textOrDefault(payload, "productCode", textOrDefault(payload, "productName", "PRODUCT")),
+                    textOrDefault(payload, "productName", textOrDefault(payload, "productCode", "PRODUCT")),
                     text(payload, "varietyName"),
                     dateOrNull(payload, "plantingDate"),
                     dateOrDefault(payload, "harvestDate", LocalDate.now()),
