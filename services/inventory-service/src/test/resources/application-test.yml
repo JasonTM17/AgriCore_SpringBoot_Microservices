@@ -12,6 +12,13 @@ spring:
         dialect: org.hibernate.dialect.H2Dialect
   flyway:
     enabled: true
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+
 agricore:
   security:
     dev-mode: true
+  kafka:
+    consumer:
+      enabled: false

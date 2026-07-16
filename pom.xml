@@ -22,6 +22,9 @@
         <module>services/harvest-service</module>
         <module>services/inventory-service</module>
         <module>services/traceability-service</module>
+        <module>services/iot-service</module>
+        <module>services/sales-service</module>
+        <module>services/notification-service</module>
     </modules>
 
     <properties>

@@ -13,6 +13,17 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: inventory-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      enable-auto-commit: false
+    listener:
+      ack-mode: record
+
 management:
   endpoints:
     web:
@@ -25,3 +36,8 @@ management:
 agricore:
   security:
     dev-mode: ${AGRICORE_DEV_MODE:false}
+  kafka:
+    consumer:
+      enabled: true
+    topics:
+      harvest-events: agricore.harvest.events
