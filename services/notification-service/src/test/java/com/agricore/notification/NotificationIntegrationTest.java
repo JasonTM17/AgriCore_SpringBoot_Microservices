@@ -23,6 +23,8 @@ class NotificationIntegrationTest {
     @Test
     void sendNotification() throws Exception {
         mockMvc.perform(post("/api/v1/notifications")
+                        .header("X-Dev-User", "system")
+                        .header("X-Dev-Roles", "SYSTEM_ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {

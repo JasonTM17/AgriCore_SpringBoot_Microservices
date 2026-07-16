@@ -33,7 +33,7 @@ agricore:
   security:
     issuer: ${JWT_ISSUER:https://agricore.local/identity}
     audience: agricore-api
-    jwks-uri: ${IDENTITY_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
+    jwk-set-uri: ${IDENTITY_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
     dev-mode: ${AGRICORE_DEV_MODE:false}
 
 logging:

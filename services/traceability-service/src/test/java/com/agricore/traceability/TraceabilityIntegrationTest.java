@@ -35,6 +35,8 @@ class TraceabilityIntegrationTest {
         UUID harvestId = UUID.randomUUID();
 
         MvcResult created = mockMvc.perform(post("/api/v1/traceability/batches")
+                        .header("X-Dev-User", "system")
+                        .header("X-Dev-Roles", "SYSTEM_ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {

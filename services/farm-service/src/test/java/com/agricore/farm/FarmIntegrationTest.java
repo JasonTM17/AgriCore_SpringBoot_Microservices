@@ -86,7 +86,8 @@ class FarmIntegrationTest {
 
     @Test
     void unauthenticated_isRejected() throws Exception {
+        // OAuth2 resource server returns 401 when no credentials are presented
         mockMvc.perform(get("/api/v1/farms"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 }

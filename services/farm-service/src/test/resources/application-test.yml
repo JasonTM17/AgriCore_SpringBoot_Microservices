@@ -18,3 +18,4 @@ agricore:
     issuer: https://agricore.test/identity
     audience: agricore-api
     dev-mode: true
+    jwk-set-uri: http://localhost:8081/.well-known/jwks.json

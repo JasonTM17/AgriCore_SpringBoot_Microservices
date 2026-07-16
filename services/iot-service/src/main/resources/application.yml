@@ -24,6 +24,8 @@ management:
         enabled: true
 agricore:
   security:
+    issuer: ${JWT_ISSUER:https://agricore.local/identity}
+    jwk-set-uri: ${IDENTITY_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
     dev-mode: ${AGRICORE_DEV_MODE:false}
   alert:
     cooldown-minutes: ${IOT_ALERT_COOLDOWN_MINUTES:15}

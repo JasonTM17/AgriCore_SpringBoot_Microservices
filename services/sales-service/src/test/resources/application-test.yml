@@ -15,5 +15,7 @@ spring:
 agricore:
   security:
     dev-mode: true
+    issuer: https://agricore.test/identity
+    jwk-set-uri: http://localhost:8081/.well-known/jwks.json
   inventory:
     base-url: http://localhost:18086

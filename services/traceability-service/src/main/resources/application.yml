@@ -13,6 +13,19 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: traceability-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      enable-auto-commit: false
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    listener:
+      ack-mode: record
 management:
   endpoints:
     web:
@@ -24,3 +37,13 @@ management:
         enabled: true
 agricore:
   public-base-url: ${TRACEABILITY_PUBLIC_BASE_URL:http://localhost:8080/public/api/v1/traceability}
+  security:
+    issuer: ${JWT_ISSUER:https://agricore.local/identity}
+    jwk-set-uri: ${IDENTITY_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
+    dev-mode: ${AGRICORE_DEV_MODE:false}
+  kafka:
+    consumer:
+      enabled: true
+      group-id: traceability-service
+    topics:
+      harvest-events: agricore.harvest.events

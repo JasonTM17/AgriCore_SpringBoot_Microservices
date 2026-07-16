@@ -12,5 +12,16 @@ spring:
         dialect: org.hibernate.dialect.H2Dialect
   flyway:
     enabled: true
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+
 agricore:
   public-base-url: http://localhost:8080/public/api/v1/traceability
+  security:
+    dev-mode: true
+    issuer: https://agricore.test/identity
+    jwk-set-uri: http://localhost:8081/.well-known/jwks.json
+  kafka:
+    consumer:
+      enabled: false
