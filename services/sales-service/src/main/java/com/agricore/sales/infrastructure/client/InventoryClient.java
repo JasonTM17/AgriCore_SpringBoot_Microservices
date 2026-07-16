@@ -3,7 +3,11 @@ package com.agricore.sales.infrastructure.client;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
@@ -12,23 +16,28 @@ import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 /**
  * Sync HTTP client to inventory-service for saga reserve/release steps.
+ * Forwards the caller's Bearer JWT when present; falls back to X-Dev headers only in dev-mode.
  */
 @Component
 public class InventoryClient {
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
+    private final boolean securityDevMode;
 
     public InventoryClient(
             RestClient.Builder builder,
             ObjectMapper objectMapper,
-            @Value("${agricore.inventory.base-url}") String baseUrl
+            @Value("${agricore.inventory.base-url}") String baseUrl,
+            @Value("${agricore.security.dev-mode:false}") boolean securityDevMode
     ) {
         this.restClient = builder.baseUrl(baseUrl).build();
         this.objectMapper = objectMapper;
+        this.securityDevMode = securityDevMode;
     }
 
     public UUID reserve(UUID inventoryItemId, BigDecimal quantity, String referenceId) {
@@ -42,8 +51,7 @@ public class InventoryClient {
             String body = restClient.post()
                     .uri("/api/v1/inventory/reservations")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .header("X-Dev-User", "sales-service")
-                    .header("X-Dev-Roles", "SALES_STAFF")
+                    .headers(authHeaders())
                     .body(payload)
                     .retrieve()
                     .body(String.class);
@@ -61,10 +69,24 @@ public class InventoryClient {
     public void release(UUID reservationId) {
         restClient.post()
                 .uri("/api/v1/inventory/reservations/{id}/release", reservationId)
-                .header("X-Dev-User", "sales-service")
-                .header("X-Dev-Roles", "SALES_STAFF")
+                .headers(authHeaders())
                 .retrieve()
                 .toBodilessEntity();
+    }
+
+    private Consumer<HttpHeaders> authHeaders() {
+        return headers -> {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication instanceof JwtAuthenticationToken jwtAuth) {
+                headers.setBearerAuth(jwtAuth.getToken().getTokenValue());
+                return;
+            }
+            // Dev/test only — never used when AGRICORE_DEV_MODE=false in production compose
+            if (securityDevMode) {
+                headers.set("X-Dev-User", "sales-service");
+                headers.set("X-Dev-Roles", "SALES_STAFF");
+            }
+        };
     }
 
     public static class InventoryReservationException extends RuntimeException {
