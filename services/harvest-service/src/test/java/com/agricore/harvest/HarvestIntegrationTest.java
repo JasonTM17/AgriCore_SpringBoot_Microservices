@@ -38,7 +38,11 @@ class HarvestIntegrationTest {
                                   "productCode":"COFFEE-ROBUSTA",
                                   "grossWeightKg":3500,
                                   "netWeightKg":3300,
-                                  "qualityGrade":"GRADE_A"
+                                  "qualityGrade":"GRADE_A",
+                                  "farmName":"Nong trai Dak Lak",
+                                  "plotCode":"DL-A01",
+                                  "productName":"Ca phe Robusta",
+                                  "careSummary":"Drip irrigation"
                                 }
                                 """.formatted(code, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID())))
                 .andExpect(status().isCreated())

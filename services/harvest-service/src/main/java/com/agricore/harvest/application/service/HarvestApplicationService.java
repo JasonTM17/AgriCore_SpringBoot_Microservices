@@ -78,6 +78,20 @@ public class HarvestApplicationService {
             payload.put("grossWeightKg", batch.getGrossWeightKg());
             payload.put("netWeightKg", batch.getNetWeightKg());
             payload.put("qualityGrade", batch.getQualityGrade());
+            payload.put("harvestDate", now.toString().substring(0, 10));
+            if (request.farmName() != null && !request.farmName().isBlank()) {
+                payload.put("farmName", request.farmName().trim());
+            }
+            if (request.plotCode() != null && !request.plotCode().isBlank()) {
+                payload.put("plotCode", request.plotCode().trim());
+            }
+            String productName = request.productName() != null && !request.productName().isBlank()
+                    ? request.productName().trim()
+                    : batch.getProductCode();
+            payload.put("productName", productName);
+            if (request.careSummary() != null && !request.careSummary().isBlank()) {
+                payload.put("careSummary", request.careSummary().trim());
+            }
 
             ObjectNode envelope = objectMapper.createObjectNode();
             envelope.put("eventId", eventId);
