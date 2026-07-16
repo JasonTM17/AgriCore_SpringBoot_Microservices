@@ -1,0 +1,42 @@
+server:
+  port: ${GATEWAY_PORT:8080}
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+            allowCredentials: true
+      routes:
+        - id: identity-service
+          uri: ${IDENTITY_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/v1/auth/**,/api/v1/users/**,/api/v1/admin/**,/.well-known/jwks.json
+        - id: farm-service
+          uri: ${FARM_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/v1/farms/**,/api/v1/plots/**
+        - id: crop-catalog-service
+          uri: ${CROP_CATALOG_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/v1/crops/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,gateway
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO
