@@ -1,0 +1,11 @@
+CREATE DATABASE agricore_identity;
+CREATE DATABASE agricore_farm;
+CREATE DATABASE agricore_crop_catalog;
+CREATE DATABASE agricore_crop_cycle;
+CREATE DATABASE agricore_work;
+CREATE DATABASE agricore_inventory;
+CREATE DATABASE agricore_harvest;
+CREATE DATABASE agricore_traceability;
+CREATE DATABASE agricore_notification;
+CREATE DATABASE agricore_iot;
+CREATE DATABASE agricore_sales;

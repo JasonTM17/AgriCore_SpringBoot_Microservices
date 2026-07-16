@@ -1,0 +1,88 @@
+# Full local stack: infrastructure + application services
+name: agricore
+
+include:
+  - path: docker-compose.infrastructure.yml
+
+services:
+  identity-service:
+    build:
+      context: .
+      dockerfile: services/identity-service/Dockerfile
+    container_name: agricore-identity
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-agricore}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agricore_dev_change_me}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      IDENTITY_PORT: 8081
+      JWT_ISSUER: https://agricore.local/identity
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep -q UP || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  farm-service:
+    build:
+      context: .
+      dockerfile: services/farm-service/Dockerfile
+    container_name: agricore-farm
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-agricore}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agricore_dev_change_me}
+      FARM_PORT: 8082
+      AGRICORE_DEV_MODE: "false"
+      JWT_ISSUER: https://agricore.local/identity
+    ports:
+      - "8082:8082"
+
+  crop-catalog-service:
+    build:
+      context: .
+      dockerfile: services/crop-catalog-service/Dockerfile
+    container_name: agricore-crop-catalog
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-agricore}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agricore_dev_change_me}
+      CROP_CATALOG_PORT: 8083
+      AGRICORE_DEV_MODE: "false"
+    ports:
+      - "8083:8083"
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: agricore-gateway
+    depends_on:
+      - identity-service
+      - farm-service
+      - crop-catalog-service
+    environment:
+      GATEWAY_PORT: 8080
+      IDENTITY_SERVICE_URL: http://identity-service:8081
+      FARM_SERVICE_URL: http://farm-service:8082
+      CROP_CATALOG_SERVICE_URL: http://crop-catalog-service:8083
+    ports:
+      - "8080:8080"
