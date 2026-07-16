@@ -12,7 +12,8 @@ Portfolio-grade **Java 21 / Spring Boot microservices** platform for enterprise 
 | identity-service | 8081 | Live |
 | farm-service | 8082 | Live |
 | crop-catalog-service | 8083 | Live |
-| crop-cycle, work, inventory, harvest, traceability, iot, sales, notification | — | Planned |
+| crop-cycle-service | 8084 | Live |
+| work, inventory, harvest, traceability, iot, sales, notification | — | Planned |
 
 ## Architecture
 
@@ -48,7 +49,9 @@ Client → API Gateway (:8080)
 ./scripts/dev-up.sh
 ```
 
-Starts PostgreSQL (multi-DB), Redis, Kafka, Kafka UI (`http://localhost:8088`).
+Starts PostgreSQL (multi-DB on host **5434**), Redis (**6380**), Kafka (**9092**), Kafka UI (`http://localhost:8088`).
+
+> Ports 5434/6380 avoid clashes with other local stacks. Override via `.env` if needed.
 
 ### 2. Build & test
 
