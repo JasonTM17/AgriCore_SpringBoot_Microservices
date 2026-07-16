@@ -9,6 +9,9 @@ x-db-env: &db-env
   POSTGRES_PORT: 5432
   POSTGRES_USER: ${POSTGRES_USER:-agricore}
   POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agricore_dev_change_me}
+  # Keep total pools under Postgres max_connections=200 (many services share one instance)
+  SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "5"
+  SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: "1"
 
 x-security-env: &security-env
   JWT_ISSUER: https://agricore.local/identity
