@@ -83,6 +83,37 @@ docker compose up --build
 
 Gateway: `http://localhost:8080`
 
+### 5. Platform verification (gating)
+
+One script builds/starts the **full** compose stack (infra + all app services with healthchecks), runs Maven tests, and executes the gateway JWT e2e happy path, writing an evidence bundle:
+
+```powershell
+# Windows — evidence dir is where compose-ps.txt, traceability.json, mvn-test.log land
+.\scripts\verify-platform.ps1 -EvidenceDir C:\path\to\evidence
+```
+
+```bash
+# Linux/macOS (requires pwsh for e2e)
+export EVIDENCE_DIR=./.verify-evidence
+./scripts/verify-platform.sh
+```
+
+Artifacts produced under the evidence directory:
+
+| File | Content |
+|------|---------|
+| `compose-ps.txt` | `docker compose ps` including **app** containers (identity, farm, harvest, inventory, traceability, gateway, …) |
+| `mvn-test.log` | full `./mvnw test` |
+| `e2e-flow.log` | gateway JWT farm→cycle→harvest→Kafka flow |
+| `traceability.json` | public QR response body (`farmName`, `plotCode`, `productName`) |
+| `git-log.txt` | recent conventional commits |
+
+Standalone e2e (stack already up):
+
+```powershell
+.\scripts\e2e-happy-path.ps1 -EvidenceDir C:\path\to\evidence
+```
+
 ## Auth examples
 
 ```bash

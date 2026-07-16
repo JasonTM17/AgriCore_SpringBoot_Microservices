@@ -1,5 +1,5 @@
 # Infrastructure only — databases, cache, messaging, observability
-name: agricore-infra
+# Project name comes from parent docker-compose.yml when included.
 
 services:
   postgres:
@@ -66,7 +66,7 @@ services:
       - "8088:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: agricore
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:19092
 
 volumes:
   agricore_pg_data:

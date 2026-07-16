@@ -15,6 +15,16 @@ x-security-env: &security-env
   IDENTITY_JWKS_URI: http://identity-service:8081/.well-known/jwks.json
   AGRICORE_DEV_MODE: "false"
 
+# Internal Docker network listener (see PLAINTEXT://kafka:19092 in infrastructure compose)
+x-kafka-env: &kafka-env
+  KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+
+x-app-healthcheck: &app-healthcheck
+  interval: 15s
+  timeout: 5s
+  retries: 12
+  start_period: 90s
+
 services:
   identity-service:
     build:
@@ -35,11 +45,8 @@ services:
     ports:
       - "8081:8081"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep -q UP || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 10
-      start_period: 60s
+      <<: *app-healthcheck
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8081/actuator/health | grep -q UP || exit 1"]
 
   farm-service:
     build:
@@ -56,6 +63,9 @@ services:
       FARM_PORT: 8082
     ports:
       - "8082:8082"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8082/actuator/health | grep -q UP || exit 1"]
 
   crop-catalog-service:
     build:
@@ -72,6 +82,9 @@ services:
       CROP_CATALOG_PORT: 8083
     ports:
       - "8083:8083"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8083/actuator/health | grep -q UP || exit 1"]
 
   crop-cycle-service:
     build:
@@ -88,6 +101,9 @@ services:
       CROP_CYCLE_PORT: 8084
     ports:
       - "8084:8084"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8084/actuator/health | grep -q UP || exit 1"]
 
   work-service:
     build:
@@ -104,6 +120,9 @@ services:
       WORK_PORT: 8085
     ports:
       - "8085:8085"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8085/actuator/health | grep -q UP || exit 1"]
 
   inventory-service:
     build:
@@ -114,15 +133,17 @@ services:
       postgres:
         condition: service_healthy
       kafka:
-        condition: service_started
+        condition: service_healthy
       identity-service:
         condition: service_healthy
     environment:
-      <<: [*db-env, *security-env]
+      <<: [*db-env, *security-env, *kafka-env]
       INVENTORY_PORT: 8086
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:
       - "8086:8086"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8086/actuator/health | grep -q UP || exit 1"]
 
   harvest-service:
     build:
@@ -133,15 +154,17 @@ services:
       postgres:
         condition: service_healthy
       kafka:
-        condition: service_started
+        condition: service_healthy
       identity-service:
         condition: service_healthy
     environment:
-      <<: [*db-env, *security-env]
+      <<: [*db-env, *security-env, *kafka-env]
       HARVEST_PORT: 8087
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:
       - "8087:8087"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8087/actuator/health | grep -q UP || exit 1"]
 
   notification-service:
     build:
@@ -158,6 +181,9 @@ services:
       NOTIFICATION_PORT: 8089
     ports:
       - "8089:8089"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8089/actuator/health | grep -q UP || exit 1"]
 
   iot-service:
     build:
@@ -174,6 +200,9 @@ services:
       IOT_PORT: 8090
     ports:
       - "8090:8090"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8090/actuator/health | grep -q UP || exit 1"]
 
   sales-service:
     build:
@@ -186,13 +215,16 @@ services:
       identity-service:
         condition: service_healthy
       inventory-service:
-        condition: service_started
+        condition: service_healthy
     environment:
       <<: [*db-env, *security-env]
       SALES_PORT: 8091
       INVENTORY_SERVICE_URL: http://inventory-service:8086
     ports:
       - "8091:8091"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8091/actuator/health | grep -q UP || exit 1"]
 
   traceability-service:
     build:
@@ -203,16 +235,18 @@ services:
       postgres:
         condition: service_healthy
       kafka:
-        condition: service_started
+        condition: service_healthy
       identity-service:
         condition: service_healthy
     environment:
-      <<: [*db-env, *security-env]
+      <<: [*db-env, *security-env, *kafka-env]
       TRACEABILITY_PORT: 8092
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       TRACEABILITY_PUBLIC_BASE_URL: http://localhost:8080/public/api/v1/traceability
     ports:
       - "8092:8092"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8092/actuator/health | grep -q UP || exit 1"]
 
   api-gateway:
     build:
@@ -220,17 +254,28 @@ services:
       dockerfile: services/api-gateway/Dockerfile
     container_name: agricore-gateway
     depends_on:
-      - identity-service
-      - farm-service
-      - crop-catalog-service
-      - crop-cycle-service
-      - work-service
-      - inventory-service
-      - harvest-service
-      - notification-service
-      - iot-service
-      - sales-service
-      - traceability-service
+      identity-service:
+        condition: service_healthy
+      farm-service:
+        condition: service_healthy
+      crop-catalog-service:
+        condition: service_healthy
+      crop-cycle-service:
+        condition: service_healthy
+      work-service:
+        condition: service_healthy
+      inventory-service:
+        condition: service_healthy
+      harvest-service:
+        condition: service_healthy
+      notification-service:
+        condition: service_healthy
+      iot-service:
+        condition: service_healthy
+      sales-service:
+        condition: service_healthy
+      traceability-service:
+        condition: service_healthy
     environment:
       GATEWAY_PORT: 8080
       IDENTITY_SERVICE_URL: http://identity-service:8081
@@ -248,3 +293,6 @@ services:
       IDENTITY_JWKS_URI: http://identity-service:8081/.well-known/jwks.json
     ports:
       - "8080:8080"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/actuator/health | grep -q UP || exit 1"]
