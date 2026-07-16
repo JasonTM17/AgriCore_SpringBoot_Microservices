@@ -13,7 +13,11 @@ Portfolio-grade **Java 21 / Spring Boot microservices** platform for enterprise 
 | farm-service | 8082 | Live |
 | crop-catalog-service | 8083 | Live |
 | crop-cycle-service | 8084 | Live |
-| work, inventory, harvest, traceability, iot, sales, notification | — | Planned |
+| work-service | 8085 | Live |
+| inventory-service | 8086 | Live |
+| harvest-service | 8087 | Live |
+| traceability-service | 8092 | Live |
+| iot, sales, notification | — | Planned |
 
 ## Architecture
 
