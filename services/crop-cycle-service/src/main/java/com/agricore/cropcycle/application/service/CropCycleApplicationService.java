@@ -8,6 +8,7 @@ import com.agricore.cropcycle.api.response.CropCycleResponse;
 import com.agricore.cropcycle.domain.exception.CropCycleException;
 import com.agricore.cropcycle.domain.model.CycleStage;
 import com.agricore.cropcycle.domain.model.CycleStatus;
+import com.agricore.cropcycle.domain.policy.CycleStageTransitionPolicy;
 import com.agricore.cropcycle.infrastructure.persistence.CropCycleJpaRepository;
 import com.agricore.cropcycle.infrastructure.persistence.OutboxJpaRepository;
 import com.agricore.cropcycle.infrastructure.persistence.entity.CropCycleEntity;
@@ -22,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -29,6 +31,8 @@ import java.util.UUID;
 public class CropCycleApplicationService {
 
     private static final Set<CycleStage> TERMINAL = EnumSet.of(CycleStage.COMPLETED, CycleStage.CANCELLED);
+    private static final Set<CycleStatus> ACTIVE_STATUSES = EnumSet.of(CycleStatus.DRAFT, CycleStatus.ACTIVE);
+    private static final LocalDate OPEN_END = LocalDate.of(9999, 12, 31);
 
     private final CropCycleJpaRepository cycleRepository;
     private final OutboxJpaRepository outboxRepository;
@@ -52,6 +56,23 @@ public class CropCycleApplicationService {
         }
         if (request.plannedEndDate() != null && request.plannedEndDate().isBefore(request.plannedStartDate())) {
             throw new CropCycleException("INVALID_DATES", "plannedEndDate must be on or after plannedStartDate", 400);
+        }
+
+        LocalDate newStart = request.plannedStartDate();
+        LocalDate newEnd = request.plannedEndDate() == null ? OPEN_END : request.plannedEndDate();
+        List<CropCycleEntity> overlaps = cycleRepository.findOverlappingActiveCycles(
+                request.plotId(),
+                ACTIVE_STATUSES,
+                newStart,
+                newEnd,
+                OPEN_END
+        );
+        if (!overlaps.isEmpty()) {
+            throw new CropCycleException(
+                    "CROP_CYCLE_OVERLAP",
+                    "Plot already has an active crop cycle overlapping the requested dates",
+                    409
+            );
         }
 
         Instant now = Instant.now();
@@ -115,6 +136,14 @@ public class CropCycleApplicationService {
         CycleStage previous = cycle.getStage();
         if (previous == next) {
             return toResponse(cycle);
+        }
+        if (!CycleStageTransitionPolicy.canTransition(previous, next)) {
+            throw new CropCycleException(
+                    "INVALID_STAGE_TRANSITION",
+                    "Illegal stage transition from " + previous + " to " + next
+                            + ". Allowed: " + CycleStageTransitionPolicy.allowedNext(previous),
+                    409
+            );
         }
 
         cycle.setStage(next);
