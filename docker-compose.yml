@@ -4,6 +4,17 @@ name: agricore
 include:
   - path: docker-compose.infrastructure.yml
 
+x-db-env: &db-env
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: 5432
+  POSTGRES_USER: ${POSTGRES_USER:-agricore}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agricore_dev_change_me}
+
+x-security-env: &security-env
+  JWT_ISSUER: https://agricore.local/identity
+  IDENTITY_JWKS_URI: http://identity-service:8081/.well-known/jwks.json
+  AGRICORE_DEV_MODE: "false"
+
 services:
   identity-service:
     build:
@@ -16,10 +27,7 @@ services:
       redis:
         condition: service_healthy
     environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_USER: ${POSTGRES_USER:-agricore}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agricore_dev_change_me}
+      <<: [*db-env]
       REDIS_HOST: redis
       REDIS_PORT: 6379
       IDENTITY_PORT: 8081
@@ -41,14 +49,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      identity-service:
+        condition: service_healthy
     environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_USER: ${POSTGRES_USER:-agricore}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agricore_dev_change_me}
+      <<: [*db-env, *security-env]
       FARM_PORT: 8082
-      AGRICORE_DEV_MODE: "false"
-      JWT_ISSUER: https://agricore.local/identity
     ports:
       - "8082:8082"
 
@@ -60,15 +65,154 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      identity-service:
+        condition: service_healthy
     environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_USER: ${POSTGRES_USER:-agricore}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agricore_dev_change_me}
+      <<: [*db-env, *security-env]
       CROP_CATALOG_PORT: 8083
-      AGRICORE_DEV_MODE: "false"
     ports:
       - "8083:8083"
+
+  crop-cycle-service:
+    build:
+      context: .
+      dockerfile: services/crop-cycle-service/Dockerfile
+    container_name: agricore-crop-cycle
+    depends_on:
+      postgres:
+        condition: service_healthy
+      identity-service:
+        condition: service_healthy
+    environment:
+      <<: [*db-env, *security-env]
+      CROP_CYCLE_PORT: 8084
+    ports:
+      - "8084:8084"
+
+  work-service:
+    build:
+      context: .
+      dockerfile: services/work-service/Dockerfile
+    container_name: agricore-work
+    depends_on:
+      postgres:
+        condition: service_healthy
+      identity-service:
+        condition: service_healthy
+    environment:
+      <<: [*db-env, *security-env]
+      WORK_PORT: 8085
+    ports:
+      - "8085:8085"
+
+  inventory-service:
+    build:
+      context: .
+      dockerfile: services/inventory-service/Dockerfile
+    container_name: agricore-inventory
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      identity-service:
+        condition: service_healthy
+    environment:
+      <<: [*db-env, *security-env]
+      INVENTORY_PORT: 8086
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "8086:8086"
+
+  harvest-service:
+    build:
+      context: .
+      dockerfile: services/harvest-service/Dockerfile
+    container_name: agricore-harvest
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      identity-service:
+        condition: service_healthy
+    environment:
+      <<: [*db-env, *security-env]
+      HARVEST_PORT: 8087
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "8087:8087"
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: services/notification-service/Dockerfile
+    container_name: agricore-notification
+    depends_on:
+      postgres:
+        condition: service_healthy
+      identity-service:
+        condition: service_healthy
+    environment:
+      <<: [*db-env, *security-env]
+      NOTIFICATION_PORT: 8089
+    ports:
+      - "8089:8089"
+
+  iot-service:
+    build:
+      context: .
+      dockerfile: services/iot-service/Dockerfile
+    container_name: agricore-iot
+    depends_on:
+      postgres:
+        condition: service_healthy
+      identity-service:
+        condition: service_healthy
+    environment:
+      <<: [*db-env, *security-env]
+      IOT_PORT: 8090
+    ports:
+      - "8090:8090"
+
+  sales-service:
+    build:
+      context: .
+      dockerfile: services/sales-service/Dockerfile
+    container_name: agricore-sales
+    depends_on:
+      postgres:
+        condition: service_healthy
+      identity-service:
+        condition: service_healthy
+      inventory-service:
+        condition: service_started
+    environment:
+      <<: [*db-env, *security-env]
+      SALES_PORT: 8091
+      INVENTORY_SERVICE_URL: http://inventory-service:8086
+    ports:
+      - "8091:8091"
+
+  traceability-service:
+    build:
+      context: .
+      dockerfile: services/traceability-service/Dockerfile
+    container_name: agricore-traceability
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      identity-service:
+        condition: service_healthy
+    environment:
+      <<: [*db-env, *security-env]
+      TRACEABILITY_PORT: 8092
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      TRACEABILITY_PUBLIC_BASE_URL: http://localhost:8080/public/api/v1/traceability
+    ports:
+      - "8092:8092"
 
   api-gateway:
     build:
@@ -79,10 +223,28 @@ services:
       - identity-service
       - farm-service
       - crop-catalog-service
+      - crop-cycle-service
+      - work-service
+      - inventory-service
+      - harvest-service
+      - notification-service
+      - iot-service
+      - sales-service
+      - traceability-service
     environment:
       GATEWAY_PORT: 8080
       IDENTITY_SERVICE_URL: http://identity-service:8081
       FARM_SERVICE_URL: http://farm-service:8082
       CROP_CATALOG_SERVICE_URL: http://crop-catalog-service:8083
+      CROP_CYCLE_SERVICE_URL: http://crop-cycle-service:8084
+      WORK_SERVICE_URL: http://work-service:8085
+      INVENTORY_SERVICE_URL: http://inventory-service:8086
+      HARVEST_SERVICE_URL: http://harvest-service:8087
+      NOTIFICATION_SERVICE_URL: http://notification-service:8089
+      IOT_SERVICE_URL: http://iot-service:8090
+      SALES_SERVICE_URL: http://sales-service:8091
+      TRACEABILITY_SERVICE_URL: http://traceability-service:8092
+      JWT_ISSUER: https://agricore.local/identity
+      IDENTITY_JWKS_URI: http://identity-service:8081/.well-known/jwks.json
     ports:
       - "8080:8080"
