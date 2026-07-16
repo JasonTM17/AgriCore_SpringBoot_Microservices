@@ -1,0 +1,79 @@
+openapi: 3.1.0
+info:
+  title: AgriCore Crop Catalog Service API
+  version: 1.0.0
+  description: Crop types, varieties, and growth requirements
+servers:
+  - url: http://localhost:8083
+paths:
+  /api/v1/crops:
+    get:
+      summary: List crops
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 0 }
+        - in: query
+          name: size
+          schema: { type: integer, default: 20 }
+      responses:
+        '200':
+          description: Paged crops
+    post:
+      summary: Create crop
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCropRequest'
+      responses:
+        '201':
+          description: Created
+  /api/v1/crops/{cropId}:
+    get:
+      summary: Get crop
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: cropId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Crop detail
+  /api/v1/crops/{cropId}/varieties:
+    get:
+      summary: List varieties for crop
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: cropId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Varieties
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    CreateCropRequest:
+      type: object
+      required: [code, name]
+      properties:
+        code: { type: string }
+        name: { type: string }
+        scientificName: { type: string }
+        category: { type: string }
+        growthDaysMin: { type: integer }
+        growthDaysMax: { type: integer }

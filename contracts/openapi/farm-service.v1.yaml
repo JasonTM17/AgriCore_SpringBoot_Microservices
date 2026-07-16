@@ -1,0 +1,180 @@
+openapi: 3.1.0
+info:
+  title: AgriCore Farm Service API
+  version: 1.0.0
+  description: Farms, areas, and plots management
+servers:
+  - url: http://localhost:8082
+paths:
+  /api/v1/farms:
+    get:
+      summary: List farms
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 0 }
+        - in: query
+          name: size
+          schema: { type: integer, default: 20 }
+        - in: query
+          name: sort
+          schema: { type: string }
+        - in: query
+          name: province
+          schema: { type: string }
+        - in: query
+          name: status
+          schema: { type: string }
+      responses:
+        '200':
+          description: Paged farm list
+    post:
+      summary: Create farm
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFarmRequest'
+      responses:
+        '201':
+          description: Created
+  /api/v1/farms/{farmId}:
+    get:
+      summary: Get farm by id
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/FarmId'
+      responses:
+        '200':
+          description: Farm
+        '404':
+          description: Not found
+    patch:
+      summary: Update farm
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/FarmId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFarmRequest'
+      responses:
+        '200':
+          description: Updated
+  /api/v1/farms/{farmId}/plots:
+    get:
+      summary: List plots for farm
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/FarmId'
+      responses:
+        '200':
+          description: Plot list
+    post:
+      summary: Create plot
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/FarmId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePlotRequest'
+      responses:
+        '201':
+          description: Created
+  /api/v1/plots/{plotId}:
+    get:
+      summary: Get plot
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PlotId'
+      responses:
+        '200':
+          description: Plot
+    patch:
+      summary: Update plot
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PlotId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePlotRequest'
+      responses:
+        '200':
+          description: Updated
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    FarmId:
+      in: path
+      name: farmId
+      required: true
+      schema: { type: string, format: uuid }
+    PlotId:
+      in: path
+      name: plotId
+      required: true
+      schema: { type: string, format: uuid }
+  schemas:
+    CreateFarmRequest:
+      type: object
+      required: [code, name]
+      properties:
+        code: { type: string }
+        name: { type: string }
+        address: { type: string }
+        province: { type: string }
+        totalAreaHa: { type: number }
+        latitude: { type: number }
+        longitude: { type: number }
+    UpdateFarmRequest:
+      type: object
+      properties:
+        name: { type: string }
+        address: { type: string }
+        province: { type: string }
+        totalAreaHa: { type: number }
+        status: { type: string, enum: [ACTIVE, INACTIVE, MAINTENANCE] }
+        latitude: { type: number }
+        longitude: { type: number }
+    CreatePlotRequest:
+      type: object
+      required: [code, name, areaInHectares]
+      properties:
+        code: { type: string }
+        name: { type: string }
+        areaInHectares: { type: number }
+        soilType: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
+    UpdatePlotRequest:
+      type: object
+      properties:
+        name: { type: string }
+        areaInHectares: { type: number }
+        soilType: { type: string }
+        status: { type: string, enum: [AVAILABLE, PREPARING, IN_USE, RESTING, MAINTENANCE, INACTIVE] }
+        latitude: { type: number }
+        longitude: { type: number }
