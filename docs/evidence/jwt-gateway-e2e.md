@@ -1,21 +1,37 @@
 # JWT + Gateway E2E proof (local)
 
-Date: 2026-07-16
+Date: 2026-07-16 (refreshed after skeptic cutover)
 
-Infrastructure: Postgres `:5434`, Redis `:6380`, Kafka `:9092` (docker compose infrastructure).
+Infrastructure: Postgres `:5434`, Redis `:6380`, Kafka `:9092` (`docker compose -f docker-compose.infrastructure.yml`).
 
-Runtime: identity `:8081`, farm `:8082`, api-gateway `:8080` as local `java -jar` processes with `AGRICORE_DEV_MODE=false`.
+Apps: identity, farm, crop-catalog, crop-cycle, work, inventory, harvest, traceability, api-gateway as `java -jar` with `AGRICORE_DEV_MODE=false`.
 
-## Results
+Script: `scripts/e2e-happy-path.ps1` (Bearer JWT via gateway, legal crop-cycle stages, harvest outbox → Kafka consumers).
+
+## Core slice (gateway JWT) — `core-slice.http.log`
+
+| Step | Result |
+|------|--------|
+| `POST /api/v1/auth/login` | access token issued |
+| `POST /api/v1/farms` | farm created (ACTIVE) |
+| `POST /api/v1/farms/{id}/plots` | plot created (AVAILABLE) |
+| `POST /api/v1/crop-cycles` | cycle PLANNED |
+| Stage `LAND_PREPARATION` → `SOWING` → `GROWING` | OK |
+| Illegal jump to `COMPLETED` | **409** |
+
+## Full happy path — `e2e-flow.log`
 
 | Check | Result |
 |-------|--------|
-| Unsigned forged JWT (`alg=none`) against farm `/api/v1/farms` | **401** |
-| Real RS256 access token (FARM_MANAGER) via gateway `POST /api/v1/farms` | **201** farm created (`code=FARM-OK-*`) |
-| Full monorepo `mvnw test` after security cutover | **BUILD SUCCESS** (all modules) |
+| Gateway JWT end-to-end | OK |
+| Legal stage graph only | OK |
+| Harvest complete + outbox event id | OK |
+| Kafka inventory consumer | `sku=COFFEE-ROBUSTA onHand=90` |
+| Public QR after Kafka projection | `CAPHER-*` product=`Ca phe Robusta` **farm=E2E Dak Lak Farm plot=P1** |
+| Unsigned forged JWT against domain services | **401** (prior capture) |
 
-## Notes
+## Security notes
 
-- Domain services validate JWT signature + issuer via identity JWKS (`libs/common-security`).
-- `X-Dev-*` headers only work when `agricore.security.dev-mode=true` (tests/local only).
-- Default self-registration role is `FIELD_WORKER`; farm create requires `FARM_MANAGER` or `SYSTEM_ADMIN`.
+- Domain services validate RS256 JWT via identity JWKS (`libs/common-security`).
+- Sales→inventory client forwards caller Bearer JWT (X-Dev only when `agricore.security.dev-mode=true`).
+- `HarvestCompleted.v1` payload includes `farmName`, `plotCode`, `productName`, `careSummary` for QR projection.
