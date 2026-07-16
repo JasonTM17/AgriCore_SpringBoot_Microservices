@@ -1,0 +1,82 @@
+openapi: 3.1.0
+info:
+  title: AgriCore Identity Service API
+  version: 1.0.0
+  description: Authentication, users, RBAC
+servers:
+  - url: http://localhost:8081
+paths:
+  /api/v1/auth/register:
+    post:
+      summary: Register a new user
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Created
+  /api/v1/auth/login:
+    post:
+      summary: Login
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Tokens issued
+  /api/v1/auth/refresh:
+    post:
+      summary: Rotate refresh token
+      operationId: refresh
+      responses:
+        '200':
+          description: New tokens
+  /api/v1/auth/logout:
+    post:
+      summary: Revoke refresh token
+      operationId: logout
+      responses:
+        '204':
+          description: Logged out
+  /api/v1/users/me:
+    get:
+      summary: Current user profile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Profile
+  /.well-known/jwks.json:
+    get:
+      summary: JSON Web Key Set
+      responses:
+        '200':
+          description: JWKS
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password, fullName]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+        fullName: { type: string }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
