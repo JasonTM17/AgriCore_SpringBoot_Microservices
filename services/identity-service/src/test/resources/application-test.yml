@@ -1,0 +1,33 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:identity;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: true
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+
+agricore:
+  security:
+    issuer: https://agricore.test/identity
+    audience: agricore-api
+    access-token-ttl-seconds: 300
+    refresh-token-ttl-seconds: 3600
+    bcrypt-strength: 4
+    max-failed-logins: 5
+    lockout-duration-minutes: 15
+    login-rate-limit-per-minute: 1000
