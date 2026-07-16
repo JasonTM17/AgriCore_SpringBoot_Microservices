@@ -1,0 +1,82 @@
+# Build
+target/
+**/target/
+.mvn/wrapper/maven-wrapper.jar
+!.mvn/wrapper/maven-wrapper.properties
+*.class
+*.jar
+*.war
+*.ear
+hs_err_pid*
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.swp
+*.swo
+.project
+.classpath
+.settings/
+.factorypath
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+!.env.production.example
+*.pem
+*.key
+!**/src/test/resources/**/*.pem
+secrets/
+**/jwt-keys/
+**/private*.jwk
+
+# Logs
+*.log
+logs/
+
+# Docker
+docker-data/
+
+# Test / coverage
+.coverage
+coverage/
+**/jacoco.exec
+**/site/
+
+# ClaudeKit / private / agent tooling (not product source)
+.claude/
+.codex/
+.gemini/
+.grok/
+.claude/worktrees/
+.claude-private/
+.private/
+plans/
+*.private.md
+*.local.md
+PLAN*.md
+NOTES*.md
+TODO*.md
+ROADMAP*.md
+DRAFT*.md
+repomix-output.*
+Agents.md
+AGENTS.md
+CLAUDE.md
+Claude.md
+
+# Node (if any tooling)
+node_modules/
+
+# Terraform
+**/.terraform/
+*.tfstate*
