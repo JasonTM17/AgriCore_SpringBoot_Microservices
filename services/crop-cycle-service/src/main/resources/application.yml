@@ -1,21 +1,17 @@
 server:
-  port: ${FARM_PORT:8082}
+  port: ${CROP_CYCLE_PORT:8084}
 
 spring:
   application:
-    name: farm-service
+    name: crop-cycle-service
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5434}/agricore_farm
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5434}/agricore_crop_cycle
     username: ${POSTGRES_USER:agricore}
     password: ${POSTGRES_PASSWORD:agricore_dev_change_me}
   jpa:
     hibernate:
       ddl-auto: validate
     open-in-view: false
-    properties:
-      hibernate:
-        jdbc:
-          time_zone: UTC
   flyway:
     enabled: true
 
@@ -31,12 +27,4 @@ management:
 
 agricore:
   security:
-    issuer: ${JWT_ISSUER:https://agricore.local/identity}
-    audience: agricore-api
-    jwks-uri: ${IDENTITY_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
     dev-mode: ${AGRICORE_DEV_MODE:false}
-
-logging:
-  level:
-    root: INFO
-    com.agricore.farm: INFO

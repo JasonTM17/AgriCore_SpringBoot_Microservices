@@ -5,7 +5,7 @@ spring:
   application:
     name: identity-service
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/agricore_identity
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5434}/agricore_identity
     username: ${POSTGRES_USER:agricore}
     password: ${POSTGRES_PASSWORD:agricore_dev_change_me}
   jpa:
@@ -22,7 +22,7 @@ spring:
   data:
     redis:
       host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
+      port: ${REDIS_PORT:6380}
   jackson:
     serialization:
       write-dates-as-timestamps: false

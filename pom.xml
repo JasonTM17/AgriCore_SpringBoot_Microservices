@@ -17,6 +17,7 @@
         <module>services/farm-service</module>
         <module>services/crop-catalog-service</module>
         <module>services/api-gateway</module>
+        <module>services/crop-cycle-service</module>
     </modules>
 
     <properties>

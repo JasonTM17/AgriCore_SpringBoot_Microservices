@@ -26,6 +26,10 @@ spring:
           uri: ${CROP_CATALOG_SERVICE_URL:http://localhost:8083}
           predicates:
             - Path=/api/v1/crops/**
+        - id: crop-cycle-service
+          uri: ${CROP_CYCLE_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/v1/crop-cycles/**
 
 management:
   endpoints:
