@@ -17,7 +17,9 @@ Portfolio-grade **Java 21 / Spring Boot microservices** platform for enterprise 
 | inventory-service | 8086 | Live |
 | harvest-service | 8087 | Live |
 | traceability-service | 8092 | Live |
-| iot, sales, notification | — | Planned |
+| notification-service | 8089 | Live |
+| iot-service | 8090 | Live |
+| sales-service | 8091 | Live |
 
 ## Architecture
 

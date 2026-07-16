@@ -1,0 +1,29 @@
+asyncapi: 3.0.0
+info:
+  title: AgriCore Domain Events
+  version: 0.1.0
+  description: Kafka topics for AgriCore microservices
+defaultContentType: application/json
+channels:
+  agricore.harvest.events:
+    address: agricore.harvest.events
+    messages:
+      HarvestCompleted:
+        name: HarvestCompleted.v1
+        payload:
+          $ref: ../event-schemas/DomainEventEnvelope.v1.json
+  agricore.farm.events:
+    address: agricore.farm.events
+  agricore.crop-cycle.events:
+    address: agricore.crop-cycle.events
+  agricore.work.events:
+    address: agricore.work.events
+operations:
+  publishHarvestCompleted:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.harvest.events'
+  consumeHarvestCompleted:
+    action: receive
+    channel:
+      $ref: '#/channels/agricore.harvest.events'

@@ -1,0 +1,38 @@
+global:
+  imageRegistry: nguyenson1710
+  imageTag: latest
+  imagePullPolicy: IfNotPresent
+
+identity:
+  enabled: true
+  replicaCount: 1
+  image: nguyenson1710/agricore-identity
+  port: 8081
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+farm:
+  enabled: true
+  replicaCount: 1
+  image: nguyenson1710/agricore-farm
+  port: 8082
+
+gateway:
+  enabled: true
+  replicaCount: 1
+  image: nguyenson1710/agricore-gateway
+  port: 8080
+
+postgres:
+  host: postgres
+  port: 5432
+  user: agricore
+  # password from secret agricore-db
+
+kafka:
+  bootstrapServers: kafka:9092

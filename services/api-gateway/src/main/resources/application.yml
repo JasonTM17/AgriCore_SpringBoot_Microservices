@@ -46,6 +46,18 @@ spring:
           uri: ${TRACEABILITY_SERVICE_URL:http://localhost:8092}
           predicates:
             - Path=/api/v1/traceability/**,/public/api/v1/traceability/**
+        - id: iot-service
+          uri: ${IOT_SERVICE_URL:http://localhost:8090}
+          predicates:
+            - Path=/api/v1/iot/**
+        - id: sales-service
+          uri: ${SALES_SERVICE_URL:http://localhost:8091}
+          predicates:
+            - Path=/api/v1/sales/**
+        - id: notification-service
+          uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8089}
+          predicates:
+            - Path=/api/v1/notifications/**
 
 management:
   endpoints:

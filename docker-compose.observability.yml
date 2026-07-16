@@ -1,0 +1,29 @@
+name: agricore-obs
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: agricore-prometheus
+    volumes:
+      - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: agricore-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: agricore_dev_change_me
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+
+  tempo:
+    image: grafana/tempo:2.6.0
+    container_name: agricore-tempo
+    command: ["-config.file=/etc/tempo.yaml"]
+    ports:
+      - "4317:4317"
+      - "4318:4318"
