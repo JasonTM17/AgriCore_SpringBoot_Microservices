@@ -1,0 +1,12 @@
+# Profile for Testcontainers IT — datasource overridden dynamically
+spring:
+  jpa:
+    open-in-view: false
+  flyway:
+    enabled: true
+agricore:
+  security:
+    dev-mode: true
+  kafka:
+    consumer:
+      enabled: false

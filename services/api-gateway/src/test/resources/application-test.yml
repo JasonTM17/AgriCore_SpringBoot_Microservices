@@ -1,0 +1,3 @@
+agricore:
+  security:
+    jwt-enabled: false
