@@ -1,0 +1,33 @@
+name: trivy
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  fs-scan:
+    name: filesystem (CRITICAL + HIGH)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL,HIGH
+          # Fail the job when CRITICAL or HIGH vulnerabilities are found
+          exit-code: "1"
+          ignore-unfixed: true
+          format: table
+          # Exclude large build outputs and private agent dirs
+          skip-dirs: "**/target,.claude,.grok,plans,mcps"
