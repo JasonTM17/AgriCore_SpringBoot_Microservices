@@ -1,0 +1,72 @@
+openapi: 3.1.0
+info:
+  title: AgriCore Sales Service API
+  version: 1.0.0
+  description: |
+    Customers and sales orders with inventory reservation saga.
+    Flow: create order → reserve stock → confirm reservation → CONFIRMED.
+servers:
+  - url: http://localhost:8091
+paths:
+  /api/v1/sales/customers:
+    post:
+      summary: Create customer
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name]
+              properties:
+                code: { type: string }
+                name: { type: string }
+                email: { type: string, format: email }
+      responses:
+        '201':
+          description: Created
+        '409':
+          description: Customer code exists
+  /api/v1/sales/orders:
+    post:
+      summary: Place order (saga reserve + confirm inventory)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderNumber, customerId, inventoryItemId, quantity]
+              properties:
+                orderNumber: { type: string }
+                customerId: { type: string, format: uuid }
+                inventoryItemId: { type: string, format: uuid }
+                quantity: { type: number }
+      responses:
+        '201':
+          description: Terminal saga outcome (CONFIRMED, OUT_OF_STOCK, or CANCELLED)
+  /api/v1/sales/orders/{orderId}:
+    get:
+      summary: Get order and saga status
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Order detail
+        '404':
+          description: Not found
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

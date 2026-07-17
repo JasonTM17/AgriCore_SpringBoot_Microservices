@@ -1,0 +1,62 @@
+openapi: 3.1.0
+info:
+  title: AgriCore IoT Service API
+  version: 1.0.0
+  description: Devices, sensor readings, and threshold alerts
+servers:
+  - url: http://localhost:8090
+paths:
+  /api/v1/iot/devices:
+    post:
+      summary: Register device
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name]
+              properties:
+                code: { type: string }
+                name: { type: string }
+                farmId: { type: string, format: uuid }
+                plotId: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Created
+    get:
+      summary: List devices
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Device list
+  /api/v1/iot/readings:
+    post:
+      summary: Ingest sensor reading
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [deviceId, metric, value]
+              properties:
+                deviceId: { type: string, format: uuid }
+                metric: { type: string }
+                value: { type: number }
+                unit: { type: string }
+                recordedAt: { type: string, format: date-time }
+      responses:
+        '201':
+          description: Stored
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

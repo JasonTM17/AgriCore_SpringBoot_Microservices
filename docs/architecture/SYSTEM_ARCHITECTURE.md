@@ -1,7 +1,7 @@
 # AgriCore System Architecture
 
-**Last updated:** 2026-07-16  
-**Status:** Active
+**Last updated:** 2026-07-17  
+**Status:** Active (implementation matrix honest — see §4)
 
 ## 1. Purpose
 
@@ -37,19 +37,23 @@ AgriCore manages the full agricultural production chain for an enterprise: farms
 
 ## 4. Service Boundaries
 
-| Service | Owns | Publishes | Consumes |
-|---------|------|-----------|----------|
-| identity | users, roles, tokens | UserRegistered | — |
-| farm | farms, areas, plots | FarmCreated, PlotCreated, PlotStatusChanged | — |
-| crop-catalog | crops, varieties | CropCreated | — |
-| crop-cycle | cycles, stages | CropCycle* | Plot*, Crop* (read models optional) |
-| work | tasks | WorkTask* | CropCycleStageChanged |
-| harvest | harvest batches | Harvest* | CropCycle*, Work* |
-| inventory | stock, reservations | Stock*, Inventory* | HarvestCompleted, Sales* |
-| traceability | public timeline | Traceability* | Harvest*, CropCycle*, Farm*, Work* |
-| iot | devices, readings, alerts | Sensor*, Device* | — |
-| sales | orders, saga | SalesOrder* | Inventory* responses |
-| notification | delivery log | Notification* | NotificationRequested |
+**Legend:** Implemented in code today vs planned/schema-only.
+
+| Service | Owns | Publishes (runtime) | Consumes (runtime) | Notes |
+|---------|------|---------------------|--------------------|-------|
+| identity | users, roles, tokens | — (outbox table unused) | — | UserRegistered planned |
+| farm | farms, areas, plots | Farm* via outbox+Kafka poller | — | Publisher wired 2026-07-17 |
+| crop-catalog | crops, varieties | — | — | REST catalog only |
+| crop-cycle | cycles, stages | CropCycle* via outbox+Kafka poller | — (read models optional) | Publisher wired 2026-07-17 |
+| work | tasks | WorkTask* via outbox+Kafka poller | — | Publisher wired 2026-07-17 |
+| harvest | harvest batches | HarvestCompleted via outbox+Kafka | — | **Primary event producer** |
+| inventory | stock, reservations | — (outbox table unused) | HarvestCompleted (Kafka, idempotent+DLT) | REST reserve/release/**confirm** |
+| traceability | public timeline / QR | — | HarvestCompleted (Kafka, idempotent+DLT) | Public read model |
+| iot | devices, readings, alerts | — | — | REST only; Sensor* events planned |
+| sales | orders, saga | — | Inventory via sync HTTP | Saga: reserve → **confirm** → CONFIRMED |
+| notification | delivery log | — | — | REST sink; Kafka NotificationRequested planned |
+
+Empty “planned” rows are intentional honesty for portfolio reviewers — do not claim full event mesh.
 
 ## 5. Communication Patterns
 

@@ -1,0 +1,43 @@
+openapi: 3.1.0
+info:
+  title: AgriCore Notification Service API
+  version: 1.0.0
+  description: |
+    REST notification sink (log/delivery record).
+    Kafka NotificationRequested consumers are planned, not yet wired.
+servers:
+  - url: http://localhost:8089
+paths:
+  /api/v1/notifications:
+    post:
+      summary: Send/log notification
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [channel, recipient, subject, body]
+              properties:
+                channel: { type: string, enum: [EMAIL, SMS, IN_APP] }
+                recipient: { type: string }
+                subject: { type: string }
+                body: { type: string }
+      responses:
+        '201':
+          description: Accepted
+    get:
+      summary: List recent notifications
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Notification list
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

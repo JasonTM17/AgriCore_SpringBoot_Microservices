@@ -59,6 +59,22 @@ paths:
       responses:
         '200':
           description: Released
+  /api/v1/inventory/reservations/{id}/confirm:
+    post:
+      summary: Confirm reservation (fulfill - decrement on-hand and reserved)
+      description: Sales saga confirm step. Idempotent when already FULFILLED.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Fulfilled
+        '409':
+          description: Reservation not ACTIVE or insufficient on-hand
   /api/v1/inventory/events/harvest-completed:
     post:
       summary: Sync adapter for HarvestCompleted (same path as Kafka consumer)
