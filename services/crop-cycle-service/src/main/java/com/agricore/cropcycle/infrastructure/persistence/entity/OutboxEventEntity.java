@@ -43,6 +43,8 @@ public class OutboxEventEntity {
     }
 
     public UUID getId() { return id; }
+    public String getAggregateType() { return aggregateType; }
+    public String getAggregateId() { return aggregateId; }
     public String getEventType() { return eventType; }
     public String getTopic() { return topic; }
     public String getPayload() { return payload; }

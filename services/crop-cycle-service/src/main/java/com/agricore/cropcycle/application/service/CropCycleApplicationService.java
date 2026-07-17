@@ -10,11 +10,7 @@ import com.agricore.cropcycle.domain.model.CycleStage;
 import com.agricore.cropcycle.domain.model.CycleStatus;
 import com.agricore.cropcycle.domain.policy.CycleStageTransitionPolicy;
 import com.agricore.cropcycle.infrastructure.persistence.CropCycleJpaRepository;
-import com.agricore.cropcycle.infrastructure.persistence.OutboxJpaRepository;
 import com.agricore.cropcycle.infrastructure.persistence.entity.CropCycleEntity;
-import com.agricore.cropcycle.infrastructure.persistence.entity.OutboxEventEntity;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -35,17 +31,14 @@ public class CropCycleApplicationService {
     private static final LocalDate OPEN_END = LocalDate.of(9999, 12, 31);
 
     private final CropCycleJpaRepository cycleRepository;
-    private final OutboxJpaRepository outboxRepository;
-    private final ObjectMapper objectMapper;
+    private final CropCycleOutboxWriter outboxWriter;
 
     public CropCycleApplicationService(
             CropCycleJpaRepository cycleRepository,
-            OutboxJpaRepository outboxRepository,
-            ObjectMapper objectMapper
+            CropCycleOutboxWriter outboxWriter
     ) {
         this.cycleRepository = cycleRepository;
-        this.outboxRepository = outboxRepository;
-        this.objectMapper = objectMapper;
+        this.outboxWriter = outboxWriter;
     }
 
     @Transactional
@@ -92,7 +85,7 @@ public class CropCycleApplicationService {
         cycle.setUpdatedAt(now);
         cycleRepository.save(cycle);
 
-        enqueue(EventTypes.CROP_CYCLE_CREATED, cycle, null);
+        outboxWriter.enqueue(EventTypes.CROP_CYCLE_CREATED, cycle, null);
         return toResponse(cycle);
     }
 
@@ -168,47 +161,13 @@ public class CropCycleApplicationService {
 
         cycle.setUpdatedAt(Instant.now());
         cycleRepository.save(cycle);
-        enqueue(eventType, cycle, previous.name());
+        outboxWriter.enqueue(eventType, cycle, previous.name());
         return toResponse(cycle);
     }
 
     private CropCycleEntity require(UUID id) {
         return cycleRepository.findById(id)
                 .orElseThrow(() -> new CropCycleException("CYCLE_NOT_FOUND", "Crop cycle not found", 404));
-    }
-
-    private void enqueue(String eventType, CropCycleEntity cycle, String previousStage) {
-        try {
-            ObjectNode payload = objectMapper.createObjectNode();
-            payload.put("cropCycleId", cycle.getId().toString());
-            payload.put("code", cycle.getCode());
-            payload.put("farmId", cycle.getFarmId().toString());
-            payload.put("plotId", cycle.getPlotId().toString());
-            payload.put("cropId", cycle.getCropId().toString());
-            payload.put("stage", cycle.getStage().name());
-            payload.put("status", cycle.getStatus().name());
-            if (previousStage != null) {
-                payload.put("previousStage", previousStage);
-            }
-
-            ObjectNode envelope = objectMapper.createObjectNode();
-            envelope.put("eventId", UUID.randomUUID().toString());
-            envelope.put("eventType", eventType);
-            envelope.put("eventVersion", 1);
-            envelope.put("occurredAt", Instant.now().toString());
-            envelope.put("producer", "crop-cycle-service");
-            envelope.set("payload", payload);
-
-            outboxRepository.save(OutboxEventEntity.create(
-                    "CropCycle",
-                    cycle.getId().toString(),
-                    eventType,
-                    "agricore.crop-cycle.events",
-                    objectMapper.writeValueAsString(envelope)
-            ));
-        } catch (Exception ex) {
-            throw new CropCycleException("OUTBOX_WRITE_FAILED", "Failed to write outbox event", 500);
-        }
     }
 
     private CropCycleResponse toResponse(CropCycleEntity c) {
