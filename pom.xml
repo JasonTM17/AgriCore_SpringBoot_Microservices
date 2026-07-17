@@ -32,12 +32,13 @@
         <java.version>21</java.version>
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <!-- 3.4.6+ addresses Actuator CloudFoundry auth bypass (CVE-2026-22733) -->
-        <spring-boot.version>3.4.6</spring-boot.version>
-        <spring-cloud.version>2024.0.1</spring-cloud.version>
+        <!-- 3.5.12 addresses Actuator auth bypass CVEs (CVE-2026-22731/22733) per Trivy -->
+        <spring-boot.version>3.5.12</spring-boot.version>
+        <spring-cloud.version>2025.0.0</spring-cloud.version>
         <testcontainers.version>1.20.6</testcontainers.version>
         <archunit.version>1.4.0</archunit.version>
         <jjwt.version>0.12.6</jjwt.version>
+        <postgresql.version>42.7.11</postgresql.version>
     </properties>
 
     <dependencyManagement>
@@ -92,6 +93,11 @@
                 <groupId>io.jsonwebtoken</groupId>
                 <artifactId>jjwt-jackson</artifactId>
                 <version>${jjwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.postgresql</groupId>
+                <artifactId>postgresql</artifactId>
+                <version>${postgresql.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
