@@ -99,10 +99,42 @@ $cycleObj = PostJson "$Gateway/api/v1/crop-cycles" $Auth @{
   plannedEndDate = "2026-12-01"
   notes = "E2E season"
 }
-Log "Cycle id=$($cycleObj.id) stage=$($cycleObj.stage)"
+Log "Cycle id=$($cycleObj.id) stage=$($cycleObj.stage) status=$($cycleObj.status)"
+# Illegal jump PLANNED -> COMPLETED must fail closed (409) via gateway JWT
+try {
+  $illegalBody = @{ stage = "COMPLETED" } | ConvertTo-Json
+  $illegalResp = Invoke-WebRequest -Method Post `
+    -Uri "$Gateway/api/v1/crop-cycles/$($cycleObj.id)/stage" `
+    -Headers $Auth `
+    -Body $illegalBody `
+    -ContentType "application/json" `
+    -UseBasicParsing
+  throw "Expected 409 for illegal PLANNED->COMPLETED, got $($illegalResp.StatusCode) body=$($illegalResp.Content)"
+} catch {
+  $webEx = $_.Exception
+  $statusCode = $null
+  $errBody = $null
+  if ($webEx.Response) {
+    $statusCode = [int]$webEx.Response.StatusCode
+    try {
+      $reader = New-Object System.IO.StreamReader($webEx.Response.GetResponseStream())
+      $errBody = $reader.ReadToEnd()
+      $reader.Close()
+    } catch {
+      $errBody = $webEx.Message
+    }
+  }
+  if ($statusCode -ne 409) {
+    throw "Illegal stage expected HTTP 409, got status=$statusCode body=$errBody err=$($webEx.Message)"
+  }
+  Log "ILLEGAL_STAGE_OK status=$statusCode body=$errBody"
+  if ($errBody -and ($errBody -notmatch "INVALID_STAGE|INVALID_STAGE_TRANSITION|409|Conflict|stage")) {
+    Log "ILLEGAL_STAGE_BODY_NOTE code/message present in body (len=$($errBody.Length))"
+  }
+}
 foreach ($stage in @("LAND_PREPARATION", "SOWING", "GROWING", "HARVESTING")) {
   $cycleObj = PostJson "$Gateway/api/v1/crop-cycles/$($cycleObj.id)/stage" $Auth @{ stage = $stage }
-  Log "  stage -> $($cycleObj.stage)"
+  Log "  stage -> $($cycleObj.stage) status=$($cycleObj.status)"
 }
 
 Log "== 4. Work task =="
@@ -208,12 +240,21 @@ Log "E2E happy path OK (gateway JWT + legal stages + harvest outbox/Kafka projec
 
 if ($EvidenceDir) {
   $flowPath = Join-Path $EvidenceDir "e2e-flow.log"
-  Write-Utf8File $flowPath (($script:TranscriptLines -join "`n") + "`n")
+  $flowText = ($script:TranscriptLines -join "`n") + "`n"
+  Write-Utf8File $flowPath $flowText
+
+  # core-slice.http.log: gateway JWT slice including illegal stage 409 body
+  $corePath = Join-Path $EvidenceDir "core-slice.http.log"
+  $coreLines = $script:TranscriptLines | Where-Object {
+    $_ -match "JWT issued|Farm id=|Plot id=|Cycle id=|ILLEGAL_STAGE|stage ->"
+  }
+  Write-Utf8File $corePath (($coreLines -join "`n") + "`n")
 
   # Real public response body as UTF-8 JSON (gating artifact)
   $jsonPath = Join-Path $EvidenceDir "traceability.json"
   $jsonBody = $publicObj | ConvertTo-Json -Depth 8
   Write-Utf8File $jsonPath ($jsonBody + "`n")
   Log "Wrote evidence: $flowPath"
+  Log "Wrote evidence: $corePath"
   Log "Wrote evidence: $jsonPath"
 }

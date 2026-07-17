@@ -91,7 +91,20 @@ $gitLog = git -C $Root log --oneline -40 2>&1 | Out-String
 Write-Utf8File (Join-Path $EvidenceDir "git-log.txt") $gitLog
 
 if (-not $SkipMaven) {
-  Write-Host "== mvnw test =="
+  Write-Host "== ensure Postgres :5434 for InventoryPostgresIdempotencyTest =="
+  $pgOk = $false
+  for ($i = 0; $i -lt 30; $i++) {
+    try {
+      docker exec agricore-postgres pg_isready -U agricore 2>$null | Out-Null
+      if ($LASTEXITCODE -eq 0) { $pgOk = $true; break }
+    } catch {}
+    Start-Sleep -Seconds 2
+  }
+  if (-not $pgOk) {
+    throw "Compose Postgres not ready at agricore-postgres — InventoryPostgresIdempotencyTest would skip"
+  }
+
+  Write-Host "== mvnw test (full suite; Postgres tests must execute) =="
   $mvnLog = Join-Path $EvidenceDir "mvn-test.log"
   cmd /c "cd /d `"$Root`" && mvnw.cmd test -DskipITs > `"$mvnLog`" 2>&1"
   if ($LASTEXITCODE -ne 0) {
@@ -101,6 +114,12 @@ if (-not $SkipMaven) {
   if (-not (Select-String -Path $mvnLog -Pattern "BUILD SUCCESS" -Quiet)) {
     throw "mvn-test.log missing BUILD SUCCESS"
   }
+  # Gate: concurrent + idempotency tests must not be skipped (Tests run: 0)
+  $pgLine = Select-String -Path $mvnLog -Pattern "InventoryPostgresIdempotencyTest" | Select-Object -Last 1
+  if (-not $pgLine -or $pgLine.Line -notmatch "Tests run: 2") {
+    throw "InventoryPostgresIdempotencyTest must show Tests run: 2 (got: $($pgLine.Line))"
+  }
+  Write-Host "InventoryPostgresIdempotencyTest: $($pgLine.Line.Trim())"
 }
 
 Write-Host "== e2e happy path =="
