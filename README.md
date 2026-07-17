@@ -4,36 +4,39 @@ Portfolio-grade **Java 21 / Spring Boot microservices** platform for enterprise 
 
 ## Status
 
-**Phase 0–2 foundation live:** monorepo, common library, Docker infrastructure, Identity, Farm, Crop Catalog, API Gateway.
+**Full 12-service portfolio live** on `main`: compose stack, gateway JWT e2e (farm→cycle→work→harvest→Kafka→inventory→QR), Helm charts, CI (Maven + Gitleaks + Compose config), CodeQL, Trivy FS, and Docker Hub images under `nguyenson1710/agricore-*`.
 
-| Service | Port | Status |
+| Service | Port | Image |
 |---------|------|--------|
-| api-gateway | 8080 | Live |
-| identity-service | 8081 | Live |
-| farm-service | 8082 | Live |
-| crop-catalog-service | 8083 | Live |
-| crop-cycle-service | 8084 | Live |
-| work-service | 8085 | Live |
-| inventory-service | 8086 | Live |
-| harvest-service | 8087 | Live |
-| traceability-service | 8092 | Live |
-| notification-service | 8089 | Live |
-| iot-service | 8090 | Live |
-| sales-service | 8091 | Live |
+| api-gateway | 8080 | `nguyenson1710/agricore-gateway` |
+| identity-service | 8081 | `nguyenson1710/agricore-identity` |
+| farm-service | 8082 | `nguyenson1710/agricore-farm` |
+| crop-catalog-service | 8083 | `nguyenson1710/agricore-crop-catalog` |
+| crop-cycle-service | 8084 | `nguyenson1710/agricore-crop-cycle` |
+| work-service | 8085 | `nguyenson1710/agricore-work` |
+| inventory-service | 8086 | `nguyenson1710/agricore-inventory` |
+| harvest-service | 8087 | `nguyenson1710/agricore-harvest` |
+| notification-service | 8089 | `nguyenson1710/agricore-notification` |
+| iot-service | 8090 | `nguyenson1710/agricore-iot` |
+| sales-service | 8091 | `nguyenson1710/agricore-sales` |
+| traceability-service | 8092 | `nguyenson1710/agricore-traceability` |
+
+Tags: `latest`, short git SHA, full commit SHA. Images publish only after successful default-branch `ci`.
 
 ## Architecture
 
 ```text
-Client → API Gateway (:8080)
-            ├─ Identity (:8081)  JWT RS256 + JWKS, refresh rotation, RBAC
-            ├─ Farm (:8082)      Farms & plots + transactional outbox
-            └─ Crop Catalog (:8083) Seeded Vietnam crop varieties
+Client → API Gateway (:8080)  JWT RS256 / JWKS
+            ├─ Identity, Farm, Crop Catalog, Crop Cycle, Work
+            ├─ Harvest (outbox) → Kafka → Inventory + Traceability
+            ├─ Sales (HTTP saga reserve→confirm inventory)
+            └─ IoT, Notification
 ```
 
 - **Database per service** (PostgreSQL)
-- **No shared domain models** across services
-- **Kafka-ready** event envelope + outbox tables
-- Docs: [System Architecture](docs/architecture/SYSTEM_ARCHITECTURE.md) · [Implementation Plan](docs/IMPLEMENTATION_PLAN.md) · [ADRs](docs/adr/)
+- **Transactional outbox** on farm / crop-cycle / work / harvest
+- **Idempotent Kafka consumers** (inventory, traceability + DLT)
+- Docs: [System Architecture](docs/architecture/SYSTEM_ARCHITECTURE.md) · [ADRs](docs/adr/)
 
 ## Prerequisites
 
@@ -78,7 +81,17 @@ mvn -pl services/api-gateway spring-boot:run
 ### 4. Full Docker stack
 
 ```bash
+# Local build
 docker compose up --build
+
+# Or pull published images (after login to Docker Hub if private)
+docker pull nguyenson1710/agricore-gateway:latest
+```
+
+JWT keys for identity (once):
+
+```powershell
+.\scripts\generate-jwt-keys.ps1
 ```
 
 Gateway: `http://localhost:8080`
