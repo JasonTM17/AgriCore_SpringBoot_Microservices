@@ -36,7 +36,8 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true
+        # Hard fail on secret findings (portfolio security gate)
+
 
   compose-config:
     runs-on: ubuntu-latest
