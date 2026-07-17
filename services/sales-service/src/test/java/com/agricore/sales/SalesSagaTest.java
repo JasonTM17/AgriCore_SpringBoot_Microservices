@@ -17,6 +17,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -39,6 +40,7 @@ class SalesSagaTest {
     void placeOrder_reserveSuccess_confirms() throws Exception {
         UUID reservationId = UUID.randomUUID();
         when(inventoryClient.reserve(any(), any(), anyString())).thenReturn(reservationId);
+        doNothing().when(inventoryClient).confirm(any());
 
         MvcResult customer = mockMvc.perform(post("/api/v1/sales/customers")
                         .header("X-Dev-User", "sales")

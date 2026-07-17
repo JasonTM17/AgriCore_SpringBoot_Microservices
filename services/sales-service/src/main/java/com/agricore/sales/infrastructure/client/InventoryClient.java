@@ -74,6 +74,18 @@ public class InventoryClient {
                 .toBodilessEntity();
     }
 
+    public void confirm(UUID reservationId) {
+        try {
+            restClient.post()
+                    .uri("/api/v1/inventory/reservations/{id}/confirm", reservationId)
+                    .headers(authHeaders())
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (RestClientResponseException ex) {
+            throw new InventoryReservationException(ex.getStatusCode().value(), ex.getResponseBodyAsString());
+        }
+    }
+
     private Consumer<HttpHeaders> authHeaders() {
         return headers -> {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

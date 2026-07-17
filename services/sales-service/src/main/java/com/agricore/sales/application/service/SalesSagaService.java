@@ -19,9 +19,10 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Orchestration saga: CreateOrder → ReserveInventory → Confirm.
+ * Orchestration saga: CreateOrder → ReserveInventory → ConfirmInventory → Confirm order.
  * On reserve failure: mark OUT_OF_STOCK / CANCELLED and persist saga failure (compensation is no-op if no reservation).
  * On post-reserve failure: release inventory then cancel.
+ * Confirm commits stock (on-hand + reserved decrement); without it reserved stock would stay held forever.
  */
 @Service
 public class SalesSagaService {
@@ -108,7 +109,13 @@ public class SalesSagaService {
             order.setUpdatedAt(Instant.now());
             order = orderRepository.saveAndFlush(order);
 
-            // Confirm step (local) — shipment deferred for portfolio slice
+            saga = reloadSaga(order.getId());
+            saga.setCurrentStep("CONFIRM_INVENTORY");
+            saga.setUpdatedAt(Instant.now());
+            saga = sagaRepository.saveAndFlush(saga);
+
+            inventoryClient.confirm(reservationId);
+
             order = reloadOrder(order.getId());
             order.setStatus(OrderStatus.CONFIRMED);
             order.setUpdatedAt(Instant.now());

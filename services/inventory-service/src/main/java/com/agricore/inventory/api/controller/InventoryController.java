@@ -53,6 +53,12 @@ public class InventoryController {
         return service.release(reservationId);
     }
 
+    @PostMapping("/reservations/{reservationId}/confirm")
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','WAREHOUSE_MANAGER','SALES_STAFF')")
+    public ReservationResponse confirm(@PathVariable UUID reservationId) {
+        return service.confirm(reservationId);
+    }
+
     @GetMapping("/items/{itemId}")
     @PreAuthorize("isAuthenticated()")
     public InventoryItemResponse getItem(@PathVariable UUID itemId) {

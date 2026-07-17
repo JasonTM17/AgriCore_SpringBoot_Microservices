@@ -5,6 +5,7 @@ public enum MovementType {
     STOCK_OUT,
     RESERVE,
     RELEASE,
+    CONFIRM,
     ADJUSTMENT_IN,
     ADJUSTMENT_OUT
 }

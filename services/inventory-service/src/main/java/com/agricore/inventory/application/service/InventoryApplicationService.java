@@ -168,7 +168,7 @@ public class InventoryApplicationService {
     public ReservationResponse release(UUID reservationId) {
         InventoryReservationEntity reservation = reservationRepository.findById(reservationId)
                 .orElseThrow(() -> new InventoryException("RESERVATION_NOT_FOUND", "Reservation not found", 404));
-        if ("RELEASED".equals(reservation.getStatus())) {
+        if ("RELEASED".equals(reservation.getStatus()) || "FULFILLED".equals(reservation.getStatus())) {
             return new ReservationResponse(
                     reservation.getId(), reservation.getInventoryItemId(), reservation.getQuantity(),
                     reservation.getStatus(), reservation.getReferenceType(), reservation.getReferenceId()
@@ -186,6 +186,51 @@ public class InventoryApplicationService {
         reservationRepository.save(reservation);
         writeMovement(item.getId(), MovementType.RELEASE, reservation.getQuantity(),
                 reservation.getReferenceType(), reservation.getReferenceId(), "Release");
+        return new ReservationResponse(
+                reservation.getId(), item.getId(), reservation.getQuantity(),
+                reservation.getStatus(), reservation.getReferenceType(), reservation.getReferenceId()
+        );
+    }
+
+    /**
+     * Commit a reservation: decrement on-hand and reserved quantities (sales saga confirm step).
+     * Idempotent when reservation is already FULFILLED.
+     */
+    @Transactional
+    public ReservationResponse confirm(UUID reservationId) {
+        InventoryReservationEntity reservation = reservationRepository.findById(reservationId)
+                .orElseThrow(() -> new InventoryException("RESERVATION_NOT_FOUND", "Reservation not found", 404));
+        if ("FULFILLED".equals(reservation.getStatus())) {
+            return new ReservationResponse(
+                    reservation.getId(), reservation.getInventoryItemId(), reservation.getQuantity(),
+                    reservation.getStatus(), reservation.getReferenceType(), reservation.getReferenceId()
+            );
+        }
+        if (!"ACTIVE".equals(reservation.getStatus())) {
+            throw new InventoryException(
+                    "RESERVATION_NOT_ACTIVE",
+                    "Reservation status is " + reservation.getStatus() + "; only ACTIVE can be confirmed",
+                    409
+            );
+        }
+        InventoryItemEntity item = requireItem(reservation.getInventoryItemId());
+        if (item.getOnHandQuantity().compareTo(reservation.getQuantity()) < 0) {
+            throw new InventoryException("INSUFFICIENT_ON_HAND", "On-hand stock below reserved quantity", 409);
+        }
+        if (item.getReservedQuantity().compareTo(reservation.getQuantity()) < 0) {
+            throw new InventoryException("NEGATIVE_RESERVED", "Reserved quantity below reservation", 500);
+        }
+        item.setOnHandQuantity(item.getOnHandQuantity().subtract(reservation.getQuantity()));
+        item.setReservedQuantity(item.getReservedQuantity().subtract(reservation.getQuantity()));
+        item.setUpdatedAt(Instant.now());
+        itemRepository.save(item);
+        reservation.setStatus("FULFILLED");
+        reservation.setUpdatedAt(Instant.now());
+        reservationRepository.save(reservation);
+        writeMovement(item.getId(), MovementType.CONFIRM, reservation.getQuantity(),
+                reservation.getReferenceType(), reservation.getReferenceId(), "Confirm reservation");
+        writeMovement(item.getId(), MovementType.STOCK_OUT, reservation.getQuantity(),
+                reservation.getReferenceType(), reservation.getReferenceId(), "Sales fulfillment");
         return new ReservationResponse(
                 reservation.getId(), item.getId(), reservation.getQuantity(),
                 reservation.getStatus(), reservation.getReferenceType(), reservation.getReferenceId()
