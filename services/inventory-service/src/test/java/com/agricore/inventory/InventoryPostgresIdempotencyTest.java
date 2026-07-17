@@ -32,8 +32,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Real PostgreSQL integration:
- * 1) Prefer Testcontainers if Docker API is usable
- * 2) Else use compose Postgres on localhost:5434
+ * 1) Prefer compose Postgres on 127.0.0.1:5434 (stable for full-stack verify)
+ * 2) Else Testcontainers if Docker API is usable
  * Never silent-skip — either executes 2 tests or fails class init.
  */
 @SpringBootTest
@@ -42,7 +42,8 @@ class InventoryPostgresIdempotencyTest {
 
     private static final Logger log = LoggerFactory.getLogger(InventoryPostgresIdempotencyTest.class);
 
-    private static final String COMPOSE_JDBC = "jdbc:postgresql://localhost:5434/agricore_inventory";
+    // Use 127.0.0.1 — Windows localhost may resolve to ::1 while Docker publishes IPv4 only
+    private static final String COMPOSE_JDBC = "jdbc:postgresql://127.0.0.1:5434/agricore_inventory";
     private static final String COMPOSE_USER = "agricore";
     private static final String COMPOSE_PASSWORD = "agricore_dev_change_me";
 
@@ -52,20 +53,20 @@ class InventoryPostgresIdempotencyTest {
     private static String password;
 
     static {
-        if (tryStartTestcontainers()) {
-            jdbcUrl = container.getJdbcUrl();
-            username = container.getUsername();
-            password = container.getPassword();
-            log.info("Using Testcontainers Postgres at {}", jdbcUrl);
-        } else if (isComposePostgresUp()) {
+        if (isComposePostgresUp()) {
             jdbcUrl = COMPOSE_JDBC;
             username = COMPOSE_USER;
             password = COMPOSE_PASSWORD;
             log.info("Using compose Postgres at {}", jdbcUrl);
+        } else if (tryStartTestcontainers()) {
+            jdbcUrl = container.getJdbcUrl();
+            username = container.getUsername();
+            password = container.getPassword();
+            log.info("Using Testcontainers Postgres at {}", jdbcUrl);
         } else {
             throw new IllegalStateException(
                     "PostgreSQL required for InventoryPostgresIdempotencyTest: start Docker Desktop "
-                            + "(Testcontainers) or `docker compose up -d postgres` (localhost:5434)");
+                            + "(Testcontainers) or `docker compose up -d postgres` (127.0.0.1:5434)");
         }
     }
 
@@ -88,15 +89,15 @@ class InventoryPostgresIdempotencyTest {
     private static boolean isComposePostgresUp() {
         try {
             Class.forName("org.postgresql.Driver");
-            for (int attempt = 1; attempt <= 5; attempt++) {
+            for (int attempt = 1; attempt <= 10; attempt++) {
                 try (var conn = DriverManager.getConnection(COMPOSE_JDBC, COMPOSE_USER, COMPOSE_PASSWORD)) {
-                    if (conn.isValid(3)) {
+                    if (conn.isValid(5)) {
                         return true;
                     }
                 } catch (Exception ex) {
-                    log.warn("Compose Postgres attempt {}/5 failed: {}", attempt, ex.toString());
+                    log.warn("Compose Postgres attempt {}/10 failed: {}", attempt, ex.toString());
                     try {
-                        Thread.sleep(1000L * attempt);
+                        Thread.sleep(500L * attempt);
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                         return false;
