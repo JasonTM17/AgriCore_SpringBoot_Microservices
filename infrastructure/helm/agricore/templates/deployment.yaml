@@ -82,6 +82,12 @@ spec:
               value: {{ $.Values.redis.port | default "6379" | quote }}
             - name: IDENTITY_PORT
               value: {{ $svc.port | quote }}
+            - name: AGRICORE_REGISTRATION_ENABLED
+              value: {{ $.Values.identity.registrationEnabled | default false | quote }}
+            - name: AGRICORE_RATE_LIMIT_FAIL_OPEN
+              value: "false"
+            - name: AGRICORE_TRUST_FORWARDED_HEADERS
+              value: {{ $.Values.identity.trustForwardedHeaders | default true | quote }}
             {{- end }}
             {{- if eq $name "sales" }}
             - name: INVENTORY_SERVICE_URL

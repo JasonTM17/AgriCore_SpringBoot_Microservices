@@ -9,6 +9,9 @@ identity:
   replicaCount: 1
   image: nguyenson1710/agricore-identity
   port: 8081
+  # Production: public self-register off; create users via admin/invite
+  registrationEnabled: false
+  trustForwardedHeaders: true
   resources:
     requests: { cpu: 100m, memory: 256Mi }
     limits: { cpu: 500m, memory: 512Mi }

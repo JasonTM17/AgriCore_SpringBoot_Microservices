@@ -57,6 +57,8 @@ coverage/
 .codex/
 .gemini/
 .grok/
+mcps/
+
 .claude/worktrees/
 .claude-private/
 .private/
