@@ -24,6 +24,9 @@ services:
     image: grafana/tempo:2.6.0
     container_name: agricore-tempo
     command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./infrastructure/monitoring/tempo.yaml:/etc/tempo.yaml:ro
     ports:
       - "4317:4317"
       - "4318:4318"
+      - "3200:3200"
