@@ -145,4 +145,86 @@ class InventoryIdempotencyTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("INSUFFICIENT_STOCK"));
     }
+
+    @Test
+    void reserveThenConfirm_decrementsOnHandAndClearsReserved() throws Exception {
+        MvcResult whResult = mockMvc.perform(post("/api/v1/inventory/warehouses")
+                        .header("X-Dev-User", "wh")
+                        .header("X-Dev-Roles", "WAREHOUSE_MANAGER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"code":"WHC-%d","name":"Confirm WH"}
+                                """.formatted(System.nanoTime())))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String warehouseId = objectMapper.readTree(whResult.getResponse().getContentAsString()).get("id").asText();
+
+        MvcResult itemResult = mockMvc.perform(post("/api/v1/inventory/items")
+                        .header("X-Dev-User", "wh")
+                        .header("X-Dev-Roles", "WAREHOUSE_MANAGER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "warehouseId":"%s",
+                                  "sku":"ROBUSTA-BAG",
+                                  "name":"Robusta Bag",
+                                  "itemType":"PRODUCE",
+                                  "unit":"KG"
+                                }
+                                """.formatted(warehouseId)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String itemId = objectMapper.readTree(itemResult.getResponse().getContentAsString()).get("id").asText();
+
+        mockMvc.perform(post("/api/v1/inventory/stock-in")
+                        .header("X-Dev-User", "wh")
+                        .header("X-Dev-Roles", "WAREHOUSE_MANAGER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "inventoryItemId":"%s",
+                                  "quantity":100,
+                                  "referenceType":"Manual",
+                                  "referenceId":"seed-confirm"
+                                }
+                                """.formatted(itemId)))
+                .andExpect(status().isOk());
+
+        MvcResult res = mockMvc.perform(post("/api/v1/inventory/reservations")
+                        .header("X-Dev-User", "sales")
+                        .header("X-Dev-Roles", "SALES_STAFF")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "inventoryItemId":"%s",
+                                  "quantity":40,
+                                  "referenceType":"SalesOrder",
+                                  "referenceId":"%s"
+                                }
+                                """.formatted(itemId, UUID.randomUUID())))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("ACTIVE"))
+                .andReturn();
+        String reservationId = objectMapper.readTree(res.getResponse().getContentAsString()).get("id").asText();
+
+        mockMvc.perform(post("/api/v1/inventory/reservations/" + reservationId + "/confirm")
+                        .header("X-Dev-User", "sales")
+                        .header("X-Dev-Roles", "SALES_STAFF"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("FULFILLED"));
+
+        // Second confirm is idempotent
+        mockMvc.perform(post("/api/v1/inventory/reservations/" + reservationId + "/confirm")
+                        .header("X-Dev-User", "sales")
+                        .header("X-Dev-Roles", "SALES_STAFF"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("FULFILLED"));
+
+        mockMvc.perform(get("/api/v1/inventory/items/" + itemId)
+                        .header("X-Dev-User", "wh")
+                        .header("X-Dev-Roles", "WAREHOUSE_MANAGER"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.onHandQuantity").value(60))
+                .andExpect(jsonPath("$.reservedQuantity").value(0));
+    }
 }
