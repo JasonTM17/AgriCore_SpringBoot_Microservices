@@ -68,4 +68,14 @@ public class OutboxEventEntity {
     public Instant getPublishedAt() { return publishedAt; }
     public int getPublishAttempts() { return publishAttempts; }
     public String getLastError() { return lastError; }
+
+    public void markPublished() {
+        this.publishedAt = Instant.now();
+        this.lastError = null;
+    }
+
+    public void markFailed(String error) {
+        this.publishAttempts = this.publishAttempts + 1;
+        this.lastError = error == null ? "unknown" : error.substring(0, Math.min(error.length(), 1000));
+    }
 }

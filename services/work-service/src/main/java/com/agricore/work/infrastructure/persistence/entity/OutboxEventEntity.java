@@ -1,6 +1,7 @@
 package com.agricore.work.infrastructure.persistence.entity;
 
 import jakarta.persistence.*;
+
 import java.time.Instant;
 import java.util.UUID;
 
@@ -39,5 +40,21 @@ public class OutboxEventEntity {
         e.createdAt = Instant.now();
         e.publishAttempts = 0;
         return e;
+    }
+
+    public UUID getId() { return id; }
+    public String getEventType() { return eventType; }
+    public String getTopic() { return topic; }
+    public String getPayload() { return payload; }
+    public Instant getPublishedAt() { return publishedAt; }
+
+    public void markPublished() {
+        this.publishedAt = Instant.now();
+        this.lastError = null;
+    }
+
+    public void markFailed(String error) {
+        this.publishAttempts = this.publishAttempts + 1;
+        this.lastError = error == null ? "unknown" : error.substring(0, Math.min(error.length(), 1000));
     }
 }

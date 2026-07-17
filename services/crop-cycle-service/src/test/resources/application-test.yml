@@ -13,8 +13,15 @@ spring:
   flyway:
     enabled: true
 
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+
 agricore:
   security:
     dev-mode: true
     issuer: https://agricore.test/identity
     jwk-set-uri: http://localhost:8081/.well-known/jwks.json
+  outbox:
+    publisher:
+      enabled: false
