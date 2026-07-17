@@ -31,3 +31,6 @@ agricore:
     max-failed-logins: 5
     lockout-duration-minutes: 15
     login-rate-limit-per-minute: 1000
+    registration-enabled: true
+    rate-limit-fail-open: true
+    trust-forwarded-headers: false

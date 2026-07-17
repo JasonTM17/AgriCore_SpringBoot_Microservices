@@ -52,6 +52,12 @@ agricore:
     login-rate-limit-per-minute: 20
     private-key-path: ${AGRICORE_JWT_PRIVATE_KEY_PATH:}
     public-key-path: ${AGRICORE_JWT_PUBLIC_KEY_PATH:}
+    # Local/e2e: true. Production: set AGRICORE_REGISTRATION_ENABLED=false
+    registration-enabled: ${AGRICORE_REGISTRATION_ENABLED:true}
+    # Production fail-closed when Redis is down
+    rate-limit-fail-open: ${AGRICORE_RATE_LIMIT_FAIL_OPEN:false}
+    # Only enable behind trusted reverse proxy / gateway
+    trust-forwarded-headers: ${AGRICORE_TRUST_FORWARDED_HEADERS:false}
 
 logging:
   level:

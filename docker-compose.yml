@@ -48,6 +48,10 @@ services:
       # Stable RSA keys across restarts (generate: scripts/generate-jwt-keys.ps1)
       AGRICORE_JWT_PRIVATE_KEY_PATH: /keys/private.pem
       AGRICORE_JWT_PUBLIC_KEY_PATH: /keys/public.pem
+      # Local stack needs seed/e2e registration; fail-closed rate limit with Redis up
+      AGRICORE_REGISTRATION_ENABLED: "true"
+      AGRICORE_RATE_LIMIT_FAIL_OPEN: "false"
+      AGRICORE_TRUST_FORWARDED_HEADERS: "true"
     volumes:
       - ./infrastructure/jwt:/keys:ro
     ports:

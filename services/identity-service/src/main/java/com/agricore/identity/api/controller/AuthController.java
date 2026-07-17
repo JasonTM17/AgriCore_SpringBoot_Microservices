@@ -7,6 +7,7 @@ import com.agricore.identity.api.request.RegisterRequest;
 import com.agricore.identity.api.response.AuthTokensResponse;
 import com.agricore.identity.api.response.UserResponse;
 import com.agricore.identity.application.service.AuthApplicationService;
+import com.agricore.identity.infrastructure.configuration.SecurityProperties;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -18,9 +19,11 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthApplicationService authService;
+    private final SecurityProperties securityProperties;
 
-    public AuthController(AuthApplicationService authService) {
+    public AuthController(AuthApplicationService authService, SecurityProperties securityProperties) {
         this.authService = authService;
+        this.securityProperties = securityProperties;
     }
 
     @PostMapping("/register")
@@ -44,10 +47,12 @@ public class AuthController {
         authService.logout(request.refreshToken());
     }
 
-    private static String clientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
+    private String clientIp(HttpServletRequest request) {
+        if (securityProperties.trustForwardedHeaders()) {
+            String forwarded = request.getHeader("X-Forwarded-For");
+            if (forwarded != null && !forwarded.isBlank()) {
+                return forwarded.split(",")[0].trim();
+            }
         }
         return request.getRemoteAddr();
     }

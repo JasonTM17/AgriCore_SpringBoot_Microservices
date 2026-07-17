@@ -58,6 +58,13 @@ public class AuthApplicationService {
 
     @Transactional
     public UserResponse register(RegisterRequest request) {
+        if (!securityProperties.registrationEnabled()) {
+            throw new IdentityException(
+                    "REGISTRATION_DISABLED",
+                    "Public registration is disabled; contact an administrator",
+                    403
+            );
+        }
         String email = request.email().trim().toLowerCase();
         if (userRepository.existsByEmailIgnoreCase(email)) {
             throw new IdentityException("EMAIL_ALREADY_EXISTS", "Email is already registered", 409);

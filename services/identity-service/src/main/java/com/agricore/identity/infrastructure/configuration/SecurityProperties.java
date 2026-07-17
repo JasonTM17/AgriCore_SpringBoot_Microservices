@@ -13,6 +13,12 @@ public record SecurityProperties(
         int lockoutDurationMinutes,
         int loginRateLimitPerMinute,
         String privateKeyPath,
-        String publicKeyPath
+        String publicKeyPath,
+        /** When false, POST /register returns 403 (production default). */
+        boolean registrationEnabled,
+        /** When false, Redis errors deny login (fail-closed). Tests may set true. */
+        boolean rateLimitFailOpen,
+        /** When true, trust first X-Forwarded-For hop (only behind trusted gateway). */
+        boolean trustForwardedHeaders
 ) {
 }

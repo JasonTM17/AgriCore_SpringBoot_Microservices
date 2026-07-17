@@ -1,6 +1,8 @@
 package com.agricore.identity.infrastructure.security;
 
 import com.agricore.identity.infrastructure.configuration.SecurityProperties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
@@ -8,10 +10,12 @@ import java.time.Duration;
 
 /**
  * Sliding fixed-window login rate limiter keyed by IP.
- * Falls back to allowing traffic if Redis is unavailable (logged by caller).
+ * Production default is fail-closed when Redis is unavailable.
  */
 @Component
 public class LoginRateLimiter {
+
+    private static final Logger log = LoggerFactory.getLogger(LoginRateLimiter.class);
 
     private final StringRedisTemplate redis;
     private final SecurityProperties properties;
@@ -30,8 +34,12 @@ public class LoginRateLimiter {
             }
             return count == null || count <= properties.loginRateLimitPerMinute();
         } catch (Exception ex) {
-            // Fail-open for local/dev without Redis; production should monitor Redis health.
-            return true;
+            if (properties.rateLimitFailOpen()) {
+                log.warn("Login rate limiter Redis error; fail-open enabled: {}", ex.getMessage());
+                return true;
+            }
+            log.error("Login rate limiter Redis error; denying login (fail-closed): {}", ex.getMessage());
+            return false;
         }
     }
 }
