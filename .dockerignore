@@ -7,4 +7,21 @@
 **/*.md
 plans
 .claude
+.grok
+.codex
+mcps
 **/node_modules
+
+# Local credentials and key material must never enter image build context
+**/.env.*
+!**/.env.example
+!**/.env.production.example
+!.env.example
+!.env.production.example
+infrastructure/jwt/**
+**/jwt-keys/**
+**/secrets/**
+**/*.pem
+**/*.key
+**/*.jwk
+**/private*.jwk
