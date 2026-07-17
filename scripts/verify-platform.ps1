@@ -101,7 +101,7 @@ if (-not $SkipMaven) {
     Start-Sleep -Seconds 2
   }
   if (-not $pgOk) {
-    throw "Compose Postgres not ready at agricore-postgres — InventoryPostgresIdempotencyTest would skip"
+    throw "Compose Postgres not ready at agricore-postgres - InventoryPostgresIdempotencyTest would skip"
   }
 
   Write-Host "== mvnw test (full suite; Postgres tests must execute) =="
@@ -109,7 +109,7 @@ if (-not $SkipMaven) {
   cmd /c "cd /d `"$Root`" && mvnw.cmd test -DskipITs > `"$mvnLog`" 2>&1"
   if ($LASTEXITCODE -ne 0) {
     Get-Content $mvnLog -Tail 40
-    throw "mvnw test failed — see $mvnLog"
+    throw "mvnw test failed - see $mvnLog"
   }
   if (-not (Select-String -Path $mvnLog -Pattern "BUILD SUCCESS" -Quiet)) {
     throw "mvn-test.log missing BUILD SUCCESS"
@@ -144,4 +144,4 @@ $core = @(
 ) -join "`n"
 Write-Utf8File (Join-Path $EvidenceDir "core-slice.http.log") ($core + "`n" + (Get-Content (Join-Path $EvidenceDir "e2e-flow.log") -Raw))
 
-Write-Host "VERIFY PLATFORM OK — evidence in $EvidenceDir"
+Write-Host "VERIFY PLATFORM OK - evidence in $EvidenceDir"

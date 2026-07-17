@@ -45,6 +45,11 @@ services:
       REDIS_PORT: 6379
       IDENTITY_PORT: 8081
       JWT_ISSUER: https://agricore.local/identity
+      # Stable RSA keys across restarts (generate: scripts/generate-jwt-keys.ps1)
+      AGRICORE_JWT_PRIVATE_KEY_PATH: /keys/private.pem
+      AGRICORE_JWT_PUBLIC_KEY_PATH: /keys/public.pem
+    volumes:
+      - ./infrastructure/jwt:/keys:ro
     ports:
       - "8081:8081"
     healthcheck:
@@ -61,8 +66,10 @@ services:
         condition: service_healthy
       identity-service:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
     environment:
-      <<: [*db-env, *security-env]
+      <<: [*db-env, *security-env, *kafka-env]
       FARM_PORT: 8082
     ports:
       - "8082:8082"
@@ -99,8 +106,10 @@ services:
         condition: service_healthy
       identity-service:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
     environment:
-      <<: [*db-env, *security-env]
+      <<: [*db-env, *security-env, *kafka-env]
       CROP_CYCLE_PORT: 8084
     ports:
       - "8084:8084"
@@ -118,8 +127,10 @@ services:
         condition: service_healthy
       identity-service:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
     environment:
-      <<: [*db-env, *security-env]
+      <<: [*db-env, *security-env, *kafka-env]
       WORK_PORT: 8085
     ports:
       - "8085:8085"
