@@ -75,6 +75,46 @@ spec:
               value: "false"
             - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
               value: "5"
+            {{- if eq $name "identity" }}
+            - name: REDIS_HOST
+              value: {{ $.Values.redis.host | default "redis" | quote }}
+            - name: REDIS_PORT
+              value: {{ $.Values.redis.port | default "6379" | quote }}
+            - name: IDENTITY_PORT
+              value: {{ $svc.port | quote }}
+            {{- end }}
+            {{- if eq $name "sales" }}
+            - name: INVENTORY_SERVICE_URL
+              value: {{ $.Values.sales.inventoryServiceUrl | default "http://agricore-inventory:8086" | quote }}
+            - name: SALES_PORT
+              value: {{ $svc.port | quote }}
+            {{- end }}
+            {{- if eq $name "gateway" }}
+            - name: IDENTITY_SERVICE_URL
+              value: {{ $.Values.gateway.identityServiceUrl | default "http://agricore-identity:8081" | quote }}
+            - name: FARM_SERVICE_URL
+              value: {{ $.Values.gateway.farmServiceUrl | default "http://agricore-farm:8082" | quote }}
+            - name: CROP_CATALOG_SERVICE_URL
+              value: {{ $.Values.gateway.cropCatalogServiceUrl | default "http://agricore-crop-catalog:8083" | quote }}
+            - name: CROP_CYCLE_SERVICE_URL
+              value: {{ $.Values.gateway.cropCycleServiceUrl | default "http://agricore-crop-cycle:8084" | quote }}
+            - name: WORK_SERVICE_URL
+              value: {{ $.Values.gateway.workServiceUrl | default "http://agricore-work:8085" | quote }}
+            - name: INVENTORY_SERVICE_URL
+              value: {{ $.Values.gateway.inventoryServiceUrl | default "http://agricore-inventory:8086" | quote }}
+            - name: HARVEST_SERVICE_URL
+              value: {{ $.Values.gateway.harvestServiceUrl | default "http://agricore-harvest:8087" | quote }}
+            - name: NOTIFICATION_SERVICE_URL
+              value: {{ $.Values.gateway.notificationServiceUrl | default "http://agricore-notification:8089" | quote }}
+            - name: IOT_SERVICE_URL
+              value: {{ $.Values.gateway.iotServiceUrl | default "http://agricore-iot:8090" | quote }}
+            - name: SALES_SERVICE_URL
+              value: {{ $.Values.gateway.salesServiceUrl | default "http://agricore-sales:8091" | quote }}
+            - name: TRACEABILITY_SERVICE_URL
+              value: {{ $.Values.gateway.traceabilityServiceUrl | default "http://agricore-traceability:8092" | quote }}
+            - name: GATEWAY_PORT
+              value: {{ $svc.port | quote }}
+            {{- end }}
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: false

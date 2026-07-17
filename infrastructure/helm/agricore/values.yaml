@@ -66,6 +66,7 @@ sales:
   replicaCount: 1
   image: nguyenson1710/agricore-sales
   port: 8091
+  inventoryServiceUrl: http://agricore-inventory:8086
 
 traceability:
   enabled: true
@@ -78,12 +79,27 @@ gateway:
   replicaCount: 1
   image: nguyenson1710/agricore-gateway
   port: 8080
+  identityServiceUrl: http://agricore-identity:8081
+  farmServiceUrl: http://agricore-farm:8082
+  cropCatalogServiceUrl: http://agricore-crop-catalog:8083
+  cropCycleServiceUrl: http://agricore-crop-cycle:8084
+  workServiceUrl: http://agricore-work:8085
+  inventoryServiceUrl: http://agricore-inventory:8086
+  harvestServiceUrl: http://agricore-harvest:8087
+  notificationServiceUrl: http://agricore-notification:8089
+  iotServiceUrl: http://agricore-iot:8090
+  salesServiceUrl: http://agricore-sales:8091
+  traceabilityServiceUrl: http://agricore-traceability:8092
 
 postgres:
   host: postgres
   port: 5432
   user: agricore
-  # password from secret agricore-db — never commit production values
+  # password from secret agricore-db - never commit production values
+
+redis:
+  host: redis
+  port: 6379
 
 kafka:
   # Internal cluster bootstrap (match compose PLAINTEXT listener)
