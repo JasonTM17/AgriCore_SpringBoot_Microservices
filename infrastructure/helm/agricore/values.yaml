@@ -3,24 +3,75 @@ global:
   imageTag: latest
   imagePullPolicy: IfNotPresent
 
+# Each entry maps to Deployment+Service in templates/deployment.yaml
 identity:
   enabled: true
   replicaCount: 1
   image: nguyenson1710/agricore-identity
   port: 8081
   resources:
-    requests:
-      cpu: 100m
-      memory: 256Mi
-    limits:
-      cpu: 500m
-      memory: 512Mi
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: 500m, memory: 512Mi }
 
 farm:
   enabled: true
   replicaCount: 1
   image: nguyenson1710/agricore-farm
   port: 8082
+
+cropCatalog:
+  enabled: true
+  replicaCount: 1
+  image: nguyenson1710/agricore-crop-catalog
+  port: 8083
+
+cropCycle:
+  enabled: true
+  replicaCount: 1
+  image: nguyenson1710/agricore-crop-cycle
+  port: 8084
+
+work:
+  enabled: true
+  replicaCount: 1
+  image: nguyenson1710/agricore-work
+  port: 8085
+
+inventory:
+  enabled: true
+  replicaCount: 1
+  image: nguyenson1710/agricore-inventory
+  port: 8086
+
+harvest:
+  enabled: true
+  replicaCount: 1
+  image: nguyenson1710/agricore-harvest
+  port: 8087
+
+notification:
+  enabled: true
+  replicaCount: 1
+  image: nguyenson1710/agricore-notification
+  port: 8089
+
+iot:
+  enabled: true
+  replicaCount: 1
+  image: nguyenson1710/agricore-iot
+  port: 8090
+
+sales:
+  enabled: true
+  replicaCount: 1
+  image: nguyenson1710/agricore-sales
+  port: 8091
+
+traceability:
+  enabled: true
+  replicaCount: 1
+  image: nguyenson1710/agricore-traceability
+  port: 8092
 
 gateway:
   enabled: true
@@ -32,7 +83,11 @@ postgres:
   host: postgres
   port: 5432
   user: agricore
-  # password from secret agricore-db
+  # password from secret agricore-db — never commit production values
 
 kafka:
-  bootstrapServers: kafka:9092
+  # Internal cluster bootstrap (match compose PLAINTEXT listener)
+  bootstrapServers: kafka:19092
+
+identityJwksUri: http://agricore-identity:8081/.well-known/jwks.json
+jwtIssuer: https://agricore.local/identity

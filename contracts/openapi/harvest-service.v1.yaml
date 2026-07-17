@@ -1,0 +1,61 @@
+openapi: 3.1.0
+info:
+  title: AgriCore Harvest Service API
+  version: 1.0.0
+  description: Harvest batch completion with transactional outbox (HarvestCompleted.v1)
+servers:
+  - url: http://localhost:8087
+paths:
+  /api/v1/harvests/complete:
+    post:
+      summary: Complete harvest and enqueue Kafka event via outbox
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteHarvestRequest'
+      responses:
+        '201':
+          description: Harvest batch created; lastOutboxEventId set
+        '409':
+          description: Duplicate code or invalid weights
+  /api/v1/harvests/{id}:
+    get:
+      summary: Get harvest batch
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Harvest batch
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    CompleteHarvestRequest:
+      type: object
+      required: [code, cropCycleId, plotId, warehouseId, productCode, grossWeightKg, netWeightKg, qualityGrade]
+      properties:
+        code: { type: string }
+        cropCycleId: { type: string, format: uuid }
+        plotId: { type: string, format: uuid }
+        warehouseId: { type: string, format: uuid }
+        productCode: { type: string }
+        grossWeightKg: { type: number }
+        netWeightKg: { type: number }
+        qualityGrade: { type: string }
+        notes: { type: string }
+        farmName: { type: string }
+        plotCode: { type: string }
+        productName: { type: string }
+        careSummary: { type: string }

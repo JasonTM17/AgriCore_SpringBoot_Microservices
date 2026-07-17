@@ -17,11 +17,30 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
-      - name: Build and test
-        run: mvn -B verify
+      - name: Build and test (all microservices modules)
+        run: ./mvnw -B verify
       - name: Upload surefire reports
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: surefire-reports
           path: "**/target/surefire-reports/**"
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+  compose-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate docker compose (microservices stack)
+        run: docker compose -f docker-compose.yml config --quiet

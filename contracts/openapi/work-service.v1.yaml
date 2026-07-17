@@ -1,0 +1,78 @@
+openapi: 3.1.0
+info:
+  title: AgriCore Work Service API
+  version: 1.0.0
+  description: Field work tasks assignment and completion
+servers:
+  - url: http://localhost:8085
+paths:
+  /api/v1/work-tasks:
+    post:
+      summary: Create work task
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, cropCycleId, plotId, taskType, title]
+              properties:
+                code: { type: string }
+                cropCycleId: { type: string, format: uuid }
+                plotId: { type: string, format: uuid }
+                taskType: { type: string }
+                title: { type: string }
+                priority: { type: string }
+      responses:
+        '201':
+          description: Created
+  /api/v1/work-tasks/{id}/assign:
+    post:
+      summary: Assign task to employee
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assignedEmployeeId]
+              properties:
+                assignedEmployeeId: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Assigned
+  /api/v1/work-tasks/{id}/complete:
+    post:
+      summary: Complete task
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                notes: { type: string }
+      responses:
+        '200':
+          description: Completed
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

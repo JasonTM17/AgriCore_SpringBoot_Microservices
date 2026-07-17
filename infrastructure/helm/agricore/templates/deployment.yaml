@@ -1,8 +1,22 @@
-{{- range $name, $svc := dict
+{{- /*
+  All AgriCore microservices: one Deployment + Service each.
+  Non-root, probes on Actuator, secrets from K8s Secret only.
+*/ -}}
+{{- $services := dict
   "identity" .Values.identity
   "farm" .Values.farm
+  "crop-catalog" .Values.cropCatalog
+  "crop-cycle" .Values.cropCycle
+  "work" .Values.work
+  "inventory" .Values.inventory
+  "harvest" .Values.harvest
+  "notification" .Values.notification
+  "iot" .Values.iot
+  "sales" .Values.sales
+  "traceability" .Values.traceability
   "gateway" .Values.gateway
-}}
+-}}
+{{- range $name, $svc := $services }}
 {{- if and $svc $svc.enabled }}
 ---
 apiVersion: apps/v1
@@ -12,6 +26,7 @@ metadata:
   labels:
     app.kubernetes.io/name: agricore-{{ $name }}
     app.kubernetes.io/part-of: agricore
+    app.kubernetes.io/component: microservice
 spec:
   replicas: {{ $svc.replicaCount | default 1 }}
   selector:
@@ -21,6 +36,7 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: agricore-{{ $name }}
+        app.kubernetes.io/part-of: agricore
     spec:
       securityContext:
         runAsNonRoot: true
@@ -51,6 +67,14 @@ spec:
                   key: password
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: {{ $.Values.kafka.bootstrapServers | quote }}
+            - name: JWT_ISSUER
+              value: {{ $.Values.jwtIssuer | quote }}
+            - name: IDENTITY_JWKS_URI
+              value: {{ $.Values.identityJwksUri | quote }}
+            - name: AGRICORE_DEV_MODE
+              value: "false"
+            - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
+              value: "5"
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: false
@@ -60,14 +84,16 @@ spec:
             httpGet:
               path: /actuator/health/liveness
               port: http
-            initialDelaySeconds: 40
+            initialDelaySeconds: 45
             periodSeconds: 15
+            failureThreshold: 5
           readinessProbe:
             httpGet:
               path: /actuator/health/readiness
               port: http
-            initialDelaySeconds: 20
+            initialDelaySeconds: 25
             periodSeconds: 10
+            failureThreshold: 6
           resources:
             {{- toYaml ($svc.resources | default (dict "requests" (dict "cpu" "100m" "memory" "256Mi") "limits" (dict "cpu" "500m" "memory" "512Mi"))) | nindent 12 }}
 ---
@@ -77,6 +103,7 @@ metadata:
   name: agricore-{{ $name }}
   labels:
     app.kubernetes.io/name: agricore-{{ $name }}
+    app.kubernetes.io/part-of: agricore
 spec:
   selector:
     app.kubernetes.io/name: agricore-{{ $name }}

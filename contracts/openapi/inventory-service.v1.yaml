@@ -1,0 +1,105 @@
+openapi: 3.1.0
+info:
+  title: AgriCore Inventory Service API
+  version: 1.0.0
+  description: Warehouses, stock movements, reservations; Kafka HarvestCompleted consumer is idempotent
+servers:
+  - url: http://localhost:8086
+paths:
+  /api/v1/inventory/warehouses:
+    post:
+      summary: Create warehouse
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name]
+              properties:
+                code: { type: string }
+                name: { type: string }
+      responses:
+        '201':
+          description: Created
+  /api/v1/inventory/reservations:
+    post:
+      summary: Reserve stock (optimistic concurrency)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [inventoryItemId, quantity, referenceType, referenceId]
+              properties:
+                inventoryItemId: { type: string, format: uuid }
+                quantity: { type: number }
+                referenceType: { type: string }
+                referenceId: { type: string }
+      responses:
+        '201':
+          description: Reserved
+        '409':
+          description: Insufficient stock
+  /api/v1/inventory/reservations/{id}/release:
+    post:
+      summary: Release reservation
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Released
+  /api/v1/inventory/events/harvest-completed:
+    post:
+      summary: Sync adapter for HarvestCompleted (same path as Kafka consumer)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HarvestCompletedCommand'
+      responses:
+        '200':
+          description: Stock applied (idempotent on eventId)
+  /api/v1/inventory/items/{itemId}:
+    get:
+      summary: Get inventory item
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Item with onHand and reserved quantities
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    HarvestCompletedCommand:
+      type: object
+      required: [eventId, harvestBatchId, warehouseId, productCode, netWeightKg]
+      properties:
+        eventId: { type: string }
+        harvestBatchId: { type: string, format: uuid }
+        warehouseId: { type: string, format: uuid }
+        productCode: { type: string }
+        netWeightKg: { type: number }
+        qualityGrade: { type: string }

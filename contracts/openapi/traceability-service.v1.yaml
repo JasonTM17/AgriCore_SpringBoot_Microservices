@@ -1,0 +1,76 @@
+openapi: 3.1.0
+info:
+  title: AgriCore Traceability Service API
+  version: 1.0.0
+  description: Local read model + public QR lookup (no secrets/staff costs)
+servers:
+  - url: http://localhost:8092
+paths:
+  /public/api/v1/traceability/{traceabilityCode}:
+    get:
+      summary: Public product origin lookup
+      parameters:
+        - in: path
+          name: traceabilityCode
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Public-safe fields only
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicTraceabilityResponse'
+        '404':
+          description: Not found
+  /api/v1/traceability/batches:
+    post:
+      summary: Internal projection writer (also fed by Kafka HarvestCompleted)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [eventId, harvestBatchId, productName, harvestDate]
+              properties:
+                eventId: { type: string }
+                harvestBatchId: { type: string, format: uuid }
+                cropCycleId: { type: string, format: uuid }
+                plotId: { type: string, format: uuid }
+                farmName: { type: string }
+                plotCode: { type: string }
+                productName: { type: string }
+                varietyName: { type: string }
+                plantingDate: { type: string, format: date }
+                harvestDate: { type: string, format: date }
+                qualityGrade: { type: string }
+                netWeightKg: { type: number }
+                careSummary: { type: string }
+      responses:
+        '201':
+          description: Created
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    PublicTraceabilityResponse:
+      type: object
+      properties:
+        traceabilityCode: { type: string }
+        productName: { type: string }
+        varietyName: { type: string }
+        farmName: { type: string }
+        plotCode: { type: string }
+        plantingDate: { type: string, format: date }
+        harvestDate: { type: string, format: date }
+        qualityGrade: { type: string }
+        netWeightKg: { type: number }
+        careSummary: { type: string }
+        qrUrl: { type: string }
+        batchLabel: { type: string }
