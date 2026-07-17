@@ -17,6 +17,8 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
+      - name: Ensure Maven wrapper is executable
+        run: chmod +x mvnw
       - name: Build and test (all microservices modules)
         run: ./mvnw -B verify
       - name: Upload surefire reports
@@ -37,7 +39,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         # Hard fail on secret findings (portfolio security gate)
-
 
   compose-config:
     runs-on: ubuntu-latest
