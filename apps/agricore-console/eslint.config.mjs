@@ -24,18 +24,5 @@ export default tseslint.config(
     },
   },
   reactHooks.configs.flat.recommended,
-  {
-    ...reactRefresh.configs.vite,
-    rules: {
-      ...reactRefresh.configs.vite.rules,
-      "react-refresh/only-export-components": "off",
-    },
-  },
-  {
-    files: ["src/lib/auth/**/*.{ts,tsx}"],
-    rules: {
-      // Access-token getters intentionally close over a mutable ref for request-time reads.
-      "react-hooks/refs": "off",
-    },
-  },
+  reactRefresh.configs.vite,
 );
