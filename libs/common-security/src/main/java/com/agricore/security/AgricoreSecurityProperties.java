@@ -20,6 +20,11 @@ public class AgricoreSecurityProperties {
      */
     private String issuer = "https://agricore.local/identity";
 
+    /**
+     * Expected JWT audience claim (identity issues {@code agricore-api}).
+     */
+    private String audience = "agricore-api";
+
     public boolean isDevMode() {
         return devMode;
     }
@@ -49,5 +54,13 @@ public class AgricoreSecurityProperties {
 
     public void setIssuer(String issuer) {
         this.issuer = issuer;
+    }
+
+    public String getAudience() {
+        return audience;
+    }
+
+    public void setAudience(String audience) {
+        this.audience = audience;
     }
 }

@@ -15,7 +15,6 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
@@ -37,7 +36,10 @@ public class DomainServiceSecurityConfig {
     @ConditionalOnMissingBean(JwtDecoder.class)
     JwtDecoder jwtDecoder(AgricoreSecurityProperties properties) {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(properties.getJwkSetUri()).build();
-        decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(properties.getIssuer()));
+        decoder.setJwtValidator(AgricoreJwtValidators.withIssuerAndAudience(
+                properties.getIssuer(),
+                properties.getAudience()
+        ));
         return decoder;
     }
 
