@@ -19,6 +19,8 @@ import com.agricore.identity.infrastructure.persistence.entity.UserEntity;
 import com.agricore.identity.infrastructure.security.JwtTokenService;
 import com.agricore.identity.infrastructure.security.LoginRateLimiter;
 import com.agricore.identity.infrastructure.security.TokenHashing;
+import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +34,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class AuthApplicationService {
+
+    private static final String EMAIL_UNIQUE_CONSTRAINT = "uk_users_email";
 
     /**
      * Concurrent legitimate refresh of the same active token can lose the row lock
@@ -95,7 +99,14 @@ public class AuthApplicationService {
                 .orElseThrow(() -> new IdentityException("ROLE_MISSING", "Default role not seeded", 500));
         user.setRoles(Set.of(defaultRole));
 
-        userRepository.save(user);
+        try {
+            userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException exception) {
+            if (!violatesEmailUniqueConstraint(exception)) {
+                throw exception;
+            }
+            throw new IdentityException("EMAIL_ALREADY_EXISTS", "Email is already registered", 409);
+        }
         return toUserResponse(user);
     }
 
@@ -266,6 +277,16 @@ public class AuthApplicationService {
 
     private static List<String> roleNames(UserEntity user) {
         return user.getRoles().stream().map(RoleEntity::getCode).sorted().collect(Collectors.toList());
+    }
+
+    private static boolean violatesEmailUniqueConstraint(Throwable exception) {
+        for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+            if (cause instanceof ConstraintViolationException violation
+                    && EMAIL_UNIQUE_CONSTRAINT.equalsIgnoreCase(violation.getConstraintName())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static UserResponse toUserResponse(UserEntity user) {
