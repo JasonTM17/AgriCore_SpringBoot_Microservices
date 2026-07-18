@@ -1,5 +1,6 @@
 package com.agricore.gateway.infrastructure.security;
 
+import com.agricore.security.AgricoreJwtValidators;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,7 +24,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Gateway-level JWT validation against Identity Service JWKS.
+ * Gateway-level JWT validation against Identity Service JWKS (issuer + audience).
  * Public auth, JWKS, actuator, and public traceability remain open.
  */
 @Configuration
@@ -35,6 +36,12 @@ public class GatewaySecurityConfig {
 
     @Value("${agricore.security.jwt-enabled:true}")
     private boolean jwtEnabled;
+
+    @Value("${agricore.security.issuer:https://agricore.local/identity}")
+    private String issuer;
+
+    @Value("${agricore.security.audience:agricore-api}")
+    private String audience;
 
     @Bean
     SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
@@ -67,7 +74,9 @@ public class GatewaySecurityConfig {
 
     @Bean
     ReactiveJwtDecoder reactiveJwtDecoder() {
-        return NimbusReactiveJwtDecoder.withJwkSetUri(jwkSetUri).build();
+        NimbusReactiveJwtDecoder decoder = NimbusReactiveJwtDecoder.withJwkSetUri(jwkSetUri).build();
+        decoder.setJwtValidator(AgricoreJwtValidators.withIssuerAndAudience(issuer, audience));
+        return decoder;
     }
 
     private Converter<Jwt, Mono<AbstractAuthenticationToken>> jwtAuthConverter() {

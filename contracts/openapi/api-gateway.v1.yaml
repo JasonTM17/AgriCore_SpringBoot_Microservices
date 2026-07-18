@@ -1,0 +1,219 @@
+openapi: 3.1.0
+info:
+  title: AgriCore API Gateway
+  version: 1.0.0
+  description: |
+    Edge routes for the AgriCore microservices portfolio.
+    The gateway validates JWT (RS256 via Identity JWKS) then proxies path prefixes
+    to domain services. This contract documents the public/edge surface — domain
+    request/response schemas live in per-service OpenAPI files under contracts/openapi/.
+servers:
+  - url: http://localhost:8080
+    description: Local gateway
+paths:
+  /api/v1/auth/{proxy+}:
+    description: Proxied to identity-service (register, login, refresh, logout)
+    parameters:
+      - name: proxy+
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      summary: Auth mutations (public)
+      security: []
+      responses:
+        '200': { description: Auth response from identity }
+        '201': { description: Registered }
+  /.well-known/jwks.json:
+    get:
+      summary: JWKS published by identity (public)
+      security: []
+      responses:
+        '200': { description: JWK set }
+  /api/v1/users/{proxy+}:
+    parameters:
+      - name: proxy+
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      summary: User APIs via identity
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK }
+  /api/v1/admin/{proxy+}:
+    parameters:
+      - name: proxy+
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      summary: Admin APIs via identity
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK }
+  /api/v1/farms/{proxy+}:
+    parameters:
+      - name: proxy+
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      summary: Farms and nested plots (farm-service)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK }
+    post:
+      summary: Create farm/plot
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201': { description: Created }
+  /api/v1/plots/{proxy+}:
+    parameters:
+      - name: proxy+
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      summary: Plots (farm-service)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK }
+  /api/v1/crops/{proxy+}:
+    parameters:
+      - name: proxy+
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      summary: Crop catalog
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK }
+  /api/v1/crop-cycles/{proxy+}:
+    parameters:
+      - name: proxy+
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      summary: Crop cycles
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK }
+    post:
+      summary: Create cycle or change stage
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK }
+        '201': { description: Created }
+        '409': { description: Illegal stage or overlap }
+  /api/v1/work-tasks/{proxy+}:
+    parameters:
+      - name: proxy+
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      summary: Work tasks
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK }
+  /api/v1/inventory/{proxy+}:
+    parameters:
+      - name: proxy+
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      summary: Inventory
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK }
+  /api/v1/harvests/{proxy+}:
+    parameters:
+      - name: proxy+
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      summary: Harvest batches (outbox → Kafka)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201': { description: Created }
+  /api/v1/traceability/{proxy+}:
+    parameters:
+      - name: proxy+
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      summary: Traceability batch write (role-gated at service)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201': { description: Created }
+        '403': { description: Forbidden }
+  /public/api/v1/traceability/{traceabilityCode}:
+    get:
+      summary: Public QR lookup (no auth)
+      security: []
+      parameters:
+        - name: traceabilityCode
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Public batch projection }
+        '404': { description: Not found }
+  /api/v1/iot/{proxy+}:
+    parameters:
+      - name: proxy+
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      summary: IoT devices and readings
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK }
+  /api/v1/sales/{proxy+}:
+    parameters:
+      - name: proxy+
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      summary: Sales customers/orders/reconcile
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK }
+    post:
+      summary: Place order or reconcile stuck reservation
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Reconciled }
+        '201': { description: Order created }
+  /api/v1/notifications/{proxy+}:
+    parameters:
+      - name: proxy+
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      summary: Notifications
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK }
+  /actuator/health:
+    get:
+      summary: Gateway health
+      security: []
+      responses:
+        '200': { description: Health }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: RS256 access token from identity; aud=agricore-api, iss=JWT_ISSUER
