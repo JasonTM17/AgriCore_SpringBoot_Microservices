@@ -13,6 +13,7 @@ import {
   PlaceholderModulePage,
 } from "../features/system/status-pages";
 import type { NavItem } from "../lib/auth/roles";
+import { sanitizeInternalRedirect } from "../lib/auth/redirects";
 import { AuthenticatedLayout, RoleGate } from "./auth-gates";
 
 const rootRoute = createRootRoute({
@@ -24,7 +25,7 @@ const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/login",
   validateSearch: (search: Record<string, unknown>) => ({
-    redirect: typeof search.redirect === "string" ? search.redirect : undefined,
+    redirect: sanitizeInternalRedirect(search.redirect),
   }),
   component: LoginPage,
 });

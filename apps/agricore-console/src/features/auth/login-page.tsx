@@ -1,37 +1,10 @@
 import { Navigate, useNavigate, useSearch } from "@tanstack/react-router";
-import { type FormEvent, useState } from "react";
-import { z } from "zod";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
-import { ApiClientError } from "../../lib/api/errors";
 import { useSession } from "../../lib/auth/session";
-
-const loginSchema = z.object({
-  email: z.email("Email không hợp lệ"),
-  password: z.string().min(8, "Mật khẩu tối thiểu 8 ký tự"),
-});
-
-function mapLoginError(error: unknown): string {
-  if (error instanceof ApiClientError) {
-    switch (error.code) {
-      case "INVALID_CREDENTIALS":
-        return "Email hoặc mật khẩu không đúng.";
-      case "ACCOUNT_LOCKED":
-        return "Tài khoản tạm khóa sau nhiều lần đăng nhập sai. Thử lại sau 15 phút.";
-      case "ACCOUNT_DISABLED":
-        return "Tài khoản đã bị vô hiệu hóa. Liên hệ quản trị viên.";
-      case "RATE_LIMITED":
-        return "Quá nhiều lần thử. Vui lòng chờ rồi thử lại.";
-      case "ORIGIN_FORBIDDEN":
-      case "ORIGIN_REQUIRED":
-        return "Nguồn gốc trình duyệt không được phép đăng nhập.";
-      default:
-        return error.message || "Không thể đăng nhập.";
-    }
-  }
-  return "Không thể kết nối máy chủ. Kiểm tra mạng và thử lại.";
-}
+import { loginSchema, mapLoginError } from "./login-validation";
 
 export function LoginPage() {
   const { login, status } = useSession();
@@ -42,6 +15,16 @@ export function LoginPage() {
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const formErrorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (formError) {
+      formErrorRef.current?.focus();
+    }
+  }, [formError]);
 
   if (status === "authenticated") {
     return <Navigate to={search.redirect || "/"} replace />;
@@ -61,6 +44,11 @@ export function LoginPage() {
         }
       }
       setFieldErrors(next);
+      if (next.email) {
+        emailRef.current?.focus();
+      } else {
+        passwordRef.current?.focus();
+      }
       return;
     }
 
@@ -70,6 +58,7 @@ export function LoginPage() {
       await login(parsed.data);
       await navigate({ to: search.redirect || "/" });
     } catch (error) {
+      setPassword("");
       setFormError(mapLoginError(error));
     } finally {
       setSubmitting(false);
@@ -77,7 +66,7 @@ export function LoginPage() {
   }
 
   return (
-    <main className="grid min-h-screen lg:grid-cols-2">
+    <main className="grid min-h-dvh lg:grid-cols-[45fr_55fr]">
       <section className="hidden bg-forest-900 px-12 py-16 text-white lg:flex lg:flex-col lg:justify-between">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-harvest-100">
@@ -94,58 +83,101 @@ export function LoginPage() {
       </section>
 
       <section className="grid place-items-center bg-canvas px-6 py-12">
-        <form
-          onSubmit={(event) => void onSubmit(event)}
-          className="w-full max-w-md rounded-card border border-border bg-surface p-8 shadow-sm"
-          noValidate
-          aria-labelledby="login-title"
-        >
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-harvest-600">
-            Đăng nhập
-          </p>
-          <h2 id="login-title" className="mt-2 text-2xl font-bold text-ink">
-            Chào mừng trở lại
-          </h2>
-          <p className="mt-2 text-sm text-muted">
-            Sử dụng tài khoản nội bộ AgriCore. Refresh token không bao giờ lưu trong JavaScript.
-          </p>
+        <div className="w-full max-w-[440px]">
+          <form
+            onSubmit={(event) => void onSubmit(event)}
+            className="rounded-card border border-border bg-surface p-6 shadow-sm sm:p-8"
+            noValidate
+            aria-labelledby="login-title"
+          >
+            <p className="mb-6 text-base font-bold text-forest-900 lg:hidden">AgriCore</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-harvest-600">
+              Đăng nhập
+            </p>
+            <h2 id="login-title" className="mt-2 text-2xl font-bold text-ink">
+              Chào mừng trở lại
+            </h2>
+            <p className="mt-2 text-sm text-muted">
+              Sử dụng tài khoản nội bộ AgriCore. Refresh token không bao giờ lưu trong JavaScript.
+            </p>
 
-          <div className="mt-8 grid gap-4">
-            <Input
-              label="Email"
-              name="email"
-              type="email"
-              autoComplete="username"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              error={fieldErrors.email}
-              required
-            />
-            <Input
-              label="Mật khẩu"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              error={fieldErrors.password}
-              required
-            />
-          </div>
-
-          {formError ? (
-            <div
-              className="mt-4 rounded-control border border-danger/30 bg-danger/5 px-3 py-2 text-sm text-danger"
-              role="alert"
-            >
-              {formError}
+            <div className="mt-8 grid gap-4">
+              <Input
+                ref={emailRef}
+                label="Email"
+                name="email"
+                type="email"
+                autoComplete="username"
+                value={email}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+                  if (fieldErrors.email) {
+                    setFieldErrors((current) => {
+                      const next = { ...current };
+                      delete next.email;
+                      return next;
+                    });
+                  }
+                }}
+                error={fieldErrors.email}
+                required
+              />
+              <Input
+                ref={passwordRef}
+                label="Mật khẩu"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                value={password}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                  if (fieldErrors.password) {
+                    setFieldErrors((current) => {
+                      const next = { ...current };
+                      delete next.password;
+                      return next;
+                    });
+                  }
+                }}
+                error={fieldErrors.password}
+                endAdornment={
+                  <button
+                    type="button"
+                    className="h-9 rounded-control px-2 text-xs font-semibold text-forest-700 hover:bg-forest-50"
+                    aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                    aria-pressed={showPassword}
+                    onClick={() => setShowPassword((visible) => !visible)}
+                  >
+                    {showPassword ? "Ẩn" : "Hiện"}
+                  </button>
+                }
+                required
+              />
             </div>
-          ) : null}
 
-          <Button type="submit" className="mt-6 w-full" disabled={submitting || status === "bootstrapping"}>
-            {submitting ? "Đang đăng nhập..." : "Đăng nhập"}
-          </Button>
-        </form>
+            {formError ? (
+              <div
+                ref={formErrorRef}
+                className="mt-4 rounded-control border border-danger/30 bg-danger/5 px-3 py-2 text-sm text-danger"
+                role="alert"
+                tabIndex={-1}
+              >
+                {formError}
+              </div>
+            ) : null}
+
+            <Button
+              type="submit"
+              className="mt-6 w-full"
+              disabled={submitting || status === "bootstrapping"}
+            >
+              <span aria-live="polite">{submitting ? "Đang đăng nhập..." : "Đăng nhập"}</span>
+            </Button>
+          </form>
+          <aside className="mt-4 rounded-control border border-warning/30 bg-harvest-100/50 px-4 py-3 text-sm leading-6 text-soil-700">
+            Tài khoản sẽ tạm khóa sau 5 lần đăng nhập sai trong 15 phút. Liên hệ quản trị viên nếu cần hỗ trợ.
+          </aside>
+        </div>
       </section>
     </main>
   );
