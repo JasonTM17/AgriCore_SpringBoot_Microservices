@@ -301,13 +301,14 @@ services:
       # Compose DNS name (Helm overrides to agricore-gateway:8080)
       GATEWAY_UPSTREAM: api-gateway:8080
     ports:
-      - "5173:80"
+      # Host 5173 → container 8080 (nginx-unprivileged)
+      - "5173:8080"
     healthcheck:
       interval: 15s
       timeout: 5s
       retries: 8
       start_period: 20s
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/ | grep -qi html || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ | grep -qi html || exit 1"]
 
   api-gateway:
     build:

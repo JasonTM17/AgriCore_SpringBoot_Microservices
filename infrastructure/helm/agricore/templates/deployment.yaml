@@ -42,7 +42,12 @@ spec:
     spec:
       securityContext:
         runAsNonRoot: true
+        {{- if eq $name "console" }}
+        # nginx-unprivileged image default user
+        runAsUser: {{ $svc.runAsUser | default 101 }}
+        {{- else }}
         runAsUser: 10001
+        {{- end }}
         seccompProfile:
           type: RuntimeDefault
       containers:

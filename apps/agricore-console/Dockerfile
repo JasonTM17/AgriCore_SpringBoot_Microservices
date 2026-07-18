@@ -7,11 +7,12 @@ RUN pnpm install --frozen-lockfile
 COPY apps/agricore-console apps/agricore-console
 RUN pnpm --filter @agricore/console build
 
-FROM nginx:1.27-alpine
-# Official image envsubst of /etc/nginx/templates/*.template → conf.d/
+# Non-root nginx: listens on 8080, runs as uid 101, writable conf.d for envsubst.
+FROM nginxinc/nginx-unprivileged:1.27-alpine
 ENV GATEWAY_UPSTREAM=api-gateway:8080
-COPY apps/agricore-console/nginx.conf.template /etc/nginx/templates/default.conf.template
-COPY --from=build /app/apps/agricore-console/dist /usr/share/nginx/html
-EXPOSE 80
+COPY --chown=nginx:nginx apps/agricore-console/nginx.conf.template /etc/nginx/templates/default.conf.template
+COPY --from=build --chown=nginx:nginx /app/apps/agricore-console/dist /usr/share/nginx/html
+USER 101
+EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget -qO- http://127.0.0.1:80/ >/dev/null || exit 1
+  CMD wget -qO- http://127.0.0.1:8080/ >/dev/null || exit 1

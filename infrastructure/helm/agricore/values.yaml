@@ -88,7 +88,10 @@ console:
   enabled: true
   replicaCount: 1
   image: nguyenson1710/agricore-console
-  port: 80
+  # Matches nginxinc/nginx-unprivileged default listen port
+  port: 8080
+  # Image runs as nginx uid 101 (not the Java services' 10001)
+  runAsUser: 101
   # DNS name of the gateway Service in-cluster (not Compose's api-gateway)
   gatewayUpstream: agricore-gateway:8080
 
