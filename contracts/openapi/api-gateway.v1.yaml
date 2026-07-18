@@ -1,15 +1,17 @@
 openapi: 3.1.0
 info:
   title: AgriCore API Gateway
-  version: 1.1.1
+  version: 1.2.0
   description: |
     Edge routes for the AgriCore microservices portfolio.
     The gateway validates JWT (RS256 via Identity JWKS) then proxies path prefixes
-    to domain services. This contract documents the public/edge surface — domain
-    request/response schemas live in per-service OpenAPI files under contracts/openapi/.
+    to domain services. This contract documents the public edge surface. Verified
+    domain operations are incorporated from per-service OpenAPI contracts.
 servers:
   - url: http://localhost:8080
     description: Local gateway
+security:
+  - bearerAuth: []
 paths:
   /api/v1/auth/{proxy+}:
     description: Proxied to identity-service (register, login, refresh, logout)
@@ -77,33 +79,14 @@ paths:
         '403': { description: System administrator role required }
         '404': { description: Resource not found }
         '415': { description: Content-Type is not supported }
-  /api/v1/farms/{proxy+}:
-    parameters:
-      - name: proxy+
-        in: path
-        required: true
-        schema: { type: string }
-    get:
-      summary: Farms and nested plots (farm-service)
-      security: [{ bearerAuth: [] }]
-      responses:
-        '200': { description: OK }
-    post:
-      summary: Create farm/plot
-      security: [{ bearerAuth: [] }]
-      responses:
-        '201': { description: Created }
-  /api/v1/plots/{proxy+}:
-    parameters:
-      - name: proxy+
-        in: path
-        required: true
-        schema: { type: string }
-    get:
-      summary: Plots (farm-service)
-      security: [{ bearerAuth: [] }]
-      responses:
-        '200': { description: OK }
+  /api/v1/farms:
+    $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1farms'
+  /api/v1/farms/{farmId}:
+    $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1farms~1{farmId}'
+  /api/v1/farms/{farmId}/plots:
+    $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1farms~1{farmId}~1plots'
+  /api/v1/plots/{plotId}:
+    $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1plots~1{plotId}'
   /api/v1/crops/{proxy+}:
     parameters:
       - name: proxy+
@@ -162,7 +145,7 @@ paths:
         required: true
         schema: { type: string }
     post:
-      summary: Harvest batches (outbox → Kafka)
+      summary: Harvest batches (outbox to Kafka)
       security: [{ bearerAuth: [] }]
       responses:
         '201': { description: Created }
