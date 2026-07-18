@@ -8,18 +8,28 @@ import com.agricore.farm.api.response.FarmResponse;
 import com.agricore.farm.api.response.PlotResponse;
 import com.agricore.farm.application.service.FarmApplicationService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/farms")
+@Validated
 public class FarmController {
+
+    private static final String FARM_STATUS_PATTERN = "(?i)ACTIVE|INACTIVE|MAINTENANCE";
+    private static final String FARM_SORT_PATTERN =
+            "(code|name|province|totalAreaHa|status|createdAt|updatedAt),(?i:asc|desc)";
 
     private final FarmApplicationService farmService;
 
@@ -36,14 +46,14 @@ public class FarmController {
     @GetMapping
     @PreAuthorize("isAuthenticated()")
     public PageResponse<FarmResponse> list(
-            @RequestParam(required = false) String province,
-            @RequestParam(required = false) String status,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
-            @RequestParam(defaultValue = "createdAt,desc") String sort
+            @RequestParam(required = false) @Size(max = 120) String province,
+            @RequestParam(required = false) @Pattern(regexp = FARM_STATUS_PATTERN) String status,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
+            @RequestParam(defaultValue = "createdAt,desc") @Pattern(regexp = FARM_SORT_PATTERN) String sort
     ) {
         Sort springSort = parseSort(sort);
-        return farmService.listFarms(province, status, PageRequest.of(page, Math.min(size, 100), springSort));
+        return farmService.listFarms(province, status, PageRequest.of(page, size, springSort));
     }
 
     @GetMapping("/{farmId}")
@@ -71,10 +81,10 @@ public class FarmController {
     @PreAuthorize("isAuthenticated()")
     public PageResponse<PlotResponse> listPlots(
             @PathVariable UUID farmId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
     ) {
-        return farmService.listPlots(farmId, PageRequest.of(page, Math.min(size, 100), Sort.by("code").ascending()));
+        return farmService.listPlots(farmId, PageRequest.of(page, size, Sort.by("code").ascending()));
     }
 
     private static Sort parseSort(String sort) {
