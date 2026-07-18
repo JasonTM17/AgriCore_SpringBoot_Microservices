@@ -21,7 +21,7 @@ interface RequestOptions {
   signal?: AbortSignal;
   timeoutMs?: number;
   headers?: Record<string, string>;
-  /** Skip 401→refresh→retry (used by refresh itself). */
+  /** Skip 401 -> refresh -> retry (used by refresh itself). */
   skipAuthRefresh?: boolean;
 }
 
@@ -38,7 +38,7 @@ export class ApiClient {
   private readonly onSessionCleared: SessionClearedHandler | undefined;
   private readonly fetchImpl: typeof fetch;
   private readonly defaultTimeoutMs: number;
-  private refreshPromise: Promise<boolean> | null = null;
+  private refreshPromise: Promise<WebAuthTokensResponse> | null = null;
 
   constructor(options: ApiClientOptions) {
     this.baseUrl = options.baseUrl ?? "";
@@ -65,6 +65,23 @@ export class ApiClient {
   }
 
   async webRefresh(signal?: AbortSignal): Promise<WebAuthTokensResponse> {
+    // Callers with an explicit cancellation contract own a separate request.
+    // Bootstrap and auth-retry calls share one request so StrictMode cannot
+    // rotate the HttpOnly refresh cookie twice.
+    if (signal) {
+      return this.performWebRefresh(signal);
+    }
+
+    if (!this.refreshPromise) {
+      this.refreshPromise = this.performWebRefresh().finally(() => {
+        this.refreshPromise = null;
+      });
+    }
+
+    return this.refreshPromise;
+  }
+
+  private async performWebRefresh(signal?: AbortSignal): Promise<WebAuthTokensResponse> {
     const options: RequestOptions = {
       method: "POST",
       auth: false,
@@ -189,14 +206,11 @@ export class ApiClient {
   }
 
   private async refreshSingleFlight(): Promise<boolean> {
-    if (!this.refreshPromise) {
-      this.refreshPromise = this.webRefresh()
-        .then(() => true)
-        .catch(() => false)
-        .finally(() => {
-          this.refreshPromise = null;
-        });
+    try {
+      await this.webRefresh();
+      return true;
+    } catch {
+      return false;
     }
-    return this.refreshPromise;
   }
 }

@@ -141,6 +141,62 @@ describe("ApiClient", () => {
     expect(stored).toBe("fresh");
   });
 
+  it("single-flights concurrent explicit web refresh attempts", async () => {
+    let stored: string | null = null;
+    let refreshCalls = 0;
+
+    const fetchImpl: FetchFn = vi.fn((input: RequestInfo | URL) => {
+      const url = requestUrl(input);
+      if (!url.endsWith("/api/v1/auth/web/refresh")) {
+        return Promise.resolve(
+          jsonResponse(404, {
+            status: 404,
+            error: "Not Found",
+            code: "NOT_FOUND",
+            message: "nope",
+          }),
+        );
+      }
+
+      refreshCalls += 1;
+      return new Promise<Response>((resolve) => {
+        setTimeout(() => {
+          resolve(
+            jsonResponse(200, {
+              accessToken: "fresh",
+              tokenType: "Bearer",
+              expiresIn: 900,
+              user: {
+                id: "11111111-1111-1111-1111-111111111111",
+                email: "a@agricore.test",
+                fullName: "A",
+                status: "ACTIVE",
+                roles: ["FIELD_WORKER"],
+                lastLoginAt: null,
+                createdAt: "2026-07-18T00:00:00Z",
+              },
+            }),
+          );
+        }, 20);
+      });
+    });
+
+    const client = new ApiClient({
+      getAccessToken: () => stored,
+      setAccessToken: (token) => {
+        stored = token;
+      },
+      fetchImpl,
+    });
+
+    const [first, second] = await Promise.all([client.webRefresh(), client.webRefresh()]);
+
+    expect(first.accessToken).toBe("fresh");
+    expect(second.accessToken).toBe("fresh");
+    expect(refreshCalls).toBe(1);
+    expect(stored).toBe("fresh");
+  });
+
   it("maps API error bodies", async () => {
     const fetchImpl: FetchFn = () =>
       Promise.resolve(
