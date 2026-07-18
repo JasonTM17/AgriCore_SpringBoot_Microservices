@@ -35,17 +35,26 @@ public class FarmApplicationService {
     private final PlotJpaRepository plotRepository;
     private final OutboxJpaRepository outboxRepository;
     private final ObjectMapper objectMapper;
+    private final FarmAuthorizationService authorizationService;
+    private final FarmMembershipApplicationService membershipService;
+    private final FarmResourceResolver resourceResolver;
 
     public FarmApplicationService(
             FarmJpaRepository farmRepository,
             PlotJpaRepository plotRepository,
             OutboxJpaRepository outboxRepository,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            FarmAuthorizationService authorizationService,
+            FarmMembershipApplicationService membershipService,
+            FarmResourceResolver resourceResolver
     ) {
         this.farmRepository = farmRepository;
         this.plotRepository = plotRepository;
         this.outboxRepository = outboxRepository;
         this.objectMapper = objectMapper;
+        this.authorizationService = authorizationService;
+        this.membershipService = membershipService;
+        this.resourceResolver = resourceResolver;
     }
 
     @Transactional
@@ -69,6 +78,8 @@ public class FarmApplicationService {
         farm.setCreatedAt(now);
         farm.setUpdatedAt(now);
         farmRepository.save(farm);
+        farmRepository.flush();
+        membershipService.grantCreator(farm.getId());
 
         enqueueEvent("Farm", farm.getId().toString(), EventTypes.FARM_CREATED, "agricore.farm.events", farmPayload(farm));
         return toFarmResponse(farm);
@@ -76,14 +87,14 @@ public class FarmApplicationService {
 
     @Transactional(readOnly = true)
     public PageResponse<FarmResponse> listFarms(String province, String status, Pageable pageable) {
-        Page<FarmEntity> page;
-        if (StringUtils.hasText(status)) {
-            page = farmRepository.findByStatus(FarmStatus.valueOf(status.toUpperCase()), pageable);
-        } else if (StringUtils.hasText(province)) {
-            page = farmRepository.findByProvinceIgnoreCaseContaining(province, pageable);
-        } else {
-            page = farmRepository.findAll(pageable);
-        }
+        String provinceFilter = StringUtils.hasText(province) ? province.strip() : null;
+        FarmStatus statusFilter = StringUtils.hasText(status)
+                ? FarmStatus.valueOf(status.toUpperCase())
+                : null;
+        FarmAuthorizationService.CurrentFarmActor actor = authorizationService.currentActor();
+        Page<FarmEntity> page = actor.systemAdmin()
+                ? farmRepository.search(provinceFilter, statusFilter, pageable)
+                : farmRepository.searchAccessible(actor.subject(), provinceFilter, statusFilter, pageable);
         return PageResponse.of(
                 page.getContent().stream().map(this::toFarmResponse).toList(),
                 page.getNumber(),
@@ -205,13 +216,13 @@ public class FarmApplicationService {
     }
 
     private FarmEntity requireFarm(UUID farmId) {
+        authorizationService.requireAccess(farmId);
         return farmRepository.findById(farmId)
                 .orElseThrow(() -> new FarmException("FARM_NOT_FOUND", "Farm not found", 404));
     }
 
     private PlotEntity requirePlot(UUID plotId) {
-        return plotRepository.findById(plotId)
-                .orElseThrow(() -> new FarmException("PLOT_NOT_FOUND", "Plot not found", 404));
+        return resourceResolver.requireAccessiblePlot(plotId);
     }
 
     private void enqueueEvent(String aggregateType, String aggregateId, String eventType, String topic, ObjectNode payload) {
