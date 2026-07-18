@@ -18,10 +18,12 @@ describe("mapLoginError", () => {
     const error = new ApiClientError(
       401,
       {
+        timestamp: "2026-07-18T00:00:00Z",
         status: 401,
         error: "Unauthorized",
         code,
         message: "internal server detail",
+        path: "/api/v1/auth/web/login",
       },
       "fallback",
     );

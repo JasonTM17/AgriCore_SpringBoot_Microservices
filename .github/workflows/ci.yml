@@ -28,6 +28,32 @@ jobs:
           name: surefire-reports
           path: "**/target/surefire-reports/**"
 
+  frontend-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.0.9
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: pnpm
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify generated API contracts
+        run: pnpm contracts:check
+      - name: Lint frontend
+        run: pnpm lint
+      - name: Typecheck frontend
+        run: pnpm typecheck
+      - name: Test frontend
+        run: pnpm test -- --run
+      - name: Build frontend
+        run: pnpm build
+
   secret-scan:
     runs-on: ubuntu-latest
     steps:

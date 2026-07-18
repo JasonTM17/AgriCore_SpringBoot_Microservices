@@ -8,10 +8,12 @@
     "pnpm": ">=11.0.0"
   },
   "scripts": {
-    "dev": "pnpm --filter @agricore/console dev",
-    "lint": "pnpm --filter @agricore/console lint",
-    "typecheck": "pnpm --filter @agricore/console typecheck",
-    "test": "pnpm --filter @agricore/console test",
-    "build": "pnpm --filter @agricore/console build"
+    "dev": "pnpm --filter @agricore/console --fail-if-no-match dev",
+    "lint": "pnpm --filter @agricore/console --fail-if-no-match lint",
+    "typecheck": "pnpm --filter @agricore/console --fail-if-no-match typecheck",
+    "test": "pnpm --filter @agricore/console --fail-if-no-match test",
+    "contracts:generate": "pnpm --filter @agricore/console --fail-if-no-match contracts:generate",
+    "contracts:check": "pnpm --filter @agricore/console --fail-if-no-match contracts:check",
+    "build": "pnpm --filter @agricore/console --fail-if-no-match build"
   }
 }

@@ -1,51 +1,14 @@
-/** Contract-aligned types for identity auth (see contracts/openapi/identity-service.v1.yaml). */
+/** Contract-derived aliases. Regenerate with `pnpm contracts:generate`. */
+import type { components } from "./generated/identity";
 
-export type UserStatus = "ACTIVE" | "LOCKED" | "DISABLED";
+type IdentitySchemas = components["schemas"];
 
-export type RoleCode =
-  | "SYSTEM_ADMIN"
-  | "FARM_MANAGER"
-  | "AGRONOMIST"
-  | "FIELD_WORKER"
-  | "WAREHOUSE_MANAGER"
-  | "SALES_STAFF"
-  | "AUDITOR";
-
-export interface UserResponse {
-  id: string;
-  email: string;
-  fullName: string;
-  status: UserStatus;
-  roles: string[];
-  lastLoginAt: string | null;
-  createdAt: string;
-}
-
-export interface WebAuthTokensResponse {
-  accessToken: string;
-  tokenType: string;
-  expiresIn: number;
-  user: UserResponse;
-}
-
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
-export interface FieldViolation {
-  field: string;
-  message: string;
-  rejectedValue?: unknown;
-}
-
-export interface ApiErrorBody {
-  timestamp?: string;
-  status: number;
-  error: string;
-  code: string;
-  message: string;
-  path?: string;
-  traceId?: string | null;
-  violations?: FieldViolation[];
-}
+export type UserStatus = IdentitySchemas["UserResponse"]["status"];
+export type RoleCode = IdentitySchemas["RoleCode"];
+export type UserResponse = IdentitySchemas["UserResponse"];
+export type WebAuthTokensResponse = IdentitySchemas["WebAuthTokensResponse"];
+export type LoginRequest = IdentitySchemas["LoginRequest"];
+export type FieldViolation = IdentitySchemas["FieldViolation"];
+export type ApiErrorBody = IdentitySchemas["ApiError"];
+export type UserPageResponse = IdentitySchemas["UserPageResponse"];
+export type UpdateUserRolesRequest = IdentitySchemas["UpdateUserRolesRequest"];

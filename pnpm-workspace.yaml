@@ -8,6 +8,9 @@ catalog:
   '@tanstack/react-query': 5.90.21
   '@tanstack/react-router': 1.163.3
   '@tanstack/router-plugin': 1.163.3
+  # openapi-typescript 7 currently peers on TypeScript 5; keep the app/compiler graph aligned.
+  openapi-typescript: 7.13.0
+  typescript: 5.9.3
   zod: 4.3.6
 
 catalogMode: strict
