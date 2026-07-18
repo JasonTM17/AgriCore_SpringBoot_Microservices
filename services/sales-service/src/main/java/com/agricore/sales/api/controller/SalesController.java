@@ -46,4 +46,17 @@ public class SalesController {
     public SalesOrderResponse get(@PathVariable UUID orderId) {
         return salesService.get(orderId);
     }
+
+    /**
+     * Recover stuck inventory holds after a partial saga (release or confirm reservation).
+     * Query: {@code ?action=RELEASE|CONFIRM}
+     */
+    @PostMapping("/orders/{orderId}/reconcile")
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','SALES_STAFF','WAREHOUSE_MANAGER')")
+    public SalesOrderResponse reconcile(
+            @PathVariable UUID orderId,
+            @RequestParam("action") String action
+    ) {
+        return salesService.reconcile(orderId, action);
+    }
 }

@@ -187,6 +187,77 @@ public class SalesSagaService {
         return toResponse(order, saga);
     }
 
+    /**
+     * Operator recovery for stuck inventory holds after a partial saga.
+     * <ul>
+     *   <li>{@code RELEASE} — release ACTIVE reservation and cancel order</li>
+     *   <li>{@code CONFIRM} — fulfill reservation and mark order CONFIRMED</li>
+     * </ul>
+     * Applies when order has a non-null reservationId and is not already terminal without hold.
+     */
+    public SalesOrderResponse reconcile(UUID orderId, String action) {
+        if (action == null || action.isBlank()) {
+            throw new SalesException("INVALID_ACTION", "action is required: RELEASE or CONFIRM", 400);
+        }
+        String act = action.trim().toUpperCase();
+        SalesOrderEntity order = reloadOrder(orderId);
+        if (order.getReservationId() == null) {
+            throw new SalesException("NO_RESERVATION", "Order has no inventory reservation to reconcile", 409);
+        }
+        if (order.getStatus() == OrderStatus.CONFIRMED && "CONFIRM".equals(act)) {
+            return get(orderId);
+        }
+        if (order.getStatus() == OrderStatus.CANCELLED && "RELEASE".equals(act)
+                && order.getFailureReason() != null && order.getFailureReason().contains("reconciled:RELEASE")) {
+            return get(orderId);
+        }
+
+        OrderSagaEntity saga = reloadSaga(orderId);
+        try {
+            if ("RELEASE".equals(act)) {
+                inventoryClient.release(order.getReservationId());
+                order = reloadOrder(orderId);
+                order.setStatus(OrderStatus.CANCELLED);
+                order.setFailureReason("reconciled:RELEASE");
+                order.setUpdatedAt(Instant.now());
+                order = orderRepository.saveAndFlush(order);
+                saga = reloadSaga(orderId);
+                saga.setStatus("RECONCILED");
+                saga.setCurrentStep("RELEASED");
+                saga.setRetryCount(saga.getRetryCount() + 1);
+                saga.setLastError(null);
+                saga.setUpdatedAt(Instant.now());
+                sagaRepository.saveAndFlush(saga);
+            } else if ("CONFIRM".equals(act)) {
+                inventoryClient.confirm(order.getReservationId());
+                order = reloadOrder(orderId);
+                order.setStatus(OrderStatus.CONFIRMED);
+                order.setFailureReason(null);
+                order.setUpdatedAt(Instant.now());
+                order = orderRepository.saveAndFlush(order);
+                saga = reloadSaga(orderId);
+                saga.setStatus("COMPLETED");
+                saga.setCurrentStep("CONFIRMED");
+                saga.setRetryCount(saga.getRetryCount() + 1);
+                saga.setLastError(null);
+                saga.setUpdatedAt(Instant.now());
+                sagaRepository.saveAndFlush(saga);
+            } else {
+                throw new SalesException("INVALID_ACTION", "action must be RELEASE or CONFIRM", 400);
+            }
+        } catch (SalesException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            saga = reloadSaga(orderId);
+            saga.setLastError("reconcile " + act + " failed: " + ex.getMessage());
+            saga.setRetryCount(saga.getRetryCount() + 1);
+            saga.setUpdatedAt(Instant.now());
+            sagaRepository.saveAndFlush(saga);
+            throw new SalesException("RECONCILE_FAILED", ex.getMessage() == null ? "reconcile failed" : ex.getMessage(), 502);
+        }
+        return get(orderId);
+    }
+
     private SalesOrderResponse toResponse(SalesOrderEntity o, OrderSagaEntity saga) {
         return new SalesOrderResponse(
                 o.getId(), o.getOrderNumber(), o.getCustomerId(), o.getStatus().name(),
