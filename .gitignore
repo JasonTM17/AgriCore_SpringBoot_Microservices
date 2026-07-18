@@ -76,8 +76,15 @@ AGENTS.md
 CLAUDE.md
 Claude.md
 
-# Node (if any tooling)
+# Node / frontend
 node_modules/
+.pnpm-store/
+dist/
+.vite/
+*.tsbuildinfo
+playwright-report/
+test-results/
+apps/agricore-console/src/generated/
 
 # Terraform
 **/.terraform/
