@@ -4,14 +4,20 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 
+import { AdminUsersPage } from "../features/admin/admin-users-page";
+import { AssistantPage } from "../features/assistant/assistant-page";
 import { LoginPage } from "../features/auth/login-page";
+import { CropCyclesPage } from "../features/crop-cycle/crop-cycles-page";
 import { DashboardPage } from "../features/dashboard/dashboard-page";
-import {
-  ForbiddenPage,
-  NotFoundPage,
-  PlaceholderModulePage,
-} from "../features/system/status-pages";
+import { FarmsPage } from "../features/farm/farms-page";
+import { HarvestPage } from "../features/harvest/harvest-page";
+import { InventoryPage } from "../features/inventory/inventory-page";
+import { IotPage } from "../features/iot/iot-page";
+import { SalesPage } from "../features/sales/sales-page";
+import { ForbiddenPage, NotFoundPage } from "../features/system/status-pages";
+import { PublicTracePage } from "../features/traceability/public-trace-page";
 import type { NavItem } from "../lib/auth/roles";
 import { sanitizeInternalRedirect } from "../lib/auth/redirects";
 import { AuthenticatedLayout, RoleGate } from "./auth-gates";
@@ -42,83 +48,80 @@ const dashboardRoute = createRoute({
   component: DashboardPage,
 });
 
-function moduleRoute(
-  path: string,
-  title: string,
-  description: string,
-  roles: NavItem["roles"],
-) {
-  return createRoute({
-    getParentRoute: () => authedLayoutRoute,
-    path,
-    component: () => (
-      <RoleGate roles={roles}>
-        <PlaceholderModulePage title={title} description={description} />
-      </RoleGate>
-    ),
-  });
+function gated(roles: NavItem["roles"], page: ReactNode) {
+  return () => <RoleGate roles={roles}>{page}</RoleGate>;
 }
 
-const farmsRoute = moduleRoute(
-  "/farms",
-  "Nông trại & lô canh tác",
-  "Master-detail nông trại/lô theo farm-service.",
-  ["SYSTEM_ADMIN", "FARM_MANAGER", "AGRONOMIST", "FIELD_WORKER", "AUDITOR"],
-);
-const cyclesRoute = moduleRoute(
-  "/crop-cycles",
-  "Mùa vụ & công việc",
-  "Vòng đời mùa vụ, giai đoạn và nhiệm vụ đồng ruộng.",
-  ["SYSTEM_ADMIN", "FARM_MANAGER", "AGRONOMIST", "FIELD_WORKER", "AUDITOR"],
-);
-const harvestsRoute = moduleRoute(
-  "/harvests",
-  "Thu hoạch",
-  "Hoàn tất thu hoạch và theo dõi projection bất đồng bộ.",
-  ["SYSTEM_ADMIN", "FARM_MANAGER", "AGRONOMIST", "FIELD_WORKER", "WAREHOUSE_MANAGER", "AUDITOR"],
-);
-const inventoryRoute = moduleRoute(
-  "/inventory",
-  "Kho vận",
-  "Tồn kho, giữ hàng và xác nhận reservation.",
-  ["SYSTEM_ADMIN", "WAREHOUSE_MANAGER", "SALES_STAFF", "AUDITOR"],
-);
-const salesRoute = moduleRoute(
-  "/sales",
-  "Bán hàng",
-  "Đơn bán và trạng thái saga inventory.",
-  ["SYSTEM_ADMIN", "SALES_STAFF", "WAREHOUSE_MANAGER", "AUDITOR"],
-);
-const iotRoute = moduleRoute(
-  "/iot",
-  "IoT",
-  "Đăng ký thiết bị và nạp reading chẩn đoán.",
-  ["SYSTEM_ADMIN", "FARM_MANAGER", "AGRONOMIST", "AUDITOR"],
-);
-const adminRoute = moduleRoute(
-  "/admin/users",
-  "Quản trị người dùng",
-  "Danh sách người dùng và cập nhật vai trò (SYSTEM_ADMIN).",
-  ["SYSTEM_ADMIN"],
-);
-const assistantRoute = moduleRoute(
-  "/assistant",
-  "Trợ lý vận hành",
-  "Chat assistant sẽ được nối sau khi assistant-service sẵn sàng.",
-  "all",
-);
+const farmsRoute = createRoute({
+  getParentRoute: () => authedLayoutRoute,
+  path: "/farms",
+  component: gated(
+    ["SYSTEM_ADMIN", "FARM_MANAGER", "AGRONOMIST", "FIELD_WORKER", "AUDITOR"],
+    <FarmsPage />,
+  ),
+});
+const cyclesRoute = createRoute({
+  getParentRoute: () => authedLayoutRoute,
+  path: "/crop-cycles",
+  component: gated(
+    ["SYSTEM_ADMIN", "FARM_MANAGER", "AGRONOMIST", "FIELD_WORKER", "AUDITOR"],
+    <CropCyclesPage />,
+  ),
+});
+const harvestsRoute = createRoute({
+  getParentRoute: () => authedLayoutRoute,
+  path: "/harvests",
+  component: gated(
+    [
+      "SYSTEM_ADMIN",
+      "FARM_MANAGER",
+      "AGRONOMIST",
+      "FIELD_WORKER",
+      "WAREHOUSE_MANAGER",
+      "AUDITOR",
+    ],
+    <HarvestPage />,
+  ),
+});
+const inventoryRoute = createRoute({
+  getParentRoute: () => authedLayoutRoute,
+  path: "/inventory",
+  component: gated(
+    ["SYSTEM_ADMIN", "WAREHOUSE_MANAGER", "SALES_STAFF", "AUDITOR"],
+    <InventoryPage />,
+  ),
+});
+const salesRoute = createRoute({
+  getParentRoute: () => authedLayoutRoute,
+  path: "/sales",
+  component: gated(
+    ["SYSTEM_ADMIN", "SALES_STAFF", "WAREHOUSE_MANAGER", "AUDITOR"],
+    <SalesPage />,
+  ),
+});
+const iotRoute = createRoute({
+  getParentRoute: () => authedLayoutRoute,
+  path: "/iot",
+  component: gated(
+    ["SYSTEM_ADMIN", "FARM_MANAGER", "AGRONOMIST", "AUDITOR"],
+    <IotPage />,
+  ),
+});
+const adminRoute = createRoute({
+  getParentRoute: () => authedLayoutRoute,
+  path: "/admin/users",
+  component: gated(["SYSTEM_ADMIN"], <AdminUsersPage />),
+});
+const assistantRoute = createRoute({
+  getParentRoute: () => authedLayoutRoute,
+  path: "/assistant",
+  component: gated("all", <AssistantPage />),
+});
 
 const publicTraceRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/public/traceability/$code",
-  component: () => (
-    <main className="min-h-screen bg-canvas px-4 py-8">
-      <PlaceholderModulePage
-        title="Truy xuất nguồn gốc công khai"
-        description="Trang public QR không yêu cầu đăng nhập. Phase sau sẽ bind PublicTraceabilityResponse."
-      />
-    </main>
-  ),
+  component: PublicTracePage,
 });
 
 const forbiddenRoute = createRoute({
