@@ -18,6 +18,7 @@ import com.agricore.assistant.infrastructure.persistence.entity.ConversationMess
 import com.agricore.assistant.infrastructure.persistence.entity.GenerationEventEntity;
 import com.agricore.assistant.infrastructure.provider.ChatProvider;
 import com.agricore.assistant.infrastructure.provider.ChatProviderRegistry;
+import com.agricore.assistant.infrastructure.security.GenerationRateLimiter;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PreDestroy;
@@ -66,6 +67,7 @@ public class AssistantApplicationService {
     private final ChatProviderRegistry providerRegistry;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
+    private final GenerationRateLimiter generationRateLimiter;
     private final ExecutorService workers = newBoundedPool(
             "assistant-gen", GENERATION_WORKER_THREADS, GENERATION_QUEUE_CAPACITY);
 
@@ -78,7 +80,8 @@ public class AssistantApplicationService {
             AssistantProperties properties,
             ChatProviderRegistry providerRegistry,
             ObjectMapper objectMapper,
-            TransactionTemplate transactionTemplate
+            TransactionTemplate transactionTemplate,
+            GenerationRateLimiter generationRateLimiter
     ) {
         this.conversationRepository = conversationRepository;
         this.messageRepository = messageRepository;
@@ -89,6 +92,7 @@ public class AssistantApplicationService {
         this.providerRegistry = providerRegistry;
         this.objectMapper = objectMapper;
         this.transactionTemplate = transactionTemplate;
+        this.generationRateLimiter = generationRateLimiter;
     }
 
     @PreDestroy
@@ -208,6 +212,15 @@ public class AssistantApplicationService {
                     "PROVIDER_UNAVAILABLE",
                     "Chat generation is unavailable because no provider is configured",
                     503
+            );
+        }
+
+        // New keys only (idempotent replay returns above). Process-local window.
+        if (!generationRateLimiter.allow(ownerId)) {
+            throw new AssistantException(
+                    "RATE_LIMITED",
+                    "Too many generation requests; try again later",
+                    429
             );
         }
 

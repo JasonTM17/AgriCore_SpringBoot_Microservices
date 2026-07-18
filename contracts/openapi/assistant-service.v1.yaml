@@ -1,74 +1,356 @@
 openapi: 3.1.0
 info:
   title: AgriCore Assistant Service API
-  version: 1.0.0
-  description: Conversations, capabilities, and authenticated SSE generation events.
+  version: 1.1.0
+  description: |
+    Conversations, capabilities, and authenticated SSE generation events.
+    Tools list is empty until a real tool runner ships. Generation requires
+    `agricore.assistant.provider=test` (or a future real adapter); `none`/`openai`/`ollama`
+    report generationAvailable=false until adapters exist.
 servers:
   - url: http://localhost:8093
+    description: Local assistant-service
+  - url: http://localhost:8080
+    description: Via API gateway (same paths under /api/v1/assistant)
+
+tags:
+  - name: capabilities
+  - name: conversations
+  - name: generations
+
 paths:
   /api/v1/assistant/capabilities:
     get:
+      tags: [capabilities]
+      operationId: getAssistantCapabilities
       summary: Provider capabilities
+      description: |
+        Returns active provider name, whether generation is available, streaming support,
+        and the tools list (empty until tool execution is implemented).
       security: [{ bearerAuth: [] }]
       responses:
         '200':
           description: Capabilities
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CapabilitiesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/v1/assistant/conversations:
     get:
+      tags: [conversations]
+      operationId: listConversations
       summary: List owner conversations
+      description: Returns non-archived conversations for the authenticated user, newest first.
       security: [{ bearerAuth: [] }]
-      responses:
-        '200': { description: Conversation list }
-    post:
-      summary: Create conversation
-      security: [{ bearerAuth: [] }]
-      responses:
-        '201': { description: Created }
-  /api/v1/assistant/conversations/{conversationId}/messages:
-    get:
-      summary: List messages
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - name: conversationId
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '200': { description: Messages }
-  /api/v1/assistant/conversations/{conversationId}/generations:
-    post:
-      summary: Start generation (idempotent)
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - name: conversationId
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '200': { description: Generation accepted }
-        '503': { description: Provider unavailable }
-  /api/v1/assistant/conversations/{conversationId}/generations/{generationId}/events:
-    get:
-      summary: SSE generation events
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - name: conversationId
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: generationId
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: after
-          in: query
-          schema: { type: integer, format: int64, default: -1 }
       responses:
         '200':
-          description: text/event-stream
+          description: Conversation list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConversationResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [conversations]
+      operationId: createConversation
+      summary: Create conversation
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateConversationRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/assistant/conversations/{conversationId}/messages:
+    get:
+      tags: [conversations]
+      operationId: listMessages
+      summary: List messages
+      description: Owner-scoped messages for a conversation, chronological order.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+      responses:
+        '200':
+          description: Messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MessageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/assistant/conversations/{conversationId}/generations:
+    post:
+      tags: [generations]
+      operationId: startGeneration
+      summary: Start generation (idempotent)
+      description: |
+        Starts an async generation for the conversation. Same (owner, conversation, idempotencyKey)
+        returns the existing generation without starting a second run. Rate-limited per user
+        for new keys only. Conversation must be owned by the caller.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartGenerationRequest'
+      responses:
+        '200':
+          description: Generation accepted or idempotent replay
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartGenerationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Another generation is already active for this conversation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '429':
+          description: Per-user generation rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Provider unavailable (provider=none or no adapter)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /api/v1/assistant/conversations/{conversationId}/generations/{generationId}/events:
+    get:
+      tags: [generations]
+      operationId: streamGenerationEvents
+      summary: SSE generation events
+      description: |
+        Server-Sent Events stream for a generation. Path conversationId must match the
+        generation's conversation (mismatched path → 404). Event names include status, delta,
+        completed, error.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+        - $ref: '#/components/parameters/GenerationId'
+        - name: after
+          in: query
+          description: Last consumed sequence number; -1 for all events
+          schema:
+            type: integer
+            format: int64
+            default: -1
+      responses:
+        '200':
+          description: text/event-stream of generation events
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: SSE frames (id, event name, data JSON)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+
+  parameters:
+    ConversationId:
+      name: conversationId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    GenerationId:
+      name: generationId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid JWT
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    BadRequest:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotFound:
+      description: Conversation or generation not found / not owned / conversation mismatch
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+
+  schemas:
+    CapabilitiesResponse:
+      type: object
+      required: [provider, generationAvailable, streaming, tools]
+      properties:
+        provider:
+          type: string
+          description: Active provider id (none, test, openai, ollama, …)
+          example: test
+        generationAvailable:
+          type: boolean
+          description: True only when a generation backend is implemented and enabled
+        streaming:
+          type: boolean
+          description: Whether SSE event streaming is supported
+        tools:
+          type: array
+          items:
+            type: string
+          description: Executable tool names; empty until tool runner ships
+        reason:
+          type: string
+          nullable: true
+          description: Human-readable reason when generation is unavailable
+
+    CreateConversationRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          nullable: true
+          maxLength: 256
+          description: Optional title; server defaults to a Vietnamese placeholder
+        farmId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional farm scope snapshot (not used for IDOR bypass)
+
+    ConversationResponse:
+      type: object
+      required: [id, title, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        farmId:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          type: string
+          example: OPEN
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    MessageResponse:
+      type: object
+      required: [id, role, content, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [USER, ASSISTANT, SYSTEM, TOOL]
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        generationId:
+          type: string
+          format: uuid
+          nullable: true
+
+    StartGenerationRequest:
+      type: object
+      required: [content, idempotencyKey]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          description: User message content
+        idempotencyKey:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Client-supplied key; unique per owner+conversation
+
+    StartGenerationResponse:
+      type: object
+      required: [generationId, status]
+      properties:
+        generationId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          description: QUEUED, RUNNING, COMPLETED, FAILED, CANCELLED
+          example: QUEUED
+
+    ApiError:
+      type: object
+      description: AgriCore common API error envelope
+      properties:
+        status:
+          type: integer
+          example: 404
+        error:
+          type: string
+          example: Not Found
+        code:
+          type: string
+          example: NOT_FOUND
+        message:
+          type: string
+        path:
+          type: string
+        traceId:
+          type: string
+          nullable: true
