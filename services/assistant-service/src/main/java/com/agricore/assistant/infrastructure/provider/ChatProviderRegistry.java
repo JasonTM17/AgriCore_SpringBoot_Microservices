@@ -23,8 +23,9 @@ public class ChatProviderRegistry {
     public ChatProvider active() {
         return switch (properties.normalizedProvider()) {
             case "test" -> testChatProvider;
-            case "openai", "ollama" -> properties.generationAvailable() ? testChatProvider : noneChatProvider;
-            // OpenAI-compatible HTTP adapter intentionally deferred; test provider stands in when key present for demos.
+            // OpenAI/Ollama HTTP adapters are not shipped yet. Never silently substitute
+            // TestChatProvider — callers see provider=none capabilities until a real adapter lands.
+            case "openai", "ollama" -> noneChatProvider;
             default -> noneChatProvider;
         };
     }

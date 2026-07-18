@@ -287,15 +287,17 @@ public class AssistantApplicationService {
             transactionTemplate.executeWithoutResult(status -> {
                 generationRepository.findById(generationId).ifPresent(gen -> {
                     Instant now = Instant.now();
+                    // Never stream raw exception text to the browser (review H3).
+                    String safeMessage = "Generation failed";
                     gen.setStatus("FAILED");
                     gen.setErrorCode("GENERATION_FAILED");
-                    gen.setErrorMessage(ex.getMessage() == null ? "generation failed" : ex.getMessage());
+                    gen.setErrorMessage(safeMessage);
                     gen.setUpdatedAt(now);
                     gen.setCompletedAt(now);
                     generationRepository.save(gen);
                     appendEvent(generationId, "error", Map.of(
                             "type", "error",
-                            "message", gen.getErrorMessage()
+                            "message", safeMessage
                     ));
                     audit(gen.getOwnerUserId(), gen.getConversationId(), generationId, "GENERATION_FAILED",
                             gen.getErrorCode());

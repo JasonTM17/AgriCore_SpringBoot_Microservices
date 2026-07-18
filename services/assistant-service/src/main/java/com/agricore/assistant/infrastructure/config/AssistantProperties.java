@@ -12,13 +12,9 @@ public record AssistantProperties(
 ) {
     public boolean generationAvailable() {
         String p = provider == null ? "none" : provider.trim().toLowerCase();
-        if ("test".equals(p)) {
-            return true;
-        }
-        if ("openai".equals(p) || "ollama".equals(p)) {
-            return openaiApiKey != null && !openaiApiKey.isBlank();
-        }
-        return false;
+        // Only the deterministic test provider is implemented for generation.
+        // openai/ollama keys alone do not enable generation until real adapters ship.
+        return "test".equals(p);
     }
 
     public String normalizedProvider() {

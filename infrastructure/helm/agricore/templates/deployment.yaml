@@ -95,6 +95,16 @@ spec:
               value: "false"
             - name: AGRICORE_TRUST_FORWARDED_HEADERS
               value: {{ $.Values.identity.trustForwardedHeaders | default true | quote }}
+            - name: AGRICORE_WEB_ALLOWED_ORIGINS
+              value: {{ $.Values.identity.webAllowedOrigins | default "http://localhost:5173,http://127.0.0.1:5173" | quote }}
+            - name: AGRICORE_REFRESH_COOKIE_SECURE
+              value: {{ $.Values.identity.refreshCookieSecure | default true | quote }}
+            - name: AGRICORE_REFRESH_COOKIE_NAME
+              value: {{ $.Values.identity.refreshCookieName | default "agricore_refresh" | quote }}
+            - name: AGRICORE_REFRESH_COOKIE_PATH
+              value: {{ $.Values.identity.refreshCookiePath | default "/api/v1/auth/web" | quote }}
+            - name: AGRICORE_REFRESH_COOKIE_SAME_SITE
+              value: {{ $.Values.identity.refreshCookieSameSite | default "Strict" | quote }}
             {{- end }}
             {{- if eq $name "sales" }}
             - name: INVENTORY_SERVICE_URL
