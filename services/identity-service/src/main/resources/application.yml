@@ -58,6 +58,12 @@ agricore:
     rate-limit-fail-open: ${AGRICORE_RATE_LIMIT_FAIL_OPEN:false}
     # Only enable behind trusted reverse proxy / gateway
     trust-forwarded-headers: ${AGRICORE_TRUST_FORWARDED_HEADERS:false}
+    # Browser refresh cookie (HttpOnly) — not readable by console JavaScript
+    refresh-cookie-name: ${AGRICORE_REFRESH_COOKIE_NAME:agricore_refresh}
+    refresh-cookie-path: ${AGRICORE_REFRESH_COOKIE_PATH:/api/v1/auth/web}
+    refresh-cookie-secure: ${AGRICORE_REFRESH_COOKIE_SECURE:false}
+    refresh-cookie-same-site: ${AGRICORE_REFRESH_COOKIE_SAME_SITE:Strict}
+    web-allowed-origins: ${AGRICORE_WEB_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
 
 logging:
   level:

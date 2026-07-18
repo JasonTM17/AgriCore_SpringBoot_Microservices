@@ -1,8 +1,11 @@
 openapi: 3.1.0
 info:
   title: AgriCore Identity Service API
-  version: 1.0.0
-  description: Authentication, users, RBAC
+  version: 1.1.0
+  description: |
+    Authentication, users, RBAC.
+    Browser clients should prefer `/api/v1/auth/web/*` so refresh credentials stay
+    in an HttpOnly cookie. Non-browser clients continue to use JSON refresh tokens.
 servers:
   - url: http://localhost:8081
 paths:
@@ -19,9 +22,25 @@ paths:
       responses:
         '201':
           description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '403':
+          description: Registration disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /api/v1/auth/login:
     post:
-      summary: Login
+      summary: Login (returns access + refresh tokens in body)
       operationId: login
       requestBody:
         required: true
@@ -32,35 +51,165 @@ paths:
       responses:
         '200':
           description: Tokens issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokensResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '423':
+          description: Account locked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /api/v1/auth/refresh:
     post:
-      summary: Rotate refresh token
+      summary: Rotate refresh token (JSON body for non-browser clients)
       operationId: refresh
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
       responses:
         '200':
           description: New tokens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokensResponse'
+        '401':
+          description: Invalid, expired, or reused refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /api/v1/auth/logout:
     post:
       summary: Revoke refresh token
       operationId: logout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
       responses:
         '204':
           description: Logged out
+  /api/v1/auth/web/login:
+    post:
+      summary: Browser login — refresh token only via HttpOnly cookie
+      operationId: webLogin
+      parameters:
+        - $ref: '#/components/parameters/OriginHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Access token issued; Set-Cookie carries refresh credential
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: HttpOnly SameSite refresh cookie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebAuthTokensResponse'
+        '403':
+          description: Origin rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/v1/auth/web/refresh:
+    post:
+      summary: Browser refresh — reads and rotates HttpOnly cookie
+      operationId: webRefresh
+      parameters:
+        - $ref: '#/components/parameters/OriginHeader'
+      responses:
+        '200':
+          description: New access token; cookie rotated
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebAuthTokensResponse'
+        '401':
+          description: Missing or invalid refresh cookie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/v1/auth/web/logout:
+    post:
+      summary: Browser logout — clears HttpOnly refresh cookie
+      operationId: webLogout
+      parameters:
+        - $ref: '#/components/parameters/OriginHeader'
+      responses:
+        '204':
+          description: Logged out and cookie cleared
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
   /api/v1/users/me:
     get:
       summary: Current user profile
+      operationId: getCurrentUser
       security:
         - bearerAuth: []
       responses:
         '200':
           description: Profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /.well-known/jwks.json:
     get:
       summary: JSON Web Key Set
+      operationId: getJwks
       responses:
         '200':
           description: JWKS
 components:
+  parameters:
+    OriginHeader:
+      name: Origin
+      in: header
+      required: false
+      description: Browser origin; required for web cookie endpoints (Referer fallback accepted)
+      schema:
+        type: string
   securitySchemes:
     bearerAuth:
       type: http
@@ -80,3 +229,65 @@ components:
       properties:
         email: { type: string, format: email }
         password: { type: string }
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken: { type: string, minLength: 1 }
+    LogoutRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken: { type: string, minLength: 1 }
+    AuthTokensResponse:
+      type: object
+      required: [accessToken, refreshToken, tokenType, expiresIn, user]
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        tokenType: { type: string, enum: [Bearer] }
+        expiresIn: { type: integer, format: int64 }
+        user:
+          $ref: '#/components/schemas/UserResponse'
+    WebAuthTokensResponse:
+      type: object
+      required: [accessToken, tokenType, expiresIn, user]
+      description: Browser response without refreshToken (cookie only)
+      properties:
+        accessToken: { type: string }
+        tokenType: { type: string, enum: [Bearer] }
+        expiresIn: { type: integer, format: int64 }
+        user:
+          $ref: '#/components/schemas/UserResponse'
+    UserResponse:
+      type: object
+      required: [id, email, fullName, status, roles, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        fullName: { type: string }
+        status: { type: string, enum: [ACTIVE, LOCKED, DISABLED] }
+        roles:
+          type: array
+          items: { type: string }
+        lastLoginAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+    ApiError:
+      type: object
+      required: [timestamp, status, error, code, message, path]
+      properties:
+        timestamp: { type: string, format: date-time }
+        status: { type: integer }
+        error: { type: string }
+        code: { type: string }
+        message: { type: string }
+        path: { type: string }
+        traceId: { type: string, nullable: true }
+        violations:
+          type: array
+          items:
+            type: object
+            properties:
+              field: { type: string }
+              message: { type: string }
+              rejectedValue: {}
