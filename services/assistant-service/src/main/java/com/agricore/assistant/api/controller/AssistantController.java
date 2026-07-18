@@ -8,6 +8,7 @@ import com.agricore.assistant.api.response.AssistantDtos.StartGenerationRequest;
 import com.agricore.assistant.api.response.AssistantDtos.StartGenerationResponse;
 import com.agricore.assistant.application.AssistantApplicationService;
 import com.agricore.assistant.infrastructure.persistence.entity.GenerationEventEntity;
+import jakarta.annotation.PreDestroy;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -28,17 +29,58 @@ import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @RestController
 @RequestMapping("/api/v1/assistant")
 public class AssistantController {
 
+    /** Bounded SSE poll workers (H4) — avoids unbounded newCachedThreadPool growth. */
+    private static final int SSE_WORKER_THREADS = 32;
+    private static final int SSE_QUEUE_CAPACITY = 128;
+    /** Finite SSE timeout (H4); 0L was unlimited and held resources forever on hung clients. */
+    private static final long SSE_TIMEOUT_MS = 5 * 60 * 1000L;
+
     private final AssistantApplicationService assistantService;
-    private final ExecutorService sseWorkers = Executors.newCachedThreadPool();
+    private final ExecutorService sseWorkers = newBoundedSsePool();
 
     public AssistantController(AssistantApplicationService assistantService) {
         this.assistantService = assistantService;
+    }
+
+    @PreDestroy
+    void shutdownSseWorkers() {
+        sseWorkers.shutdown();
+        try {
+            if (!sseWorkers.awaitTermination(5, TimeUnit.SECONDS)) {
+                sseWorkers.shutdownNow();
+            }
+        } catch (InterruptedException ex) {
+            sseWorkers.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private static ExecutorService newBoundedSsePool() {
+        AtomicInteger seq = new AtomicInteger();
+        ThreadFactory factory = r -> {
+            Thread t = new Thread(r, "assistant-sse-" + seq.incrementAndGet());
+            t.setDaemon(true);
+            return t;
+        };
+        return new ThreadPoolExecutor(
+                SSE_WORKER_THREADS,
+                SSE_WORKER_THREADS,
+                60L,
+                TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(SSE_QUEUE_CAPACITY),
+                factory,
+                new ThreadPoolExecutor.CallerRunsPolicy()
+        );
     }
 
     @GetMapping("/capabilities")
@@ -101,7 +143,7 @@ public class AssistantController {
         // Ownership checks
         assistantService.requireOwnedGeneration(ownerId, generationId);
 
-        SseEmitter emitter = new SseEmitter(0L);
+        SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
         sseWorkers.submit(() -> {
             long cursor = after;
             try {

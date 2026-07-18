@@ -18,6 +18,11 @@ import org.springframework.test.context.ActiveProfiles;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -109,6 +114,65 @@ class AssistantServiceIntegrationTest {
                 new ChatProviderRegistry(noneProps, new NoneChatProvider(), new TestChatProvider());
         assertThat(registry.active().available()).isFalse();
         assertThat(noneProps.generationAvailable()).isFalse();
+    }
+
+    /**
+     * H5: concurrent startGeneration with the same idempotency key must collapse to one
+     * generation id (unique constraint + catch/reload), not 500 or duplicate rows.
+     */
+    @Test
+    void startGeneration_concurrentSameIdempotencyKey_returnsSameGeneration() throws Exception {
+        UUID owner = UUID.randomUUID();
+        ConversationResponse conversation = assistantService.createConversation(
+                owner, List.of("FARM_MANAGER"), "Concurrent idempotency", null);
+
+        String key = "idem-concurrent-" + UUID.randomUUID();
+        String content = "Ping concurrent same key";
+        int threads = 8;
+        ExecutorService pool = Executors.newFixedThreadPool(threads);
+        CountDownLatch ready = new CountDownLatch(threads);
+        CountDownLatch start = new CountDownLatch(1);
+        CountDownLatch done = new CountDownLatch(threads);
+        ConcurrentLinkedQueue<StartGenerationResponse> results = new ConcurrentLinkedQueue<>();
+        ConcurrentLinkedQueue<Throwable> errors = new ConcurrentLinkedQueue<>();
+
+        for (int i = 0; i < threads; i++) {
+            pool.submit(() -> {
+                ready.countDown();
+                try {
+                    start.await(10, TimeUnit.SECONDS);
+                    results.add(assistantService.startGeneration(
+                            owner,
+                            List.of("FARM_MANAGER"),
+                            conversation.id(),
+                            content,
+                            key
+                    ));
+                } catch (Throwable t) {
+                    errors.add(t);
+                } finally {
+                    done.countDown();
+                }
+            });
+        }
+
+        assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
+        start.countDown();
+        assertThat(done.await(30, TimeUnit.SECONDS)).isTrue();
+        pool.shutdown();
+        assertThat(pool.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
+
+        assertThat(errors).as("no thread should fail for same idempotency key: %s", errors).isEmpty();
+        assertThat(results).hasSize(threads);
+        UUID generationId = results.peek().generationId();
+        assertThat(generationId).isNotNull();
+        assertThat(results).allSatisfy(r -> assertThat(r.generationId()).isEqualTo(generationId));
+
+        waitForTerminal(owner, generationId);
+        List<MessageResponse> messages = assistantService.listMessages(owner, conversation.id());
+        long userMessages = messages.stream().filter(m -> "USER".equals(m.role())).count();
+        // Only the winning insert commits a user message for this key.
+        assertThat(userMessages).isEqualTo(1);
     }
 
     private void waitForTerminal(UUID owner, UUID generationId) throws InterruptedException {

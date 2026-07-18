@@ -20,6 +20,8 @@ import com.agricore.assistant.infrastructure.provider.ChatProvider;
 import com.agricore.assistant.infrastructure.provider.ChatProviderRegistry;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PreDestroy;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -33,8 +35,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.stream.Collectors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class AssistantApplicationService {
@@ -42,6 +47,10 @@ public class AssistantApplicationService {
     private static final List<String> ALLOWED_TOOLS = List.of(
             "list_farms", "get_farm", "list_crop_cycles", "get_inventory_item", "get_public_trace"
     );
+
+    /** Bounded generation workers (H4) — avoids unbounded newCachedThreadPool growth. */
+    private static final int GENERATION_WORKER_THREADS = 16;
+    private static final int GENERATION_QUEUE_CAPACITY = 64;
 
     private final ConversationJpaRepository conversationRepository;
     private final ConversationMessageJpaRepository messageRepository;
@@ -52,7 +61,8 @@ public class AssistantApplicationService {
     private final ChatProviderRegistry providerRegistry;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
-    private final ExecutorService workers = Executors.newCachedThreadPool();
+    private final ExecutorService workers = newBoundedPool(
+            "assistant-gen", GENERATION_WORKER_THREADS, GENERATION_QUEUE_CAPACITY);
 
     public AssistantApplicationService(
             ConversationJpaRepository conversationRepository,
@@ -74,6 +84,37 @@ public class AssistantApplicationService {
         this.providerRegistry = providerRegistry;
         this.objectMapper = objectMapper;
         this.transactionTemplate = transactionTemplate;
+    }
+
+    @PreDestroy
+    void shutdownWorkers() {
+        workers.shutdown();
+        try {
+            if (!workers.awaitTermination(5, TimeUnit.SECONDS)) {
+                workers.shutdownNow();
+            }
+        } catch (InterruptedException ex) {
+            workers.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private static ExecutorService newBoundedPool(String namePrefix, int threads, int queueCapacity) {
+        AtomicInteger seq = new AtomicInteger();
+        ThreadFactory factory = r -> {
+            Thread t = new Thread(r, namePrefix + "-" + seq.incrementAndGet());
+            t.setDaemon(true);
+            return t;
+        };
+        return new ThreadPoolExecutor(
+                threads,
+                threads,
+                60L,
+                TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(queueCapacity),
+                factory,
+                new ThreadPoolExecutor.CallerRunsPolicy()
+        );
     }
 
     public CapabilitiesResponse capabilities() {
@@ -121,7 +162,14 @@ public class AssistantApplicationService {
                 .toList();
     }
 
-    @Transactional
+    /**
+     * Starts a generation or returns the existing one for the same idempotency key.
+     * <p>
+     * Race-safe (H5): concurrent callers with the same key may both pass the pre-check;
+     * the unique constraint {@code uk_generation_idempotency} makes only one insert succeed.
+     * Losers catch {@link DataIntegrityViolationException} (after the write TX rolls back)
+     * and reload the winner's row.
+     */
     public StartGenerationResponse startGeneration(
             UUID ownerId,
             List<String> roles,
@@ -135,13 +183,14 @@ public class AssistantApplicationService {
         if (idempotencyKey == null || idempotencyKey.isBlank()) {
             throw new AssistantException("VALIDATION_FAILED", "idempotencyKey is required", 400);
         }
+        String key = idempotencyKey.trim();
+        String trimmedContent = content.trim();
+        List<String> safeRoles = roles == null ? List.of() : roles;
 
-        ConversationEntity conversation = requireOwnedConversation(conversationId, ownerId);
-
-        var existing = generationRepository.findByOwnerUserIdAndConversationIdAndIdempotencyKey(
-                ownerId, conversationId, idempotencyKey.trim());
-        if (existing.isPresent()) {
-            return new StartGenerationResponse(existing.get().getId(), existing.get().getStatus());
+        // Fast path: already completed or in-flight under this key.
+        StartGenerationResponse preExisting = findExistingGeneration(ownerId, conversationId, key);
+        if (preExisting != null) {
+            return preExisting;
         }
 
         if (!properties.generationAvailable() || !providerRegistry.active().available()) {
@@ -150,6 +199,48 @@ public class AssistantApplicationService {
                     "Chat generation is unavailable because no provider is configured",
                     503
             );
+        }
+
+        try {
+            return transactionTemplate.execute(status ->
+                    createGenerationInTransaction(
+                            ownerId, safeRoles, conversationId, trimmedContent, key));
+        } catch (DataIntegrityViolationException ex) {
+            // Concurrent insert hit uk_generation_idempotency — return winner's row.
+            StartGenerationResponse winner = findExistingGeneration(ownerId, conversationId, key);
+            if (winner != null) {
+                return winner;
+            }
+            throw new AssistantException(
+                    "CONFLICT",
+                    "Idempotency conflict while starting generation",
+                    409
+            );
+        }
+    }
+
+    private StartGenerationResponse findExistingGeneration(
+            UUID ownerId, UUID conversationId, String idempotencyKey
+    ) {
+        return generationRepository
+                .findByOwnerUserIdAndConversationIdAndIdempotencyKey(ownerId, conversationId, idempotencyKey)
+                .map(g -> new StartGenerationResponse(g.getId(), g.getStatus()))
+                .orElse(null);
+    }
+
+    private StartGenerationResponse createGenerationInTransaction(
+            UUID ownerId,
+            List<String> roles,
+            UUID conversationId,
+            String content,
+            String idempotencyKey
+    ) {
+        ConversationEntity conversation = requireOwnedConversation(conversationId, ownerId);
+
+        // Re-check inside the write TX (another request may have committed).
+        StartGenerationResponse existing = findExistingGeneration(ownerId, conversationId, idempotencyKey);
+        if (existing != null) {
+            return existing;
         }
 
         long active = generationRepository.countByConversationIdAndStatusIn(
@@ -167,7 +258,7 @@ public class AssistantApplicationService {
         userMessage.setId(UUID.randomUUID());
         userMessage.setConversationId(conversationId);
         userMessage.setRole("USER");
-        userMessage.setContent(content.trim());
+        userMessage.setContent(content);
         userMessage.setCreatedAt(now);
         messageRepository.save(userMessage);
 
@@ -175,18 +266,20 @@ public class AssistantApplicationService {
         generation.setId(UUID.randomUUID());
         generation.setConversationId(conversationId);
         generation.setOwnerUserId(ownerId);
-        generation.setIdempotencyKey(idempotencyKey.trim());
+        generation.setIdempotencyKey(idempotencyKey);
         generation.setStatus("QUEUED");
         generation.setUserMessageId(userMessage.getId());
         generation.setCreatedAt(now);
         generation.setUpdatedAt(now);
-        generationRepository.save(generation);
+        // Flush so unique constraint violations surface here (not on commit).
+        generationRepository.saveAndFlush(generation);
 
         conversation.setUpdatedAt(now);
         conversationRepository.save(conversation);
 
         appendEvent(generation.getId(), "status", Map.of("type", "status", "status", "QUEUED"));
-        audit(ownerId, conversationId, generation.getId(), "GENERATION_STARTED", "roles=" + String.join(",", roles));
+        audit(ownerId, conversationId, generation.getId(), "GENERATION_STARTED",
+                "roles=" + String.join(",", roles));
 
         UUID generationId = generation.getId();
         // Run only after the enclosing transaction commits so the worker can load rows.
