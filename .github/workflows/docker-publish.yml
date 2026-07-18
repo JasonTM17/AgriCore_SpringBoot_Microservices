@@ -118,6 +118,14 @@ jobs:
             context: .
             file: services/api-gateway/Dockerfile
             image: agricore-gateway
+          - service: assistant
+            context: .
+            file: services/assistant-service/Dockerfile
+            image: agricore-assistant
+          - service: console
+            context: .
+            file: apps/agricore-console/Dockerfile
+            image: agricore-console
     steps:
       - name: Checkout verified revision
         uses: actions/checkout@v4

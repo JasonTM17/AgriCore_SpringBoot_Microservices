@@ -8,10 +8,10 @@ COPY apps/agricore-console apps/agricore-console
 RUN pnpm --filter @agricore/console build
 
 FROM nginx:1.27-alpine
-RUN adduser -D -u 65532 -H nonroot || true
-COPY apps/agricore-console/nginx.conf /etc/nginx/conf.d/default.conf
+# Official image envsubst of /etc/nginx/templates/*.template → conf.d/
+ENV GATEWAY_UPSTREAM=api-gateway:8080
+COPY apps/agricore-console/nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /app/apps/agricore-console/dist /usr/share/nginx/html
-USER 101
 EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD wget -qO- http://127.0.0.1:80/ >/dev/null || exit 1

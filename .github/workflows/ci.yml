@@ -28,6 +28,29 @@ jobs:
           name: surefire-reports
           path: "**/target/surefire-reports/**"
 
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Enable corepack / pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.0.9 --activate
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Lint console
+        run: pnpm lint
+      - name: Typecheck console
+        run: pnpm typecheck
+      - name: Test console
+        run: pnpm test
+      - name: Build console
+        run: pnpm build
+
   secret-scan:
     runs-on: ubuntu-latest
     steps:

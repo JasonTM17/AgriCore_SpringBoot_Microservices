@@ -89,6 +89,8 @@ console:
   replicaCount: 1
   image: nguyenson1710/agricore-console
   port: 80
+  # DNS name of the gateway Service in-cluster (not Compose's api-gateway)
+  gatewayUpstream: agricore-gateway:8080
 
 gateway:
   enabled: true
