@@ -1,5 +1,14 @@
 packages:
   - "apps/*"
 
+allowBuilds:
+  esbuild: true
+
+catalog:
+  '@tanstack/react-query': 5.90.21
+  '@tanstack/react-router': 1.163.3
+  '@tanstack/router-plugin': 1.163.3
+  zod: 4.3.6
+
 catalogMode: strict
 preferWorkspacePackages: true
