@@ -1,0 +1,44 @@
+server:
+  port: ${ASSISTANT_PORT:8093}
+
+spring:
+  application:
+    name: assistant-service
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5434}/agricore_assistant
+    username: ${POSTGRES_USER:agricore}
+    password: ${POSTGRES_PASSWORD:agricore_dev_change_me}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+agricore:
+  security:
+    issuer: ${JWT_ISSUER:https://agricore.local/identity}
+    jwk-set-uri: ${IDENTITY_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
+    audience: ${JWT_AUDIENCE:agricore-api}
+    dev-mode: ${AGRICORE_DEV_MODE:false}
+  assistant:
+    provider: ${ASSISTANT_PROVIDER:none}
+    openai-base-url: ${ASSISTANT_OPENAI_BASE_URL:https://api.openai.com/v1}
+    openai-api-key: ${ASSISTANT_OPENAI_API_KEY:}
+    openai-model: ${ASSISTANT_OPENAI_MODEL:gpt-4o-mini}
+    max-output-tokens: ${ASSISTANT_MAX_OUTPUT_TOKENS:1024}
+
+logging:
+  level:
+    root: INFO
+    com.agricore.assistant: INFO
