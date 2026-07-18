@@ -77,6 +77,19 @@ traceability:
   image: nguyenson1710/agricore-traceability
   port: 8092
 
+assistant:
+  enabled: true
+  replicaCount: 1
+  image: nguyenson1710/agricore-assistant
+  port: 8093
+  provider: none
+
+console:
+  enabled: true
+  replicaCount: 1
+  image: nguyenson1710/agricore-console
+  port: 80
+
 gateway:
   enabled: true
   replicaCount: 1
@@ -93,6 +106,7 @@ gateway:
   iotServiceUrl: http://agricore-iot:8090
   salesServiceUrl: http://agricore-sales:8091
   traceabilityServiceUrl: http://agricore-traceability:8092
+  assistantServiceUrl: http://agricore-assistant:8093
 
 postgres:
   host: postgres

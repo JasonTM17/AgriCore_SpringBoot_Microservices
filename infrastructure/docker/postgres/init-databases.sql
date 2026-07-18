@@ -9,3 +9,4 @@ CREATE DATABASE agricore_traceability;
 CREATE DATABASE agricore_notification;
 CREATE DATABASE agricore_iot;
 CREATE DATABASE agricore_sales;
+CREATE DATABASE agricore_assistant;

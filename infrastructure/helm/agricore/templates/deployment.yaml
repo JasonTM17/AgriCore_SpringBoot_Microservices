@@ -14,6 +14,8 @@
   "iot" .Values.iot
   "sales" .Values.sales
   "traceability" .Values.traceability
+  "assistant" .Values.assistant
+  "console" .Values.console
   "gateway" .Values.gateway
 -}}
 {{- range $name, $svc := $services }}
@@ -118,8 +120,20 @@ spec:
               value: {{ $.Values.gateway.salesServiceUrl | default "http://agricore-sales:8091" | quote }}
             - name: TRACEABILITY_SERVICE_URL
               value: {{ $.Values.gateway.traceabilityServiceUrl | default "http://agricore-traceability:8092" | quote }}
+            - name: ASSISTANT_SERVICE_URL
+              value: {{ $.Values.gateway.assistantServiceUrl | default "http://agricore-assistant:8093" | quote }}
             - name: GATEWAY_PORT
               value: {{ $svc.port | quote }}
+            {{- end }}
+            {{- if eq $name "assistant" }}
+            - name: ASSISTANT_PORT
+              value: {{ $svc.port | quote }}
+            - name: ASSISTANT_PROVIDER
+              value: {{ $svc.provider | default "none" | quote }}
+            {{- end }}
+            {{- if eq $name "console" }}
+            - name: NGINX_ENTRYPOINT_QUIET_LOGS
+              value: "1"
             {{- end }}
           securityContext:
             allowPrivilegeEscalation: false

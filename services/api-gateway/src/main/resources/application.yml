@@ -63,6 +63,10 @@ spring:
           uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8089}
           predicates:
             - Path=/api/v1/notifications/**
+        - id: assistant-service
+          uri: ${ASSISTANT_SERVICE_URL:http://localhost:8093}
+          predicates:
+            - Path=/api/v1/assistant/**
 
 management:
   endpoints:

@@ -266,6 +266,46 @@ services:
       <<: *app-healthcheck
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8092/actuator/health | grep -q UP || exit 1"]
 
+  assistant-service:
+    build:
+      context: .
+      dockerfile: services/assistant-service/Dockerfile
+    container_name: agricore-assistant
+    depends_on:
+      postgres:
+        condition: service_healthy
+      identity-service:
+        condition: service_healthy
+    environment:
+      <<: [*db-env, *security-env]
+      ASSISTANT_PORT: 8093
+      ASSISTANT_PROVIDER: ${ASSISTANT_PROVIDER:-none}
+      ASSISTANT_OPENAI_API_KEY: ${ASSISTANT_OPENAI_API_KEY:-}
+      ASSISTANT_OPENAI_BASE_URL: ${ASSISTANT_OPENAI_BASE_URL:-https://api.openai.com/v1}
+      ASSISTANT_OPENAI_MODEL: ${ASSISTANT_OPENAI_MODEL:-gpt-4o-mini}
+    ports:
+      - "8093:8093"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8093/actuator/health | grep -q UP || exit 1"]
+
+  agricore-console:
+    build:
+      context: .
+      dockerfile: apps/agricore-console/Dockerfile
+    container_name: agricore-console
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    ports:
+      - "5173:80"
+    healthcheck:
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 20s
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/ | grep -qi html || exit 1"]
+
   api-gateway:
     build:
       context: .
@@ -294,6 +334,8 @@ services:
         condition: service_healthy
       traceability-service:
         condition: service_healthy
+      assistant-service:
+        condition: service_healthy
     environment:
       GATEWAY_PORT: 8080
       IDENTITY_SERVICE_URL: http://identity-service:8081
@@ -307,6 +349,7 @@ services:
       IOT_SERVICE_URL: http://iot-service:8090
       SALES_SERVICE_URL: http://sales-service:8091
       TRACEABILITY_SERVICE_URL: http://traceability-service:8092
+      ASSISTANT_SERVICE_URL: http://assistant-service:8093
       JWT_ISSUER: https://agricore.local/identity
       IDENTITY_JWKS_URI: http://identity-service:8081/.well-known/jwks.json
     ports:
