@@ -1,39 +1,47 @@
 openapi: 3.1.0
 info:
   title: AgriCore Farm Service API
-  version: 1.0.0
-  description: Farms, areas, and plots management
+  version: 1.1.0
+  description: Verified farm and plot management contract for the farm service.
 servers:
   - url: http://localhost:8082
+    description: Direct local service endpoint
+security:
+  - bearerAuth: []
+tags:
+  - name: Farms
+  - name: Plots
 paths:
   /api/v1/farms:
     get:
+      tags: [Farms]
+      operationId: listFarms
       summary: List farms
-      security:
-        - bearerAuth: []
+      description: Requires an authenticated user. Farm membership scoping is added separately.
       parameters:
-        - in: query
-          name: page
-          schema: { type: integer, default: 0 }
-        - in: query
-          name: size
-          schema: { type: integer, default: 20 }
-        - in: query
-          name: sort
-          schema: { type: string }
-        - in: query
-          name: province
-          schema: { type: string }
-        - in: query
-          name: status
-          schema: { type: string }
+        - $ref: '#/components/parameters/Province'
+        - $ref: '#/components/parameters/FarmStatusFilter'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - $ref: '#/components/parameters/FarmSort'
       responses:
         '200':
-          description: Paged farm list
+          description: Paged farms ordered by the requested supported field.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
     post:
-      summary: Create farm
-      security:
-        - bearerAuth: []
+      tags: [Farms]
+      operationId: createFarm
+      summary: Create a farm
+      description: Requires SYSTEM_ADMIN or FARM_MANAGER.
       requestBody:
         required: true
         content:
@@ -42,25 +50,51 @@ paths:
               $ref: '#/components/schemas/CreateFarmRequest'
       responses:
         '201':
-          description: Created
+          description: Farm created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /api/v1/farms/{farmId}:
+    parameters:
+      - $ref: '#/components/parameters/FarmId'
     get:
-      summary: Get farm by id
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/FarmId'
+      tags: [Farms]
+      operationId: getFarm
+      summary: Get a farm
+      description: Requires an authenticated user. Farm membership scoping is added separately.
       responses:
         '200':
-          description: Farm
+          description: Farm found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
-          description: Not found
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
     patch:
-      summary: Update farm
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/FarmId'
+      tags: [Farms]
+      operationId: updateFarm
+      summary: Update a farm
+      description: Requires SYSTEM_ADMIN or FARM_MANAGER.
       requestBody:
         required: true
         content:
@@ -69,23 +103,54 @@ paths:
               $ref: '#/components/schemas/UpdateFarmRequest'
       responses:
         '200':
-          description: Updated
+          description: Farm updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /api/v1/farms/{farmId}/plots:
+    parameters:
+      - $ref: '#/components/parameters/FarmId'
     get:
-      summary: List plots for farm
-      security:
-        - bearerAuth: []
+      tags: [Plots]
+      operationId: listFarmPlots
+      summary: List plots in a farm
+      description: Requires an authenticated user. Results are ordered by plot code ascending.
       parameters:
-        - $ref: '#/components/parameters/FarmId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
       responses:
         '200':
-          description: Plot list
+          description: Paged farm plots.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlotPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
     post:
-      summary: Create plot
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/FarmId'
+      tags: [Plots]
+      operationId: createFarmPlot
+      summary: Create a plot in a farm
+      description: Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST.
       requestBody:
         required: true
         content:
@@ -94,23 +159,53 @@ paths:
               $ref: '#/components/schemas/CreatePlotRequest'
       responses:
         '201':
-          description: Created
+          description: Plot created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlotResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /api/v1/plots/{plotId}:
+    parameters:
+      - $ref: '#/components/parameters/PlotId'
     get:
-      summary: Get plot
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/PlotId'
+      tags: [Plots]
+      operationId: getPlot
+      summary: Get a plot
+      description: Requires an authenticated user. Farm membership scoping is added separately.
       responses:
         '200':
-          description: Plot
+          description: Plot found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlotResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
     patch:
-      summary: Update plot
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/PlotId'
+      tags: [Plots]
+      operationId: updatePlot
+      summary: Update a plot
+      description: Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST.
       requestBody:
         required: true
         content:
@@ -119,7 +214,23 @@ paths:
               $ref: '#/components/schemas/UpdatePlotRequest'
       responses:
         '200':
-          description: Updated
+          description: Plot updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlotResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 components:
   securitySchemes:
     bearerAuth:
@@ -131,50 +242,443 @@ components:
       in: path
       name: farmId
       required: true
-      schema: { type: string, format: uuid }
+      description: Farm identifier.
+      schema:
+        type: string
+        format: uuid
     PlotId:
       in: path
       name: plotId
       required: true
-      schema: { type: string, format: uuid }
+      description: Plot identifier.
+      schema:
+        type: string
+        format: uuid
+    Page:
+      in: query
+      name: page
+      description: Zero-based page index.
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+        maximum: 2147483647
+        default: 0
+    Size:
+      in: query
+      name: size
+      description: Number of records per page.
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 100
+        default: 20
+    Province:
+      in: query
+      name: province
+      required: false
+      description: Case-insensitive province substring.
+      schema:
+        type: string
+        maxLength: 120
+    FarmStatusFilter:
+      in: query
+      name: status
+      required: false
+      description: Farm status code.
+      schema:
+        $ref: '#/components/schemas/FarmStatus'
+    FarmSort:
+      in: query
+      name: sort
+      description: Supported farm property and lowercase direction.
+      schema:
+        type: string
+        default: createdAt,desc
+        enum:
+          - code,asc
+          - code,desc
+          - name,asc
+          - name,desc
+          - province,asc
+          - province,desc
+          - totalAreaHa,asc
+          - totalAreaHa,desc
+          - status,asc
+          - status,desc
+          - createdAt,asc
+          - createdAt,desc
+          - updatedAt,asc
+          - updatedAt,desc
+  responses:
+    BadRequest:
+      description: Invalid path, query, or JSON request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Unauthorized:
+      description: Authentication is required or the bearer token is invalid.
+    Forbidden:
+      description: The authenticated user lacks the required role.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotFound:
+      description: Farm or plot not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Conflict:
+      description: Farm code or farm-local plot code already exists.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    UnsupportedMediaType:
+      description: Content-Type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    InternalServerError:
+      description: Unexpected server failure.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
   schemas:
+    FarmStatus:
+      type: string
+      enum: [ACTIVE, INACTIVE, MAINTENANCE]
+    PlotStatus:
+      type: string
+      enum: [AVAILABLE, PREPARING, IN_USE, RESTING, MAINTENANCE, INACTIVE]
     CreateFarmRequest:
       type: object
       required: [code, name]
       properties:
-        code: { type: string }
-        name: { type: string }
-        address: { type: string }
-        province: { type: string }
-        totalAreaHa: { type: number }
-        latitude: { type: number }
-        longitude: { type: number }
+        code:
+          type: string
+          minLength: 1
+          maxLength: 64
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        address:
+          type: [string, 'null']
+          maxLength: 500
+        province:
+          type: [string, 'null']
+          maxLength: 120
+        totalAreaHa:
+          type: [number, 'null']
+          minimum: 0
+        latitude:
+          type: [number, 'null']
+          format: double
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: [number, 'null']
+          format: double
+          minimum: -180
+          maximum: 180
     UpdateFarmRequest:
       type: object
       properties:
-        name: { type: string }
-        address: { type: string }
-        province: { type: string }
-        totalAreaHa: { type: number }
-        status: { type: string, enum: [ACTIVE, INACTIVE, MAINTENANCE] }
-        latitude: { type: number }
-        longitude: { type: number }
+        name:
+          type: [string, 'null']
+          maxLength: 200
+        address:
+          type: [string, 'null']
+          maxLength: 500
+        province:
+          type: [string, 'null']
+          maxLength: 120
+        totalAreaHa:
+          type: [number, 'null']
+          minimum: 0
+        latitude:
+          type: [number, 'null']
+          format: double
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: [number, 'null']
+          format: double
+          minimum: -180
+          maximum: 180
+        status:
+          oneOf:
+            - $ref: '#/components/schemas/FarmStatus'
+            - type: 'null'
     CreatePlotRequest:
       type: object
       required: [code, name, areaInHectares]
       properties:
-        code: { type: string }
-        name: { type: string }
-        areaInHectares: { type: number }
-        soilType: { type: string }
-        latitude: { type: number }
-        longitude: { type: number }
+        code:
+          type: string
+          minLength: 1
+          maxLength: 64
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        areaInHectares:
+          type: number
+          minimum: 0.0001
+        soilType:
+          type: [string, 'null']
+          maxLength: 100
+        areaId:
+          type: [string, 'null']
+          format: uuid
+        latitude:
+          type: [number, 'null']
+          format: double
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: [number, 'null']
+          format: double
+          minimum: -180
+          maximum: 180
     UpdatePlotRequest:
       type: object
       properties:
-        name: { type: string }
-        areaInHectares: { type: number }
-        soilType: { type: string }
-        status: { type: string, enum: [AVAILABLE, PREPARING, IN_USE, RESTING, MAINTENANCE, INACTIVE] }
-        latitude: { type: number }
-        longitude: { type: number }
+        name:
+          type: [string, 'null']
+          maxLength: 200
+        areaInHectares:
+          type: [number, 'null']
+          minimum: 0.0001
+        soilType:
+          type: [string, 'null']
+          maxLength: 100
+        status:
+          oneOf:
+            - $ref: '#/components/schemas/PlotStatus'
+            - type: 'null'
+        latitude:
+          type: [number, 'null']
+          format: double
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: [number, 'null']
+          format: double
+          minimum: -180
+          maximum: 180
+    FarmResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - code
+        - name
+        - address
+        - province
+        - totalAreaHa
+        - latitude
+        - longitude
+        - status
+        - createdAt
+        - updatedAt
+        - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          maxLength: 64
+        name:
+          type: string
+          maxLength: 200
+        address:
+          type: [string, 'null']
+          maxLength: 500
+        province:
+          type: [string, 'null']
+          maxLength: 120
+        totalAreaHa:
+          type: [number, 'null']
+        latitude:
+          type: [number, 'null']
+          format: double
+        longitude:
+          type: [number, 'null']
+          format: double
+        status:
+          $ref: '#/components/schemas/FarmStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+    PlotResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - farmId
+        - areaId
+        - code
+        - name
+        - areaInHectares
+        - soilType
+        - status
+        - latitude
+        - longitude
+        - createdAt
+        - updatedAt
+        - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        farmId:
+          type: string
+          format: uuid
+        areaId:
+          type: [string, 'null']
+          format: uuid
+        code:
+          type: string
+          maxLength: 64
+        name:
+          type: string
+          maxLength: 200
+        areaInHectares:
+          type: number
+          minimum: 0.0001
+        soilType:
+          type: [string, 'null']
+          maxLength: 100
+        status:
+          $ref: '#/components/schemas/PlotStatus'
+        latitude:
+          type: [number, 'null']
+          format: double
+        longitude:
+          type: [number, 'null']
+          format: double
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+    FarmPageResponse:
+      type: object
+      additionalProperties: false
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/FarmResponse'
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int32
+          minimum: 0
+        first:
+          type: boolean
+        last:
+          type: boolean
+    PlotPageResponse:
+      type: object
+      additionalProperties: false
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlotResponse'
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int32
+          minimum: 0
+        first:
+          type: boolean
+        last:
+          type: boolean
+    ApiError:
+      type: object
+      additionalProperties: false
+      required: [timestamp, status, error, code, message, path]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: integer
+          format: int32
+          minimum: 400
+          maximum: 599
+        error:
+          type: string
+        code:
+          type: string
+        message:
+          type: string
+        path:
+          type: string
+        traceId:
+          type: [string, 'null']
+        violations:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldViolation'
+        details:
+          type: object
+          additionalProperties: true
+    FieldViolation:
+      type: object
+      additionalProperties: false
+      required: [field, message]
+      properties:
+        field:
+          type: string
+        message:
+          type: string
