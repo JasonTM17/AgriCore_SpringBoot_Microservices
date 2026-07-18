@@ -140,8 +140,8 @@ public class AssistantController {
             @RequestParam(defaultValue = "-1") long after
     ) {
         UUID ownerId = userId(authentication);
-        // Ownership checks
-        assistantService.requireOwnedGeneration(ownerId, generationId);
+        // Ownership + conversation binding (M2) before opening the stream.
+        assistantService.requireOwnedGeneration(ownerId, conversationId, generationId);
 
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
         sseWorkers.submit(() -> {
@@ -149,7 +149,7 @@ public class AssistantController {
             try {
                 while (true) {
                     List<GenerationEventEntity> batch =
-                            assistantService.eventsAfter(ownerId, generationId, cursor);
+                            assistantService.eventsAfter(ownerId, conversationId, generationId, cursor);
                     for (GenerationEventEntity event : batch) {
                         emitter.send(SseEmitter.event()
                                 .id(String.valueOf(event.getSequenceNo()))
@@ -161,7 +161,9 @@ public class AssistantController {
                             return;
                         }
                     }
-                    String status = assistantService.requireOwnedGeneration(ownerId, generationId).getStatus();
+                    String status = assistantService
+                            .requireOwnedGeneration(ownerId, conversationId, generationId)
+                            .getStatus();
                     if ("COMPLETED".equals(status) || "FAILED".equals(status) || "CANCELLED".equals(status)) {
                         if (batch.isEmpty()) {
                             emitter.send(SseEmitter.event().name("status").data(

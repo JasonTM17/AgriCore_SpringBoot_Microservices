@@ -58,6 +58,8 @@ spec:
             - containerPort: {{ $svc.port }}
               name: http
           env:
+            {{- /* M5: console (nginx SPA) must not receive backend DB secrets or Spring DB env. */}}
+            {{- if ne $name "console" }}
             - name: POSTGRES_HOST
               value: {{ $.Values.postgres.host | quote }}
             - name: POSTGRES_PORT
@@ -82,6 +84,7 @@ spec:
               value: "false"
             - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
               value: "5"
+            {{- end }}
             {{- if eq $name "identity" }}
             - name: REDIS_HOST
               value: {{ $.Values.redis.host | default "redis" | quote }}

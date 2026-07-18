@@ -44,7 +44,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Service
 public class AssistantApplicationService {
 
-    private static final List<String> ALLOWED_TOOLS = List.of(
+    /**
+     * Domain tool names planned for a future tool-runner. Not advertised in capabilities
+     * until a real executor exists (M1 honesty).
+     */
+    @SuppressWarnings("unused")
+    private static final List<String> PLANNED_TOOLS = List.of(
             "list_farms", "get_farm", "list_crop_cycles", "get_inventory_item", "get_public_trace"
     );
 
@@ -120,12 +125,17 @@ public class AssistantApplicationService {
     public CapabilitiesResponse capabilities() {
         ChatProvider provider = providerRegistry.active();
         boolean available = properties.generationAvailable() && provider.available();
+        // M1: do not advertise tools the runtime does not execute yet.
+        List<String> tools = List.of();
+        String reason = available
+                ? null
+                : "No LLM provider key configured or provider=none";
         return new CapabilitiesResponse(
                 properties.normalizedProvider(),
                 available,
                 true,
-                ALLOWED_TOOLS,
-                available ? null : "No LLM provider key configured or provider=none"
+                tools,
+                reason
         );
     }
 
@@ -298,18 +308,29 @@ public class AssistantApplicationService {
     }
 
     @Transactional(readOnly = true)
-    public List<GenerationEventEntity> eventsAfter(UUID ownerId, UUID generationId, long afterSequence) {
-        ChatGenerationEntity generation = generationRepository.findByIdAndOwnerUserId(generationId, ownerId)
-                .orElseThrow(() -> new AssistantException("NOT_FOUND", "Generation not found", 404));
-        requireOwnedConversation(generation.getConversationId(), ownerId);
+    public List<GenerationEventEntity> eventsAfter(
+            UUID ownerId, UUID conversationId, UUID generationId, long afterSequence
+    ) {
+        requireOwnedGeneration(ownerId, conversationId, generationId);
         return eventRepository.findByGenerationIdAndSequenceNoGreaterThanOrderBySequenceNoAsc(
                 generationId, afterSequence);
     }
 
+    /**
+     * Loads a generation owned by {@code ownerId} and bound to {@code conversationId} (M2).
+     * Mismatched conversation path yields NOT_FOUND (no cross-conversation event leak).
+     */
     @Transactional(readOnly = true)
-    public ChatGenerationEntity requireOwnedGeneration(UUID ownerId, UUID generationId) {
-        return generationRepository.findByIdAndOwnerUserId(generationId, ownerId)
+    public ChatGenerationEntity requireOwnedGeneration(
+            UUID ownerId, UUID conversationId, UUID generationId
+    ) {
+        ChatGenerationEntity generation = generationRepository.findByIdAndOwnerUserId(generationId, ownerId)
                 .orElseThrow(() -> new AssistantException("NOT_FOUND", "Generation not found", 404));
+        if (!generation.getConversationId().equals(conversationId)) {
+            throw new AssistantException("NOT_FOUND", "Generation not found", 404);
+        }
+        requireOwnedConversation(conversationId, ownerId);
+        return generation;
     }
 
     private void runGeneration(UUID generationId) {
