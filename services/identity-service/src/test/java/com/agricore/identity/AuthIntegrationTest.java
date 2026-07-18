@@ -117,6 +117,35 @@ class AuthIntegrationTest {
     }
 
     @Test
+    void login_repeatedFailuresPersistAccountLockout() throws Exception {
+        String email = "lockout" + System.nanoTime() + "@agricore.test";
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","password":"Secret123!","fullName":"Lockout User"}
+                                """.formatted(email)))
+                .andExpect(status().isCreated());
+
+        for (int attempt = 0; attempt < 5; attempt++) {
+            mockMvc.perform(post("/api/v1/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"email":"%s","password":"WrongPass1!"}
+                                    """.formatted(email)))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
+        }
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","password":"Secret123!"}
+                                """.formatted(email)))
+                .andExpect(status().isLocked())
+                .andExpect(jsonPath("$.code").value("ACCOUNT_LOCKED"));
+    }
+
+    @Test
     void loginValidation_doesNotEchoRejectedInputs() throws Exception {
         String rejectedPassword = "do-not-echo-" + "x".repeat(128);
 

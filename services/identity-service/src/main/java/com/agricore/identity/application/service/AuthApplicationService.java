@@ -5,6 +5,7 @@ import com.agricore.identity.api.request.RegisterRequest;
 import com.agricore.identity.api.response.AuthTokensResponse;
 import com.agricore.identity.api.response.UserResponse;
 import com.agricore.identity.domain.exception.IdentityException;
+import com.agricore.identity.domain.exception.InvalidCredentialsException;
 import com.agricore.identity.domain.exception.RefreshTokenReuseException;
 import com.agricore.identity.domain.model.RoleCode;
 import com.agricore.identity.domain.model.UserStatus;
@@ -98,7 +99,7 @@ public class AuthApplicationService {
         return toUserResponse(user);
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = InvalidCredentialsException.class)
     public AuthTokensResponse login(LoginRequest request, String clientIp, String userAgent) {
         if (!loginRateLimiter.allow(clientIp == null ? "unknown" : clientIp)) {
             throw new IdentityException("RATE_LIMITED", "Too many login attempts. Try again later.", 429);
@@ -106,7 +107,7 @@ public class AuthApplicationService {
 
         String email = request.email().trim().toLowerCase();
         UserEntity user = userRepository.findByEmailIgnoreCase(email)
-                .orElseThrow(() -> new IdentityException("INVALID_CREDENTIALS", "Invalid email or password", 401));
+                .orElseThrow(InvalidCredentialsException::new);
 
         Instant now = Instant.now();
         if (user.getStatus() == UserStatus.DISABLED) {
@@ -118,7 +119,7 @@ public class AuthApplicationService {
 
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             handleFailedLogin(user, now);
-            throw new IdentityException("INVALID_CREDENTIALS", "Invalid email or password", 401);
+            throw new InvalidCredentialsException();
         }
 
         user.setFailedLoginCount(0);
