@@ -13,7 +13,7 @@
     "test": "vitest run",
     "contracts:generate": "openapi-typescript ../../contracts/openapi/identity-service.v1.yaml -o src/lib/api/generated/identity.ts",
     "contracts:check": "pnpm contracts:generate && git ls-files --error-unmatch src/lib/api/generated/identity.ts && git diff --exit-code -- src/lib/api/generated/identity.ts",
-    "build": "tsc -b --pretty false && vite build",
+    "build": "tsc -b --pretty false && vite build && node scripts/verify-built-security-policy.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
