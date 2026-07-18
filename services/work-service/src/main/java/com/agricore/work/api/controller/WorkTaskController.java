@@ -7,17 +7,21 @@ import com.agricore.work.api.request.CreateWorkTaskRequest;
 import com.agricore.work.api.response.WorkTaskResponse;
 import com.agricore.work.application.service.WorkApplicationService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/work-tasks")
+@Validated
 public class WorkTaskController {
 
     private final WorkApplicationService service;
@@ -36,10 +40,10 @@ public class WorkTaskController {
     @PreAuthorize("isAuthenticated()")
     public PageResponse<WorkTaskResponse> list(
             @RequestParam(required = false) UUID cropCycleId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
     ) {
-        return service.list(cropCycleId, PageRequest.of(page, Math.min(size, 100), Sort.by("createdAt").descending()));
+        return service.list(cropCycleId, PageRequest.of(page, size, Sort.by("createdAt").descending()));
     }
 
     @GetMapping("/{taskId}")

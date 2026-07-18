@@ -6,17 +6,21 @@ import com.agricore.cropcycle.api.request.CreateCropCycleRequest;
 import com.agricore.cropcycle.api.response.CropCycleResponse;
 import com.agricore.cropcycle.application.service.CropCycleApplicationService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/crop-cycles")
+@Validated
 public class CropCycleController {
 
     private final CropCycleApplicationService service;
@@ -36,10 +40,10 @@ public class CropCycleController {
     public PageResponse<CropCycleResponse> list(
             @RequestParam(required = false) UUID farmId,
             @RequestParam(required = false) UUID plotId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
     ) {
-        return service.list(farmId, plotId, PageRequest.of(page, Math.min(size, 100), Sort.by("createdAt").descending()));
+        return service.list(farmId, plotId, PageRequest.of(page, size, Sort.by("createdAt").descending()));
     }
 
     @GetMapping("/{cycleId}")
