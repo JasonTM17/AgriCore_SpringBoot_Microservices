@@ -5,6 +5,7 @@ import com.agricore.identity.api.request.RegisterRequest;
 import com.agricore.identity.api.response.AuthTokensResponse;
 import com.agricore.identity.api.response.UserResponse;
 import com.agricore.identity.domain.exception.IdentityException;
+import com.agricore.identity.domain.exception.RefreshTokenReuseException;
 import com.agricore.identity.domain.model.RoleCode;
 import com.agricore.identity.domain.model.UserStatus;
 import com.agricore.identity.infrastructure.configuration.SecurityProperties;
@@ -21,6 +22,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
@@ -29,6 +31,13 @@ import java.util.stream.Collectors;
 
 @Service
 public class AuthApplicationService {
+
+    /**
+     * Concurrent legitimate refresh of the same active token can lose the row lock
+     * and observe a just-rotated row. Inside this grace window we reject without
+     * wiping the winner's replacement. Outside the window, reuse triggers family revoke.
+     */
+    private static final Duration CONCURRENT_ROTATION_GRACE = Duration.ofSeconds(5);
 
     private final UserJpaRepository userRepository;
     private final RoleJpaRepository roleRepository;
@@ -122,25 +131,26 @@ public class AuthApplicationService {
         return issueTokens(user, clientIp, userAgent, UUID.randomUUID());
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = RefreshTokenReuseException.class)
     public AuthTokensResponse refresh(String refreshToken, String clientIp, String userAgent) {
         if (refreshToken == null || refreshToken.isBlank()) {
             throw new IdentityException("INVALID_REFRESH_TOKEN", "Refresh token is required", 401);
         }
 
         String hash = TokenHashing.sha256Hex(refreshToken);
-        RefreshTokenEntity existing = refreshTokenRepository.findByTokenHash(hash)
+        // Row lock serializes concurrent rotation of the same opaque token.
+        RefreshTokenEntity existing = refreshTokenRepository.findByTokenHashForUpdate(hash)
                 .orElseThrow(() -> new IdentityException("INVALID_REFRESH_TOKEN", "Invalid refresh token", 401));
 
         Instant now = Instant.now();
 
-        // Reuse of a revoked token in a family → revoke entire family (theft detection)
         if (existing.getRevokedAt() != null) {
-            refreshTokenRepository.revokeFamily(existing.getFamilyId(), now);
-            throw new IdentityException("REFRESH_TOKEN_REUSE", "Refresh token reuse detected. Session family revoked.", 401);
+            handleRevokedRefreshPresentation(existing, now);
         }
 
-        if (existing.getExpiresAt().isBefore(now)) {
+        if (!existing.getExpiresAt().isAfter(now)) {
+            existing.setRevokedAt(now);
+            refreshTokenRepository.save(existing);
             throw new IdentityException("REFRESH_TOKEN_EXPIRED", "Refresh token expired", 401);
         }
 
@@ -161,11 +171,11 @@ public class AuthApplicationService {
         replacement.setCreatedAt(now);
         replacement.setUserAgent(userAgent);
         replacement.setIpAddress(clientIp);
-        refreshTokenRepository.save(replacement);
+        refreshTokenRepository.saveAndFlush(replacement);
 
         existing.setRevokedAt(now);
         existing.setReplacedBy(replacement.getId());
-        refreshTokenRepository.save(existing);
+        refreshTokenRepository.saveAndFlush(existing);
 
         List<String> roles = roleNames(user);
         String accessToken = jwtTokenService.createAccessToken(user, roles);
@@ -197,6 +207,22 @@ public class AuthApplicationService {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new IdentityException("USER_NOT_FOUND", "User not found", 404));
         return toUserResponse(user);
+    }
+
+    private void handleRevokedRefreshPresentation(RefreshTokenEntity existing, Instant now) {
+        // Concurrent rotation loser: replacement still active and rotation was moments ago.
+        if (existing.getReplacedBy() != null
+                && existing.getRevokedAt() != null
+                && !Duration.between(existing.getRevokedAt(), now).isNegative()
+                && Duration.between(existing.getRevokedAt(), now).compareTo(CONCURRENT_ROTATION_GRACE) <= 0) {
+            RefreshTokenEntity replacement = refreshTokenRepository.findById(existing.getReplacedBy()).orElse(null);
+            if (replacement != null && replacement.isActive(now)) {
+                throw new IdentityException("INVALID_REFRESH_TOKEN", "Invalid refresh token", 401);
+            }
+        }
+
+        refreshTokenRepository.revokeFamily(existing.getFamilyId(), now);
+        throw new RefreshTokenReuseException();
     }
 
     private void handleFailedLogin(UserEntity user, Instant now) {
