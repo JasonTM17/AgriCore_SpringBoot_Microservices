@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+
+<html class="light" lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>02 — Tổng quan điều hành - AgriCore</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container": "#e4f1e6",
+                        "secondary-fixed-dim": "#ffb955",
+                        "on-tertiary": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "on-secondary-container": "#714800",
+                        "outline": "#707972",
+                        "surface-tint": "#2d694d",
+                        "on-secondary-fixed": "#291800",
+                        "on-primary-fixed-variant": "#0f5137",
+                        "primary-fixed": "#b1f0cd",
+                        "on-error": "#ffffff",
+                        "tertiary-fixed-dim": "#e9bea1",
+                        "on-surface-variant": "#404943",
+                        "surface-container-highest": "#d8e6db",
+                        "primary-container": "#1f5d42",
+                        "inverse-surface": "#27332c",
+                        "surface-bright": "#effdf1",
+                        "surface-variant": "#d8e6db",
+                        "on-tertiary-container": "#e9bea1",
+                        "inverse-primary": "#95d4b2",
+                        "inverse-on-surface": "#e6f4e9",
+                        "secondary-fixed": "#ffddb4",
+                        "surface-container-high": "#deece0",
+                        "error": "#ba1a1a",
+                        "surface": "#effdf1",
+                        "primary-fixed-dim": "#95d4b2",
+                        "primary": "#00452d",
+                        "background": "#effdf1",
+                        "on-secondary": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "secondary-container": "#fcb651",
+                        "on-tertiary-fixed": "#2d1604",
+                        "on-background": "#121e17",
+                        "on-tertiary-fixed-variant": "#5e402a",
+                        "on-surface": "#121e17",
+                        "on-primary-fixed": "#002113",
+                        "secondary": "#835500",
+                        "tertiary-fixed": "#ffdcc5",
+                        "surface-container-low": "#e9f7ec",
+                        "surface-dim": "#d0ddd3",
+                        "tertiary": "#523520",
+                        "outline-variant": "#bfc9c1",
+                        "on-secondary-fixed-variant": "#633f00",
+                        "on-primary-container": "#95d4b1",
+                        "tertiary-container": "#6b4c35"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter", "sans-serif"],
+                        "display": ["Inter", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: #F4F6F1; }
+        /* Material symbols specific fill settings */
+        .material-symbols-outlined[data-weight="fill"] { font-variation-settings: 'FILL' 1; }
+    </style>
+</head>
+<body class="font-body text-on-background antialiased flex">
+<!-- SideNavBar -->
+<nav class="fixed left-0 top-0 h-screen w-[264px] bg-primary flex flex-col h-full py-6 space-y-2 z-50">
+<div class="px-6 mb-8 flex items-center space-x-3">
+<span class="material-symbols-outlined text-primary-fixed-dim text-3xl" data-weight="fill">energy_savings_leaf</span>
+<div>
+<h1 class="text-xl font-headline font-black text-primary-fixed tracking-tight">AgriCore</h1>
+<p class="text-xs text-primary-fixed-dim/80 font-medium tracking-wide uppercase mt-0.5">Hệ thống vận hành</p>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto px-4 space-y-1">
+<!-- Active: Tổng quan -->
+<a class="flex items-center space-x-3 bg-surface-container-highest text-on-primary-fixed-variant font-bold rounded-lg px-4 py-3 mx-2 scale-[0.98] transition-transform duration-150" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body text-label-sm tracking-wide">Tổng quan</span>
+</a>
+<a class="flex items-center space-x-3 text-primary-fixed-dim hover:text-primary-fixed hover:bg-primary-container/50 transition-colors rounded-lg px-4 py-3 mx-2" href="#">
+<span class="material-symbols-outlined">agriculture</span>
+<span class="font-body text-label-sm tracking-wide font-medium">Nông trại</span>
+</a>
+<a class="flex items-center space-x-3 text-primary-fixed-dim hover:text-primary-fixed hover:bg-primary-container/50 transition-colors rounded-lg px-4 py-3 mx-2" href="#">
+<span class="material-symbols-outlined">calendar_today</span>
+<span class="font-body text-label-sm tracking-wide font-medium">Mùa vụ &amp; công việc</span>
+</a>
+<a class="flex items-center space-x-3 text-primary-fixed-dim hover:text-primary-fixed hover:bg-primary-container/50 transition-colors rounded-lg px-4 py-3 mx-2" href="#">
+<span class="material-symbols-outlined">grass</span>
+<span class="font-body text-label-sm tracking-wide font-medium">Thu hoạch</span>
+</a>
+<a class="flex items-center space-x-3 text-primary-fixed-dim hover:text-primary-fixed hover:bg-primary-container/50 transition-colors rounded-lg px-4 py-3 mx-2" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="font-body text-label-sm tracking-wide font-medium">Kho vận</span>
+</a>
+<a class="flex items-center space-x-3 text-primary-fixed-dim hover:text-primary-fixed hover:bg-primary-container/50 transition-colors rounded-lg px-4 py-3 mx-2" href="#">
+<span class="material-symbols-outlined">shopping_cart</span>
+<span class="font-body text-label-sm tracking-wide font-medium">Bán hàng</span>
+</a>
+<a class="flex items-center space-x-3 text-primary-fixed-dim hover:text-primary-fixed hover:bg-primary-container/50 transition-colors rounded-lg px-4 py-3 mx-2" href="#">
+<span class="material-symbols-outlined">sensors</span>
+<span class="font-body text-label-sm tracking-wide font-medium">IoT</span>
+</a>
+</div>
+<div class="mt-auto px-4 pt-4">
+<a class="flex items-center space-x-3 text-primary-fixed-dim hover:text-primary-fixed hover:bg-primary-container/50 transition-colors rounded-lg px-4 py-3 mx-2" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-body text-label-sm tracking-wide font-medium">Quản trị</span>
+</a>
+</div>
+</nav>
+<!-- TopNavBar -->
+<header class="fixed top-0 right-0 h-[72px] left-[264px] z-40 bg-surface-container-lowest border-b border-outline-variant flex justify-between items-center px-8 w-[calc(100%-264px)]">
+<div class="flex items-center space-x-4">
+<span class="font-headline text-body-md font-semibold text-primary">AgriCore / Tổng quan</span>
+</div>
+<div class="flex items-center space-x-6">
+<div class="hidden lg:flex items-center space-x-2 text-sm font-medium text-on-surface-variant bg-surface-container-low px-3 py-1.5 rounded-full">
+<span class="material-symbols-outlined text-sm">nature</span>
+<span>Nông trại An Phú</span>
+</div>
+<button class="text-on-surface-variant hover:bg-surface-container rounded-full p-2 transition-colors focus:ring-2 focus:ring-primary-fixed-dim">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="flex items-center space-x-3 pl-4 border-l border-outline-variant">
+<div class="text-right hidden md:block">
+<p class="text-sm font-semibold text-on-surface">Nguyễn Minh Anh</p>
+<p class="text-xs text-on-surface-variant">Quản lý nông trại</p>
+</div>
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold">
+                    MA
+                </div>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-[264px] pt-[72px] w-full min-h-screen p-8">
+<!-- 1. Header -->
+<div class="flex justify-between items-end mb-8">
+<div>
+<h2 class="text-[28px] font-bold text-on-background font-headline tracking-tight mb-2">Chào buổi sáng, Minh Anh</h2>
+<p class="text-sm text-[#66736A] font-medium flex items-center">
+                    Theo dõi hoạt động cần ưu tiên hôm nay <span class="mx-2 font-bold">·</span> 18/07/2026
+                </p>
+</div>
+<div class="flex space-x-4">
+<button class="px-4 py-2 border border-outline bg-surface-container-lowest text-on-surface hover:bg-surface-container-low transition-colors rounded-lg font-semibold text-sm flex items-center shadow-sm">
+<span class="material-symbols-outlined text-[20px] mr-2">visibility</span>
+                    Xem nông trại
+                </button>
+<button class="px-5 py-2 bg-primary-container text-on-primary-container hover:bg-primary transition-colors rounded-lg font-semibold text-sm flex items-center shadow-sm">
+<span class="material-symbols-outlined text-[20px] mr-2">add</span>
+                    Tạo mùa vụ
+                </button>
+</div>
+</div>
+<!-- 2. KPI Section -->
+<div class="grid grid-cols-4 gap-6 mb-8 relative">
+<div class="bg-surface-container-lowest border border-[#D9DED8] rounded-xl p-5 shadow-[0_1px_2px_rgba(0,0,0,0.02)] flex flex-col hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">agriculture</span>
+</div>
+<span class="text-xs font-bold text-primary-container bg-primary-container/10 px-2 py-1 rounded-md">+1 trong tháng</span>
+</div>
+<h3 class="text-3xl font-black text-on-background mb-1 font-headline">4</h3>
+<p class="text-sm font-medium text-on-surface-variant">Mùa vụ đang hoạt động</p>
+</div>
+<div class="bg-surface-container-lowest border border-[#D9DED8] rounded-xl p-5 shadow-[0_1px_2px_rgba(0,0,0,0.02)] flex flex-col hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">assignment</span>
+</div>
+<span class="text-xs font-bold text-secondary-container bg-secondary-container/10 px-2 py-1 rounded-md">6 việc đến hạn hôm nay</span>
+</div>
+<h3 class="text-3xl font-black text-on-background mb-1 font-headline">18</h3>
+<p class="text-sm font-medium text-on-surface-variant">Công việc đang mở</p>
+</div>
+<div class="bg-surface-container-lowest border border-[#D9DED8] rounded-xl p-5 shadow-[0_1px_2px_rgba(0,0,0,0.02)] flex flex-col hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">calendar_today</span>
+</div>
+<span class="text-xs font-medium text-on-surface-variant bg-surface-variant px-2 py-1 rounded-md">trong 7 ngày tới</span>
+</div>
+<h3 class="text-3xl font-black text-on-background mb-1 font-headline">2</h3>
+<p class="text-sm font-medium text-on-surface-variant">Lô sắp thu hoạch</p>
+</div>
+<div class="bg-surface-container-lowest border border-[#D9DED8] rounded-xl p-5 shadow-[0_1px_2px_rgba(0,0,0,0.02)] flex flex-col hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<div class="w-10 h-10 rounded-lg bg-error-container flex items-center justify-center text-error">
+<span class="material-symbols-outlined">inventory_2</span>
+</div>
+<span class="text-xs font-bold text-error bg-error/10 px-2 py-1 rounded-md">cần xử lý</span>
+</div>
+<h3 class="text-3xl font-black text-on-background mb-1 font-headline">1</h3>
+<p class="text-sm font-medium text-on-surface-variant">Cảnh báo tồn kho</p>
+</div>
+<div class="absolute -bottom-6 right-2">
+<p class="text-[10px] text-outline italic">Dữ liệu minh hoạ</p>
+</div>
+</div>
+<!-- 3. Main Row (2/3 and 1/3 split) -->
+<div class="grid grid-cols-3 gap-6 mb-8">
+<!-- Left (2/3): Ưu tiên hôm nay -->
+<div class="col-span-2 bg-surface-container-lowest border border-[#D9DED8] rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.02)] flex flex-col h-full">
+<div class="p-5 border-b border-[#D9DED8] flex justify-between items-center">
+<h3 class="text-lg font-bold text-on-background font-headline">Ưu tiên hôm nay</h3>
+<div class="flex space-x-2">
+<button class="px-3 py-1.5 text-xs font-semibold bg-surface-container-high text-on-surface rounded-full hover:bg-surface-variant transition-colors">Tất cả</button>
+<button class="px-3 py-1.5 text-xs font-semibold bg-error/10 text-error rounded-full border border-error/20 flex items-center">
+<span class="w-2 h-2 rounded-full bg-error mr-1.5"></span>
+                            Quá hạn (2)
+                        </button>
+<button class="px-3 py-1.5 text-xs font-semibold bg-primary-container text-on-primary-container rounded-full shadow-sm">Hôm nay (6)</button>
+</div>
+</div>
+<div class="overflow-x-auto flex-1">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low text-xs font-semibold text-on-surface-variant uppercase tracking-wider border-b border-[#D9DED8]">
+<th class="px-5 py-3 w-[40%]">Công việc</th>
+<th class="px-5 py-3">Mùa vụ / Lô</th>
+<th class="px-5 py-3">Người làm</th>
+<th class="px-5 py-3">Thời gian</th>
+<th class="px-5 py-3">Trạng thái</th>
+</tr>
+</thead>
+<tbody class="text-sm divide-y divide-[#D9DED8]">
+<!-- Row 1: ĐẾN HẠN (Warning) -->
+<tr class="hover:bg-surface-bright transition-colors group">
+<td class="px-5 py-4">
+<p class="font-bold text-on-background group-hover:text-primary transition-colors">Kiểm tra độ ẩm lô A3</p>
+<p class="text-xs text-on-surface-variant mt-0.5">Khảo sát thực địa</p>
+</td>
+<td class="px-5 py-4">
+<p class="font-medium">Lô A3</p>
+<p class="text-xs text-outline font-mono mt-0.5">Vụ Robusta 2026</p>
+</td>
+<td class="px-5 py-4 font-medium">An</td>
+<td class="px-5 py-4 font-mono text-on-surface-variant">08:30</td>
+<td class="px-5 py-4">
+<span class="inline-flex items-center px-2 py-1 rounded text-[11px] font-bold bg-secondary-container/20 text-on-secondary-container border border-secondary-container/30">
+<span class="material-symbols-outlined text-[14px] mr-1">schedule</span> ĐẾN HẠN
+                                    </span>
+</td>
+</tr>
+<!-- Row 2: ĐANG LÀM (Info) -->
+<tr class="hover:bg-surface-bright transition-colors group">
+<td class="px-5 py-4">
+<p class="font-bold text-on-background group-hover:text-primary transition-colors">Bón phân đợt 2</p>
+<p class="text-xs text-on-surface-variant mt-0.5">Phân NPK 15-15-15</p>
+</td>
+<td class="px-5 py-4">
+<p class="font-medium">Lô B1</p>
+<p class="text-xs text-outline font-mono mt-0.5">Lúa ST25</p>
+</td>
+<td class="px-5 py-4 font-medium">Minh</td>
+<td class="px-5 py-4 font-mono text-on-surface-variant">10:00</td>
+<td class="px-5 py-4">
+<span class="inline-flex items-center px-2 py-1 rounded text-[11px] font-bold bg-[#E1F0FF] text-[#004A8F] border border-[#B3D9FF]">
+<span class="material-symbols-outlined text-[14px] mr-1">autorenew</span> ĐANG LÀM
+                                    </span>
+</td>
+</tr>
+<!-- Row 3: CHỜ XỬ LÝ (Danger) -->
+<tr class="hover:bg-surface-bright transition-colors group">
+<td class="px-5 py-4">
+<p class="font-bold text-error group-hover:text-error/80 transition-colors">Xác nhận sâu bệnh</p>
+<p class="text-xs text-on-surface-variant mt-0.5">Báo cáo nghi ngờ từ cam</p>
+</td>
+<td class="px-5 py-4">
+<p class="font-medium">Lô A1</p>
+<p class="text-xs text-outline font-mono mt-0.5">Xoài Cát Chu</p>
+</td>
+<td class="px-5 py-4 font-medium">Hoàng</td>
+<td class="px-5 py-4 font-mono text-on-surface-variant text-error">14:00</td>
+<td class="px-5 py-4">
+<span class="inline-flex items-center px-2 py-1 rounded text-[11px] font-bold bg-error-container text-on-error-container border border-error/30">
+<span class="material-symbols-outlined text-[14px] mr-1">warning</span> CHỜ XỬ LÝ
+                                    </span>
+</td>
+</tr>
+<!-- Row 4: LÊN KẾ HOẠCH (Success) -->
+<tr class="hover:bg-surface-bright transition-colors group">
+<td class="px-5 py-4">
+<p class="font-bold text-on-background group-hover:text-primary transition-colors">Chuẩn bị thu hoạch</p>
+<p class="text-xs text-on-surface-variant mt-0.5">Kiểm tra dụng cụ</p>
+</td>
+<td class="px-5 py-4">
+<p class="font-medium">Lô C2</p>
+<p class="text-xs text-outline font-mono mt-0.5">Rau cải</p>
+</td>
+<td class="px-5 py-4 font-medium">Lan</td>
+<td class="px-5 py-4 font-mono text-on-surface-variant">Hôm nay</td>
+<td class="px-5 py-4">
+<span class="inline-flex items-center px-2 py-1 rounded text-[11px] font-bold bg-surface-container text-primary-container border border-primary/20">
+<span class="material-symbols-outlined text-[14px] mr-1">event</span> LÊN KẾ HOẠCH
+                                    </span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-3 bg-surface-container-low text-xs text-outline border-t border-[#D9DED8] flex items-center">
+<span class="material-symbols-outlined text-[14px] mr-1">api</span>
+                    Danh sách cần API lọc theo người dùng và nông trại.
+                </div>
+</div>
+<!-- Right (1/3): Tiến độ mùa vụ -->
+<div class="bg-surface-container-lowest border border-[#D9DED8] rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.02)] flex flex-col">
+<div class="p-5 border-b border-[#D9DED8] flex justify-between items-center">
+<h3 class="text-lg font-bold text-on-background font-headline">Tiến độ mùa vụ</h3>
+<span class="material-symbols-outlined text-outline">pie_chart</span>
+</div>
+<div class="p-5 space-y-6 flex-1">
+<!-- Progress 1 -->
+<div>
+<div class="flex justify-between items-end mb-2">
+<div>
+<p class="font-bold text-sm text-on-background">Lúa ST25</p>
+<p class="text-xs text-outline mt-0.5">Hè Thu 2026</p>
+</div>
+<span class="text-xs font-bold text-primary bg-surface-container px-2 py-1 rounded">SINH TRƯỞNG</span>
+</div>
+<div class="w-full bg-surface-container-highest rounded-full h-2 mb-1">
+<div class="bg-primary h-2 rounded-full" style="width: 72%"></div>
+</div>
+<div class="text-right text-[10px] font-bold text-primary">72%</div>
+</div>
+<!-- Progress 2 -->
+<div>
+<div class="flex justify-between items-end mb-2">
+<div>
+<p class="font-bold text-sm text-on-background">Xoài Cát Chu</p>
+<p class="text-xs text-outline mt-0.5">Vụ 2026</p>
+</div>
+<span class="text-xs font-bold text-secondary-container bg-secondary-container/10 border border-secondary-container/20 px-2 py-1 rounded">THU HOẠCH</span>
+</div>
+<div class="w-full bg-surface-container-highest rounded-full h-2 mb-1">
+<div class="bg-secondary-container h-2 rounded-full" style="width: 88%"></div>
+</div>
+<div class="text-right text-[10px] font-bold text-secondary-container">88%</div>
+</div>
+<!-- Progress 3 -->
+<div>
+<div class="flex justify-between items-end mb-2">
+<div>
+<p class="font-bold text-sm text-on-background">Rau cải</p>
+<p class="text-xs text-outline mt-0.5">Lô B2</p>
+</div>
+<span class="text-xs font-bold text-on-surface-variant bg-surface-variant px-2 py-1 rounded">GIEO TRỒNG</span>
+</div>
+<div class="w-full bg-surface-container-highest rounded-full h-2 mb-1">
+<div class="bg-outline h-2 rounded-full" style="width: 34%"></div>
+</div>
+<div class="text-right text-[10px] font-bold text-outline">34%</div>
+</div>
+</div>
+<div class="p-4 border-t border-[#D9DED8] text-center">
+<a class="text-sm font-semibold text-primary hover:text-primary-container flex items-center justify-center transition-colors" href="#">
+                        Xem tất cả mùa vụ <span class="material-symbols-outlined text-[18px] ml-1">arrow_forward</span>
+</a>
+</div>
+</div>
+</div>
+<!-- 5. Warning Banner (Placed above bottom table for visibility flow) -->
+<div class="mb-8 bg-[#FFF8E1] border border-[#FFECB3] rounded-xl p-4 flex items-start space-x-4 shadow-sm">
+<span class="material-symbols-outlined text-[#F57F17] mt-0.5">warning</span>
+<div class="flex-1">
+<h4 class="text-sm font-bold text-[#F57F17] mb-1">Trạng thái API tích hợp</h4>
+<p class="text-sm text-[#795548]">Một số chỉ số tổng quan đang chờ API tổng hợp. Các trang nghiệp vụ vẫn hoạt động độc lập.</p>
+</div>
+<a class="text-sm font-semibold text-[#F57F17] underline hover:text-[#E65100]" href="#">Xem phạm vi API</a>
+</div>
+<!-- 4. Bottom: Hoạt động gần đây -->
+<div class="bg-surface-container-lowest border border-[#D9DED8] rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.02)] w-full mb-8">
+<div class="p-5 border-b border-[#D9DED8] flex justify-between items-center bg-surface-bright rounded-t-xl">
+<h3 class="text-lg font-bold text-on-background font-headline">Hoạt động gần đây</h3>
+<div class="flex space-x-2">
+<button class="p-1.5 text-on-surface-variant hover:bg-surface-variant rounded transition-colors"><span class="material-symbols-outlined text-[20px]">filter_list</span></button>
+<button class="p-1.5 text-on-surface-variant hover:bg-surface-variant rounded transition-colors"><span class="material-symbols-outlined text-[20px]">download</span></button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low text-xs font-semibold text-on-surface-variant uppercase tracking-wider border-b border-[#D9DED8]">
+<th class="px-5 py-3 w-[15%]">Thời gian</th>
+<th class="px-5 py-3 w-[30%]">Sự kiện</th>
+<th class="px-5 py-3 w-[20%]">Đối tượng</th>
+<th class="px-5 py-3 w-[20%]">Người thực hiện</th>
+<th class="px-5 py-3 w-[15%]">Trạng thái</th>
+</tr>
+</thead>
+<tbody class="text-sm divide-y divide-[#D9DED8]">
+<tr class="hover:bg-surface-bright transition-colors">
+<td class="px-5 py-3 font-mono text-xs text-outline">10 phút trước</td>
+<td class="px-5 py-3 font-medium text-on-background flex items-center">
+<span class="material-symbols-outlined text-primary text-[18px] mr-2">check_circle</span>
+                                Hoàn thành công việc
+                            </td>
+<td class="px-5 py-3 text-on-surface-variant">Tưới tiêu lô B1</td>
+<td class="px-5 py-3">Nguyễn Văn A</td>
+<td class="px-5 py-3">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-surface-container text-primary border border-primary/20">THÀNH CÔNG</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-bright transition-colors">
+<td class="px-5 py-3 font-mono text-xs text-outline">25 phút trước</td>
+<td class="px-5 py-3 font-medium text-on-background flex items-center">
+<span class="material-symbols-outlined text-secondary-container text-[18px] mr-2">sensors</span>
+                                Cập nhật cảm biến
+                            </td>
+<td class="px-5 py-3 text-on-surface-variant">Trạm khí tượng #02</td>
+<td class="px-5 py-3 text-outline font-mono text-xs">Hệ thống tự động</td>
+<td class="px-5 py-3">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-surface-container text-primary border border-primary/20">THÀNH CÔNG</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-bright transition-colors">
+<td class="px-5 py-3 font-mono text-xs text-outline">1 giờ trước</td>
+<td class="px-5 py-3 font-medium text-on-background flex items-center">
+<span class="material-symbols-outlined text-error text-[18px] mr-2">error</span>
+                                Lỗi kết nối
+                            </td>
+<td class="px-5 py-3 text-on-surface-variant">Van tưới #04 - Lô C</td>
+<td class="px-5 py-3 text-outline font-mono text-xs">Hệ thống tự động</td>
+<td class="px-5 py-3">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-error-container text-error border border-error/20">THẤT BẠI</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-bright transition-colors">
+<td class="px-5 py-3 font-mono text-xs text-outline">Hôm nay, 08:15</td>
+<td class="px-5 py-3 font-medium text-on-background flex items-center">
+<span class="material-symbols-outlined text-primary text-[18px] mr-2">add_circle</span>
+                                Tạo mới mùa vụ
+                            </td>
+<td class="px-5 py-3 text-on-surface-variant">Ngô lai F1 - Vụ Thu</td>
+<td class="px-5 py-3">Nguyễn Minh Anh</td>
+<td class="px-5 py-3">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-surface-container text-primary border border-primary/20">THÀNH CÔNG</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-bright transition-colors">
+<td class="px-5 py-3 font-mono text-xs text-outline">Hôm qua, 17:30</td>
+<td class="px-5 py-3 font-medium text-on-background flex items-center">
+<span class="material-symbols-outlined text-outline text-[18px] mr-2">edit_document</span>
+                                Cập nhật nhật ký
+                            </td>
+<td class="px-5 py-3 text-on-surface-variant">Bón phân đợt 1 Lô A</td>
+<td class="px-5 py-3">Trần Thị B</td>
+<td class="px-5 py-3">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-surface-container text-primary border border-primary/20">THÀNH CÔNG</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-4 border-t border-[#D9DED8] flex justify-between items-center bg-surface-bright rounded-b-xl">
+<span class="text-xs text-outline flex items-center">
+<span class="material-symbols-outlined text-[14px] mr-1">sync</span>
+                    Cập nhật 5 phút trước
+                </span>
+<div class="flex space-x-1">
+<button class="p-1 rounded text-outline hover:bg-surface-variant disabled:opacity-50" disabled=""><span class="material-symbols-outlined text-sm">chevron_left</span></button>
+<button class="px-2 py-1 rounded bg-primary-container text-on-primary-container text-xs font-bold">1</button>
+<button class="px-2 py-1 rounded text-on-surface-variant hover:bg-surface-variant text-xs font-medium">2</button>
+<button class="px-2 py-1 rounded text-on-surface-variant hover:bg-surface-variant text-xs font-medium">3</button>
+<button class="p-1 rounded text-on-surface-variant hover:bg-surface-variant"><span class="material-symbols-outlined text-sm">chevron_right</span></button>
+</div>
+</div>
+</div>
+</main>
+</body></html>
