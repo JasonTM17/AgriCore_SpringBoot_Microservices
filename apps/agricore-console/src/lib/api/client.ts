@@ -1,4 +1,5 @@
 import { parseApiError, ApiClientError } from "./errors";
+import { createRequestCancellation } from "./request-cancellation";
 import type { LoginRequest, UserResponse, WebAuthTokensResponse } from "./types";
 
 export type AccessTokenProvider = () => string | null;
@@ -55,10 +56,8 @@ export class ApiClient {
       body: credentials,
       auth: false,
       skipAuthRefresh: true,
+      ...(signal ? { signal } : {}),
     };
-    if (signal) {
-      options.signal = signal;
-    }
     const data = await this.request<WebAuthTokensResponse>("/api/v1/auth/web/login", options);
     this.setAccessToken(data.accessToken);
     return data;
@@ -86,10 +85,8 @@ export class ApiClient {
       method: "POST",
       auth: false,
       skipAuthRefresh: true,
+      ...(signal ? { signal } : {}),
     };
-    if (signal) {
-      options.signal = signal;
-    }
     const data = await this.request<WebAuthTokensResponse>("/api/v1/auth/web/refresh", options);
     this.setAccessToken(data.accessToken);
     return data;
@@ -100,10 +97,8 @@ export class ApiClient {
       method: "POST",
       auth: false,
       skipAuthRefresh: true,
+      ...(signal ? { signal } : {}),
     };
-    if (signal) {
-      options.signal = signal;
-    }
     try {
       await this.request<void>("/api/v1/auth/web/logout", options);
     } finally {
@@ -113,14 +108,11 @@ export class ApiClient {
   }
 
   async getCurrentUser(signal?: AbortSignal): Promise<UserResponse> {
-    const options: RequestOptions = {
+    return this.request<UserResponse>("/api/v1/users/me", {
       method: "GET",
       auth: true,
-    };
-    if (signal) {
-      options.signal = signal;
-    }
-    return this.request<UserResponse>("/api/v1/users/me", options);
+      ...(signal ? { signal } : {}),
+    });
   }
 
   async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -169,25 +161,16 @@ export class ApiClient {
       }
     }
 
-    const controller = new AbortController();
-    const timeout = window.setTimeout(
-      () => controller.abort(),
+    const cancellation = createRequestCancellation(
+      options.signal,
       options.timeoutMs ?? this.defaultTimeoutMs,
     );
-
-    if (options.signal) {
-      if (options.signal.aborted) {
-        controller.abort();
-      } else {
-        options.signal.addEventListener("abort", () => controller.abort(), { once: true });
-      }
-    }
 
     const init: RequestInit = {
       method: options.method ?? "GET",
       headers,
       credentials: "include",
-      signal: controller.signal,
+      signal: cancellation.signal,
     };
     if (options.body !== undefined) {
       init.body = JSON.stringify(options.body);
@@ -196,12 +179,14 @@ export class ApiClient {
     try {
       return await this.fetchImpl(`${this.baseUrl}${path}`, init);
     } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        throw new ApiClientError(408, null, "Request timed out or was aborted");
+      if (cancellation.didTimeout()) {
+        throw new ApiClientError(408, null, "Request timed out", {
+          fallbackCode: "REQUEST_TIMEOUT",
+        });
       }
       throw error;
     } finally {
-      window.clearTimeout(timeout);
+      cancellation.dispose();
     }
   }
 
