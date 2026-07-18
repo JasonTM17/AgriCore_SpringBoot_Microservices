@@ -28,3 +28,28 @@ export type PlotPageResponse = GatewaySchemas["PlotPageResponse"];
 export type GrantFarmMembershipRequest = GatewaySchemas["GrantFarmMembershipRequest"];
 export type FarmMembershipResponse = GatewaySchemas["FarmMembershipResponse"];
 export type FarmMembershipPageResponse = GatewaySchemas["FarmMembershipPageResponse"];
+
+export type CropResponse = GatewaySchemas["CropResponse"];
+export type CropPageResponse = GatewaySchemas["CropPageResponse"];
+
+export type CycleStage = GatewaySchemas["CycleStage"];
+export type CycleStatus = GatewaySchemas["CycleStatus"];
+export type CreateCropCycleRequest = GatewaySchemas["CreateCropCycleRequest"];
+export type ChangeStageRequest = GatewaySchemas["ChangeStageRequest"];
+export type CropCycleResponse = GatewaySchemas["CropCycleResponse"];
+export type CropCyclePageResponse = GatewaySchemas["CropCyclePageResponse"];
+
+export type TaskType = GatewaySchemas["TaskType"];
+export type TaskStatus = GatewaySchemas["TaskStatus"];
+export type CreateWorkTaskRequest = GatewaySchemas["CreateWorkTaskRequest"];
+export type AssignTaskRequest = GatewaySchemas["AssignTaskRequest"];
+export type CompleteTaskRequest = GatewaySchemas["CompleteTaskRequest"];
+export type WorkTaskResponse = GatewaySchemas["WorkTaskResponse"];
+export type WorkTaskPageResponse = GatewaySchemas["WorkTaskPageResponse"];
+
+export type HarvestStatus = GatewaySchemas["HarvestStatus"];
+export type CompleteHarvestRequest = GatewaySchemas["CompleteHarvestRequest"];
+export type HarvestBatchResponse = GatewaySchemas["HarvestBatchResponse"];
+
+export type CreateTraceabilityRequest = GatewaySchemas["CreateTraceabilityRequest"];
+export type PublicTraceabilityResponse = GatewaySchemas["PublicTraceabilityResponse"];

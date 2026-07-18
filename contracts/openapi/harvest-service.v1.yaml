@@ -1,16 +1,22 @@
 openapi: 3.1.0
 info:
   title: AgriCore Harvest Service API
-  version: 1.0.0
-  description: Harvest batch completion with transactional outbox (HarvestCompleted.v1)
+  version: 1.1.0
+  description: Verified harvest completion and detail contract backed by a transactional outbox.
 servers:
   - url: http://localhost:8087
+    description: Direct local service endpoint
+security:
+  - bearerAuth: []
+tags:
+  - name: Harvests
 paths:
   /api/v1/harvests/complete:
     post:
-      summary: Complete harvest and enqueue Kafka event via outbox
-      security:
-        - bearerAuth: []
+      tags: [Harvests]
+      operationId: completeHarvest
+      summary: Record a completed harvest and enqueue HarvestCompleted.v1
+      description: Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or WAREHOUSE_MANAGER.
       requestBody:
         required: true
         content:
@@ -19,43 +25,174 @@ paths:
               $ref: '#/components/schemas/CompleteHarvestRequest'
       responses:
         '201':
-          description: Harvest batch created; lastOutboxEventId set
+          description: Harvest recorded; inventory and traceability projection has started but is not yet acknowledged.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HarvestBatchResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '409':
-          description: Duplicate code or invalid weights
-  /api/v1/harvests/{id}:
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/v1/harvests/{harvestId}:
+    parameters:
+      - $ref: '#/components/parameters/HarvestId'
     get:
-      summary: Get harvest batch
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
+      tags: [Harvests]
+      operationId: getHarvest
+      summary: Get a harvest batch
+      description: The current implementation does not reload the outbox event identifier.
       responses:
         '200':
-          description: Harvest batch
+          description: Harvest batch found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HarvestBatchResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  parameters:
+    HarvestId:
+      in: path
+      name: harvestId
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    BadRequest:
+      description: Invalid path, JSON, validation input, or net weight greater than gross weight.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Unauthorized:
+      description: Authentication is required or the bearer token is invalid.
+    Forbidden:
+      description: The authenticated user lacks the required role.
+    NotFound:
+      description: Harvest batch not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Conflict:
+      description: Harvest batch code already exists.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    UnsupportedMediaType:
+      description: Content-Type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    InternalServerError:
+      description: Failed to persist the transactional outbox event.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
   schemas:
+    HarvestStatus:
+      type: string
+      enum: [RECORDED, COMPLETED, CANCELLED]
     CompleteHarvestRequest:
       type: object
       required: [code, cropCycleId, plotId, warehouseId, productCode, grossWeightKg, netWeightKg, qualityGrade]
       properties:
-        code: { type: string }
+        code: { type: string, minLength: 1, maxLength: 64 }
         cropCycleId: { type: string, format: uuid }
         plotId: { type: string, format: uuid }
         warehouseId: { type: string, format: uuid }
-        productCode: { type: string }
-        grossWeightKg: { type: number }
-        netWeightKg: { type: number }
-        qualityGrade: { type: string }
-        notes: { type: string }
-        farmName: { type: string }
-        plotCode: { type: string }
-        productName: { type: string }
-        careSummary: { type: string }
+        productCode: { type: string, minLength: 1, maxLength: 64 }
+        grossWeightKg: { type: number, minimum: 0.001, maximum: 99999999999.999, multipleOf: 0.001 }
+        netWeightKg: { type: number, minimum: 0.001, maximum: 99999999999.999, multipleOf: 0.001 }
+        qualityGrade: { type: string, minLength: 1, maxLength: 32 }
+        notes: { type: [string, 'null'] }
+        farmName: { type: [string, 'null'], maxLength: 200 }
+        plotCode: { type: [string, 'null'], maxLength: 64 }
+        productName: { type: [string, 'null'], maxLength: 200 }
+        careSummary: { type: [string, 'null'], maxLength: 1000 }
+    HarvestBatchResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - code
+        - cropCycleId
+        - plotId
+        - warehouseId
+        - productCode
+        - grossWeightKg
+        - netWeightKg
+        - qualityGrade
+        - status
+        - harvestedAt
+        - notes
+        - lastOutboxEventId
+        - createdAt
+        - version
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string, maxLength: 64 }
+        cropCycleId: { type: string, format: uuid }
+        plotId: { type: string, format: uuid }
+        warehouseId: { type: string, format: uuid }
+        productCode: { type: string, maxLength: 64 }
+        grossWeightKg: { type: number, minimum: 0.001 }
+        netWeightKg: { type: number, minimum: 0.001 }
+        qualityGrade: { type: string, maxLength: 32 }
+        status:
+          $ref: '#/components/schemas/HarvestStatus'
+        harvestedAt: { type: string, format: date-time }
+        notes: { type: [string, 'null'] }
+        lastOutboxEventId:
+          type: [string, 'null']
+          format: uuid
+          description: Present on creation; currently null when the harvest is reloaded.
+        createdAt: { type: string, format: date-time }
+        version: { type: integer, format: int64, minimum: 0 }
+    ApiError:
+      type: object
+      additionalProperties: false
+      required: [timestamp, status, error, code, message, path]
+      properties:
+        timestamp: { type: string, format: date-time }
+        status: { type: integer, format: int32, minimum: 400, maximum: 599 }
+        error: { type: string }
+        code: { type: string }
+        message: { type: string }
+        path: { type: string }
+        traceId: { type: [string, 'null'] }
+        violations:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldViolation'
+        details:
+          type: object
+          additionalProperties: true
+    FieldViolation:
+      type: object
+      additionalProperties: false
+      required: [field, message]
+      properties:
+        field: { type: string }
+        message: { type: string }

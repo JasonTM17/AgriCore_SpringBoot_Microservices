@@ -433,36 +433,15 @@ export interface paths {
         patch: operations["updatePlot"];
         trace?: never;
     };
-    "/api/v1/crops/{proxy+}": {
+    "/api/v1/crops": {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                "proxy+": string;
-            };
+            path?: never;
             cookie?: never;
         };
-        /** Crop catalog */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    "proxy+": string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /** List crops */
+        get: operations["listCrops"];
         put?: never;
         post?: never;
         delete?: never;
@@ -471,110 +450,185 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/crop-cycles/{proxy+}": {
+    "/api/v1/crops/{cropId}": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                "proxy+": string;
+                cropId: components["parameters"]["CropId"];
             };
             cookie?: never;
         };
-        /** Crop cycles */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    "proxy+": string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /** Get a crop by identifier */
+        get: operations["getCrop"];
         put?: never;
-        /** Create cycle or change stage */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    "proxy+": string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Created */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Illegal stage or overlap */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/work-tasks/{proxy+}": {
+    "/api/v1/crops/by-code/{code}": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                "proxy+": string;
+                /** @description Case-insensitive crop code. */
+                code: string;
             };
             cookie?: never;
         };
-        /** Work tasks */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    "proxy+": string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /** Get a crop by code */
+        get: operations["getCropByCode"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/crop-cycles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List crop cycles */
+        get: operations["listCropCycles"];
+        put?: never;
+        /**
+         * Create a crop cycle
+         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST.
+         */
+        post: operations["createCropCycle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/crop-cycles/{cycleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cycleId: components["parameters"]["CycleId"];
+            };
+            cookie?: never;
+        };
+        /** Get a crop cycle */
+        get: operations["getCropCycle"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/crop-cycles/{cycleId}/stage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cycleId: components["parameters"]["CycleId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change a crop-cycle stage
+         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST and a legal transition.
+         */
+        post: operations["changeCropCycleStage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List work tasks */
+        get: operations["listWorkTasks"];
+        put?: never;
+        /**
+         * Create a work task
+         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST.
+         */
+        post: operations["createWorkTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-tasks/{taskId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        /** Get a work task */
+        get: operations["getWorkTask"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-tasks/{taskId}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Assign a work task
+         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST.
+         */
+        post: operations["assignWorkTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-tasks/{taskId}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete a work task
+         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or FIELD_WORKER. The request body is optional.
+         */
+        post: operations["completeWorkTask"];
         delete?: never;
         options?: never;
         head?: never;
@@ -619,83 +673,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/harvests/{proxy+}": {
+    "/api/v1/harvests/complete": {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                "proxy+": string;
-            };
+            path?: never;
             cookie?: never;
         };
         get?: never;
         put?: never;
-        /** Harvest batches (outbox to Kafka) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    "proxy+": string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Created */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Record a completed harvest and enqueue HarvestCompleted.v1
+         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or WAREHOUSE_MANAGER.
+         */
+        post: operations["completeHarvest"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/traceability/{proxy+}": {
+    "/api/v1/harvests/{harvestId}": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                "proxy+": string;
+                harvestId: components["parameters"]["HarvestId"];
             };
+            cookie?: never;
+        };
+        /**
+         * Get a harvest batch
+         * @description The current implementation does not reload the outbox event identifier.
+         */
+        get: operations["getHarvest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/traceability/batches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         get?: never;
         put?: never;
-        /** Traceability batch write (role-gated at service) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    "proxy+": string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Created */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Create or replay a traceability projection
+         * @description Privileged backfill/event-adapter endpoint for SYSTEM_ADMIN or WAREHOUSE_MANAGER.
+         */
+        post: operations["createTraceabilityBatch"];
         delete?: never;
         options?: never;
         head?: never;
@@ -706,37 +739,16 @@ export interface paths {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                traceabilityCode: string;
+            };
             cookie?: never;
         };
-        /** Public QR lookup (no auth) */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    traceabilityCode: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Public batch projection */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Look up public product origin information
+         * @description Returns only public-safe fields; no internal identifiers, staff data, costs, or secrets.
+         */
+        get: operations["getPublicTraceability"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1088,6 +1100,261 @@ export interface components {
             /** Format: double */
             longitude?: number | null;
         };
+        CropResponse: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            name: string;
+            scientificName: string | null;
+            category: string;
+            /** Format: int32 */
+            growthDaysMin: number | null;
+            /** Format: int32 */
+            growthDaysMax: number | null;
+            tempMinC: number | null;
+            tempMaxC: number | null;
+            humidityMinPct: number | null;
+            humidityMaxPct: number | null;
+            phMin: number | null;
+            phMax: number | null;
+            expectedYieldPerHa: number | null;
+            yieldUnit: string | null;
+            description: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        CropPageResponse: {
+            content: components["schemas"]["CropResponse"][];
+            /** Format: int32 */
+            page: number;
+            /** Format: int32 */
+            size: number;
+            /** Format: int64 */
+            totalElements: number;
+            /** Format: int32 */
+            totalPages: number;
+            first: boolean;
+            last: boolean;
+        };
+        /** @enum {string} */
+        CycleStage: "PLANNED" | "LAND_PREPARATION" | "SOWING" | "GROWING" | "FERTILIZING" | "PEST_CONTROL" | "HARVESTING" | "COMPLETED" | "CANCELLED";
+        /** @enum {string} */
+        CycleStatus: "DRAFT" | "ACTIVE" | "COMPLETED" | "CANCELLED";
+        CropCycleResponse: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            /** Format: uuid */
+            farmId: string;
+            /** Format: uuid */
+            plotId: string;
+            /** Format: uuid */
+            cropId: string;
+            /** Format: uuid */
+            cropVarietyId: string | null;
+            /** Format: date */
+            plannedStartDate: string;
+            /** Format: date */
+            plannedEndDate: string | null;
+            /** Format: date */
+            actualStartDate: string | null;
+            /** Format: date */
+            actualEndDate: string | null;
+            stage: components["schemas"]["CycleStage"];
+            status: components["schemas"]["CycleStatus"];
+            notes: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: int64 */
+            version: number;
+        };
+        CropCyclePageResponse: {
+            content: components["schemas"]["CropCycleResponse"][];
+            /** Format: int32 */
+            page: number;
+            /** Format: int32 */
+            size: number;
+            /** Format: int64 */
+            totalElements: number;
+            /** Format: int32 */
+            totalPages: number;
+            first: boolean;
+            last: boolean;
+        };
+        CreateCropCycleRequest: {
+            code: string;
+            /** Format: uuid */
+            farmId: string;
+            /** Format: uuid */
+            plotId: string;
+            /** Format: uuid */
+            cropId: string;
+            /** Format: uuid */
+            cropVarietyId?: string | null;
+            /** Format: date */
+            plannedStartDate: string;
+            /** Format: date */
+            plannedEndDate?: string | null;
+            notes?: string | null;
+        };
+        ChangeStageRequest: {
+            stage: components["schemas"]["CycleStage"];
+            notes?: string | null;
+        };
+        /** @enum {string} */
+        TaskType: "LAND_PREPARATION" | "SOWING" | "IRRIGATION" | "FERTILIZING" | "PESTICIDE" | "PRUNING" | "INSPECTION" | "PEST_CONTROL" | "HARVEST" | "MAINTENANCE";
+        /** @enum {string} */
+        TaskStatus: "CREATED" | "ASSIGNED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "OVERDUE";
+        WorkTaskResponse: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            /** Format: uuid */
+            cropCycleId: string;
+            /** Format: uuid */
+            plotId: string;
+            taskType: components["schemas"]["TaskType"];
+            title: string;
+            description: string | null;
+            priority: string;
+            /** Format: uuid */
+            assignedEmployeeId: string | null;
+            /** Format: date-time */
+            scheduledStart: string | null;
+            /** Format: date-time */
+            scheduledEnd: string | null;
+            /** Format: date-time */
+            actualStart: string | null;
+            /** Format: date-time */
+            actualEnd: string | null;
+            status: components["schemas"]["TaskStatus"];
+            notes: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: int64 */
+            version: number;
+        };
+        WorkTaskPageResponse: {
+            content: components["schemas"]["WorkTaskResponse"][];
+            /** Format: int32 */
+            page: number;
+            /** Format: int32 */
+            size: number;
+            /** Format: int64 */
+            totalElements: number;
+            /** Format: int32 */
+            totalPages: number;
+            first: boolean;
+            last: boolean;
+        };
+        CreateWorkTaskRequest: {
+            code: string;
+            /** Format: uuid */
+            cropCycleId: string;
+            /** Format: uuid */
+            plotId: string;
+            taskType: components["schemas"]["TaskType"];
+            title: string;
+            description?: string | null;
+            priority: string;
+            /** Format: date-time */
+            scheduledStart?: string | null;
+            /** Format: date-time */
+            scheduledEnd?: string | null;
+        };
+        AssignTaskRequest: {
+            /** Format: uuid */
+            assignedEmployeeId: string;
+        };
+        CompleteTaskRequest: {
+            notes?: string | null;
+        };
+        CompleteHarvestRequest: {
+            code: string;
+            /** Format: uuid */
+            cropCycleId: string;
+            /** Format: uuid */
+            plotId: string;
+            /** Format: uuid */
+            warehouseId: string;
+            productCode: string;
+            grossWeightKg: number;
+            netWeightKg: number;
+            qualityGrade: string;
+            notes?: string | null;
+            farmName?: string | null;
+            plotCode?: string | null;
+            productName?: string | null;
+            careSummary?: string | null;
+        };
+        /** @enum {string} */
+        HarvestStatus: "RECORDED" | "COMPLETED" | "CANCELLED";
+        HarvestBatchResponse: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            /** Format: uuid */
+            cropCycleId: string;
+            /** Format: uuid */
+            plotId: string;
+            /** Format: uuid */
+            warehouseId: string;
+            productCode: string;
+            grossWeightKg: number;
+            netWeightKg: number;
+            qualityGrade: string;
+            status: components["schemas"]["HarvestStatus"];
+            /** Format: date-time */
+            harvestedAt: string;
+            notes: string | null;
+            /**
+             * Format: uuid
+             * @description Present on creation; currently null when the harvest is reloaded.
+             */
+            lastOutboxEventId: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: int64 */
+            version: number;
+        };
+        CreateTraceabilityRequest: {
+            eventId: string;
+            /** Format: uuid */
+            harvestBatchId: string;
+            /** Format: uuid */
+            cropCycleId?: string | null;
+            /** Format: uuid */
+            plotId?: string | null;
+            farmName?: string | null;
+            plotCode?: string | null;
+            productName: string;
+            varietyName?: string | null;
+            /** Format: date */
+            plantingDate?: string | null;
+            /** Format: date */
+            harvestDate: string;
+            qualityGrade?: string | null;
+            netWeightKg?: number | null;
+            careSummary?: string | null;
+        };
+        PublicTraceabilityResponse: {
+            traceabilityCode: string;
+            productName: string;
+            varietyName: string | null;
+            farmName: string | null;
+            plotCode: string | null;
+            /** Format: date */
+            plantingDate: string | null;
+            /** Format: date */
+            harvestDate: string;
+            qualityGrade: string | null;
+            netWeightKg: number | null;
+            careSummary: string | null;
+            qrUrl: string;
+            batchLabel: string;
+        };
     };
     responses: {
         /** @description Invalid path, query, or JSON request. */
@@ -1151,6 +1418,110 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
+        /** @description Crop not found. */
+        "responses-NotFound": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content?: never;
+        };
+        /** @description Invalid path, query, JSON, dates, stage, or validation input. */
+        "responses-BadRequest": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description The authenticated user lacks the required role. */
+        "responses-Forbidden": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content?: never;
+        };
+        /** @description Duplicate code, overlapping dates, terminal cycle, or illegal stage transition. */
+        "responses-Conflict": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Failed to persist the transactional outbox event. */
+        "responses-InternalServerError": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Crop cycle not found. */
+        "components-responses-NotFound": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Invalid path, query, JSON, task type, or validation input. */
+        "components-responses-BadRequest": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Duplicate code or a forbidden terminal-state mutation. */
+        "components-responses-Conflict": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Work task not found. */
+        "work-service.v1_components-responses-NotFound": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Invalid path, JSON, validation input, or net weight greater than gross weight. */
+        "harvest-service.v1_components-responses-BadRequest": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Harvest batch code already exists. */
+        "harvest-service.v1_components-responses-Conflict": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Harvest batch not found. */
+        "harvest-service.v1_components-responses-NotFound": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
     };
     parameters: {
         /** @description Case-insensitive province substring. */
@@ -1169,6 +1540,14 @@ export interface components {
         MembershipId: string;
         /** @description Plot identifier. */
         PlotId: string;
+        /** @description Zero-based page index. */
+        "parameters-Page": number;
+        /** @description Number of records per page; the controller caps it at 100. */
+        "parameters-Size": number;
+        CropId: string;
+        CycleId: string;
+        TaskId: string;
+        HarvestId: string;
     };
     requestBodies: never;
     headers: never;
@@ -1522,6 +1901,493 @@ export interface operations {
             404: components["responses"]["NotFound"];
             415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["InternalServerError"];
+        };
+    };
+    listCrops: {
+        parameters: {
+            query?: {
+                category?: string;
+                /** @description Case-insensitive crop-name search. */
+                q?: string;
+                /** @description Zero-based page index. */
+                page?: components["parameters"]["parameters-Page"];
+                /** @description Number of records per page; the controller caps it at 100. */
+                size?: components["parameters"]["parameters-Size"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Crops ordered by name. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CropPageResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getCrop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cropId: components["parameters"]["CropId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Crop found. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CropResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["responses-NotFound"];
+        };
+    };
+    getCropByCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Case-insensitive crop code. */
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Crop found. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CropResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["responses-NotFound"];
+        };
+    };
+    listCropCycles: {
+        parameters: {
+            query?: {
+                farmId?: string;
+                plotId?: string;
+                /** @description Zero-based page index. */
+                page?: components["parameters"]["parameters-Page"];
+                /** @description Number of records per page. */
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Crop cycles ordered by creation time descending. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CropCyclePageResponse"];
+                };
+            };
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createCropCycle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCropCycleRequest"];
+            };
+        };
+        responses: {
+            /** @description Crop cycle created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CropCycleResponse"];
+                };
+            };
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            409: components["responses"]["responses-Conflict"];
+            415: components["responses"]["UnsupportedMediaType"];
+            500: components["responses"]["responses-InternalServerError"];
+        };
+    };
+    getCropCycle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cycleId: components["parameters"]["CycleId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Crop cycle found. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CropCycleResponse"];
+                };
+            };
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["components-responses-NotFound"];
+        };
+    };
+    changeCropCycleStage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cycleId: components["parameters"]["CycleId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeStageRequest"];
+            };
+        };
+        responses: {
+            /** @description Stage updated, or the requested stage was already current. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CropCycleResponse"];
+                };
+            };
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["components-responses-NotFound"];
+            409: components["responses"]["responses-Conflict"];
+            415: components["responses"]["UnsupportedMediaType"];
+            500: components["responses"]["responses-InternalServerError"];
+        };
+    };
+    listWorkTasks: {
+        parameters: {
+            query?: {
+                cropCycleId?: string;
+                /** @description Zero-based page index. */
+                page?: components["parameters"]["parameters-Page"];
+                /** @description Number of records per page. */
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Work tasks ordered by creation time descending. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkTaskPageResponse"];
+                };
+            };
+            400: components["responses"]["components-responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createWorkTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWorkTaskRequest"];
+            };
+        };
+        responses: {
+            /** @description Work task created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkTaskResponse"];
+                };
+            };
+            400: components["responses"]["components-responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            409: components["responses"]["components-responses-Conflict"];
+            415: components["responses"]["UnsupportedMediaType"];
+            500: components["responses"]["responses-InternalServerError"];
+        };
+    };
+    getWorkTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Work task found. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkTaskResponse"];
+                };
+            };
+            400: components["responses"]["components-responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["work-service.v1_components-responses-NotFound"];
+        };
+    };
+    assignWorkTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignTaskRequest"];
+            };
+        };
+        responses: {
+            /** @description Task assigned. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkTaskResponse"];
+                };
+            };
+            400: components["responses"]["components-responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["work-service.v1_components-responses-NotFound"];
+            409: components["responses"]["components-responses-Conflict"];
+            415: components["responses"]["UnsupportedMediaType"];
+            500: components["responses"]["responses-InternalServerError"];
+        };
+    };
+    completeWorkTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CompleteTaskRequest"];
+            };
+        };
+        responses: {
+            /** @description Task completed, or returned unchanged when already completed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkTaskResponse"];
+                };
+            };
+            400: components["responses"]["components-responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["work-service.v1_components-responses-NotFound"];
+            409: components["responses"]["components-responses-Conflict"];
+            415: components["responses"]["UnsupportedMediaType"];
+            500: components["responses"]["responses-InternalServerError"];
+        };
+    };
+    completeHarvest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteHarvestRequest"];
+            };
+        };
+        responses: {
+            /** @description Harvest recorded; inventory and traceability projection has started but is not yet acknowledged. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HarvestBatchResponse"];
+                };
+            };
+            400: components["responses"]["harvest-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            409: components["responses"]["harvest-service.v1_components-responses-Conflict"];
+            415: components["responses"]["UnsupportedMediaType"];
+            500: components["responses"]["responses-InternalServerError"];
+        };
+    };
+    getHarvest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                harvestId: components["parameters"]["HarvestId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Harvest batch found. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HarvestBatchResponse"];
+                };
+            };
+            400: components["responses"]["harvest-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["harvest-service.v1_components-responses-NotFound"];
+        };
+    };
+    createTraceabilityBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTraceabilityRequest"];
+            };
+        };
+        responses: {
+            /** @description Projection created, or the existing idempotent projection returned. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicTraceabilityResponse"];
+                };
+            };
+            /** @description Invalid JSON or validation input. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication is required or the bearer token is invalid. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description SYSTEM_ADMIN or WAREHOUSE_MANAGER role is required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The event was recorded previously but its projection row is missing. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Content-Type is not supported. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getPublicTraceability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                traceabilityCode: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Public traceability projection found. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicTraceabilityResponse"];
+                };
+            };
+            /** @description Traceability code not found or projection not yet available. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
 }

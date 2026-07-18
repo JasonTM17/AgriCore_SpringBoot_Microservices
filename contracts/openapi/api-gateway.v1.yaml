@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgriCore API Gateway
-  version: 1.2.0
+  version: 1.3.0
   description: |
     Edge routes for the AgriCore microservices portfolio.
     The gateway validates JWT (RS256 via Identity JWKS) then proxies path prefixes
@@ -91,46 +91,26 @@ paths:
     $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1farms~1{farmId}~1memberships~1{membershipId}'
   /api/v1/plots/{plotId}:
     $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1plots~1{plotId}'
-  /api/v1/crops/{proxy+}:
-    parameters:
-      - name: proxy+
-        in: path
-        required: true
-        schema: { type: string }
-    get:
-      summary: Crop catalog
-      security: [{ bearerAuth: [] }]
-      responses:
-        '200': { description: OK }
-  /api/v1/crop-cycles/{proxy+}:
-    parameters:
-      - name: proxy+
-        in: path
-        required: true
-        schema: { type: string }
-    get:
-      summary: Crop cycles
-      security: [{ bearerAuth: [] }]
-      responses:
-        '200': { description: OK }
-    post:
-      summary: Create cycle or change stage
-      security: [{ bearerAuth: [] }]
-      responses:
-        '200': { description: OK }
-        '201': { description: Created }
-        '409': { description: Illegal stage or overlap }
-  /api/v1/work-tasks/{proxy+}:
-    parameters:
-      - name: proxy+
-        in: path
-        required: true
-        schema: { type: string }
-    get:
-      summary: Work tasks
-      security: [{ bearerAuth: [] }]
-      responses:
-        '200': { description: OK }
+  /api/v1/crops:
+    $ref: './crop-catalog-service.v1.yaml#/paths/~1api~1v1~1crops'
+  /api/v1/crops/{cropId}:
+    $ref: './crop-catalog-service.v1.yaml#/paths/~1api~1v1~1crops~1{cropId}'
+  /api/v1/crops/by-code/{code}:
+    $ref: './crop-catalog-service.v1.yaml#/paths/~1api~1v1~1crops~1by-code~1{code}'
+  /api/v1/crop-cycles:
+    $ref: './crop-cycle-service.v1.yaml#/paths/~1api~1v1~1crop-cycles'
+  /api/v1/crop-cycles/{cycleId}:
+    $ref: './crop-cycle-service.v1.yaml#/paths/~1api~1v1~1crop-cycles~1{cycleId}'
+  /api/v1/crop-cycles/{cycleId}/stage:
+    $ref: './crop-cycle-service.v1.yaml#/paths/~1api~1v1~1crop-cycles~1{cycleId}~1stage'
+  /api/v1/work-tasks:
+    $ref: './work-service.v1.yaml#/paths/~1api~1v1~1work-tasks'
+  /api/v1/work-tasks/{taskId}:
+    $ref: './work-service.v1.yaml#/paths/~1api~1v1~1work-tasks~1{taskId}'
+  /api/v1/work-tasks/{taskId}/assign:
+    $ref: './work-service.v1.yaml#/paths/~1api~1v1~1work-tasks~1{taskId}~1assign'
+  /api/v1/work-tasks/{taskId}/complete:
+    $ref: './work-service.v1.yaml#/paths/~1api~1v1~1work-tasks~1{taskId}~1complete'
   /api/v1/inventory/{proxy+}:
     parameters:
       - name: proxy+
@@ -142,41 +122,14 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         '200': { description: OK }
-  /api/v1/harvests/{proxy+}:
-    parameters:
-      - name: proxy+
-        in: path
-        required: true
-        schema: { type: string }
-    post:
-      summary: Harvest batches (outbox to Kafka)
-      security: [{ bearerAuth: [] }]
-      responses:
-        '201': { description: Created }
-  /api/v1/traceability/{proxy+}:
-    parameters:
-      - name: proxy+
-        in: path
-        required: true
-        schema: { type: string }
-    post:
-      summary: Traceability batch write (role-gated at service)
-      security: [{ bearerAuth: [] }]
-      responses:
-        '201': { description: Created }
-        '403': { description: Forbidden }
+  /api/v1/harvests/complete:
+    $ref: './harvest-service.v1.yaml#/paths/~1api~1v1~1harvests~1complete'
+  /api/v1/harvests/{harvestId}:
+    $ref: './harvest-service.v1.yaml#/paths/~1api~1v1~1harvests~1{harvestId}'
+  /api/v1/traceability/batches:
+    $ref: './traceability-service.v1.yaml#/paths/~1api~1v1~1traceability~1batches'
   /public/api/v1/traceability/{traceabilityCode}:
-    get:
-      summary: Public QR lookup (no auth)
-      security: []
-      parameters:
-        - name: traceabilityCode
-          in: path
-          required: true
-          schema: { type: string }
-      responses:
-        '200': { description: Public batch projection }
-        '404': { description: Not found }
+    $ref: './traceability-service.v1.yaml#/paths/~1public~1api~1v1~1traceability~1{traceabilityCode}'
   /api/v1/iot/{proxy+}:
     parameters:
       - name: proxy+

@@ -1,78 +1,325 @@
 openapi: 3.1.0
 info:
   title: AgriCore Work Service API
-  version: 1.0.0
-  description: Field work tasks assignment and completion
+  version: 1.1.0
+  description: Verified field-work task creation, assignment, completion, and query contract.
 servers:
   - url: http://localhost:8085
+    description: Direct local service endpoint
+security:
+  - bearerAuth: []
+tags:
+  - name: Work Tasks
 paths:
   /api/v1/work-tasks:
+    get:
+      tags: [Work Tasks]
+      operationId: listWorkTasks
+      summary: List work tasks
+      parameters:
+        - in: query
+          name: cropCycleId
+          required: false
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Work tasks ordered by creation time descending.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkTaskPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
     post:
-      summary: Create work task
-      security:
-        - bearerAuth: []
+      tags: [Work Tasks]
+      operationId: createWorkTask
+      summary: Create a work task
+      description: Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [code, cropCycleId, plotId, taskType, title]
-              properties:
-                code: { type: string }
-                cropCycleId: { type: string, format: uuid }
-                plotId: { type: string, format: uuid }
-                taskType: { type: string }
-                title: { type: string }
-                priority: { type: string }
+              $ref: '#/components/schemas/CreateWorkTaskRequest'
       responses:
         '201':
-          description: Created
-  /api/v1/work-tasks/{id}/assign:
+          description: Work task created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkTaskResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/v1/work-tasks/{taskId}:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    get:
+      tags: [Work Tasks]
+      operationId: getWorkTask
+      summary: Get a work task
+      responses:
+        '200':
+          description: Work task found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkTaskResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/work-tasks/{taskId}/assign:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
     post:
-      summary: Assign task to employee
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
+      tags: [Work Tasks]
+      operationId: assignWorkTask
+      summary: Assign a work task
+      description: Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [assignedEmployeeId]
-              properties:
-                assignedEmployeeId: { type: string, format: uuid }
+              $ref: '#/components/schemas/AssignTaskRequest'
       responses:
         '200':
-          description: Assigned
-  /api/v1/work-tasks/{id}/complete:
+          description: Task assigned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkTaskResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/v1/work-tasks/{taskId}/complete:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
     post:
-      summary: Complete task
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
+      tags: [Work Tasks]
+      operationId: completeWorkTask
+      summary: Complete a work task
+      description: Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or FIELD_WORKER. The request body is optional.
       requestBody:
+        required: false
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                notes: { type: string }
+              $ref: '#/components/schemas/CompleteTaskRequest'
       responses:
         '200':
-          description: Completed
+          description: Task completed, or returned unchanged when already completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkTaskResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  parameters:
+    TaskId:
+      in: path
+      name: taskId
+      required: true
+      schema: { type: string, format: uuid }
+    Page:
+      in: query
+      name: page
+      description: Zero-based page index.
+      schema: { type: integer, format: int32, minimum: 0, default: 0 }
+    Size:
+      in: query
+      name: size
+      description: Number of records per page.
+      schema: { type: integer, format: int32, minimum: 1, maximum: 100, default: 20 }
+  responses:
+    BadRequest:
+      description: Invalid path, query, JSON, task type, or validation input.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Unauthorized:
+      description: Authentication is required or the bearer token is invalid.
+    Forbidden:
+      description: The authenticated user lacks the required role.
+    NotFound:
+      description: Work task not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Conflict:
+      description: Duplicate code or a forbidden terminal-state mutation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    UnsupportedMediaType:
+      description: Content-Type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    InternalServerError:
+      description: Failed to persist the transactional outbox event.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+  schemas:
+    TaskType:
+      type: string
+      enum: [LAND_PREPARATION, SOWING, IRRIGATION, FERTILIZING, PESTICIDE, PRUNING, INSPECTION, PEST_CONTROL, HARVEST, MAINTENANCE]
+    TaskStatus:
+      type: string
+      enum: [CREATED, ASSIGNED, IN_PROGRESS, COMPLETED, CANCELLED, OVERDUE]
+    CreateWorkTaskRequest:
+      type: object
+      required: [code, cropCycleId, plotId, taskType, title, priority]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 64 }
+        cropCycleId: { type: string, format: uuid }
+        plotId: { type: string, format: uuid }
+        taskType:
+          $ref: '#/components/schemas/TaskType'
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: [string, 'null'] }
+        priority: { type: string, minLength: 1, maxLength: 32 }
+        scheduledStart: { type: [string, 'null'], format: date-time }
+        scheduledEnd: { type: [string, 'null'], format: date-time }
+    AssignTaskRequest:
+      type: object
+      required: [assignedEmployeeId]
+      properties:
+        assignedEmployeeId: { type: string, format: uuid }
+    CompleteTaskRequest:
+      type: object
+      properties:
+        notes: { type: [string, 'null'] }
+    WorkTaskResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - code
+        - cropCycleId
+        - plotId
+        - taskType
+        - title
+        - description
+        - priority
+        - assignedEmployeeId
+        - scheduledStart
+        - scheduledEnd
+        - actualStart
+        - actualEnd
+        - status
+        - notes
+        - createdAt
+        - version
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string, maxLength: 64 }
+        cropCycleId: { type: string, format: uuid }
+        plotId: { type: string, format: uuid }
+        taskType:
+          $ref: '#/components/schemas/TaskType'
+        title: { type: string, maxLength: 200 }
+        description: { type: [string, 'null'] }
+        priority: { type: string, maxLength: 32 }
+        assignedEmployeeId: { type: [string, 'null'], format: uuid }
+        scheduledStart: { type: [string, 'null'], format: date-time }
+        scheduledEnd: { type: [string, 'null'], format: date-time }
+        actualStart: { type: [string, 'null'], format: date-time }
+        actualEnd: { type: [string, 'null'], format: date-time }
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        notes: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+        version: { type: integer, format: int64, minimum: 0 }
+    WorkTaskPageResponse:
+      type: object
+      additionalProperties: false
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkTaskResponse'
+        page: { type: integer, format: int32, minimum: 0 }
+        size: { type: integer, format: int32, minimum: 1, maximum: 100 }
+        totalElements: { type: integer, format: int64, minimum: 0 }
+        totalPages: { type: integer, format: int32, minimum: 0 }
+        first: { type: boolean }
+        last: { type: boolean }
+    ApiError:
+      type: object
+      additionalProperties: false
+      required: [timestamp, status, error, code, message, path]
+      properties:
+        timestamp: { type: string, format: date-time }
+        status: { type: integer, format: int32, minimum: 400, maximum: 599 }
+        error: { type: string }
+        code: { type: string }
+        message: { type: string }
+        path: { type: string }
+        traceId: { type: [string, 'null'] }
+        violations:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldViolation'
+        details:
+          type: object
+          additionalProperties: true
+    FieldViolation:
+      type: object
+      additionalProperties: false
+      required: [field, message]
+      properties:
+        field: { type: string }
+        message: { type: string }

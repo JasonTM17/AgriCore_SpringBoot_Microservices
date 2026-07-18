@@ -1,57 +1,70 @@
 openapi: 3.1.0
 info:
   title: AgriCore Traceability Service API
-  version: 1.0.0
-  description: Local read model + public QR lookup (no secrets/staff costs)
+  version: 1.1.0
+  description: Verified public-safe traceability lookup and privileged projection-write contract.
 servers:
   - url: http://localhost:8092
+    description: Direct local service endpoint
+security:
+  - bearerAuth: []
+tags:
+  - name: Public Traceability
+  - name: Traceability Projection
 paths:
   /public/api/v1/traceability/{traceabilityCode}:
+    parameters:
+      - in: path
+        name: traceabilityCode
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 64
     get:
-      summary: Public product origin lookup
-      parameters:
-        - in: path
-          name: traceabilityCode
-          required: true
-          schema: { type: string }
+      tags: [Public Traceability]
+      operationId: getPublicTraceability
+      summary: Look up public product origin information
+      description: Returns only public-safe fields; no internal identifiers, staff data, costs, or secrets.
+      security: []
       responses:
         '200':
-          description: Public-safe fields only
+          description: Public traceability projection found.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublicTraceabilityResponse'
         '404':
-          description: Not found
+          description: Traceability code not found or projection not yet available.
   /api/v1/traceability/batches:
     post:
-      summary: Internal projection writer (also fed by Kafka HarvestCompleted)
-      security:
-        - bearerAuth: []
+      tags: [Traceability Projection]
+      operationId: createTraceabilityBatch
+      summary: Create or replay a traceability projection
+      description: Privileged backfill/event-adapter endpoint for SYSTEM_ADMIN or WAREHOUSE_MANAGER.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [eventId, harvestBatchId, productName, harvestDate]
-              properties:
-                eventId: { type: string }
-                harvestBatchId: { type: string, format: uuid }
-                cropCycleId: { type: string, format: uuid }
-                plotId: { type: string, format: uuid }
-                farmName: { type: string }
-                plotCode: { type: string }
-                productName: { type: string }
-                varietyName: { type: string }
-                plantingDate: { type: string, format: date }
-                harvestDate: { type: string, format: date }
-                qualityGrade: { type: string }
-                netWeightKg: { type: number }
-                careSummary: { type: string }
+              $ref: '#/components/schemas/CreateTraceabilityRequest'
       responses:
         '201':
-          description: Created
+          description: Projection created, or the existing idempotent projection returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicTraceabilityResponse'
+        '400':
+          description: Invalid JSON or validation input.
+        '401':
+          description: Authentication is required or the bearer token is invalid.
+        '403':
+          description: SYSTEM_ADMIN or WAREHOUSE_MANAGER role is required.
+        '409':
+          description: The event was recorded previously but its projection row is missing.
+        '415':
+          description: Content-Type is not supported.
 components:
   securitySchemes:
     bearerAuth:
@@ -59,18 +72,53 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    CreateTraceabilityRequest:
+      type: object
+      required: [eventId, harvestBatchId, productName, harvestDate]
+      properties:
+        eventId: { type: string, minLength: 1, maxLength: 100 }
+        harvestBatchId: { type: string, format: uuid }
+        cropCycleId: { type: [string, 'null'], format: uuid }
+        plotId: { type: [string, 'null'], format: uuid }
+        farmName: { type: [string, 'null'], maxLength: 200 }
+        plotCode: { type: [string, 'null'], maxLength: 64 }
+        productName: { type: string, minLength: 1, maxLength: 200 }
+        varietyName: { type: [string, 'null'], maxLength: 200 }
+        plantingDate: { type: [string, 'null'], format: date }
+        harvestDate: { type: string, format: date }
+        qualityGrade: { type: [string, 'null'], maxLength: 32 }
+        netWeightKg:
+          type: [number, 'null']
+          minimum: -99999999999.999
+          maximum: 99999999999.999
+          multipleOf: 0.001
+        careSummary: { type: [string, 'null'] }
     PublicTraceabilityResponse:
       type: object
+      additionalProperties: false
+      required:
+        - traceabilityCode
+        - productName
+        - varietyName
+        - farmName
+        - plotCode
+        - plantingDate
+        - harvestDate
+        - qualityGrade
+        - netWeightKg
+        - careSummary
+        - qrUrl
+        - batchLabel
       properties:
-        traceabilityCode: { type: string }
-        productName: { type: string }
-        varietyName: { type: string }
-        farmName: { type: string }
-        plotCode: { type: string }
-        plantingDate: { type: string, format: date }
+        traceabilityCode: { type: string, maxLength: 64 }
+        productName: { type: string, maxLength: 200 }
+        varietyName: { type: [string, 'null'], maxLength: 200 }
+        farmName: { type: [string, 'null'], maxLength: 200 }
+        plotCode: { type: [string, 'null'], maxLength: 64 }
+        plantingDate: { type: [string, 'null'], format: date }
         harvestDate: { type: string, format: date }
-        qualityGrade: { type: string }
-        netWeightKg: { type: number }
-        careSummary: { type: string }
-        qrUrl: { type: string }
+        qualityGrade: { type: [string, 'null'], maxLength: 32 }
+        netWeightKg: { type: [number, 'null'] }
+        careSummary: { type: [string, 'null'] }
+        qrUrl: { type: string, maxLength: 500 }
         batchLabel: { type: string }

@@ -1,79 +1,177 @@
 openapi: 3.1.0
 info:
   title: AgriCore Crop Catalog Service API
-  version: 1.0.0
-  description: Crop types, varieties, and growth requirements
+  version: 1.1.0
+  description: Verified read-only crop catalog contract.
 servers:
   - url: http://localhost:8083
+    description: Direct local service endpoint
+security:
+  - bearerAuth: []
+tags:
+  - name: Crops
 paths:
   /api/v1/crops:
     get:
+      tags: [Crops]
+      operationId: listCrops
       summary: List crops
-      security:
-        - bearerAuth: []
       parameters:
         - in: query
-          name: page
-          schema: { type: integer, default: 0 }
+          name: category
+          required: false
+          schema:
+            type: string
         - in: query
-          name: size
-          schema: { type: integer, default: 20 }
+          name: q
+          required: false
+          description: Case-insensitive crop-name search.
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
       responses:
         '200':
-          description: Paged crops
-    post:
-      summary: Create crop
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateCropRequest'
-      responses:
-        '201':
-          description: Created
+          description: Crops ordered by name.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropPageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
   /api/v1/crops/{cropId}:
+    parameters:
+      - $ref: '#/components/parameters/CropId'
     get:
-      summary: Get crop
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: cropId
-          required: true
-          schema: { type: string, format: uuid }
+      tags: [Crops]
+      operationId: getCrop
+      summary: Get a crop by identifier
       responses:
         '200':
-          description: Crop detail
-  /api/v1/crops/{cropId}/varieties:
+          description: Crop found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/crops/by-code/{code}:
+    parameters:
+      - in: path
+        name: code
+        required: true
+        description: Case-insensitive crop code.
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 64
     get:
-      summary: List varieties for crop
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: cropId
-          required: true
-          schema: { type: string, format: uuid }
+      tags: [Crops]
+      operationId: getCropByCode
+      summary: Get a crop by code
       responses:
         '200':
-          description: Varieties
+          description: Crop found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  parameters:
+    CropId:
+      in: path
+      name: cropId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Page:
+      in: query
+      name: page
+      description: Zero-based page index.
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+        default: 0
+    Size:
+      in: query
+      name: size
+      description: Number of records per page; the controller caps it at 100.
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 100
+        default: 20
+  responses:
+    Unauthorized:
+      description: Authentication is required or the bearer token is invalid.
+    NotFound:
+      description: Crop not found.
   schemas:
-    CreateCropRequest:
+    CropResponse:
       type: object
-      required: [code, name]
+      additionalProperties: false
+      required:
+        - id
+        - code
+        - name
+        - scientificName
+        - category
+        - growthDaysMin
+        - growthDaysMax
+        - tempMinC
+        - tempMaxC
+        - humidityMinPct
+        - humidityMaxPct
+        - phMin
+        - phMax
+        - expectedYieldPerHa
+        - yieldUnit
+        - description
+        - createdAt
       properties:
-        code: { type: string }
-        name: { type: string }
-        scientificName: { type: string }
-        category: { type: string }
-        growthDaysMin: { type: integer }
-        growthDaysMax: { type: integer }
+        id: { type: string, format: uuid }
+        code: { type: string, maxLength: 64 }
+        name: { type: string, maxLength: 200 }
+        scientificName: { type: [string, 'null'], maxLength: 200 }
+        category: { type: string, maxLength: 100 }
+        growthDaysMin: { type: [integer, 'null'], format: int32 }
+        growthDaysMax: { type: [integer, 'null'], format: int32 }
+        tempMinC: { type: [number, 'null'] }
+        tempMaxC: { type: [number, 'null'] }
+        humidityMinPct: { type: [number, 'null'] }
+        humidityMaxPct: { type: [number, 'null'] }
+        phMin: { type: [number, 'null'] }
+        phMax: { type: [number, 'null'] }
+        expectedYieldPerHa: { type: [number, 'null'] }
+        yieldUnit: { type: [string, 'null'], maxLength: 32 }
+        description: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+    CropPageResponse:
+      type: object
+      additionalProperties: false
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/CropResponse'
+        page: { type: integer, format: int32, minimum: 0 }
+        size: { type: integer, format: int32, minimum: 1, maximum: 100 }
+        totalElements: { type: integer, format: int64, minimum: 0 }
+        totalPages: { type: integer, format: int32, minimum: 0 }
+        first: { type: boolean }
+        last: { type: boolean }
