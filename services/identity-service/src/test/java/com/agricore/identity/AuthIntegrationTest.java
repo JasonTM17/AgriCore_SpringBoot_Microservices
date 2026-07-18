@@ -117,6 +117,24 @@ class AuthIntegrationTest {
     }
 
     @Test
+    void loginValidation_doesNotEchoRejectedInputs() throws Exception {
+        String rejectedPassword = "do-not-echo-" + "x".repeat(128);
+
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"worker@agricore.test","password":"%s"}
+                                """.formatted(rejectedPassword)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andReturn();
+
+        assertThat(result.getResponse().getContentAsString())
+                .doesNotContain(rejectedPassword)
+                .doesNotContain("rejectedValue");
+    }
+
+    @Test
     void register_duplicateEmail_returns409() throws Exception {
         String email = "dup" + System.nanoTime() + "@agricore.test";
         String body = """
