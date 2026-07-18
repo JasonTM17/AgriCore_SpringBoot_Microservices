@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>03 — Nông trại &amp; lô canh tác - AgriCore</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-dim": "#d0ddd3",
+                    "tertiary-fixed": "#ffdcc5",
+                    "surface-container-low": "#e9f7ec",
+                    "surface-container": "#e4f1e6",
+                    "surface-container-lowest": "#ffffff",
+                    "primary": "#00452d",
+                    "on-primary-fixed": "#002113",
+                    "tertiary": "#523520",
+                    "on-background": "#121e17",
+                    "on-secondary-container": "#714800",
+                    "secondary": "#835500",
+                    "secondary-container": "#fcb651",
+                    "on-secondary-fixed-variant": "#633f00",
+                    "surface-container-highest": "#d8e6db",
+                    "primary-fixed": "#b1f0cd",
+                    "on-tertiary-fixed": "#2d1604",
+                    "surface-container-high": "#deece0",
+                    "error-container": "#ffdad6",
+                    "secondary-fixed-dim": "#ffb955",
+                    "on-tertiary-fixed-variant": "#5e402a",
+                    "on-primary-container": "#95d4b1",
+                    "outline": "#707972",
+                    "error": "#ba1a1a",
+                    "surface-bright": "#effdf1",
+                    "background": "#effdf1",
+                    "primary-fixed-dim": "#95d4b2",
+                    "on-primary-fixed-variant": "#0f5137",
+                    "tertiary-fixed-dim": "#e9bea1",
+                    "on-surface-variant": "#404943",
+                    "on-secondary": "#ffffff",
+                    "on-error-container": "#93000a",
+                    "inverse-surface": "#27332c",
+                    "on-tertiary-container": "#e9bea1",
+                    "on-primary": "#ffffff",
+                    "surface": "#effdf1",
+                    "on-surface": "#121e17",
+                    "inverse-primary": "#95d4b2",
+                    "surface-tint": "#2d694d",
+                    "on-secondary-fixed": "#291800",
+                    "primary-container": "#1f5d42",
+                    "on-error": "#ffffff",
+                    "secondary-fixed": "#ffddb4",
+                    "inverse-on-surface": "#e6f4e9",
+                    "surface-variant": "#d8e6db",
+                    "tertiary-container": "#6b4c35",
+                    "outline-variant": "#bfc9c1",
+                    "on-tertiary": "#ffffff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Inter", "sans-serif"],
+                    "display": ["Inter", "sans-serif"],
+                    "body": ["Inter", "sans-serif"],
+                    "label": ["Inter", "sans-serif"]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F4F6F1; /* Canvas background */
+        }
+        .material-symbols-outlined {
+          font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill {
+          font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="text-on-background h-screen overflow-hidden flex font-body">
+<!-- SideNavBar (Shared Component) -->
+<nav class="fixed left-0 top-0 h-screen w-[264px] bg-primary dark:bg-on-primary-fixed z-50 flex flex-col py-6 space-y-2">
+<div class="px-6 pb-6 flex items-center space-x-3">
+<div class="w-8 h-8 rounded bg-primary-fixed-dim flex items-center justify-center text-on-primary-fixed font-bold">A</div>
+<div>
+<h1 class="text-xl font-headline font-black text-primary-fixed dark:text-primary-fixed-dim leading-none">AgriCore</h1>
+<p class="text-xs text-primary-fixed-dim/80 mt-1">Hệ thống vận hành</p>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto font-body text-label-sm tracking-wide font-medium">
+<a class="flex items-center space-x-3 text-primary-fixed-dim dark:text-outline-variant hover:text-primary-fixed px-4 py-3 mx-2 hover:bg-primary-container/50 dark:hover:bg-primary-container/30 transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span>Tổng quan</span>
+</a>
+<a class="flex items-center space-x-3 bg-surface-container-highest dark:bg-primary-container text-on-primary-fixed-variant dark:text-on-primary-container font-bold rounded-lg px-4 py-3 mx-2 transition-transform duration-150 scale-[0.98]" href="#">
+<span class="material-symbols-outlined fill">agriculture</span>
+<span>Nông trại</span>
+</a>
+<a class="flex items-center space-x-3 text-primary-fixed-dim dark:text-outline-variant hover:text-primary-fixed px-4 py-3 mx-2 hover:bg-primary-container/50 dark:hover:bg-primary-container/30 transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined">calendar_today</span>
+<span>Mùa vụ &amp; công việc</span>
+</a>
+<a class="flex items-center space-x-3 text-primary-fixed-dim dark:text-outline-variant hover:text-primary-fixed px-4 py-3 mx-2 hover:bg-primary-container/50 dark:hover:bg-primary-container/30 transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined">grass</span>
+<span>Thu hoạch</span>
+</a>
+<a class="flex items-center space-x-3 text-primary-fixed-dim dark:text-outline-variant hover:text-primary-fixed px-4 py-3 mx-2 hover:bg-primary-container/50 dark:hover:bg-primary-container/30 transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span>Kho vận</span>
+</a>
+<a class="flex items-center space-x-3 text-primary-fixed-dim dark:text-outline-variant hover:text-primary-fixed px-4 py-3 mx-2 hover:bg-primary-container/50 dark:hover:bg-primary-container/30 transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined">shopping_cart</span>
+<span>Bán hàng</span>
+</a>
+<a class="flex items-center space-x-3 text-primary-fixed-dim dark:text-outline-variant hover:text-primary-fixed px-4 py-3 mx-2 hover:bg-primary-container/50 dark:hover:bg-primary-container/30 transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined">sensors</span>
+<span>IoT</span>
+</a>
+<a class="flex items-center space-x-3 text-primary-fixed-dim dark:text-outline-variant hover:text-primary-fixed px-4 py-3 mx-2 hover:bg-primary-container/50 dark:hover:bg-primary-container/30 transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span>Quản trị</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="ml-[264px] flex-1 flex flex-col h-screen overflow-hidden">
+<!-- TopNavBar (Shared Component) -->
+<header class="h-[72px] bg-surface-container-lowest dark:bg-surface-dim border-b border-outline-variant dark:border-outline flex justify-between items-center px-8 shrink-0 z-40">
+<div class="flex items-center text-sm font-headline text-body-md font-semibold">
+<span class="text-on-surface-variant">AgriCore</span>
+<span class="mx-2 text-outline-variant">/</span>
+<span class="text-primary font-bold">Nông trại</span>
+</div>
+<div class="flex items-center space-x-6">
+<div class="flex items-center space-x-2 bg-surface-container-low px-3 py-1.5 rounded-lg border border-outline-variant/50 cursor-pointer hover:bg-surface-container transition-colors text-sm font-medium text-on-surface">
+<span class="material-symbols-outlined text-xl text-primary">location_on</span>
+<span>Tất cả nông trại</span>
+<span class="material-symbols-outlined text-xl text-on-surface-variant">arrow_drop_down</span>
+</div>
+<button class="text-on-surface-variant hover:bg-surface-container rounded-full p-2 transition-colors focus:ring-2 focus:ring-primary-fixed-dim">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="flex items-center space-x-3 cursor-pointer pl-4 border-l border-outline-variant/50">
+<div class="text-right hidden md:block">
+<div class="text-sm font-bold text-on-surface">Nguyễn Minh Anh</div>
+<div class="text-xs text-on-surface-variant">Quản lý nông trại</div>
+</div>
+<div class="w-9 h-9 rounded-full bg-tertiary-fixed text-on-tertiary-fixed flex items-center justify-center font-bold">
+                        MA
+                    </div>
+</div>
+</div>
+</header>
+<!-- Main Workspace -->
+<main class="flex-1 overflow-hidden flex flex-col p-6 space-y-6">
+<!-- Header Section -->
+<div class="flex justify-between items-start shrink-0">
+<div>
+<h2 class="text-2xl font-bold font-headline text-on-surface">Nông trại &amp; lô canh tác</h2>
+<p class="text-on-surface-variant text-sm mt-1">Quản lý phạm vi vận hành và tình trạng từng lô</p>
+</div>
+<div class="flex space-x-3">
+<button class="px-4 py-2 border border-outline text-primary font-medium rounded-lg hover:bg-surface-container transition-colors text-sm flex items-center">
+<span class="material-symbols-outlined text-lg mr-2">upload</span>
+                        Nhập dữ liệu
+                    </button>
+<button class="px-4 py-2 bg-primary text-on-primary font-medium rounded-lg hover:bg-primary-container transition-colors text-sm flex items-center shadow-sm">
+<span class="material-symbols-outlined text-lg mr-2">add</span>
+                        Thêm nông trại
+                    </button>
+</div>
+</div>
+<!-- Filters -->
+<div class="flex flex-wrap gap-4 items-center shrink-0">
+<div class="relative w-64">
+<span class="material-symbols-outlined absolute left-3 top-2.5 text-on-surface-variant text-lg">search</span>
+<input class="w-full pl-9 pr-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-lg text-sm focus:ring-primary focus:border-primary" placeholder="Tìm theo tên hoặc mã..." type="text"/>
+</div>
+<div class="flex bg-surface-container-low rounded-lg p-1 border border-outline-variant/50">
+<button class="px-3 py-1.5 text-sm font-medium bg-surface-container-lowest text-primary shadow-sm rounded-md">Tất cả (3)</button>
+<button class="px-3 py-1.5 text-sm font-medium text-on-surface-variant hover:text-on-surface rounded-md">Đang hoạt động (2)</button>
+<button class="px-3 py-1.5 text-sm font-medium text-on-surface-variant hover:text-on-surface rounded-md">Tạm ngưng (1)</button>
+</div>
+<div class="ml-auto flex items-center space-x-2 bg-surface-container-lowest px-3 py-2 rounded-lg border border-outline-variant text-sm cursor-pointer hover:bg-surface-container-low">
+<span class="text-on-surface-variant">Khu vực:</span>
+<span class="font-medium text-on-surface">Đồng Tháp</span>
+<span class="material-symbols-outlined text-lg">arrow_drop_down</span>
+</div>
+</div>
+<!-- Three-Part Layout -->
+<div class="flex-1 flex gap-6 overflow-hidden min-h-0">
+<!-- Left: Danh sách nông trại -->
+<div class="w-[300px] shrink-0 bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col overflow-hidden">
+<div class="p-4 border-b border-outline-variant/50 flex justify-between items-center bg-surface-container-lowest">
+<h3 class="font-bold text-on-surface font-headline">Danh sách nông trại</h3>
+</div>
+<div class="overflow-y-auto flex-1 p-2 space-y-1">
+<!-- Farm 1 (Selected) -->
+<div class="p-3 rounded-lg bg-surface-container-high border-l-4 border-primary cursor-pointer">
+<div class="flex justify-between items-start">
+<h4 class="font-bold text-on-surface text-sm">Nông trại An Phú</h4>
+<button class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined text-lg">more_vert</span></button>
+</div>
+<div class="text-xs font-mono text-outline mt-1">FARM-AP01</div>
+<div class="flex justify-between items-center mt-3">
+<span class="text-sm text-on-surface-variant">128,5 ha</span>
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#e6f4e9] text-primary border border-primary/20">
+<span class="w-1.5 h-1.5 rounded-full bg-primary mr-1.5"></span>
+                                    Đang hoạt động
+                                </span>
+</div>
+</div>
+<!-- Farm 2 -->
+<div class="p-3 rounded-lg hover:bg-surface-container-low border-l-4 border-transparent cursor-pointer transition-colors">
+<div class="flex justify-between items-start">
+<h4 class="font-medium text-on-surface text-sm">Nông trại Bình Minh</h4>
+<button class="text-on-surface-variant hover:text-on-surface opacity-0 group-hover:opacity-100"><span class="material-symbols-outlined text-lg">more_vert</span></button>
+</div>
+<div class="text-xs font-mono text-outline mt-1">FARM-BM02</div>
+<div class="flex justify-between items-center mt-3">
+<span class="text-sm text-on-surface-variant">76,2 ha</span>
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#e6f4e9] text-primary border border-primary/20">
+<span class="w-1.5 h-1.5 rounded-full bg-primary mr-1.5"></span>
+                                    Đang hoạt động
+                                </span>
+</div>
+</div>
+<!-- Farm 3 -->
+<div class="p-3 rounded-lg hover:bg-surface-container-low border-l-4 border-transparent cursor-pointer transition-colors">
+<div class="flex justify-between items-start">
+<h4 class="font-medium text-on-surface text-sm">Khu canh tác Tân Lập</h4>
+<button class="text-on-surface-variant hover:text-on-surface opacity-0 group-hover:opacity-100"><span class="material-symbols-outlined text-lg">more_vert</span></button>
+</div>
+<div class="text-xs font-mono text-outline mt-1">FARM-TL03</div>
+<div class="flex justify-between items-center mt-3">
+<span class="text-sm text-on-surface-variant">42,0 ha</span>
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-surface-variant text-on-surface-variant border border-outline-variant/50">
+<span class="w-1.5 h-1.5 rounded-full bg-outline mr-1.5"></span>
+                                    Tạm ngưng
+                                </span>
+</div>
+</div>
+</div>
+</div>
+<!-- Center: Lô canh tác -->
+<div class="flex-1 bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col min-w-0">
+<div class="p-4 border-b border-outline-variant/50 flex justify-between items-center">
+<h3 class="font-bold text-on-surface font-headline flex items-center">
+                            Lô canh tác
+                            <span class="mx-2 text-outline-variant">•</span>
+<span class="text-primary font-medium text-sm">Nông trại An Phú</span>
+</h3>
+<div class="flex items-center space-x-3">
+<div class="flex bg-surface-container-low rounded-lg p-0.5 border border-outline-variant/50">
+<button class="p-1.5 bg-surface-container-lowest text-primary shadow-sm rounded-md"><span class="material-symbols-outlined text-sm">table_rows</span></button>
+<button class="p-1.5 text-on-surface-variant hover:text-on-surface rounded-md"><span class="material-symbols-outlined text-sm">grid_view</span></button>
+</div>
+<button class="px-3 py-1.5 text-sm bg-surface-container-highest hover:bg-surface-variant text-on-surface font-medium rounded-lg transition-colors flex items-center">
+<span class="material-symbols-outlined text-[16px] mr-1">add</span>
+                                Thêm lô
+                            </button>
+</div>
+</div>
+<div class="flex-1 overflow-auto">
+<table class="w-full text-left border-collapse text-sm">
+<thead class="bg-surface-container-lowest sticky top-0 z-10 border-b border-outline-variant">
+<tr>
+<th class="py-3 px-4 w-10"><input class="rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/></th>
+<th class="py-3 px-4 font-medium text-on-surface-variant cursor-pointer hover:text-on-surface group">Mã lô <span class="material-symbols-outlined text-[14px] align-middle opacity-0 group-hover:opacity-100">arrow_downward</span></th>
+<th class="py-3 px-4 font-medium text-on-surface-variant">Tên lô</th>
+<th class="py-3 px-4 font-medium text-on-surface-variant text-right">Diện tích</th>
+<th class="py-3 px-4 font-medium text-on-surface-variant">Loại đất</th>
+<th class="py-3 px-4 font-medium text-on-surface-variant">Mùa vụ hiện tại</th>
+<th class="py-3 px-4 font-medium text-on-surface-variant">Trạng thái</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/30">
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="py-2.5 px-4"><input class="rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/></td>
+<td class="py-2.5 px-4 font-mono text-xs text-on-surface">A1</td>
+<td class="py-2.5 px-4 font-medium text-on-surface">Xoài Cát Chu</td>
+<td class="py-2.5 px-4 text-right text-on-surface-variant">18,4 ha</td>
+<td class="py-2.5 px-4 text-on-surface-variant">Cát pha</td>
+<td class="py-2.5 px-4 text-on-surface-variant">Vụ 2026</td>
+<td class="py-2.5 px-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#e6f4e9] text-primary">Đang canh tác</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="py-2.5 px-4"><input class="rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/></td>
+<td class="py-2.5 px-4 font-mono text-xs text-on-surface">A2</td>
+<td class="py-2.5 px-4 font-medium text-on-surface">Lúa ST25</td>
+<td class="py-2.5 px-4 text-right text-on-surface-variant">24,0 ha</td>
+<td class="py-2.5 px-4 text-on-surface-variant">Phù sa</td>
+<td class="py-2.5 px-4 text-on-surface-variant">Vụ Hè Thu</td>
+<td class="py-2.5 px-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#e6f4e9] text-primary">Đang canh tác</span>
+</td>
+</tr>
+<tr class="bg-surface-container-highest/40 border-l-2 border-l-primary hover:bg-surface-container-highest/60 transition-colors">
+<td class="py-2.5 px-4 pl-[14px]"><input checked="" class="rounded border-primary text-primary focus:ring-primary" type="checkbox"/></td>
+<td class="py-2.5 px-4 font-mono text-xs font-bold text-primary">A3</td>
+<td class="py-2.5 px-4 font-bold text-on-surface">Cà phê Robusta</td>
+<td class="py-2.5 px-4 text-right font-medium text-on-surface">31,2 ha</td>
+<td class="py-2.5 px-4 text-on-surface">Đất đỏ bazan</td>
+<td class="py-2.5 px-4 text-on-surface">Vụ 2026</td>
+<td class="py-2.5 px-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#e6f4e9] text-primary">Đang canh tác</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="py-2.5 px-4"><input class="rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/></td>
+<td class="py-2.5 px-4 font-mono text-xs text-on-surface">B1</td>
+<td class="py-2.5 px-4 font-medium text-on-surface">Rau màu</td>
+<td class="py-2.5 px-4 text-right text-on-surface-variant">12,8 ha</td>
+<td class="py-2.5 px-4 text-on-surface-variant">Đất thịt</td>
+<td class="py-2.5 px-4 text-outline italic">Trống</td>
+<td class="py-2.5 px-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-surface-variant text-on-surface-variant">Nghỉ</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="py-2.5 px-4"><input class="rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/></td>
+<td class="py-2.5 px-4 font-mono text-xs text-on-surface">B2</td>
+<td class="py-2.5 px-4 font-medium text-on-surface">Đất nghỉ</td>
+<td class="py-2.5 px-4 text-right text-on-surface-variant">9,5 ha</td>
+<td class="py-2.5 px-4 text-on-surface-variant">Đất đỏ</td>
+<td class="py-2.5 px-4 text-outline italic">Trống</td>
+<td class="py-2.5 px-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-surface-variant text-on-surface-variant">Nghỉ</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-3 border-t border-outline-variant/50 flex justify-between items-center text-sm text-on-surface-variant bg-surface-container-lowest">
+<span>Hiển thị 1–5 / 8 lô</span>
+<div class="flex space-x-1">
+<button class="p-1 rounded hover:bg-surface-container text-outline"><span class="material-symbols-outlined text-sm">chevron_left</span></button>
+<button class="p-1 rounded hover:bg-surface-container text-on-surface"><span class="material-symbols-outlined text-sm">chevron_right</span></button>
+</div>
+</div>
+</div>
+<!-- Right: Chi tiết lô -->
+<div class="w-[320px] shrink-0 bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col overflow-hidden">
+<div class="p-5 border-b border-outline-variant/50">
+<div class="flex justify-between items-start mb-2">
+<h3 class="font-bold text-lg text-on-surface font-headline">Lô A3</h3>
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#e6f4e9] text-primary">Đang canh tác</span>
+</div>
+<p class="text-sm font-medium text-on-surface">Cà phê Robusta</p>
+</div>
+<div class="p-5 flex-1 overflow-y-auto space-y-6">
+<!-- Def List -->
+<div class="space-y-4">
+<div class="grid grid-cols-3 gap-2 text-sm">
+<div class="col-span-1 text-on-surface-variant">Mã lô</div>
+<div class="col-span-2 font-mono text-on-surface">PLOT-A3</div>
+</div>
+<div class="grid grid-cols-3 gap-2 text-sm">
+<div class="col-span-1 text-on-surface-variant">Diện tích</div>
+<div class="col-span-2 font-medium text-on-surface">31,2 ha</div>
+</div>
+<div class="grid grid-cols-3 gap-2 text-sm">
+<div class="col-span-1 text-on-surface-variant">Loại đất</div>
+<div class="col-span-2 text-on-surface">Đất đỏ bazan</div>
+</div>
+<div class="grid grid-cols-3 gap-2 text-sm">
+<div class="col-span-1 text-on-surface-variant">Mùa vụ</div>
+<div class="col-span-2 text-on-surface">Vụ 2026</div>
+</div>
+<div class="grid grid-cols-3 gap-2 text-sm">
+<div class="col-span-1 text-on-surface-variant">Quản lý</div>
+<div class="col-span-2 flex items-center text-on-surface">
+<div class="w-5 h-5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed flex items-center justify-center font-bold text-[10px] mr-2">MA</div>
+                                    Nguyễn Minh Anh
+                                </div>
+</div>
+</div>
+<div class="bg-surface-container p-3 rounded-lg flex items-start space-x-2 border border-surface-variant">
+<span class="material-symbols-outlined text-primary text-[18px] mt-0.5">info</span>
+<p class="text-xs text-on-surface-variant leading-relaxed">Độ ẩm cập nhật 07:45 (từ IoT khi khả dụng).</p>
+</div>
+<!-- Empty State Map -->
+<div class="border border-dashed border-outline-variant/60 bg-surface-container-low/30 rounded-lg p-6 flex flex-col items-center text-center mt-4">
+<span class="material-symbols-outlined text-outline-variant text-3xl mb-2">map</span>
+<h4 class="text-sm font-medium text-on-surface mb-1">Chưa có bản đồ ranh giới</h4>
+<p class="text-xs text-on-surface-variant mb-4">Backend hiện không cung cấp dữ liệu hình học cho lô.</p>
+<button class="text-primary text-xs font-medium hover:underline">Thêm sau</button>
+</div>
+</div>
+<div class="p-4 border-t border-outline-variant/50 flex space-x-3 bg-surface-container-lowest">
+<button class="flex-1 px-4 py-2 bg-surface-container-highest hover:bg-surface-variant text-on-surface text-sm font-medium rounded-lg transition-colors">
+                            Chỉnh sửa
+                        </button>
+<button class="flex-1 px-4 py-2 bg-primary text-on-primary text-sm font-medium rounded-lg hover:bg-primary-container transition-colors shadow-sm">
+                            Mở chi tiết lô
+                        </button>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>
