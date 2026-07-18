@@ -6,6 +6,7 @@ import com.agricore.traceability.application.service.TraceabilityApplicationServ
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -23,9 +24,11 @@ public class PublicTraceabilityController {
     }
 
     /**
-     * Internal projection writer (event adapter). No secrets or staff fields accepted into public model.
+     * Internal projection writer (event adapter / staff backfill).
+     * Not public — requires warehouse or admin role so FIELD_WORKER cannot invent QR rows.
      */
     @PostMapping("/api/v1/traceability/batches")
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','WAREHOUSE_MANAGER')")
     public ResponseEntity<PublicTraceabilityResponse> create(@Valid @RequestBody CreateTraceabilityRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.createFromHarvest(request));
     }
