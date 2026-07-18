@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+
+<html class="light" lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>07 — Chi tiết đơn bán &amp; saga | AgriCore</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-primary": "#ffffff",
+                      "secondary": "#835500",
+                      "on-surface": "#121e17",
+                      "on-primary-fixed-variant": "#0f5137",
+                      "surface-dim": "#d0ddd3",
+                      "outline": "#707972",
+                      "on-secondary-fixed": "#291800",
+                      "secondary-fixed-dim": "#ffb955",
+                      "on-tertiary-fixed": "#2d1604",
+                      "surface-container-high": "#deece0",
+                      "on-secondary": "#ffffff",
+                      "surface-container": "#e4f1e6",
+                      "inverse-surface": "#27332c",
+                      "primary": "#00452d",
+                      "on-tertiary": "#ffffff",
+                      "on-error-container": "#93000a",
+                      "primary-fixed": "#b1f0cd",
+                      "on-primary-fixed": "#002113",
+                      "on-tertiary-fixed-variant": "#5e402a",
+                      "on-error": "#ffffff",
+                      "on-secondary-fixed-variant": "#633f00",
+                      "inverse-on-surface": "#e6f4e9",
+                      "error": "#ba1a1a",
+                      "tertiary-fixed": "#ffdcc5",
+                      "surface-container-low": "#e9f7ec",
+                      "background": "#effdf1",
+                      "tertiary-fixed-dim": "#e9bea1",
+                      "tertiary-container": "#6b4c35",
+                      "tertiary": "#523520",
+                      "surface-bright": "#effdf1",
+                      "on-tertiary-container": "#e9bea1",
+                      "surface-variant": "#d8e6db",
+                      "secondary-container": "#fcb651",
+                      "primary-fixed-dim": "#95d4b2",
+                      "surface-container-highest": "#d8e6db",
+                      "surface": "#effdf1",
+                      "on-secondary-container": "#714800",
+                      "primary-container": "#1f5d42",
+                      "surface-container-lowest": "#ffffff",
+                      "secondary-fixed": "#ffddb4",
+                      "surface-tint": "#2d694d",
+                      "outline-variant": "#bfc9c1",
+                      "on-background": "#121e17",
+                      "inverse-primary": "#95d4b2",
+                      "on-primary-container": "#95d4b1",
+                      "error-container": "#ffdad6",
+                      "on-surface-variant": "#404943"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "fontFamily": {
+                      "headline": ["Inter"],
+                      "display": ["Inter"],
+                      "body": ["Inter"],
+                      "label": ["Inter"],
+                      "mono": ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", "monospace"]
+              }
+      },
+          },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface font-body antialiased min-h-screen">
+<!-- Sidebar -->
+<aside class="fixed left-0 top-0 h-screen w-[264px] bg-primary dark:bg-on-primary-fixed flex flex-col h-full py-6 space-y-2 z-50">
+<div class="px-6 pb-6">
+<h1 class="text-xl font-headline font-black text-primary-fixed dark:text-primary-fixed-dim">AgriCore</h1>
+<p class="text-primary-fixed-dim dark:text-primary-fixed font-body text-label-sm tracking-wide font-medium">Hệ thống vận hành</p>
+</div>
+<nav class="flex-1 overflow-y-auto">
+<ul class="space-y-1">
+<li>
+<a class="flex items-center space-x-3 text-primary-fixed-dim dark:text-outline-variant hover:text-primary-fixed px-4 py-3 mx-2 hover:bg-primary-container/50 dark:hover:bg-primary-container/30 transition-colors rounded-lg group" href="#">
+<span class="material-symbols-outlined group-active:scale-[0.98] transition-transform duration-150">dashboard</span>
+<span class="font-medium group-active:scale-[0.98] transition-transform duration-150">Tổng quan</span>
+</a>
+</li>
+<li>
+<a class="flex items-center space-x-3 text-primary-fixed-dim dark:text-outline-variant hover:text-primary-fixed px-4 py-3 mx-2 hover:bg-primary-container/50 dark:hover:bg-primary-container/30 transition-colors rounded-lg group" href="#">
+<span class="material-symbols-outlined group-active:scale-[0.98] transition-transform duration-150">agriculture</span>
+<span class="font-medium group-active:scale-[0.98] transition-transform duration-150">Nông trại</span>
+</a>
+</li>
+<li>
+<a class="flex items-center space-x-3 text-primary-fixed-dim dark:text-outline-variant hover:text-primary-fixed px-4 py-3 mx-2 hover:bg-primary-container/50 dark:hover:bg-primary-container/30 transition-colors rounded-lg group" href="#">
+<span class="material-symbols-outlined group-active:scale-[0.98] transition-transform duration-150">calendar_today</span>
+<span class="font-medium group-active:scale-[0.98] transition-transform duration-150">Mùa vụ &amp; công việc</span>
+</a>
+</li>
+<li>
+<a class="flex items-center space-x-3 text-primary-fixed-dim dark:text-outline-variant hover:text-primary-fixed px-4 py-3 mx-2 hover:bg-primary-container/50 dark:hover:bg-primary-container/30 transition-colors rounded-lg group" href="#">
+<span class="material-symbols-outlined group-active:scale-[0.98] transition-transform duration-150">grass</span>
+<span class="font-medium group-active:scale-[0.98] transition-transform duration-150">Thu hoạch</span>
+</a>
+</li>
+<li>
+<a class="flex items-center space-x-3 text-primary-fixed-dim dark:text-outline-variant hover:text-primary-fixed px-4 py-3 mx-2 hover:bg-primary-container/50 dark:hover:bg-primary-container/30 transition-colors rounded-lg group" href="#">
+<span class="material-symbols-outlined group-active:scale-[0.98] transition-transform duration-150">inventory_2</span>
+<span class="font-medium group-active:scale-[0.98] transition-transform duration-150">Kho vận</span>
+</a>
+</li>
+<li>
+<a class="flex items-center space-x-3 bg-surface-container-highest dark:bg-primary-container text-on-primary-fixed-variant dark:text-on-primary-container font-bold rounded-lg px-4 py-3 mx-2 group" href="#">
+<span class="material-symbols-outlined group-active:scale-[0.98] transition-transform duration-150">shopping_cart</span>
+<span class="group-active:scale-[0.98] transition-transform duration-150">Bán hàng</span>
+</a>
+</li>
+<li>
+<a class="flex items-center space-x-3 text-primary-fixed-dim dark:text-outline-variant hover:text-primary-fixed px-4 py-3 mx-2 hover:bg-primary-container/50 dark:hover:bg-primary-container/30 transition-colors rounded-lg group" href="#">
+<span class="material-symbols-outlined group-active:scale-[0.98] transition-transform duration-150">sensors</span>
+<span class="font-medium group-active:scale-[0.98] transition-transform duration-150">IoT</span>
+</a>
+</li>
+<li>
+<a class="flex items-center space-x-3 text-primary-fixed-dim dark:text-outline-variant hover:text-primary-fixed px-4 py-3 mx-2 hover:bg-primary-container/50 dark:hover:bg-primary-container/30 transition-colors rounded-lg group" href="#">
+<span class="material-symbols-outlined group-active:scale-[0.98] transition-transform duration-150">settings</span>
+<span class="font-medium group-active:scale-[0.98] transition-transform duration-150">Quản trị</span>
+</a>
+</li>
+</ul>
+</nav>
+</aside>
+<!-- Top Navigation -->
+<header class="fixed top-0 right-0 h-[72px] left-[264px] z-40 bg-surface-container-lowest dark:bg-surface-dim border-b border-outline-variant dark:border-outline flex justify-between items-center px-8 w-[calc(100%-264px)]">
+<div class="flex items-center space-x-2">
+<span class="text-on-surface-variant font-headline text-body-md font-semibold">AgriCore / Bán hàng / </span>
+<span class="text-primary dark:text-primary-fixed font-headline text-body-md font-bold">SO-2026-0718-0042</span>
+</div>
+<div class="flex items-center space-x-6">
+<div class="hidden lg:flex flex-col items-end">
+<span class="text-sm font-semibold text-primary">Nông trại An Phú</span>
+<span class="text-xs text-on-surface-variant">Lê Quốc Huy · Nhân viên bán hàng</span>
+</div>
+<button class="text-primary hover:bg-surface-container dark:hover:bg-surface-container-high rounded-full p-2 transition-colors focus:ring-2 focus:ring-primary-fixed-dim outline-none">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">notifications</span>
+</button>
+<div class="w-10 h-10 rounded-full bg-surface-variant overflow-hidden border border-outline-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-outline">person</span>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-[264px] mt-[72px] p-8 max-w-[1176px] mx-auto space-y-6">
+<!-- Info Banner -->
+<div class="bg-surface-variant/50 border border-outline-variant/50 rounded-lg p-4 flex items-start sm:items-center justify-between gap-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-surface-variant">info</span>
+<p class="text-sm text-on-surface-variant">Backend hỗ trợ tạo và mở đơn theo ID; chưa có API danh sách đơn hoặc tra cứu khách hàng.</p>
+</div>
+<button class="text-sm font-medium text-primary hover:underline whitespace-nowrap">Xem phạm vi tích hợp</button>
+</div>
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4 pt-2 pb-2">
+<div class="space-y-3">
+<a class="inline-flex items-center text-sm font-medium text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-[18px] mr-1">arrow_back</span>
+                    Bán hàng
+                </a>
+<div class="flex items-center gap-4">
+<h2 class="text-2xl font-headline font-bold text-on-surface">Đơn bán SO-2026-0718-0042</h2>
+<div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-inverse-on-surface border border-primary-fixed-dim/50">
+<span class="material-symbols-outlined text-primary text-[16px]">check_circle</span>
+<span class="text-xs font-semibold text-primary">Đã xác nhận</span>
+<span class="text-[10px] font-mono text-primary/70 ml-1">CONFIRMED</span>
+</div>
+</div>
+<div class="flex items-center gap-2 text-sm text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]">schedule</span>
+<span>18/07/2026 · 08:42</span>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<button class="px-4 py-2 rounded-lg border border-outline hover:bg-surface-container-highest text-on-surface font-medium text-sm transition-colors focus:ring-2 focus:ring-primary focus:outline-none flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">content_copy</span>
+                    Sao chép mã đơn
+                </button>
+<button class="px-4 py-2 rounded-lg bg-[#1F5D42] hover:bg-primary text-white font-medium text-sm shadow-sm transition-colors focus:ring-2 focus:ring-primary-fixed focus:ring-offset-2 focus:outline-none flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                    Tạo đơn mới
+                </button>
+</div>
+</div>
+<!-- Saga Timeline Card -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-[12px] p-6 shadow-sm">
+<div class="flex items-center justify-between mb-6">
+<h3 class="text-base font-semibold text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined">linear_scale</span>
+                    Tiến trình xử lý đơn
+                </h3>
+</div>
+<!-- Horizontal Stepper -->
+<div class="relative flex items-center justify-between w-full mb-8 mt-2">
+<!-- Line background -->
+<div class="absolute left-0 top-1/2 -translate-y-1/2 w-full h-0.5 bg-outline-variant/30 z-0"></div>
+<!-- Active Line -->
+<div class="absolute left-0 top-1/2 -translate-y-1/2 w-full h-0.5 bg-primary z-0"></div>
+<!-- Steps -->
+<div class="relative z-10 flex flex-col items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-primary flex items-center justify-center ring-4 ring-surface-container-lowest">
+<span class="material-symbols-outlined text-white text-[14px]">check</span>
+</div>
+<span class="text-xs font-semibold text-primary">Đơn đã tạo</span>
+</div>
+<div class="relative z-10 flex flex-col items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-primary flex items-center justify-center ring-4 ring-surface-container-lowest">
+<span class="material-symbols-outlined text-white text-[14px]">check</span>
+</div>
+<span class="text-xs font-semibold text-primary">Giữ tồn kho</span>
+</div>
+<div class="relative z-10 flex flex-col items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-primary flex items-center justify-center ring-4 ring-surface-container-lowest">
+<span class="material-symbols-outlined text-white text-[14px]">check</span>
+</div>
+<span class="text-xs font-semibold text-primary">Xác nhận tồn kho</span>
+</div>
+<div class="relative z-10 flex flex-col items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-primary flex items-center justify-center ring-4 ring-surface-container-lowest">
+<span class="material-symbols-outlined text-white text-[14px]">check</span>
+</div>
+<span class="text-xs font-semibold text-primary">Hoàn tất</span>
+</div>
+</div>
+<!-- Saga Metadata -->
+<div class="bg-surface-container-low rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+<div class="flex items-center gap-6">
+<div>
+<span class="text-xs text-on-surface-variant uppercase tracking-wider font-semibold block mb-1">sagaStatus</span>
+<span class="text-sm font-mono font-medium text-primary bg-primary-fixed/30 px-2 py-0.5 rounded">COMPLETED</span>
+</div>
+<div>
+<span class="text-xs text-on-surface-variant uppercase tracking-wider font-semibold block mb-1">sagaStep</span>
+<span class="text-sm font-mono font-medium text-primary bg-primary-fixed/30 px-2 py-0.5 rounded">CONFIRMED</span>
+</div>
+</div>
+<p class="text-xs text-on-surface-variant max-w-sm text-right">
+                    Tiến trình được suy ra từ sagaStatus và sagaStep; backend không trả lịch sử từng bước.
+                </p>
+</div>
+</div>
+<!-- 60/40 Split Content -->
+<div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+<!-- Left Column (60%) -->
+<div class="lg:col-span-3 space-y-6">
+<!-- Thông tin đơn hàng -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-[12px] p-6 shadow-sm">
+<h3 class="text-base font-semibold text-on-surface mb-4 border-b border-outline-variant pb-4">Thông tin chi tiết</h3>
+<dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+<div>
+<dt class="text-xs text-on-surface-variant uppercase tracking-wider font-semibold mb-1">Mã đơn hàng (orderNumber)</dt>
+<dd class="text-sm font-mono text-on-surface">SO-2026-0718-0042</dd>
+</div>
+<div>
+<dt class="text-xs text-on-surface-variant uppercase tracking-wider font-semibold mb-1">Khách hàng (customerId)</dt>
+<dd class="text-sm text-on-surface">
+<span class="font-mono text-on-surface-variant text-xs">c8f2-4a...</span>
+<span class="italic text-outline ml-2">Tên khách hàng chưa khả dụng</span>
+</dd>
+</div>
+<div>
+<dt class="text-xs text-on-surface-variant uppercase tracking-wider font-semibold mb-1">Mặt hàng (inventoryItemId)</dt>
+<dd class="text-sm text-on-surface flex items-center gap-2">
+<span class="font-mono text-on-surface-variant text-xs">i9d4-2b...</span>
+<a class="text-primary hover:underline font-medium text-xs" href="#">Mở mặt hàng →</a>
+</dd>
+</div>
+<div>
+<dt class="text-xs text-on-surface-variant uppercase tracking-wider font-semibold mb-1">Số lượng (quantity)</dt>
+<dd class="text-base font-semibold text-on-surface font-mono" style="font-variant-numeric: tabular-nums;">42.000 kg</dd>
+</div>
+<div>
+<dt class="text-xs text-on-surface-variant uppercase tracking-wider font-semibold mb-1">ID Giữ kho (reservationId)</dt>
+<dd class="text-sm text-on-surface flex items-center gap-2">
+<span class="font-mono text-on-surface-variant text-xs">r3a1-7f...</span>
+<span class="text-xs bg-inverse-on-surface text-primary px-1.5 py-0.5 rounded border border-primary-fixed-dim/30">Đã xác nhận</span>
+</dd>
+</div>
+<div class="sm:col-span-2 pt-2">
+<dt class="text-xs text-on-surface-variant uppercase tracking-wider font-semibold mb-1">Mã tương quan (correlationId)</dt>
+<dd class="flex items-center gap-2 bg-surface-container-low p-2 rounded border border-outline-variant/50">
+<span class="text-sm font-mono text-on-surface-variant break-all">f47ac10b-58cc-4372-a567-0e02b2c3d479</span>
+<button class="p-1 hover:bg-surface-variant rounded text-on-surface-variant" title="Sao chép">
+<span class="material-symbols-outlined text-[16px]">content_copy</span>
+</button>
+</dd>
+</div>
+</dl>
+</div>
+<!-- Khả năng truy vết -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-[12px] p-6 shadow-sm">
+<h3 class="text-base font-semibold text-on-surface mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined">history</span>
+                        Khả năng truy vết kỹ thuật
+                    </h3>
+<div class="space-y-4">
+<div class="flex gap-4 p-3 rounded-lg bg-surface-container-low border border-outline-variant/30">
+<div class="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-on-surface-variant text-[16px]">note_add</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h4 class="text-sm font-medium text-on-surface">Yêu cầu tạo đơn</h4>
+<span class="text-xs text-on-surface-variant font-mono">08:42</span>
+</div>
+<p class="text-xs text-outline mt-1 font-mono">request_created</p>
+</div>
+</div>
+<div class="flex gap-4 p-3 rounded-lg border border-outline-variant/30">
+<div class="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-on-surface-variant text-[16px]">inventory</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h4 class="text-sm font-medium text-on-surface">Giữ tồn kho</h4>
+<span class="text-xs italic text-outline">Suy ra từ trạng thái</span>
+</div>
+<p class="text-xs text-outline mt-1 font-mono">inventory_reserved</p>
+</div>
+</div>
+<div class="flex gap-4 p-3 rounded-lg border border-outline-variant/30">
+<div class="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-on-surface-variant text-[16px]">task_alt</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h4 class="text-sm font-medium text-on-surface">Xác nhận tồn kho</h4>
+<span class="text-xs italic text-outline">Suy ra từ trạng thái</span>
+</div>
+<p class="text-xs text-outline mt-1 font-mono">inventory_confirmed</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Note -->
+<div class="bg-surface-container rounded-lg p-4 text-sm text-primary flex gap-3">
+<span class="material-symbols-outlined text-[20px] shrink-0">lightbulb</span>
+<p>Để hiển thị tên khách hàng, tên mặt hàng và lịch sử saga, cần API lookup/history bổ sung.</p>
+</div>
+</div>
+<!-- Right Column (40%) -->
+<div class="lg:col-span-2 space-y-6">
+<!-- Current Status -->
+<div class="bg-inverse-on-surface border border-primary-fixed-dim/50 rounded-[12px] p-6 shadow-sm relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4 opacity-10">
+<span class="material-symbols-outlined text-[100px] text-primary">verified</span>
+</div>
+<div class="relative z-10">
+<div class="w-12 h-12 rounded-full bg-primary-fixed flex items-center justify-center mb-4">
+<span class="material-symbols-outlined text-primary text-[24px]">check_circle</span>
+</div>
+<h3 class="text-lg font-semibold text-primary mb-2">Đơn đã được xác nhận</h3>
+<p class="text-sm text-on-surface mb-6 font-medium">42.000 kg đã được giữ và xác nhận trong kho.</p>
+<ul class="space-y-3 bg-surface-container-lowest/80 p-4 rounded-lg border border-outline-variant/30">
+<li class="flex justify-between items-center">
+<span class="text-xs text-on-surface-variant uppercase tracking-wider font-semibold">Order</span>
+<span class="text-xs font-mono font-bold text-primary">CONFIRMED</span>
+</li>
+<li class="flex justify-between items-center">
+<span class="text-xs text-on-surface-variant uppercase tracking-wider font-semibold">Saga</span>
+<span class="text-xs font-mono font-bold text-primary">COMPLETED</span>
+</li>
+<li class="flex justify-between items-center">
+<span class="text-xs text-on-surface-variant uppercase tracking-wider font-semibold">Step</span>
+<span class="text-xs font-mono font-bold text-primary">CONFIRMED</span>
+</li>
+</ul>
+</div>
+</div>
+<!-- Specimen Failure State -->
+<div class="bg-error-container/20 border border-error/20 rounded-[12px] p-6 shadow-sm">
+<h3 class="text-sm font-semibold text-error flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-[18px]">warning</span>
+                        Mẫu trạng thái thất bại (Minh họa)
+                    </h3>
+<div class="mb-4">
+<div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-error-container/50 border border-error/30 mb-2">
+<span class="text-xs font-semibold text-on-error-container">Không đủ tồn kho</span>
+<span class="text-[10px] font-mono text-on-error-container/70 ml-1">OUT_OF_STOCK</span>
+</div>
+<p class="text-xs text-error font-mono break-all mt-2 bg-error-container/10 p-2 rounded border border-error/10">failureReason: "Insufficient available stock"</p>
+</div>
+<ul class="space-y-2 mb-4">
+<li class="flex justify-between items-center text-xs">
+<span class="text-on-surface-variant">Saga</span>
+<span class="font-mono text-error">FAILED</span>
+</li>
+<li class="flex justify-between items-center text-xs">
+<span class="text-on-surface-variant">Step</span>
+<span class="font-mono text-error">COMPENSATED</span>
+</li>
+</ul>
+<button class="w-full py-2 bg-surface-container-lowest border border-outline hover:bg-surface-container-highest text-on-surface rounded-lg text-sm font-medium transition-colors">
+                        Mở tồn kho
+                    </button>
+</div>
+<!-- Role Permissions -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-[12px] p-6 shadow-sm">
+<h3 class="text-sm font-semibold text-on-surface mb-3">Quyền thao tác</h3>
+<div class="flex items-center gap-2 mb-3">
+<span class="material-symbols-outlined text-outline text-[18px]">badge</span>
+<span class="text-xs font-mono bg-surface-variant px-2 py-1 rounded text-on-surface">SALES_STAFF</span>
+</div>
+<p class="text-xs text-on-surface-variant leading-relaxed">
+                        Chỉ cho phép tạo đơn hàng mới. Việc chuyển đổi trạng thái đơn (transition) được hệ thống backend quản lý hoàn toàn tự động thông qua Saga pattern.
+                    </p>
+</div>
+</div>
+</div>
+</main>
+</body></html>
