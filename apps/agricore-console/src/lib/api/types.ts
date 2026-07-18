@@ -25,3 +25,6 @@ export type FarmResponse = GatewaySchemas["FarmResponse"];
 export type PlotResponse = GatewaySchemas["PlotResponse"];
 export type FarmPageResponse = GatewaySchemas["FarmPageResponse"];
 export type PlotPageResponse = GatewaySchemas["PlotPageResponse"];
+export type GrantFarmMembershipRequest = GatewaySchemas["GrantFarmMembershipRequest"];
+export type FarmMembershipResponse = GatewaySchemas["FarmMembershipResponse"];
+export type FarmMembershipPageResponse = GatewaySchemas["FarmMembershipPageResponse"];

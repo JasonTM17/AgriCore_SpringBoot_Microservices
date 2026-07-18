@@ -85,6 +85,10 @@ paths:
     $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1farms~1{farmId}'
   /api/v1/farms/{farmId}/plots:
     $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1farms~1{farmId}~1plots'
+  /api/v1/farms/{farmId}/memberships:
+    $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1farms~1{farmId}~1memberships'
+  /api/v1/farms/{farmId}/memberships/{membershipId}:
+    $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1farms~1{farmId}~1memberships~1{membershipId}'
   /api/v1/plots/{plotId}:
     $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1plots~1{plotId}'
   /api/v1/crops/{proxy+}:

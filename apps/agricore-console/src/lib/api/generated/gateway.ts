@@ -285,13 +285,13 @@ export interface paths {
         };
         /**
          * List farms
-         * @description Requires an authenticated user. Farm membership scoping is added separately.
+         * @description Returns only farms assigned to the JWT subject; SYSTEM_ADMIN sees all farms.
          */
         get: operations["listFarms"];
         put?: never;
         /**
          * Create a farm
-         * @description Requires SYSTEM_ADMIN or FARM_MANAGER.
+         * @description Requires SYSTEM_ADMIN or FARM_MANAGER. The creator receives the initial membership atomically.
          */
         post: operations["createFarm"];
         delete?: never;
@@ -312,7 +312,7 @@ export interface paths {
         };
         /**
          * Get a farm
-         * @description Requires an authenticated user. Farm membership scoping is added separately.
+         * @description Requires farm membership; SYSTEM_ADMIN is the explicit global override.
          */
         get: operations["getFarm"];
         put?: never;
@@ -339,7 +339,7 @@ export interface paths {
         };
         /**
          * List plots in a farm
-         * @description Requires an authenticated user. Results are ordered by plot code ascending.
+         * @description Requires farm membership; SYSTEM_ADMIN is the explicit global override. Results use plot-code order.
          */
         get: operations["listFarmPlots"];
         put?: never;
@@ -349,6 +349,58 @@ export interface paths {
          */
         post: operations["createFarmPlot"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/farms/{farmId}/memberships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Farm identifier. */
+                farmId: components["parameters"]["FarmId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List farm memberships
+         * @description Requires SYSTEM_ADMIN, or FARM_MANAGER plus membership in the farm.
+         */
+        get: operations["listFarmMemberships"];
+        put?: never;
+        /**
+         * Grant farm membership
+         * @description Requires SYSTEM_ADMIN, or FARM_MANAGER plus membership in the farm.
+         */
+        post: operations["grantFarmMembership"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/farms/{farmId}/memberships/{membershipId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Farm identifier. */
+                farmId: components["parameters"]["FarmId"];
+                /** @description Farm membership identifier. */
+                membershipId: components["parameters"]["MembershipId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke farm membership
+         * @description Requires SYSTEM_ADMIN, or FARM_MANAGER plus membership in the farm. The final membership cannot be removed.
+         */
+        delete: operations["revokeFarmMembership"];
         options?: never;
         head?: never;
         patch?: never;
@@ -366,7 +418,7 @@ export interface paths {
         };
         /**
          * Get a plot
-         * @description Requires an authenticated user. Farm membership scoping is added separately.
+         * @description Requires farm membership. Missing and inaccessible plots both return 404.
          */
         get: operations["getPlot"];
         put?: never;
@@ -998,6 +1050,34 @@ export interface components {
             /** Format: double */
             longitude?: number | null;
         };
+        FarmMembershipResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            farmId: string;
+            /** Format: uuid */
+            subject: string;
+            grantedBy: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        FarmMembershipPageResponse: {
+            content: components["schemas"]["FarmMembershipResponse"][];
+            /** Format: int32 */
+            page: number;
+            /** Format: int32 */
+            size: number;
+            /** Format: int64 */
+            totalElements: number;
+            /** Format: int32 */
+            totalPages: number;
+            first: boolean;
+            last: boolean;
+        };
+        GrantFarmMembershipRequest: {
+            /** Format: uuid */
+            subject: string;
+        };
         UpdatePlotRequest: {
             name?: string | null;
             areaInHectares?: number | null;
@@ -1035,7 +1115,7 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description The authenticated user lacks the required role. */
+        /** @description The authenticated user lacks the required role or farm membership. */
         Forbidden: {
             headers: {
                 [name: string]: unknown;
@@ -1044,7 +1124,7 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description Farm code or farm-local plot code already exists. */
+        /** @description A uniqueness or farm-membership invariant was violated. */
         Conflict: {
             headers: {
                 [name: string]: unknown;
@@ -1062,7 +1142,7 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description Farm or plot not found. */
+        /** @description Requested farm, plot, or membership not found. */
         NotFound: {
             headers: {
                 [name: string]: unknown;
@@ -1085,6 +1165,8 @@ export interface components {
         FarmSort: "code,asc" | "code,desc" | "name,asc" | "name,desc" | "province,asc" | "province,desc" | "totalAreaHa,asc" | "totalAreaHa,desc" | "status,asc" | "status,desc" | "createdAt,asc" | "createdAt,desc" | "updatedAt,asc" | "updatedAt,desc";
         /** @description Farm identifier. */
         FarmId: string;
+        /** @description Farm membership identifier. */
+        MembershipId: string;
         /** @description Plot identifier. */
         PlotId: string;
     };
@@ -1181,6 +1263,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             500: components["responses"]["InternalServerError"];
         };
@@ -1246,6 +1329,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             500: components["responses"]["InternalServerError"];
         };
@@ -1281,6 +1365,102 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             415: components["responses"]["UnsupportedMediaType"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listFarmMemberships: {
+        parameters: {
+            query?: {
+                /** @description Zero-based page index. */
+                page?: components["parameters"]["Page"];
+                /** @description Number of records per page. */
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path: {
+                /** @description Farm identifier. */
+                farmId: components["parameters"]["FarmId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paged memberships ordered by grant time ascending. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FarmMembershipPageResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    grantFarmMembership: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Farm identifier. */
+                farmId: components["parameters"]["FarmId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantFarmMembershipRequest"];
+            };
+        };
+        responses: {
+            /** @description Membership granted. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FarmMembershipResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            415: components["responses"]["UnsupportedMediaType"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    revokeFarmMembership: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Farm identifier. */
+                farmId: components["parameters"]["FarmId"];
+                /** @description Farm membership identifier. */
+                membershipId: components["parameters"]["MembershipId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Membership revoked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             500: components["responses"]["InternalServerError"];
         };
     };

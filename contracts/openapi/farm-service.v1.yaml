@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: AgriCore Farm Service API
-  version: 1.1.0
-  description: Verified farm and plot management contract for the farm service.
+  version: 1.2.0
+  description: Verified farm, plot, membership, and internal resource-access contract for the farm service.
 servers:
   - url: http://localhost:8082
     description: Direct local service endpoint
@@ -11,13 +11,15 @@ security:
 tags:
   - name: Farms
   - name: Plots
+  - name: Farm Memberships
+  - name: Internal Farm Access
 paths:
   /api/v1/farms:
     get:
       tags: [Farms]
       operationId: listFarms
       summary: List farms
-      description: Requires an authenticated user. Farm membership scoping is added separately.
+      description: Returns only farms assigned to the JWT subject; SYSTEM_ADMIN sees all farms.
       parameters:
         - $ref: '#/components/parameters/Province'
         - $ref: '#/components/parameters/FarmStatusFilter'
@@ -41,7 +43,7 @@ paths:
       tags: [Farms]
       operationId: createFarm
       summary: Create a farm
-      description: Requires SYSTEM_ADMIN or FARM_MANAGER.
+      description: Requires SYSTEM_ADMIN or FARM_MANAGER. The creator receives the initial membership atomically.
       requestBody:
         required: true
         content:
@@ -74,7 +76,7 @@ paths:
       tags: [Farms]
       operationId: getFarm
       summary: Get a farm
-      description: Requires an authenticated user. Farm membership scoping is added separately.
+      description: Requires farm membership; SYSTEM_ADMIN is the explicit global override.
       responses:
         '200':
           description: Farm found.
@@ -86,6 +88,8 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
@@ -127,7 +131,7 @@ paths:
       tags: [Plots]
       operationId: listFarmPlots
       summary: List plots in a farm
-      description: Requires an authenticated user. Results are ordered by plot code ascending.
+      description: Requires farm membership; SYSTEM_ADMIN is the explicit global override. Results use plot-code order.
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Size'
@@ -142,6 +146,8 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
@@ -185,7 +191,7 @@ paths:
       tags: [Plots]
       operationId: getPlot
       summary: Get a plot
-      description: Requires an authenticated user. Farm membership scoping is added separately.
+      description: Requires farm membership. Missing and inaccessible plots both return 404.
       responses:
         '200':
           description: Plot found.
@@ -231,6 +237,162 @@ paths:
           $ref: '#/components/responses/UnsupportedMediaType'
         '500':
           $ref: '#/components/responses/InternalServerError'
+  /api/v1/farms/{farmId}/memberships:
+    parameters:
+      - $ref: '#/components/parameters/FarmId'
+    get:
+      tags: [Farm Memberships]
+      operationId: listFarmMemberships
+      summary: List farm memberships
+      description: Requires SYSTEM_ADMIN, or FARM_MANAGER plus membership in the farm.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Paged memberships ordered by grant time ascending.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmMembershipPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags: [Farm Memberships]
+      operationId: grantFarmMembership
+      summary: Grant farm membership
+      description: Requires SYSTEM_ADMIN, or FARM_MANAGER plus membership in the farm.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GrantFarmMembershipRequest'
+      responses:
+        '201':
+          description: Membership granted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmMembershipResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/v1/farms/{farmId}/memberships/{membershipId}:
+    parameters:
+      - $ref: '#/components/parameters/FarmId'
+      - $ref: '#/components/parameters/MembershipId'
+    delete:
+      tags: [Farm Memberships]
+      operationId: revokeFarmMembership
+      summary: Revoke farm membership
+      description: Requires SYSTEM_ADMIN, or FARM_MANAGER plus membership in the farm. The final membership cannot be removed.
+      responses:
+        '204':
+          description: Membership revoked.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /internal/api/v1/farm-access/farms/{farmId}:
+    parameters:
+      - $ref: '#/components/parameters/FarmId'
+    get:
+      tags: [Internal Farm Access]
+      operationId: resolveFarmAccess
+      summary: Resolve caller access to a farm
+      description: Internal authenticated boundary used by farm-scoped services. Caller credentials must be forwarded.
+      responses:
+        '200':
+          description: Farm exists and is accessible.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmResourceAccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /internal/api/v1/farm-access/plots/{plotId}:
+    parameters:
+      - $ref: '#/components/parameters/PlotId'
+    get:
+      tags: [Internal Farm Access]
+      operationId: resolvePlotAccess
+      summary: Resolve an accessible plot to its farm
+      description: Internal authenticated boundary. Missing and inaccessible plots both return 404.
+      responses:
+        '200':
+          description: Plot exists, is accessible, and is resolved to its farm.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmResourceAccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /internal/api/v1/farm-access/farms/{farmId}/plots/{plotId}:
+    parameters:
+      - $ref: '#/components/parameters/FarmId'
+      - $ref: '#/components/parameters/PlotId'
+    get:
+      tags: [Internal Farm Access]
+      operationId: resolveFarmPlotAccess
+      summary: Verify an accessible plot belongs to a farm
+      description: Internal authenticated boundary. Missing, inaccessible, and mismatched plots return 404.
+      responses:
+        '200':
+          description: Plot belongs to the farm and is accessible.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmResourceAccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 components:
   securitySchemes:
     bearerAuth:
@@ -251,6 +413,14 @@ components:
       name: plotId
       required: true
       description: Plot identifier.
+      schema:
+        type: string
+        format: uuid
+    MembershipId:
+      in: path
+      name: membershipId
+      required: true
+      description: Farm membership identifier.
       schema:
         type: string
         format: uuid
@@ -321,19 +491,19 @@ components:
     Unauthorized:
       description: Authentication is required or the bearer token is invalid.
     Forbidden:
-      description: The authenticated user lacks the required role.
+      description: The authenticated user lacks the required role or farm membership.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ApiError'
     NotFound:
-      description: Farm or plot not found.
+      description: Requested farm, plot, or membership not found.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ApiError'
     Conflict:
-      description: Farm code or farm-local plot code already exists.
+      description: A uniqueness or farm-membership invariant was violated.
       content:
         application/json:
           schema:
@@ -357,6 +527,13 @@ components:
     PlotStatus:
       type: string
       enum: [AVAILABLE, PREPARING, IN_USE, RESTING, MAINTENANCE, INACTIVE]
+    GrantFarmMembershipRequest:
+      type: object
+      required: [subject]
+      properties:
+        subject:
+          type: string
+          format: uuid
     CreateFarmRequest:
       type: object
       required: [code, name]
@@ -583,6 +760,37 @@ components:
           type: integer
           format: int64
           minimum: 0
+    FarmMembershipResponse:
+      type: object
+      additionalProperties: false
+      required: [id, farmId, subject, grantedBy, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        farmId:
+          type: string
+          format: uuid
+        subject:
+          type: string
+          format: uuid
+        grantedBy:
+          type: string
+          maxLength: 255
+        createdAt:
+          type: string
+          format: date-time
+    FarmResourceAccessResponse:
+      type: object
+      additionalProperties: false
+      required: [farmId, plotId]
+      properties:
+        farmId:
+          type: string
+          format: uuid
+        plotId:
+          type: [string, 'null']
+          format: uuid
     FarmPageResponse:
       type: object
       additionalProperties: false
@@ -622,6 +830,36 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PlotResponse'
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int32
+          minimum: 0
+        first:
+          type: boolean
+        last:
+          type: boolean
+    FarmMembershipPageResponse:
+      type: object
+      additionalProperties: false
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/FarmMembershipResponse'
         page:
           type: integer
           format: int32
