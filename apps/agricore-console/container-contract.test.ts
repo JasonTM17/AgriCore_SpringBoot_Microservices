@@ -1,15 +1,16 @@
 /**
  * @vitest-environment node
  *
- * Structural contract: console image must be non-root-compatible with Helm
- * runAsNonRoot + console.runAsUser 101 and must listen on 8080 (not privileged 80).
+ * Structural contract (Node only — not part of the browser app graph).
+ * Console image must be non-root-compatible with Helm runAsNonRoot + console.runAsUser 101
+ * and must listen on 8080 (not privileged 80).
  */
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const consoleRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const consoleRoot = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(consoleRoot, "../..");
 
 function read(relFromRepo: string): string {
