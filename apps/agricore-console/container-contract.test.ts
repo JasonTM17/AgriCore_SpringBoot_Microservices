@@ -32,6 +32,35 @@ describe("console container non-root contract", () => {
     expect(nginx).toMatch(/listen\s+8080\s*;/);
     expect(nginx).not.toMatch(/listen\s+80\s*;/);
     expect(nginx).toContain("${GATEWAY_UPSTREAM}");
+    // SSE / long-lived generation proxy timeouts preserved
+    expect(nginx).toMatch(/proxy_read_timeout\s+3600s\s*;/);
+    expect(nginx).toMatch(/proxy_buffering\s+off\s*;/);
+  });
+
+  it("nginx template ships restrictive security headers (M3)", () => {
+    const nginx = read("apps/agricore-console/nginx.conf.template");
+    expect(nginx).toMatch(/add_header\s+Content-Security-Policy\s+"/);
+    expect(nginx).toMatch(/frame-ancestors\s+'none'/);
+    expect(nginx).toMatch(/add_header\s+X-Content-Type-Options\s+"nosniff"/);
+    expect(nginx).toMatch(/add_header\s+Referrer-Policy\s+"/);
+    expect(nginx).toMatch(/add_header\s+X-Frame-Options\s+"DENY"/);
+    // Headers apply with always so error responses also carry them
+    expect(nginx).toMatch(/add_header\s+Content-Security-Policy\s+"[^"]+"\s+always\s*;/);
+    expect(nginx).toMatch(/add_header\s+X-Content-Type-Options\s+"nosniff"\s+always\s*;/);
+  });
+
+  it("Helm ships same-origin Ingress through console Service (M4)", () => {
+    const ingress = read("infrastructure/helm/agricore/templates/ingress.yaml");
+    expect(ingress).toMatch(/kind:\s*Ingress/);
+    expect(ingress).toMatch(/name:\s*agricore-console/);
+    expect(ingress).toMatch(/path:\s*\//);
+    expect(ingress).toMatch(/pathType:\s*Prefix/);
+    // Single front door — not a split API host that breaks cookie SameSite
+    expect(ingress).not.toMatch(/agricore-gateway/);
+
+    const values = read("infrastructure/helm/agricore/values.yaml");
+    expect(values).toMatch(/ingress:[\s\S]*?enabled:\s*true/);
+    expect(values).toMatch(/ingress:[\s\S]*?host:\s*console\.example\.com/);
   });
 
   it("Helm values and template force console non-root uid 101 and port 8080", () => {

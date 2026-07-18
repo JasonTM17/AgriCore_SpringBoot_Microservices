@@ -101,6 +101,17 @@ console:
   # DNS name of the gateway Service in-cluster (not Compose's api-gateway)
   gatewayUpstream: agricore-gateway:8080
 
+# M4: browser edge — single host → console Service (SPA proxies /api to gateway).
+# Keep host aligned with identity.webAllowedOrigins for cookie auth.
+ingress:
+  enabled: true
+  className: nginx
+  host: console.example.com
+  annotations: {}
+  tls:
+    enabled: false
+    secretName: agricore-tls
+
 gateway:
   enabled: true
   replicaCount: 1
