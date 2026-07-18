@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgriCore Identity Service API
-  version: 1.2.0
+  version: 1.2.1
   description: |
     Authentication, users, RBAC.
     Browser clients should prefer `/api/v1/auth/web/*` so refresh credentials stay
@@ -40,6 +40,12 @@ paths:
                 $ref: '#/components/schemas/ApiError'
         '409':
           description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '415':
+          description: Content-Type is not supported
           content:
             application/json:
               schema:
@@ -91,6 +97,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+        '415':
+          description: Content-Type is not supported
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /api/v1/auth/refresh:
     post:
       summary: Rotate refresh token (JSON body for non-browser clients)
@@ -126,6 +138,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+        '415':
+          description: Content-Type is not supported
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /api/v1/auth/logout:
     post:
       summary: Revoke refresh token
@@ -141,6 +159,12 @@ paths:
           description: Logged out
         '400':
           description: Request validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '415':
+          description: Content-Type is not supported
           content:
             application/json:
               schema:
@@ -195,6 +219,12 @@ paths:
                 $ref: '#/components/schemas/ApiError'
         '429':
           description: Login rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '415':
+          description: Content-Type is not supported
           content:
             application/json:
               schema:
@@ -288,6 +318,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserPageResponse'
+        '400':
+          description: Invalid paging parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
         '401':
           description: Authentication required
           content:
@@ -325,7 +361,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserResponse'
         '400':
-          description: Empty or unknown role set
+          description: Invalid user ID or role set
           content:
             application/json:
               schema:
@@ -344,6 +380,12 @@ paths:
                 $ref: '#/components/schemas/ApiError'
         '404':
           description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '415':
+          description: Content-Type is not supported
           content:
             application/json:
               schema:

@@ -39,20 +39,14 @@ public class AdminUserService {
     }
 
     @Transactional
-    public UserResponse updateRoles(UUID userId, Set<String> roleCodes) {
+    public UserResponse updateRoles(UUID userId, Set<RoleCode> roleCodes) {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new IdentityException("USER_NOT_FOUND", "User not found", 404));
 
         Set<RoleEntity> roles = new HashSet<>();
-        for (String code : roleCodes) {
-            RoleCode parsed;
-            try {
-                parsed = RoleCode.valueOf(code);
-            } catch (IllegalArgumentException ex) {
-                throw new IdentityException("INVALID_ROLE", "Unknown role: " + code, 400);
-            }
-            RoleEntity role = roleRepository.findByCode(parsed.name())
-                    .orElseThrow(() -> new IdentityException("ROLE_MISSING", "Role not seeded: " + code, 500));
+        for (RoleCode code : roleCodes) {
+            RoleEntity role = roleRepository.findByCode(code.name())
+                    .orElseThrow(() -> new IdentityException("ROLE_MISSING", "Role not seeded: " + code.name(), 500));
             roles.add(role);
         }
 

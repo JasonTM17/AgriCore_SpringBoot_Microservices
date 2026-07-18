@@ -5,6 +5,7 @@ import com.agricore.identity.api.request.UpdateUserRolesRequest;
 import com.agricore.identity.api.response.UserResponse;
 import com.agricore.identity.application.service.AdminUserService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -25,8 +26,8 @@ public class AdminUserController {
 
     @GetMapping
     public PageResponse<UserResponse> list(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) int size
     ) {
         return adminUserService.listUsers(PageRequest.of(page, Math.min(size, 100), Sort.by("createdAt").descending()));
     }

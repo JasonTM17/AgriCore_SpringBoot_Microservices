@@ -359,6 +359,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description Content-Type is not supported */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
     };
     login: {
@@ -403,6 +412,15 @@ export interface operations {
             };
             /** @description Account disabled */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Content-Type is not supported */
+            415: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -479,6 +497,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description Content-Type is not supported */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
     };
     logout: {
@@ -503,6 +530,15 @@ export interface operations {
             };
             /** @description Request validation failed */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Content-Type is not supported */
+            415: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -559,6 +595,15 @@ export interface operations {
             };
             /** @description Origin rejected or account disabled */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Content-Type is not supported */
+            415: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -719,6 +764,15 @@ export interface operations {
                     "application/json": components["schemas"]["UserPageResponse"];
                 };
             };
+            /** @description Invalid paging parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
             /** @description Authentication required */
             401: {
                 headers: {
@@ -763,7 +817,7 @@ export interface operations {
                     "application/json": components["schemas"]["UserResponse"];
                 };
             };
-            /** @description Empty or unknown role set */
+            /** @description Invalid user ID or role set */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -792,6 +846,15 @@ export interface operations {
             };
             /** @description User not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Content-Type is not supported */
+            415: {
                 headers: {
                     [name: string]: unknown;
                 };

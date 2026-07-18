@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgriCore API Gateway
-  version: 1.1.0
+  version: 1.1.1
   description: |
     Edge routes for the AgriCore microservices portfolio.
     The gateway validates JWT (RS256 via Identity JWKS) then proxies path prefixes
@@ -24,6 +24,11 @@ paths:
       responses:
         '200': { description: Auth response from identity }
         '201': { description: Registered }
+        '400': { description: Malformed or invalid request }
+        '401': { description: Authentication failed }
+        '403': { description: Request forbidden }
+        '409': { description: Registration conflict }
+        '415': { description: Content-Type is not supported }
   /.well-known/jwks.json:
     get:
       summary: JWKS published by identity (public)
@@ -52,6 +57,9 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         '200': { description: OK }
+        '400': { description: Invalid paging parameters }
+        '401': { description: Authentication required }
+        '403': { description: System administrator role required }
     patch:
       summary: Admin updates via identity
       security: [{ bearerAuth: [] }]
@@ -68,6 +76,7 @@ paths:
         '401': { description: Authentication required }
         '403': { description: System administrator role required }
         '404': { description: Resource not found }
+        '415': { description: Content-Type is not supported }
   /api/v1/farms/{proxy+}:
     parameters:
       - name: proxy+
