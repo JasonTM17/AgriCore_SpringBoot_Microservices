@@ -107,6 +107,7 @@ public class HarvestApplicationService {
             envelope.set("payload", payload);
 
             outboxRepository.save(OutboxEventEntity.create(
+                    eventId,
                     "HarvestBatch",
                     batch.getId().toString(),
                     EventTypes.HARVEST_COMPLETED,
@@ -124,7 +125,7 @@ public class HarvestApplicationService {
     public HarvestBatchResponse get(UUID id) {
         HarvestBatchEntity batch = harvestRepository.findById(id)
                 .orElseThrow(() -> new HarvestException("HARVEST_NOT_FOUND", "Harvest batch not found", 404));
-        accessGuard.requirePlot(batch.getPlotId());
+        accessGuard.requireExistingHarvestPlot(batch.getPlotId());
         return toResponse(batch);
     }
 

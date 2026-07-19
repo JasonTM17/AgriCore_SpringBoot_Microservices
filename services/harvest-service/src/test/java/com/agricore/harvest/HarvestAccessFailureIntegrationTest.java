@@ -4,6 +4,7 @@ import com.agricore.farmaccess.FarmAccessClient;
 import com.agricore.farmaccess.FarmAccessException;
 import com.agricore.harvest.infrastructure.persistence.HarvestBatchJpaRepository;
 import com.agricore.harvest.infrastructure.persistence.OutboxJpaRepository;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -85,10 +86,40 @@ class HarvestAccessFailureIntegrationTest {
                         .header("X-Dev-User", "worker")
                         .header("X-Dev-Roles", "FIELD_WORKER")),
                 HttpStatus.NOT_FOUND,
-                "FARM_RESOURCE_NOT_FOUND"
+                "HARVEST_NOT_FOUND"
         ).andReturn().getResponse().getContentAsString();
 
         assertThat(body).doesNotContain(harvestCode);
+    }
+
+    @Test
+    void completionEventStatus_whenFarmAccessIsMaskedNotFound_doesNotLeakEventData() throws Exception {
+        UUID plotId = UUID.randomUUID();
+        UUID harvestId = createAccepted("STATUS-" + System.nanoTime(), plotId);
+        String eventId = harvestRepository.findById(harvestId)
+                .orElseThrow()
+                .getLastOutboxEventId()
+                .toString();
+        doThrow(farmError(HttpStatus.NOT_FOUND, "FARM_RESOURCE_NOT_FOUND"))
+                .when(farmAccessClient).requirePlot(plotId);
+
+        String body = assertApiError(
+                mockMvc.perform(get("/api/v1/harvests/{harvestId}/completion-event", harvestId)
+                        .header("X-Dev-User", "worker")
+                        .header("X-Dev-Roles", "FIELD_WORKER")),
+                HttpStatus.NOT_FOUND,
+                "HARVEST_NOT_FOUND"
+        ).andReturn().getResponse().getContentAsString();
+        String missingBody = assertApiError(
+                mockMvc.perform(get("/api/v1/harvests/{harvestId}/completion-event", UUID.randomUUID())
+                        .header("X-Dev-User", "worker")
+                        .header("X-Dev-Roles", "FIELD_WORKER")),
+                HttpStatus.NOT_FOUND,
+                "HARVEST_NOT_FOUND"
+        ).andReturn().getResponse().getContentAsString();
+
+        assertThat(body).doesNotContain(eventId);
+        assertThat(stableError(body)).isEqualTo(stableError(missingBody));
     }
 
     @Test
@@ -141,6 +172,14 @@ class HarvestAccessFailureIntegrationTest {
 
     private static FarmAccessException farmError(HttpStatus status, String code) {
         return new FarmAccessException(code, "Farm access rejected", status.value());
+    }
+
+    private JsonNode stableError(String body) throws Exception {
+        com.fasterxml.jackson.databind.node.ObjectNode error =
+                (com.fasterxml.jackson.databind.node.ObjectNode) objectMapper.readTree(body);
+        error.remove("timestamp");
+        error.remove("path");
+        return error;
     }
 
     private static Stream<Arguments> farmAccessFailures() {

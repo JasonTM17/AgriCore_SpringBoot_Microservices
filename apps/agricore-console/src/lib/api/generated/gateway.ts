@@ -747,6 +747,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/harvests/{harvestId}/completion-event": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                harvestId: components["parameters"]["HarvestId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get HarvestCompleted producer delivery state
+         * @description Requires access to the harvest plot. PUBLISHED means Kafka delivery completed; it does not mean downstream projections acknowledged the event.
+         */
+        get: operations["getHarvestCompletionEventStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/traceability/batches": {
         parameters: {
             query?: never;
@@ -1383,6 +1405,25 @@ export interface components {
             /** Format: int64 */
             version: number;
         };
+        HarvestCompletionEventStatusResponse: {
+            /** Format: uuid */
+            harvestId: string;
+            /**
+             * Format: uuid
+             * @description Stable HarvestCompleted identity; null only for legacy harvests.
+             */
+            eventId: string | null;
+            /** @enum {string} */
+            producer: "HARVEST";
+            /** @enum {string} */
+            state: "UNAVAILABLE" | "ENQUEUED" | "RETRYING" | "PUBLISHED";
+            /** Format: date-time */
+            createdAt: string | null;
+            /** Format: date-time */
+            publishedAt: string | null;
+            /** Format: int32 */
+            publishAttempts: number;
+        };
         CreateTraceabilityRequest: {
             /** Format: uuid */
             eventId: string;
@@ -1642,7 +1683,7 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description Harvest batch code already exists. */
+        /** @description Harvest batch code already exists or a persisted completion event invariant is broken. */
         "harvest-service.v1_components-responses-Conflict": {
             headers: {
                 [name: string]: unknown;
@@ -2531,6 +2572,34 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["components-responses-Forbidden"];
             404: components["responses"]["harvest-service.v1_components-responses-NotFound"];
+            503: components["responses"]["responses-ServiceUnavailable"];
+        };
+    };
+    getHarvestCompletionEventStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                harvestId: components["parameters"]["HarvestId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current producer delivery state, including an explicit unavailable state for legacy harvests. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HarvestCompletionEventStatusResponse"];
+                };
+            };
+            400: components["responses"]["harvest-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["components-responses-Forbidden"];
+            404: components["responses"]["harvest-service.v1_components-responses-NotFound"];
+            409: components["responses"]["harvest-service.v1_components-responses-Conflict"];
             503: components["responses"]["responses-ServiceUnavailable"];
         };
     };

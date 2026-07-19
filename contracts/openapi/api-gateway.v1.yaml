@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgriCore API Gateway
-  version: 1.6.0
+  version: 1.7.0
   description: |
     Edge routes for the AgriCore microservices portfolio.
     The gateway validates JWT (RS256 via Identity JWKS) then proxies path prefixes
@@ -128,6 +128,8 @@ paths:
     $ref: './harvest-service.v1.yaml#/paths/~1api~1v1~1harvests~1complete'
   /api/v1/harvests/{harvestId}:
     $ref: './harvest-service.v1.yaml#/paths/~1api~1v1~1harvests~1{harvestId}'
+  /api/v1/harvests/{harvestId}/completion-event:
+    $ref: './harvest-service.v1.yaml#/paths/~1api~1v1~1harvests~1{harvestId}~1completion-event'
   /api/v1/traceability/batches:
     $ref: './traceability-service.v1.yaml#/paths/~1api~1v1~1traceability~1batches'
   /api/v1/traceability/events/harvest-completed/{eventId}/acknowledgement:

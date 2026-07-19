@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgriCore Harvest Service API
-  version: 1.3.0
+  version: 1.4.0
   description: Farm-scoped harvest completion and detail contract backed by a transactional outbox.
 servers:
   - url: http://localhost:8087
@@ -71,6 +71,33 @@ paths:
           $ref: '#/components/responses/NotFound'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/harvests/{harvestId}/completion-event:
+    parameters:
+      - $ref: '#/components/parameters/HarvestId'
+    get:
+      tags: [Harvests]
+      operationId: getHarvestCompletionEventStatus
+      summary: Get HarvestCompleted producer delivery state
+      description: Requires access to the harvest plot. PUBLISHED means Kafka delivery completed; it does not mean downstream projections acknowledged the event.
+      responses:
+        '200':
+          description: Current producer delivery state, including an explicit unavailable state for legacy harvests.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HarvestCompletionEventStatusResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -105,7 +132,7 @@ components:
           schema:
             $ref: '#/components/schemas/ApiError'
     Conflict:
-      description: Harvest batch code already exists.
+      description: Harvest batch code already exists or a persisted completion event invariant is broken.
       content:
         application/json:
           schema:
@@ -188,6 +215,21 @@ components:
           description: Stable HarvestCompleted event identity; null only for legacy records created before identity persistence.
         createdAt: { type: string, format: date-time }
         version: { type: integer, format: int64, minimum: 0 }
+    HarvestCompletionEventStatusResponse:
+      type: object
+      additionalProperties: false
+      required: [harvestId, eventId, producer, state, createdAt, publishedAt, publishAttempts]
+      properties:
+        harvestId: { type: string, format: uuid }
+        eventId:
+          type: [string, 'null']
+          format: uuid
+          description: Stable HarvestCompleted identity; null only for legacy harvests.
+        producer: { type: string, enum: [HARVEST] }
+        state: { type: string, enum: [UNAVAILABLE, ENQUEUED, RETRYING, PUBLISHED] }
+        createdAt: { type: [string, 'null'], format: date-time }
+        publishedAt: { type: [string, 'null'], format: date-time }
+        publishAttempts: { type: integer, format: int32, minimum: 0 }
     ApiError:
       type: object
       additionalProperties: false
