@@ -126,47 +126,69 @@ public class SalesSagaService {
             saga.setStatus("COMPLETED");
             saga.setUpdatedAt(Instant.now());
             saga = sagaRepository.saveAndFlush(saga);
-        } catch (InventoryClient.InventoryReservationException ex) {
-            order = reloadOrder(order.getId());
-            if (ex.isInsufficientStock()) {
-                order.setStatus(OrderStatus.OUT_OF_STOCK);
-            } else {
-                order.setStatus(OrderStatus.CANCELLED);
-            }
-            order.setFailureReason(ex.getMessage());
-            order.setUpdatedAt(Instant.now());
-            order = orderRepository.saveAndFlush(order);
-
-            saga = reloadSaga(order.getId());
-            saga.setStatus("FAILED");
-            saga.setLastError(ex.getMessage());
-            saga.setCurrentStep("COMPENSATED");
-            saga.setUpdatedAt(Instant.now());
-            saga = sagaRepository.saveAndFlush(saga);
         } catch (Exception ex) {
-            // Compensation: release if we already reserved
             order = reloadOrder(order.getId());
-            if (order.getReservationId() != null) {
-                try {
-                    inventoryClient.release(order.getReservationId());
-                } catch (Exception releaseEx) {
-                    saga = reloadSaga(order.getId());
-                    saga.setLastError("Release failed: " + releaseEx.getMessage());
-                    sagaRepository.saveAndFlush(saga);
-                }
-            }
-            order.setStatus(OrderStatus.CANCELLED);
-            order.setFailureReason(ex.getMessage());
-            order.setUpdatedAt(Instant.now());
-            order = orderRepository.saveAndFlush(order);
             saga = reloadSaga(order.getId());
-            saga.setStatus("FAILED");
-            saga.setCurrentStep("COMPENSATED");
-            saga.setUpdatedAt(Instant.now());
+            if (order.getReservationId() == null) {
+                markReservationFailure(order, saga, ex);
+            } else {
+                compensateReservedInventory(order, saga, ex);
+            }
+
+            Instant failedAt = Instant.now();
+            order.setUpdatedAt(failedAt);
+            saga.setUpdatedAt(failedAt);
+            order = orderRepository.saveAndFlush(order);
             saga = sagaRepository.saveAndFlush(saga);
         }
 
         return toResponse(order, saga);
+    }
+
+    private void markReservationFailure(
+            SalesOrderEntity order,
+            OrderSagaEntity saga,
+            Exception failure
+    ) {
+        if (failure instanceof InventoryClient.InventoryReservationException reservationFailure
+                && reservationFailure.isInsufficientStock()) {
+            order.setStatus(OrderStatus.OUT_OF_STOCK);
+        } else {
+            order.setStatus(OrderStatus.CANCELLED);
+        }
+        String failureMessage = failureMessage(failure);
+        order.setFailureReason(failureMessage);
+        saga.setStatus("FAILED");
+        saga.setLastError(failureMessage);
+        saga.setCurrentStep("COMPENSATED");
+    }
+
+    private void compensateReservedInventory(
+            SalesOrderEntity order,
+            OrderSagaEntity saga,
+            Exception failure
+    ) {
+        String failureMessage = failureMessage(failure);
+        saga.setStatus("FAILED");
+        try {
+            inventoryClient.release(order.getReservationId());
+            order.setStatus(OrderStatus.CANCELLED);
+            order.setFailureReason(failureMessage);
+            saga.setLastError(failureMessage);
+            saga.setCurrentStep("COMPENSATED");
+        } catch (Exception releaseFailure) {
+            String compensationFailure = failureMessage
+                    + "; release failed: " + failureMessage(releaseFailure);
+            order.setStatus(OrderStatus.STOCK_RESERVED);
+            order.setFailureReason(compensationFailure);
+            saga.setLastError(compensationFailure);
+            saga.setCurrentStep("COMPENSATION_PENDING");
+        }
+    }
+
+    private String failureMessage(Exception failure) {
+        String message = failure.getMessage();
+        return message == null || message.isBlank() ? "Inventory saga failed" : message;
     }
 
     private SalesOrderEntity reloadOrder(UUID id) {
