@@ -185,7 +185,7 @@ components:
           schema:
             $ref: '#/components/schemas/ApiError'
     Conflict:
-      description: Duplicate code, overlapping dates, terminal cycle, or illegal stage transition.
+      description: Duplicate code, overlapping dates, terminal cycle, illegal stage transition, or concurrent update.
       content:
         application/json:
           schema:

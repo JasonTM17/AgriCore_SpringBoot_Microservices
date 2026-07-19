@@ -1500,7 +1500,7 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description Duplicate code, overlapping dates, terminal cycle, or illegal stage transition. */
+        /** @description Duplicate code, overlapping dates, terminal cycle, illegal stage transition, or concurrent update. */
         "responses-Conflict": {
             headers: {
                 [name: string]: unknown;
