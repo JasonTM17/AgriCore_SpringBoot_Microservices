@@ -50,7 +50,7 @@ public class HarvestCompletedKafkaListener {
             }
 
             CreateTraceabilityRequest request = new CreateTraceabilityRequest(
-                    eventId,
+                    UUID.fromString(eventId),
                     UUID.fromString(text(payload, "harvestBatchId")),
                     uuidOrNull(payload, "cropCycleId"),
                     uuidOrNull(payload, "plotId"),

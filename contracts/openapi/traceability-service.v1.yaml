@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: AgriCore Traceability Service API
-  version: 1.1.0
-  description: Verified public-safe traceability lookup and privileged projection-write contract.
+  version: 1.2.0
+  description: Verified public-safe traceability lookup and privileged projection read/write contract.
 servers:
   - url: http://localhost:8092
     description: Direct local service endpoint
@@ -65,6 +65,27 @@ paths:
           description: The event was recorded previously but its projection row is missing.
         '415':
           description: Content-Type is not supported.
+  /api/v1/traceability/events/harvest-completed/{eventId}/acknowledgement:
+    get:
+      tags: [Traceability Projection]
+      operationId: getTraceabilityHarvestProjectionAcknowledgement
+      summary: Read traceability acknowledgement for a harvest event
+      description: Marker absence means traceability has not acknowledged the event; it does not prove failure or DLT routing.
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Current traceability consumer acknowledgement state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraceabilityHarvestProjectionAcknowledgementResponse'
+        '400': { description: Invalid event identifier }
+        '401': { description: Authentication required }
+        '403': { description: Harvest workflow role required }
 components:
   securitySchemes:
     bearerAuth:
@@ -72,11 +93,20 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    TraceabilityHarvestProjectionAcknowledgementResponse:
+      type: object
+      additionalProperties: false
+      required: [eventId, projection, state, acknowledgedAt]
+      properties:
+        eventId: { type: string, format: uuid }
+        projection: { type: string, enum: [TRACEABILITY] }
+        state: { type: string, enum: [ACKNOWLEDGED, NOT_ACKNOWLEDGED] }
+        acknowledgedAt: { type: [string, 'null'], format: date-time }
     CreateTraceabilityRequest:
       type: object
       required: [eventId, harvestBatchId, productName, harvestDate]
       properties:
-        eventId: { type: string, minLength: 1, maxLength: 100 }
+        eventId: { type: string, format: uuid }
         harvestBatchId: { type: string, format: uuid }
         cropCycleId: { type: [string, 'null'], format: uuid }
         plotId: { type: [string, 'null'], format: uuid }

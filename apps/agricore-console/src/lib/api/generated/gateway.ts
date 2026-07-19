@@ -767,6 +767,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/traceability/events/harvest-completed/{eventId}/acknowledgement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read traceability acknowledgement for a harvest event
+         * @description Marker absence means traceability has not acknowledged the event; it does not prove failure or DLT routing.
+         */
+        get: operations["getTraceabilityHarvestProjectionAcknowledgement"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/public/api/v1/traceability/{traceabilityCode}": {
         parameters: {
             query?: never;
@@ -1364,6 +1384,7 @@ export interface components {
             version: number;
         };
         CreateTraceabilityRequest: {
+            /** Format: uuid */
             eventId: string;
             /** Format: uuid */
             harvestBatchId: string;
@@ -1398,6 +1419,16 @@ export interface components {
             careSummary: string | null;
             qrUrl: string;
             batchLabel: string;
+        };
+        TraceabilityHarvestProjectionAcknowledgementResponse: {
+            /** Format: uuid */
+            eventId: string;
+            /** @enum {string} */
+            projection: "TRACEABILITY";
+            /** @enum {string} */
+            state: "ACKNOWLEDGED" | "NOT_ACKNOWLEDGED";
+            /** Format: date-time */
+            acknowledgedAt: string | null;
         };
         RegisterDeviceRequest: {
             deviceCode: string;
@@ -2555,6 +2586,49 @@ export interface operations {
             };
             /** @description Content-Type is not supported. */
             415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getTraceabilityHarvestProjectionAcknowledgement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                eventId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current traceability consumer acknowledgement state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceabilityHarvestProjectionAcknowledgementResponse"];
+                };
+            };
+            /** @description Invalid event identifier */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Harvest workflow role required */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

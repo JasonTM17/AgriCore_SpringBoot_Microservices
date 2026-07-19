@@ -19,7 +19,7 @@ import java.util.UUID;
 @Service
 public class TraceabilityApplicationService {
 
-    private static final String CONSUMER = "traceability-harvest-completed";
+    public static final String HARVEST_CONSUMER = "traceability-harvest-completed";
 
     private final TraceabilityBatchJpaRepository batchRepository;
     private final ProcessedEventJpaRepository processedEventRepository;
@@ -39,7 +39,8 @@ public class TraceabilityApplicationService {
 
     @Transactional
     public PublicTraceabilityResponse createFromHarvest(CreateTraceabilityRequest request) {
-        if (processedEventRepository.existsByEventIdAndConsumerName(request.eventId(), CONSUMER)) {
+        String eventId = request.eventId().toString();
+        if (processedEventRepository.findCanonicalOrLegacy(eventId, HARVEST_CONSUMER).isPresent()) {
             return batchRepository.findAll().stream()
                     .filter(b -> b.getHarvestBatchId().equals(request.harvestBatchId()))
                     .findFirst()
@@ -66,7 +67,7 @@ public class TraceabilityApplicationService {
         batch.setQrUrl(publicBaseUrl + "/" + code);
         batch.setCreatedAt(Instant.now());
         batchRepository.save(batch);
-        processedEventRepository.save(ProcessedEventEntity.of(request.eventId(), CONSUMER));
+        processedEventRepository.save(ProcessedEventEntity.of(eventId, HARVEST_CONSUMER));
         return toPublic(batch);
     }
 

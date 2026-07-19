@@ -9,7 +9,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 public record CreateTraceabilityRequest(
-        @NotBlank @Size(max = 100) String eventId,
+        @NotNull UUID eventId,
         @NotNull UUID harvestBatchId,
         UUID cropCycleId,
         UUID plotId,
