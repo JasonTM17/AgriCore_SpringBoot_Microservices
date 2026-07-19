@@ -35,6 +35,8 @@ public class HarvestBatchEntity {
     private Instant harvestedAt;
     @Column(columnDefinition = "TEXT")
     private String notes;
+    @Column(name = "last_outbox_event_id")
+    private UUID lastOutboxEventId;
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
     @Column(name = "updated_at", nullable = false)
@@ -66,6 +68,8 @@ public class HarvestBatchEntity {
     public void setHarvestedAt(Instant harvestedAt) { this.harvestedAt = harvestedAt; }
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
+    public UUID getLastOutboxEventId() { return lastOutboxEventId; }
+    public void setLastOutboxEventId(UUID lastOutboxEventId) { this.lastOutboxEventId = lastOutboxEventId; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }

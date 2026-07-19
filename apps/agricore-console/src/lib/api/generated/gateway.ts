@@ -716,7 +716,7 @@ export interface paths {
         };
         /**
          * Get a harvest batch
-         * @description Requires access to the harvest plot. The current implementation does not reload the outbox event identifier.
+         * @description Requires access to the harvest plot. Returns the stable event identifier for current records.
          */
         get: operations["getHarvest"];
         put?: never;
@@ -1325,7 +1325,7 @@ export interface components {
             notes: string | null;
             /**
              * Format: uuid
-             * @description Present on creation; currently null when the harvest is reloaded.
+             * @description Stable HarvestCompleted event identity; null only for legacy records created before identity persistence.
              */
             lastOutboxEventId: string | null;
             /** Format: date-time */

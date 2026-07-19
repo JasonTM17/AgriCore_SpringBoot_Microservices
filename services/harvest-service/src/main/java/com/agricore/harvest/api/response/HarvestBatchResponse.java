@@ -17,7 +17,7 @@ public record HarvestBatchResponse(
         String status,
         Instant harvestedAt,
         String notes,
-        String lastOutboxEventId,
+        UUID lastOutboxEventId,
         Instant createdAt,
         long version
 ) {

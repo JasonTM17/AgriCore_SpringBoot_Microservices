@@ -66,11 +66,12 @@ public class HarvestApplicationService {
         batch.setStatus(HarvestStatus.COMPLETED);
         batch.setHarvestedAt(now);
         batch.setNotes(request.notes());
+        UUID eventId = UUID.randomUUID();
+        batch.setLastOutboxEventId(eventId);
         batch.setCreatedAt(now);
         batch.setUpdatedAt(now);
         harvestRepository.save(batch);
 
-        String eventId = UUID.randomUUID().toString();
         try {
             ObjectNode payload = objectMapper.createObjectNode();
             payload.put("harvestId", batch.getId().toString());
@@ -98,7 +99,7 @@ public class HarvestApplicationService {
             }
 
             ObjectNode envelope = objectMapper.createObjectNode();
-            envelope.put("eventId", eventId);
+            envelope.put("eventId", eventId.toString());
             envelope.put("eventType", EventTypes.HARVEST_COMPLETED);
             envelope.put("eventVersion", 1);
             envelope.put("occurredAt", now.toString());
@@ -116,7 +117,7 @@ public class HarvestApplicationService {
             throw new HarvestException("OUTBOX_WRITE_FAILED", "Failed to write outbox event", 500);
         }
 
-        return toResponse(batch, eventId);
+        return toResponse(batch);
     }
 
     @Transactional(readOnly = true)
@@ -124,14 +125,14 @@ public class HarvestApplicationService {
         HarvestBatchEntity batch = harvestRepository.findById(id)
                 .orElseThrow(() -> new HarvestException("HARVEST_NOT_FOUND", "Harvest batch not found", 404));
         accessGuard.requirePlot(batch.getPlotId());
-        return toResponse(batch, null);
+        return toResponse(batch);
     }
 
-    private HarvestBatchResponse toResponse(HarvestBatchEntity b, String eventId) {
+    private HarvestBatchResponse toResponse(HarvestBatchEntity b) {
         return new HarvestBatchResponse(
                 b.getId(), b.getCode(), b.getCropCycleId(), b.getPlotId(), b.getWarehouseId(),
                 b.getProductCode(), b.getGrossWeightKg(), b.getNetWeightKg(), b.getQualityGrade(),
-                b.getStatus().name(), b.getHarvestedAt(), b.getNotes(), eventId,
+                b.getStatus().name(), b.getHarvestedAt(), b.getNotes(), b.getLastOutboxEventId(),
                 b.getCreatedAt(), b.getVersion()
         );
     }
