@@ -275,7 +275,7 @@ components:
     CompleteTaskRequest:
       type: object
       properties:
-        notes: { type: [string, 'null'] }
+        notes: { type: [string, 'null'], maxLength: 2000 }
     WorkTaskResponse:
       type: object
       additionalProperties: false

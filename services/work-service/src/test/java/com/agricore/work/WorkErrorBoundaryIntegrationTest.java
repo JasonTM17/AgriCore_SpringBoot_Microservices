@@ -17,6 +17,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 
 import java.util.UUID;
 
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -96,6 +97,18 @@ class WorkErrorBoundaryIntegrationTest {
                 HttpStatus.BAD_REQUEST,
                 "VALIDATION_FAILED"
         );
+    }
+
+    @Test
+    void completionNotesBeyondDomainLimit_areRejectedBeforeTaskLookup() throws Exception {
+        assertApiError(
+                mockMvc.perform(authenticated(post("/api/v1/work-tasks/{taskId}/complete", UUID.randomUUID()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"notes\":\"" + "N".repeat(2001) + "\"}")),
+                HttpStatus.BAD_REQUEST,
+                "VALIDATION_FAILED"
+        );
+        verifyNoInteractions(farmAccessClient);
     }
 
     private static void assertApiError(ResultActions result, HttpStatus expectedStatus, String expectedCode)

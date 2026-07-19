@@ -61,7 +61,10 @@ public class WorkTaskController {
 
     @PostMapping("/{taskId}/complete")
     @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST','FIELD_WORKER')")
-    public WorkTaskResponse complete(@PathVariable UUID taskId, @RequestBody(required = false) CompleteTaskRequest request) {
+    public WorkTaskResponse complete(
+            @PathVariable UUID taskId,
+            @Valid @RequestBody(required = false) CompleteTaskRequest request
+    ) {
         return service.complete(taskId, request == null ? new CompleteTaskRequest(null) : request);
     }
 }
