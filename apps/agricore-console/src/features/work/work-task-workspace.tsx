@@ -1,105 +1,49 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
 
-import { ApiClientError } from "../../lib/api/errors";
 import type { CropCycleResponse } from "../../lib/api/types";
 import { hasAnyRole } from "../../lib/auth/roles";
 import { useSession } from "../../lib/auth/session";
-import { assignWorkTask, createWorkTask, listWorkTasks, type WorkTaskListParams } from "./work-task-api";
-import type { WorkTaskCreateDraft } from "./work-task-create-form";
+import { useWorkTaskActions } from "./work-task-actions";
+import { listWorkTasks, type WorkTaskListParams } from "./work-task-api";
+import { isWorkTaskUnavailable, retryWorkTaskFailure } from "./work-task-error-policy";
 import { WorkTaskListPanel } from "./work-task-list-panel";
 import { workTaskQueryKeys } from "./work-task-query-keys";
 
 const PAGE_SIZE = 20;
 const WORK_MANAGER_ROLES = ["SYSTEM_ADMIN", "FARM_MANAGER", "AGRONOMIST"] as const;
-
-function isUnavailable(error: unknown): error is ApiClientError {
-  return error instanceof ApiClientError && (error.status === 403 || error.status === 404);
-}
-
-function retryTaskFailure(failureCount: number, error: Error): boolean {
-  if (failureCount >= 1) return false;
-  if (!(error instanceof ApiClientError)) return true;
-  return error.status === 408 || error.status === 429 || error.status >= 500;
-}
+const WORK_COMPLETION_ROLES = [...WORK_MANAGER_ROLES, "FIELD_WORKER"] as const;
 
 export function WorkTaskWorkspace({ cycle }: { cycle: CropCycleResponse }) {
   const { api, user } = useSession();
   const queryClient = useQueryClient();
   const subject = user?.id ?? "unauthenticated";
   const [page, setPage] = useState(0);
-  const [createFormResetKey, setCreateFormResetKey] = useState(0);
-  const [createSuccess, setCreateSuccess] = useState<{ cycleId: string; message: string } | null>(null);
-  const [assignSuccess, setAssignSuccess] = useState<{ taskId: string; message: string } | null>(null);
-  const hasCreateSuccess = useRef(false);
-  const hasAssignSuccess = useRef(false);
   const params = useMemo<WorkTaskListParams>(() => ({
     cropCycleId: cycle.id,
     plotId: cycle.plotId,
     page,
     size: PAGE_SIZE,
   }), [cycle.id, cycle.plotId, page]);
+  const actions = useWorkTaskActions({
+    api,
+    cycle,
+    subject,
+    onTaskCreated: () => setPage(0),
+  });
   const tasksQuery = useQuery({
     queryKey: workTaskQueryKeys.list(subject, params),
     queryFn: async ({ signal }) => {
       try {
         return await listWorkTasks(api, params, signal);
       } catch (error) {
-        if (isUnavailable(error) && hasCreateSuccess.current) {
-          hasCreateSuccess.current = false;
-          setCreateSuccess(null);
-        }
-        if (isUnavailable(error) && hasAssignSuccess.current) {
-          hasAssignSuccess.current = false;
-          setAssignSuccess(null);
-        }
+        if (isWorkTaskUnavailable(error)) actions.clearSuccessOnAccessLoss();
         throw error;
       }
     },
     enabled: user !== null,
     staleTime: 0,
-    retry: retryTaskFailure,
-  });
-  const createMutation = useMutation({
-    mutationFn: (draft: WorkTaskCreateDraft) => createWorkTask(api, {
-      ...draft,
-      cropCycleId: cycle.id,
-      plotId: cycle.plotId,
-    }),
-    onMutate: () => {
-      hasCreateSuccess.current = false;
-      setCreateSuccess(null);
-    },
-    onSuccess: async (createdTask) => {
-      setPage(0);
-      setCreateFormResetKey((current) => current + 1);
-      hasCreateSuccess.current = true;
-      setCreateSuccess({
-        cycleId: cycle.id,
-        message: `Đã tạo công việc ${createdTask.code}.`,
-      });
-      await queryClient.invalidateQueries({
-        queryKey: workTaskQueryKeys.cycleLists(subject, cycle.id),
-      });
-    },
-  });
-  const assignMutation = useMutation({
-    mutationFn: ({ taskId, assignedEmployeeId }: { taskId: string; assignedEmployeeId: string }) =>
-      assignWorkTask(api, taskId, { assignedEmployeeId }),
-    onMutate: () => {
-      hasAssignSuccess.current = false;
-      setAssignSuccess(null);
-    },
-    onSuccess: async (assignedTask) => {
-      hasAssignSuccess.current = true;
-      setAssignSuccess({
-        taskId: assignedTask.id,
-        message: `Đã phân công công việc ${assignedTask.code}.`,
-      });
-      await queryClient.invalidateQueries({
-        queryKey: workTaskQueryKeys.cycleLists(subject, cycle.id),
-      });
-    },
+    retry: retryWorkTaskFailure,
   });
 
   useEffect(() => {
@@ -115,11 +59,9 @@ export function WorkTaskWorkspace({ cycle }: { cycle: CropCycleResponse }) {
     return () => window.clearTimeout(recoveryTimer);
   }, [cycle.id, page, queryClient, subject, tasksQuery.data]);
 
-  const accessLost = isUnavailable(tasksQuery.error)
-    || isUnavailable(createMutation.error)
-    || isUnavailable(assignMutation.error);
+  const accessLost = isWorkTaskUnavailable(tasksQuery.error) || actions.unavailableError !== null;
   const loadError = tasksQuery.error
-    ?? (isUnavailable(assignMutation.error) ? assignMutation.error : null);
+    ?? actions.blockingUnavailableError;
 
   useEffect(() => {
     if (!accessLost) return;
@@ -137,33 +79,56 @@ export function WorkTaskWorkspace({ cycle }: { cycle: CropCycleResponse }) {
       isFetching={tasksQuery.isFetching}
       canGoPrevious={page > 0}
       canCreate={hasAnyRole(user?.roles ?? [], WORK_MANAGER_ROLES)}
-      createError={createMutation.error}
-      createFormResetKey={createFormResetKey}
-      createSuccessMessage={!accessLost && createSuccess?.cycleId === cycle.id
-        ? createSuccess.message
-        : null}
-      isCreating={createMutation.isPending}
-      isCreateDisabled={accessLost || tasksQuery.isFetching || tasksQuery.error !== null}
+      createError={actions.create.error}
+      createFormResetKey={actions.create.formResetKey}
+      createSuccessMessage={accessLost ? null : actions.create.successMessage}
+      isCreating={actions.create.isPending}
+      isCreateDisabled={accessLost
+        || tasksQuery.isFetching
+        || tasksQuery.error !== null
+        || actions.assignment.isPending
+        || actions.completion.isPending}
       assignment={{
         canAssign: hasAnyRole(user?.roles ?? [], WORK_MANAGER_ROLES),
-        error: assignMutation.error,
-        taskId: assignMutation.variables?.taskId ?? null,
-        isPending: assignMutation.isPending,
-        isDisabled: accessLost || tasksQuery.isFetching || tasksQuery.error !== null,
-        success: accessLost ? null : assignSuccess,
-        onAssign: (taskId, assignedEmployeeId) => assignMutation.mutate({ taskId, assignedEmployeeId }),
+        error: actions.assignment.error,
+        taskId: actions.assignment.taskId,
+        isPending: actions.assignment.isPending,
+        isDisabled: accessLost
+          || tasksQuery.isFetching
+          || tasksQuery.error !== null
+          || actions.create.isPending
+          || actions.completion.isPending,
+        success: accessLost ? null : actions.assignment.success,
+        onAssign: (taskId, assignedEmployeeId) => actions.assignment.mutate({ taskId, assignedEmployeeId }),
         onRecoverError: () => {
-          assignMutation.reset();
+          actions.assignment.reset();
           void tasksQuery.refetch();
         },
       }}
-      onCreate={(draft) => createMutation.mutate(draft)}
+      completion={{
+        canComplete: hasAnyRole(user?.roles ?? [], WORK_COMPLETION_ROLES),
+        error: actions.completion.error,
+        taskId: actions.completion.taskId,
+        isPending: actions.completion.isPending,
+        isDisabled: accessLost
+          || tasksQuery.isFetching
+          || tasksQuery.error !== null
+          || actions.create.isPending
+          || actions.assignment.isPending,
+        success: accessLost ? null : actions.completion.success,
+        onComplete: (taskId, draft) => actions.completion.mutate({ taskId, draft }),
+        onRecoverError: () => {
+          actions.completion.reset();
+          void tasksQuery.refetch();
+        },
+      }}
+      onCreate={(draft) => actions.create.mutate(draft)}
       onRecoverCreateError={() => {
-        createMutation.reset();
+        actions.create.reset();
         void tasksQuery.refetch();
       }}
       onRetry={() => {
-        assignMutation.reset();
+        actions.resetUnavailableMutations();
         void tasksQuery.refetch();
       }}
       onPrevious={() => setPage((current) => Math.max(0, current - 1))}

@@ -1,6 +1,7 @@
 import { Button } from "../../components/ui/button";
 import type { WorkTaskPageResponse } from "../../lib/api/types";
 import { WorkTaskCard } from "./work-task-card";
+import type { WorkTaskCompletionDraft } from "./work-task-completion-form";
 import { WorkTaskCreateForm, type WorkTaskCreateDraft } from "./work-task-create-form";
 import { WorkTaskListSkeleton, WorkTaskLoadError } from "./work-task-list-state";
 
@@ -12,6 +13,17 @@ interface WorkTaskAssignmentState {
   isDisabled: boolean;
   success: { taskId: string; message: string } | null;
   onAssign: (taskId: string, assignedEmployeeId: string) => void;
+  onRecoverError: () => void;
+}
+
+interface WorkTaskCompletionState {
+  canComplete: boolean;
+  error: Error | null;
+  taskId: string | null;
+  isPending: boolean;
+  isDisabled: boolean;
+  success: { taskId: string; message: string } | null;
+  onComplete: (taskId: string, draft: WorkTaskCompletionDraft) => void;
   onRecoverError: () => void;
 }
 
@@ -29,6 +41,7 @@ interface WorkTaskListPanelProps {
   isCreating: boolean;
   isCreateDisabled: boolean;
   assignment: WorkTaskAssignmentState;
+  completion: WorkTaskCompletionState;
   onCreate: (draft: WorkTaskCreateDraft) => void;
   onRecoverCreateError: () => void;
   onRetry: () => void;
@@ -50,6 +63,7 @@ export function WorkTaskListPanel({
   isCreating,
   isCreateDisabled,
   assignment,
+  completion,
   onCreate,
   onRecoverCreateError,
   onRetry,
@@ -127,6 +141,18 @@ export function WorkTaskListPanel({
                   : null,
                 onAssign: (assignedEmployeeId) => assignment.onAssign(task.id, assignedEmployeeId),
                 onRecoverError: assignment.onRecoverError,
+              }}
+              completion={{
+                canComplete: completion.canComplete,
+                error: completion.taskId === task.id ? completion.error : null,
+                isPending: completion.isPending && completion.taskId === task.id,
+                isDisabled: completion.isDisabled
+                  || (completion.isPending && completion.taskId !== task.id),
+                successMessage: completion.success?.taskId === task.id
+                  ? completion.success.message
+                  : null,
+                onComplete: (draft) => completion.onComplete(task.id, draft),
+                onRecoverError: completion.onRecoverError,
               }}
             />
           ))}
