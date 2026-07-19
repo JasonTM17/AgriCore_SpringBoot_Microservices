@@ -167,7 +167,7 @@ public class CropCycleApplicationService {
         }
 
         cycle.setUpdatedAt(Instant.now());
-        cycleRepository.save(cycle);
+        cycle = cycleRepository.saveAndFlush(cycle);
         outboxWriter.enqueue(eventType, cycle, previous.name());
         return toResponse(cycle);
     }
