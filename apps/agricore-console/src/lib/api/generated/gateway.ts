@@ -2010,8 +2010,9 @@ export interface operations {
     listCrops: {
         parameters: {
             query?: {
+                /** @description Case-insensitive category code. When combined with q, both filters must match. */
                 category?: string;
-                /** @description Case-insensitive crop-name search. */
+                /** @description Case-insensitive crop-name search. When combined with category, both filters must match. */
                 q?: string;
                 /** @description Zero-based page index. */
                 page?: components["parameters"]["parameters-Page"];
