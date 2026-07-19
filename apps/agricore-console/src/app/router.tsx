@@ -10,6 +10,7 @@ import { DashboardPage } from "../features/dashboard/dashboard-page";
 import { FarmsPage } from "../features/farm/farms-page";
 import { CropsPage } from "../features/crop/crops-page";
 import { CropCyclesPage } from "../features/crop-cycle/crop-cycles-page";
+import { CropCycleDetailRoute } from "./crop-cycle-detail-route";
 import {
   ForbiddenPage,
   NotFoundPage,
@@ -89,6 +90,11 @@ const cyclesRoute = createRoute({
     </RoleGate>
   ),
 });
+const cycleDetailRoute = createRoute({
+  getParentRoute: () => authedLayoutRoute,
+  path: "/crop-cycles/$cycleId",
+  component: CropCycleDetailRoute,
+});
 const harvestsRoute = moduleRoute(
   "/harvests",
   "Thu hoạch",
@@ -154,6 +160,7 @@ const routeTree = rootRoute.addChildren([
     farmsRoute,
     cropsRoute,
     cyclesRoute,
+    cycleDetailRoute,
     harvestsRoute,
     inventoryRoute,
     salesRoute,

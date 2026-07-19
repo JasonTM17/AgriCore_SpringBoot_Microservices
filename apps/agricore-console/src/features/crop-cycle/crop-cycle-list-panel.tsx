@@ -1,3 +1,5 @@
+import { Link } from "@tanstack/react-router";
+
 import { Button } from "../../components/ui/button";
 import { EmptyState } from "../../components/ui/empty-state";
 import { PaginationControls } from "../../components/ui/pagination-controls";
@@ -135,6 +137,13 @@ export function CropCycleListPanel({
                   </div>
                 </dl>
                 {cycle.notes ? <p className="mt-4 text-sm leading-6 text-muted">{cycle.notes}</p> : null}
+                <Link
+                  to="/crop-cycles/$cycleId"
+                  params={{ cycleId: cycle.id }}
+                  className="mt-4 inline-flex text-sm font-semibold text-forest-800 underline-offset-4 hover:underline"
+                >
+                  Xem chi tiết
+                </Link>
               </article>
             ))}
           </div>
