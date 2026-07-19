@@ -1,12 +1,30 @@
 import type { WorkTaskResponse } from "../../lib/api/types";
+import { WorkTaskAssignmentForm } from "./work-task-assignment-form";
 import {
   formatTaskInstant,
   formatTaskPriority,
   formatTaskStatus,
   formatTaskType,
 } from "./work-task-formatters";
+import { canAssignTask } from "./work-task-policy";
 
-export function WorkTaskCard({ task }: { task: WorkTaskResponse }) {
+export interface WorkTaskAssignmentActions {
+  canAssign: boolean;
+  error: Error | null;
+  isPending: boolean;
+  isDisabled: boolean;
+  successMessage: string | null;
+  onAssign: (assignedEmployeeId: string) => void;
+  onRecoverError: () => void;
+}
+
+export function WorkTaskCard({
+  task,
+  assignment,
+}: {
+  task: WorkTaskResponse;
+  assignment: WorkTaskAssignmentActions;
+}) {
   return (
     <article className="min-w-0 rounded-card border border-border bg-canvas p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -41,6 +59,19 @@ export function WorkTaskCard({ task }: { task: WorkTaskResponse }) {
         </div>
       </dl>
       <p className="mt-4 text-xs tabular-nums text-muted">Phiên bản {task.version}</p>
+      {assignment.canAssign && canAssignTask(task.status) ? (
+        <WorkTaskAssignmentForm
+          key={`${task.id}-${task.version}`}
+          taskCode={task.code}
+          currentAssignedEmployeeId={task.assignedEmployeeId}
+          error={assignment.error}
+          isPending={assignment.isPending}
+          isDisabled={assignment.isDisabled}
+          successMessage={assignment.successMessage}
+          onSubmit={assignment.onAssign}
+          onRecoverError={assignment.onRecoverError}
+        />
+      ) : null}
     </article>
   );
 }

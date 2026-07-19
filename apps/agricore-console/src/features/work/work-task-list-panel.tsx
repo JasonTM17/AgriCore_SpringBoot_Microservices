@@ -1,8 +1,19 @@
 import { Button } from "../../components/ui/button";
-import { ApiClientError } from "../../lib/api/errors";
 import type { WorkTaskPageResponse } from "../../lib/api/types";
 import { WorkTaskCard } from "./work-task-card";
 import { WorkTaskCreateForm, type WorkTaskCreateDraft } from "./work-task-create-form";
+import { WorkTaskListSkeleton, WorkTaskLoadError } from "./work-task-list-state";
+
+interface WorkTaskAssignmentState {
+  canAssign: boolean;
+  error: Error | null;
+  taskId: string | null;
+  isPending: boolean;
+  isDisabled: boolean;
+  success: { taskId: string; message: string } | null;
+  onAssign: (taskId: string, assignedEmployeeId: string) => void;
+  onRecoverError: () => void;
+}
 
 interface WorkTaskListPanelProps {
   cycleCode: string;
@@ -17,63 +28,12 @@ interface WorkTaskListPanelProps {
   createSuccessMessage: string | null;
   isCreating: boolean;
   isCreateDisabled: boolean;
+  assignment: WorkTaskAssignmentState;
   onCreate: (draft: WorkTaskCreateDraft) => void;
   onRecoverCreateError: () => void;
   onRetry: () => void;
   onPrevious: () => void;
   onNext: () => void;
-}
-
-function TaskListSkeleton() {
-  return (
-    <div className="grid gap-4 md:grid-cols-2" role="status" aria-label="Đang tải công việc…">
-      {[0, 1].map((index) => (
-        <div key={index} className="h-48 animate-pulse rounded-card bg-forest-50 motion-reduce:animate-none" />
-      ))}
-    </div>
-  );
-}
-
-function TaskLoadError({
-  error,
-  onRetry,
-  onBack,
-  hasCachedData,
-}: {
-  error: Error;
-  onRetry: () => void;
-  onBack: (() => void) | null;
-  hasCachedData: boolean;
-}) {
-  const supportCode = error instanceof ApiClientError ? error.code : null;
-  const unavailable = error instanceof ApiClientError && (error.status === 403 || error.status === 404);
-  return (
-    <div
-      className="rounded-control border border-danger/30 bg-red-50 p-4"
-      role="alert"
-      aria-label="Không thể tải công việc"
-    >
-      <p className="text-sm font-semibold text-ink">
-        {unavailable
-          ? "Danh sách công việc không còn khả dụng trong phạm vi hiện tại."
-          : "Không thể tải danh sách công việc. Dịch vụ có thể đang gián đoạn."}
-      </p>
-      {supportCode ? <p className="mt-1 text-xs text-muted">Mã hỗ trợ: {supportCode}</p> : null}
-      {!unavailable && hasCachedData ? (
-        <p className="mt-1 text-xs text-muted">Dữ liệu bên dưới là kết quả tải thành công gần nhất.</p>
-      ) : null}
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Button className="min-h-11" variant="secondary" onClick={onRetry}>
-          Thử tải lại công việc
-        </Button>
-        {onBack && !unavailable ? (
-          <Button className="min-h-11" variant="secondary" onClick={onBack}>
-            Về trang trước
-          </Button>
-        ) : null}
-      </div>
-    </div>
-  );
 }
 
 export function WorkTaskListPanel({
@@ -89,6 +49,7 @@ export function WorkTaskListPanel({
   createSuccessMessage,
   isCreating,
   isCreateDisabled,
+  assignment,
   onCreate,
   onRecoverCreateError,
   onRetry,
@@ -134,7 +95,7 @@ export function WorkTaskListPanel({
 
       {error ? (
         <div className="mb-4">
-          <TaskLoadError
+          <WorkTaskLoadError
             error={error}
             onRetry={onRetry}
             onBack={canGoPrevious ? onPrevious : null}
@@ -142,7 +103,7 @@ export function WorkTaskListPanel({
           />
         </div>
       ) : null}
-      {isPending ? <TaskListSkeleton /> : null}
+      {isPending ? <WorkTaskListSkeleton /> : null}
       {!isPending && data?.content.length === 0 ? (
         <div className="rounded-control border border-dashed border-border bg-canvas p-6 text-sm text-muted">
           Chưa có công việc nào cho mùa vụ này.
@@ -151,7 +112,24 @@ export function WorkTaskListPanel({
 
       {data?.content.length ? (
         <div className="grid gap-4 md:grid-cols-2">
-          {data.content.map((task) => <WorkTaskCard key={task.id} task={task} />)}
+          {data.content.map((task) => (
+            <WorkTaskCard
+              key={task.id}
+              task={task}
+              assignment={{
+                canAssign: assignment.canAssign,
+                error: assignment.taskId === task.id ? assignment.error : null,
+                isPending: assignment.isPending && assignment.taskId === task.id,
+                isDisabled: assignment.isDisabled
+                  || (assignment.isPending && assignment.taskId !== task.id),
+                successMessage: assignment.success?.taskId === task.id
+                  ? assignment.success.message
+                  : null,
+                onAssign: (assignedEmployeeId) => assignment.onAssign(task.id, assignedEmployeeId),
+                onRecoverError: assignment.onRecoverError,
+              }}
+            />
+          ))}
         </div>
       ) : null}
 

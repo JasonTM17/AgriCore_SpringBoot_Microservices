@@ -5,13 +5,13 @@ import { ApiClientError } from "../../lib/api/errors";
 import type { CropCycleResponse } from "../../lib/api/types";
 import { hasAnyRole } from "../../lib/auth/roles";
 import { useSession } from "../../lib/auth/session";
-import { createWorkTask, listWorkTasks, type WorkTaskListParams } from "./work-task-api";
+import { assignWorkTask, createWorkTask, listWorkTasks, type WorkTaskListParams } from "./work-task-api";
 import type { WorkTaskCreateDraft } from "./work-task-create-form";
 import { WorkTaskListPanel } from "./work-task-list-panel";
 import { workTaskQueryKeys } from "./work-task-query-keys";
 
 const PAGE_SIZE = 20;
-const CREATE_ROLES = ["SYSTEM_ADMIN", "FARM_MANAGER", "AGRONOMIST"] as const;
+const WORK_MANAGER_ROLES = ["SYSTEM_ADMIN", "FARM_MANAGER", "AGRONOMIST"] as const;
 
 function isUnavailable(error: unknown): error is ApiClientError {
   return error instanceof ApiClientError && (error.status === 403 || error.status === 404);
@@ -30,7 +30,9 @@ export function WorkTaskWorkspace({ cycle }: { cycle: CropCycleResponse }) {
   const [page, setPage] = useState(0);
   const [createFormResetKey, setCreateFormResetKey] = useState(0);
   const [createSuccess, setCreateSuccess] = useState<{ cycleId: string; message: string } | null>(null);
+  const [assignSuccess, setAssignSuccess] = useState<{ taskId: string; message: string } | null>(null);
   const hasCreateSuccess = useRef(false);
+  const hasAssignSuccess = useRef(false);
   const params = useMemo<WorkTaskListParams>(() => ({
     cropCycleId: cycle.id,
     plotId: cycle.plotId,
@@ -46,6 +48,10 @@ export function WorkTaskWorkspace({ cycle }: { cycle: CropCycleResponse }) {
         if (isUnavailable(error) && hasCreateSuccess.current) {
           hasCreateSuccess.current = false;
           setCreateSuccess(null);
+        }
+        if (isUnavailable(error) && hasAssignSuccess.current) {
+          hasAssignSuccess.current = false;
+          setAssignSuccess(null);
         }
         throw error;
       }
@@ -77,6 +83,24 @@ export function WorkTaskWorkspace({ cycle }: { cycle: CropCycleResponse }) {
       });
     },
   });
+  const assignMutation = useMutation({
+    mutationFn: ({ taskId, assignedEmployeeId }: { taskId: string; assignedEmployeeId: string }) =>
+      assignWorkTask(api, taskId, { assignedEmployeeId }),
+    onMutate: () => {
+      hasAssignSuccess.current = false;
+      setAssignSuccess(null);
+    },
+    onSuccess: async (assignedTask) => {
+      hasAssignSuccess.current = true;
+      setAssignSuccess({
+        taskId: assignedTask.id,
+        message: `Đã phân công công việc ${assignedTask.code}.`,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: workTaskQueryKeys.cycleLists(subject, cycle.id),
+      });
+    },
+  });
 
   useEffect(() => {
     if (!tasksQuery.data) return;
@@ -91,7 +115,11 @@ export function WorkTaskWorkspace({ cycle }: { cycle: CropCycleResponse }) {
     return () => window.clearTimeout(recoveryTimer);
   }, [cycle.id, page, queryClient, subject, tasksQuery.data]);
 
-  const accessLost = isUnavailable(tasksQuery.error) || isUnavailable(createMutation.error);
+  const accessLost = isUnavailable(tasksQuery.error)
+    || isUnavailable(createMutation.error)
+    || isUnavailable(assignMutation.error);
+  const loadError = tasksQuery.error
+    ?? (isUnavailable(assignMutation.error) ? assignMutation.error : null);
 
   useEffect(() => {
     if (!accessLost) return;
@@ -104,11 +132,11 @@ export function WorkTaskWorkspace({ cycle }: { cycle: CropCycleResponse }) {
     <WorkTaskListPanel
       cycleCode={cycle.code}
       data={accessLost ? undefined : tasksQuery.data}
-      error={tasksQuery.error}
+      error={loadError}
       isPending={tasksQuery.isPending}
       isFetching={tasksQuery.isFetching}
       canGoPrevious={page > 0}
-      canCreate={hasAnyRole(user?.roles ?? [], CREATE_ROLES)}
+      canCreate={hasAnyRole(user?.roles ?? [], WORK_MANAGER_ROLES)}
       createError={createMutation.error}
       createFormResetKey={createFormResetKey}
       createSuccessMessage={!accessLost && createSuccess?.cycleId === cycle.id
@@ -116,12 +144,28 @@ export function WorkTaskWorkspace({ cycle }: { cycle: CropCycleResponse }) {
         : null}
       isCreating={createMutation.isPending}
       isCreateDisabled={accessLost || tasksQuery.isFetching || tasksQuery.error !== null}
+      assignment={{
+        canAssign: hasAnyRole(user?.roles ?? [], WORK_MANAGER_ROLES),
+        error: assignMutation.error,
+        taskId: assignMutation.variables?.taskId ?? null,
+        isPending: assignMutation.isPending,
+        isDisabled: accessLost || tasksQuery.isFetching || tasksQuery.error !== null,
+        success: accessLost ? null : assignSuccess,
+        onAssign: (taskId, assignedEmployeeId) => assignMutation.mutate({ taskId, assignedEmployeeId }),
+        onRecoverError: () => {
+          assignMutation.reset();
+          void tasksQuery.refetch();
+        },
+      }}
       onCreate={(draft) => createMutation.mutate(draft)}
       onRecoverCreateError={() => {
         createMutation.reset();
         void tasksQuery.refetch();
       }}
-      onRetry={() => void tasksQuery.refetch()}
+      onRetry={() => {
+        assignMutation.reset();
+        void tasksQuery.refetch();
+      }}
       onPrevious={() => setPage((current) => Math.max(0, current - 1))}
       onNext={() => setPage((current) => current + 1)}
     />
