@@ -1,9 +1,9 @@
 import { Button } from "../../components/ui/button";
 import { EmptyState } from "../../components/ui/empty-state";
+import { PaginationControls } from "../../components/ui/pagination-controls";
 import { ApiClientError } from "../../lib/api/errors";
 import type { FarmResponse, PlotPageResponse } from "../../lib/api/types";
 import { formatArea, plotStatusLabel } from "./farm-formatters";
-import { PaginationControls } from "./pagination-controls";
 
 function PlotListSkeleton() {
   return (

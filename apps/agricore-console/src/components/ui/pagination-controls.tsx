@@ -1,4 +1,4 @@
-import { Button } from "../../components/ui/button";
+import { Button } from "./button";
 
 export function PaginationControls({
   page,
