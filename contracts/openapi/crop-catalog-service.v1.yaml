@@ -20,12 +20,13 @@ paths:
         - in: query
           name: category
           required: false
+          description: Case-insensitive category code. When combined with q, both filters must match.
           schema:
             type: string
         - in: query
           name: q
           required: false
-          description: Case-insensitive crop-name search.
+          description: Case-insensitive crop-name search. When combined with category, both filters must match.
           schema:
             type: string
         - $ref: '#/components/parameters/Page'

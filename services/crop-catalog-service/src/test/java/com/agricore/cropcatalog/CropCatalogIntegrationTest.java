@@ -37,4 +37,16 @@ class CropCatalogIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Cà phê Robusta"));
     }
+
+    @Test
+    void combinedCategoryAndNameFilters_areAppliedTogether() throws Exception {
+        mockMvc.perform(get("/api/v1/crops")
+                        .queryParam("category", "PERENNIAL")
+                        .queryParam("q", "Cà phê")
+                        .header("X-Dev-User", "agronomist")
+                        .header("X-Dev-Roles", "AGRONOMIST"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].code").value("COFFEE_ROBUSTA"));
+    }
 }

@@ -26,7 +26,9 @@ public class CropCatalogService {
     @Transactional(readOnly = true)
     public PageResponse<CropResponse> list(String category, String q, Pageable pageable) {
         Page<CropEntity> page;
-        if (StringUtils.hasText(category)) {
+        if (StringUtils.hasText(category) && StringUtils.hasText(q)) {
+            page = cropRepository.findByCategoryIgnoreCaseAndNameContainingIgnoreCase(category, q, pageable);
+        } else if (StringUtils.hasText(category)) {
             page = cropRepository.findByCategoryIgnoreCase(category, pageable);
         } else if (StringUtils.hasText(q)) {
             page = cropRepository.findByNameContainingIgnoreCase(q, pageable);
