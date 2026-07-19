@@ -11,6 +11,7 @@ import { FarmsPage } from "../features/farm/farms-page";
 import { CropsPage } from "../features/crop/crops-page";
 import { CropCyclesPage } from "../features/crop-cycle/crop-cycles-page";
 import { CropCycleDetailRoute } from "./crop-cycle-detail-route";
+import { HarvestReceiptRoute } from "./harvest-receipt-route";
 import {
   ForbiddenPage,
   NotFoundPage,
@@ -95,12 +96,23 @@ const cycleDetailRoute = createRoute({
   path: "/crop-cycles/$cycleId",
   component: CropCycleDetailRoute,
 });
-const harvestsRoute = moduleRoute(
-  "/harvests",
-  "Thu hoạch",
-  "Hoàn tất thu hoạch và theo dõi projection bất đồng bộ.",
-  ["SYSTEM_ADMIN", "FARM_MANAGER", "AGRONOMIST", "FIELD_WORKER", "WAREHOUSE_MANAGER", "AUDITOR"],
-);
+const harvestsRoute = createRoute({
+  getParentRoute: () => authedLayoutRoute,
+  path: "/harvests",
+  component: () => (
+    <RoleGate roles={["SYSTEM_ADMIN", "FARM_MANAGER", "AGRONOMIST", "FIELD_WORKER", "WAREHOUSE_MANAGER", "AUDITOR"]}>
+      <PlaceholderModulePage
+        title="Thu hoạch"
+        description="Hoàn tất thu hoạch và theo dõi projection bất đồng bộ."
+      />
+    </RoleGate>
+  ),
+});
+const harvestReceiptRoute = createRoute({
+  getParentRoute: () => authedLayoutRoute,
+  path: "/harvests/$harvestId",
+  component: HarvestReceiptRoute,
+});
 const inventoryRoute = moduleRoute(
   "/inventory",
   "Kho vận",
@@ -162,6 +174,7 @@ const routeTree = rootRoute.addChildren([
     cyclesRoute,
     cycleDetailRoute,
     harvestsRoute,
+    harvestReceiptRoute,
     inventoryRoute,
     salesRoute,
     iotRoute,
