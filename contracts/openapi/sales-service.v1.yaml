@@ -48,7 +48,9 @@ paths:
                 quantity: { type: number }
       responses:
         '201':
-          description: Terminal saga outcome (CONFIRMED, OUT_OF_STOCK, or CANCELLED)
+          description: >-
+            Current saga outcome: CONFIRMED, OUT_OF_STOCK, CANCELLED, or STOCK_RESERVED
+            while failed compensation awaits reconciliation.
   /api/v1/sales/orders/{orderId}:
     get:
       summary: Get order and saga status
@@ -64,6 +66,34 @@ paths:
           description: Order detail
         '404':
           description: Not found
+  /api/v1/sales/orders/{orderId}/reconcile:
+    post:
+      summary: Reconcile an order with its authoritative inventory reservation state
+      description: >-
+        RELEASE cancels the order when Inventory returns RELEASED. If Inventory reports
+        that the reservation is already FULFILLED, the order is confirmed instead.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: action
+          required: true
+          schema: { type: string, enum: [RELEASE, CONFIRM] }
+      responses:
+        '200':
+          description: Reconciled order and saga state
+        '400':
+          description: Invalid reconciliation action
+        '409':
+          description: Order has no inventory reservation
+        '404':
+          description: Order not found
+        '502':
+          description: Reconciliation could not be completed; read the order state again before retrying
 components:
   securitySchemes:
     bearerAuth:

@@ -21,7 +21,7 @@ import java.util.UUID;
 /**
  * Orchestration saga: CreateOrder → ReserveInventory → ConfirmInventory → Confirm order.
  * On reserve failure: mark OUT_OF_STOCK / CANCELLED and persist saga failure (compensation is no-op if no reservation).
- * On post-reserve failure: release inventory then cancel.
+ * On post-reserve failure: reconcile the authoritative inventory state and cancel only after release.
  * Confirm commits stock (on-hand + reserved decrement); without it reserved stock would stay held forever.
  */
 @Service
@@ -171,7 +171,11 @@ public class SalesSagaService {
         String failureMessage = failureMessage(failure);
         saga.setStatus("FAILED");
         try {
-            inventoryClient.release(order.getReservationId());
+            InventoryClient.ReleaseOutcome releaseOutcome = inventoryClient.release(order.getReservationId());
+            if (releaseOutcome == InventoryClient.ReleaseOutcome.FULFILLED) {
+                markInventoryFulfilled(order, saga);
+                return;
+            }
             order.setStatus(OrderStatus.CANCELLED);
             order.setFailureReason(failureMessage);
             saga.setLastError(failureMessage);
@@ -184,6 +188,14 @@ public class SalesSagaService {
             saga.setLastError(compensationFailure);
             saga.setCurrentStep("COMPENSATION_PENDING");
         }
+    }
+
+    private void markInventoryFulfilled(SalesOrderEntity order, OrderSagaEntity saga) {
+        order.setStatus(OrderStatus.CONFIRMED);
+        order.setFailureReason(null);
+        saga.setStatus("COMPLETED");
+        saga.setLastError(null);
+        saga.setCurrentStep("CONFIRMED");
     }
 
     private String failureMessage(Exception failure) {
@@ -212,7 +224,7 @@ public class SalesSagaService {
     /**
      * Operator recovery for stuck inventory holds after a partial saga.
      * <ul>
-     *   <li>{@code RELEASE} — release ACTIVE reservation and cancel order</li>
+     *   <li>{@code RELEASE} — release ACTIVE reservation and cancel, or confirm when already fulfilled</li>
      *   <li>{@code CONFIRM} — fulfill reservation and mark order CONFIRMED</li>
      * </ul>
      * Applies when order has a non-null reservationId and is not already terminal without hold.
@@ -237,18 +249,23 @@ public class SalesSagaService {
         OrderSagaEntity saga = reloadSaga(orderId);
         try {
             if ("RELEASE".equals(act)) {
-                inventoryClient.release(order.getReservationId());
+                InventoryClient.ReleaseOutcome releaseOutcome = inventoryClient.release(order.getReservationId());
                 order = reloadOrder(orderId);
-                order.setStatus(OrderStatus.CANCELLED);
-                order.setFailureReason("reconciled:RELEASE");
-                order.setUpdatedAt(Instant.now());
-                order = orderRepository.saveAndFlush(order);
                 saga = reloadSaga(orderId);
-                saga.setStatus("RECONCILED");
-                saga.setCurrentStep("RELEASED");
+                if (releaseOutcome == InventoryClient.ReleaseOutcome.FULFILLED) {
+                    markInventoryFulfilled(order, saga);
+                } else {
+                    order.setStatus(OrderStatus.CANCELLED);
+                    order.setFailureReason("reconciled:RELEASE");
+                    saga.setStatus("RECONCILED");
+                    saga.setCurrentStep("RELEASED");
+                    saga.setLastError(null);
+                }
+                Instant reconciledAt = Instant.now();
+                order.setUpdatedAt(reconciledAt);
                 saga.setRetryCount(saga.getRetryCount() + 1);
-                saga.setLastError(null);
-                saga.setUpdatedAt(Instant.now());
+                saga.setUpdatedAt(reconciledAt);
+                order = orderRepository.saveAndFlush(order);
                 sagaRepository.saveAndFlush(saga);
             } else if ("CONFIRM".equals(act)) {
                 inventoryClient.confirm(order.getReservationId());

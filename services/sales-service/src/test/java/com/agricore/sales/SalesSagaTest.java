@@ -15,6 +15,8 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import java.util.UUID;
 
+import static com.agricore.sales.infrastructure.client.InventoryClient.ReleaseOutcome.FULFILLED;
+import static com.agricore.sales.infrastructure.client.InventoryClient.ReleaseOutcome.RELEASED;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
@@ -96,7 +98,7 @@ class SalesSagaTest {
         when(inventoryClient.reserve(any(), any(), anyString())).thenReturn(reservationId);
         doThrow(new InventoryClient.InventoryReservationException(503, "confirm unavailable"))
                 .when(inventoryClient).confirm(reservationId);
-        doNothing().when(inventoryClient).release(reservationId);
+        when(inventoryClient.release(reservationId)).thenReturn(RELEASED);
 
         placeOrder("SO3", createCustomer("C3"), 25)
                 .andExpect(status().isCreated())
@@ -108,15 +110,32 @@ class SalesSagaTest {
     }
 
     @Test
+    void placeOrder_confirmResponseLost_preservesFulfilledOrder() throws Exception {
+        UUID reservationId = UUID.randomUUID();
+        when(inventoryClient.reserve(any(), any(), anyString())).thenReturn(reservationId);
+        doThrow(new InventoryClient.InventoryReservationException(503, "confirm response lost"))
+                .when(inventoryClient).confirm(reservationId);
+        when(inventoryClient.release(reservationId)).thenReturn(FULFILLED);
+
+        placeOrder("SO4", createCustomer("C4"), 30)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("CONFIRMED"))
+                .andExpect(jsonPath("$.sagaStatus").value("COMPLETED"))
+                .andExpect(jsonPath("$.sagaStep").value("CONFIRMED"));
+
+        verify(inventoryClient).release(reservationId);
+    }
+
+    @Test
     void placeOrder_releaseFailure_keepsReservationPendingCompensation() throws Exception {
         UUID reservationId = UUID.randomUUID();
         when(inventoryClient.reserve(any(), any(), anyString())).thenReturn(reservationId);
         doThrow(new InventoryClient.InventoryReservationException(503, "confirm unavailable"))
                 .when(inventoryClient).confirm(reservationId);
-        doThrow(new IllegalStateException("release timeout"))
-                .when(inventoryClient).release(reservationId);
+        when(inventoryClient.release(reservationId))
+                .thenThrow(new IllegalStateException("release timeout"));
 
-        placeOrder("SO4", createCustomer("C4"), 30)
+        placeOrder("SO5", createCustomer("C5"), 30)
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("STOCK_RESERVED"))
                 .andExpect(jsonPath("$.sagaStatus").value("FAILED"))

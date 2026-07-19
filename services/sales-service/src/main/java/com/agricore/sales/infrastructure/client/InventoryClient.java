@@ -66,12 +66,28 @@ public class InventoryClient {
         }
     }
 
-    public void release(UUID reservationId) {
-        restClient.post()
-                .uri("/api/v1/inventory/reservations/{id}/release", reservationId)
-                .headers(authHeaders())
-                .retrieve()
-                .toBodilessEntity();
+    public ReleaseOutcome release(UUID reservationId) {
+        try {
+            String body = restClient.post()
+                    .uri("/api/v1/inventory/reservations/{id}/release", reservationId)
+                    .headers(authHeaders())
+                    .retrieve()
+                    .body(String.class);
+            if (body == null || body.isBlank()) {
+                throw new InventoryReservationException(502, "Inventory release response was empty");
+            }
+            JsonNode response = objectMapper.readTree(body);
+            return ReleaseOutcome.fromInventoryStatus(response.path("status").asText());
+        } catch (RestClientResponseException ex) {
+            throw new InventoryReservationException(ex.getStatusCode().value(), ex.getResponseBodyAsString());
+        } catch (InventoryReservationException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new InventoryReservationException(
+                    502,
+                    ex.getMessage() == null ? "Invalid inventory release response" : ex.getMessage()
+            );
+        }
     }
 
     public void confirm(UUID reservationId) {
@@ -99,6 +115,22 @@ public class InventoryClient {
                 headers.set("X-Dev-Roles", "SALES_STAFF");
             }
         };
+    }
+
+    public enum ReleaseOutcome {
+        RELEASED,
+        FULFILLED;
+
+        private static ReleaseOutcome fromInventoryStatus(String status) {
+            return switch (status) {
+                case "RELEASED" -> RELEASED;
+                case "FULFILLED" -> FULFILLED;
+                default -> throw new InventoryReservationException(
+                        502,
+                        "Unexpected inventory release status: " + status
+                );
+            };
+        }
     }
 
     public static class InventoryReservationException extends RuntimeException {

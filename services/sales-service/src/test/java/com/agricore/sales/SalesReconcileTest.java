@@ -24,10 +24,13 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
+import static com.agricore.sales.infrastructure.client.InventoryClient.ReleaseOutcome.FULFILLED;
+import static com.agricore.sales.infrastructure.client.InventoryClient.ReleaseOutcome.RELEASED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -63,22 +66,18 @@ class SalesReconcileTest {
         return customerRepository.saveAndFlush(c).getId();
     }
 
-    @Test
-    void reconcile_release_cancelsOrderAndCallsInventoryRelease() throws Exception {
-        UUID reservationId = UUID.randomUUID();
-        doNothing().when(inventoryClient).release(any());
-
+    private ReservedOrder persistReservedOrder(String orderPrefix, String quantity) {
         Instant now = Instant.now();
         SalesOrderEntity order = new SalesOrderEntity();
         order.setId(UUID.randomUUID());
-        order.setOrderNumber("SO-REC-" + System.nanoTime());
+        order.setOrderNumber(orderPrefix + "-" + System.nanoTime());
         order.setCustomerId(persistCustomer());
         order.setStatus(OrderStatus.STOCK_RESERVED);
         order.setInventoryItemId(UUID.randomUUID());
-        order.setQuantity(new BigDecimal("10.000"));
-        order.setReservationId(reservationId);
+        order.setQuantity(new BigDecimal(quantity));
+        order.setReservationId(UUID.randomUUID());
         order.setCorrelationId(UUID.randomUUID());
-        order.setFailureReason("confirm failed; compensation also failed");
+        order.setFailureReason("confirm failed; compensation pending");
         order.setCreatedAt(now);
         order.setUpdatedAt(now);
         order = orderRepository.saveAndFlush(order);
@@ -87,15 +86,22 @@ class SalesReconcileTest {
         saga.setId(UUID.randomUUID());
         saga.setSalesOrderId(order.getId());
         saga.setCorrelationId(order.getCorrelationId());
-        saga.setCurrentStep("CONFIRM_INVENTORY");
+        saga.setCurrentStep("COMPENSATION_PENDING");
         saga.setStatus("FAILED");
         saga.setRetryCount(0);
-        saga.setLastError("Release failed: timeout");
+        saga.setLastError("inventory state unresolved");
         saga.setCreatedAt(now);
         saga.setUpdatedAt(now);
         sagaRepository.saveAndFlush(saga);
+        return new ReservedOrder(order.getId(), order.getReservationId());
+    }
 
-        MvcResult result = mockMvc.perform(post("/api/v1/sales/orders/" + order.getId() + "/reconcile")
+    @Test
+    void reconcile_release_cancelsOrderAndCallsInventoryRelease() throws Exception {
+        ReservedOrder fixture = persistReservedOrder("SO-REC", "10.000");
+        when(inventoryClient.release(any())).thenReturn(RELEASED);
+
+        MvcResult result = mockMvc.perform(post("/api/v1/sales/orders/" + fixture.orderId() + "/reconcile")
                         .param("action", "RELEASE")
                         .header("X-Dev-User", "ops")
                         .header("X-Dev-Roles", "SALES_STAFF")
@@ -106,51 +112,26 @@ class SalesReconcileTest {
                 .andExpect(jsonPath("$.sagaStep").value("RELEASED"))
                 .andReturn();
 
-        verify(inventoryClient).release(reservationId);
+        verify(inventoryClient).release(fixture.reservationId());
 
-        SalesOrderEntity after = orderRepository.findById(order.getId()).orElseThrow();
+        SalesOrderEntity after = orderRepository.findById(fixture.orderId()).orElseThrow();
         assertThat(after.getStatus()).isEqualTo(OrderStatus.CANCELLED);
         assertThat(after.getFailureReason()).isEqualTo("reconciled:RELEASE");
 
-        OrderSagaEntity sagaAfter = sagaRepository.findBySalesOrderId(order.getId()).orElseThrow();
+        OrderSagaEntity sagaAfter = sagaRepository.findBySalesOrderId(fixture.orderId()).orElseThrow();
         assertThat(sagaAfter.getStatus()).isEqualTo("RECONCILED");
         assertThat(sagaAfter.getRetryCount()).isEqualTo(1);
 
         JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
-        assertThat(body.get("reservationId").asText()).isEqualTo(reservationId.toString());
+        assertThat(body.get("reservationId").asText()).isEqualTo(fixture.reservationId().toString());
     }
 
     @Test
     void reconcile_confirm_marksConfirmed() throws Exception {
-        UUID reservationId = UUID.randomUUID();
+        ReservedOrder fixture = persistReservedOrder("SO-CON", "5.000");
         doNothing().when(inventoryClient).confirm(any());
 
-        Instant now = Instant.now();
-        SalesOrderEntity order = new SalesOrderEntity();
-        order.setId(UUID.randomUUID());
-        order.setOrderNumber("SO-CON-" + System.nanoTime());
-        order.setCustomerId(persistCustomer());
-        order.setStatus(OrderStatus.STOCK_RESERVED);
-        order.setInventoryItemId(UUID.randomUUID());
-        order.setQuantity(new BigDecimal("5.000"));
-        order.setReservationId(reservationId);
-        order.setCorrelationId(UUID.randomUUID());
-        order.setCreatedAt(now);
-        order.setUpdatedAt(now);
-        order = orderRepository.saveAndFlush(order);
-
-        OrderSagaEntity saga = new OrderSagaEntity();
-        saga.setId(UUID.randomUUID());
-        saga.setSalesOrderId(order.getId());
-        saga.setCorrelationId(order.getCorrelationId());
-        saga.setCurrentStep("CONFIRM_INVENTORY");
-        saga.setStatus("FAILED");
-        saga.setRetryCount(1);
-        saga.setCreatedAt(now);
-        saga.setUpdatedAt(now);
-        sagaRepository.saveAndFlush(saga);
-
-        mockMvc.perform(post("/api/v1/sales/orders/" + order.getId() + "/reconcile")
+        mockMvc.perform(post("/api/v1/sales/orders/" + fixture.orderId() + "/reconcile")
                         .param("action", "CONFIRM")
                         .header("X-Dev-User", "ops")
                         .header("X-Dev-Roles", "WAREHOUSE_MANAGER"))
@@ -158,8 +139,28 @@ class SalesReconcileTest {
                 .andExpect(jsonPath("$.status").value("CONFIRMED"))
                 .andExpect(jsonPath("$.sagaStatus").value("COMPLETED"));
 
-        verify(inventoryClient).confirm(reservationId);
-        assertThat(orderRepository.findById(order.getId()).orElseThrow().getStatus())
+        verify(inventoryClient).confirm(fixture.reservationId());
+        assertThat(orderRepository.findById(fixture.orderId()).orElseThrow().getStatus())
                 .isEqualTo(OrderStatus.CONFIRMED);
+    }
+
+    @Test
+    void reconcile_releaseWhenInventoryAlreadyFulfilled_marksOrderConfirmed() throws Exception {
+        ReservedOrder fixture = persistReservedOrder("SO-FUL", "7.000");
+        when(inventoryClient.release(fixture.reservationId())).thenReturn(FULFILLED);
+
+        mockMvc.perform(post("/api/v1/sales/orders/" + fixture.orderId() + "/reconcile")
+                        .param("action", "RELEASE")
+                        .header("X-Dev-User", "ops")
+                        .header("X-Dev-Roles", "WAREHOUSE_MANAGER"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CONFIRMED"))
+                .andExpect(jsonPath("$.sagaStatus").value("COMPLETED"))
+                .andExpect(jsonPath("$.sagaStep").value("CONFIRMED"));
+
+        assertThat(orderRepository.findById(fixture.orderId()).orElseThrow().getFailureReason()).isNull();
+    }
+
+    private record ReservedOrder(UUID orderId, UUID reservationId) {
     }
 }

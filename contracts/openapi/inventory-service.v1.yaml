@@ -58,7 +58,15 @@ paths:
           schema: { type: string, format: uuid }
       responses:
         '200':
-          description: Released
+          description: >-
+            Current reservation state. RELEASED means the stock hold was removed;
+            FULFILLED means inventory was already committed and can no longer be released.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationReleaseResponse'
+        '404':
+          description: Reservation not found
   /api/v1/inventory/reservations/{id}/confirm:
     post:
       summary: Confirm reservation (fulfill - decrement on-hand and reserved)
@@ -131,6 +139,17 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    ReservationReleaseResponse:
+      type: object
+      additionalProperties: false
+      required: [id, inventoryItemId, quantity, status, referenceType, referenceId]
+      properties:
+        id: { type: string, format: uuid }
+        inventoryItemId: { type: string, format: uuid }
+        quantity: { type: number }
+        status: { type: string, enum: [RELEASED, FULFILLED] }
+        referenceType: { type: string }
+        referenceId: { type: string }
     InventoryHarvestProjectionAcknowledgementResponse:
       type: object
       additionalProperties: false
