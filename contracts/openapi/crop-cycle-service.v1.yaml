@@ -233,7 +233,7 @@ components:
       properties:
         stage:
           $ref: '#/components/schemas/CycleStage'
-        notes: { type: [string, 'null'] }
+        notes: { type: [string, 'null'], maxLength: 2000 }
     CropCycleResponse:
       type: object
       additionalProperties: false

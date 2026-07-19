@@ -13,6 +13,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.ResultActions;
 
+import java.util.UUID;
+
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -66,6 +68,18 @@ class CropCycleErrorBoundaryIntegrationTest {
                 HttpStatus.BAD_REQUEST,
                 "VALIDATION_FAILED"
         );
+    }
+
+    @Test
+    void oversizedStageNotes_returnsValidationError() throws Exception {
+        mockMvc.perform(authenticated(post("/api/v1/crop-cycles/" + UUID.randomUUID() + "/stage"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"stage":"LAND_PREPARATION","notes":"%s"}
+                                """.formatted("x".repeat(2001))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.violations[0].field").value("notes"));
     }
 
     private static void assertApiError(ResultActions result, HttpStatus expectedStatus, String expectedCode)

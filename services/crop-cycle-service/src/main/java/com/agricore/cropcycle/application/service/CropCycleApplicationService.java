@@ -20,6 +20,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 
@@ -122,21 +123,22 @@ public class CropCycleApplicationService {
     @Transactional
     public CropCycleResponse changeStage(UUID id, ChangeStageRequest request) {
         CropCycleEntity cycle = require(id);
-        if (TERMINAL.contains(cycle.getStage())) {
+        CycleStage previous = cycle.getStage();
+        String requestedStage = request.stage().trim().toUpperCase(Locale.ROOT);
+        if (previous.name().equals(requestedStage)) {
+            return toResponse(cycle);
+        }
+        if (TERMINAL.contains(previous)) {
             throw new CropCycleException("CYCLE_TERMINAL", "Cannot change stage of a terminal cycle", 409);
         }
 
         CycleStage next;
         try {
-            next = CycleStage.valueOf(request.stage().trim().toUpperCase());
+            next = CycleStage.valueOf(requestedStage);
         } catch (IllegalArgumentException ex) {
             throw new CropCycleException("INVALID_STAGE", "Unknown stage: " + request.stage(), 400);
         }
 
-        CycleStage previous = cycle.getStage();
-        if (previous == next) {
-            return toResponse(cycle);
-        }
         if (!CycleStageTransitionPolicy.canTransition(previous, next)) {
             throw new CropCycleException(
                     "INVALID_STAGE_TRANSITION",
