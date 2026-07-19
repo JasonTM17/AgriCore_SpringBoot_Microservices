@@ -1,5 +1,9 @@
 import type { ApiClient } from "../../lib/api/client";
-import type { CropCyclePageResponse } from "../../lib/api/types";
+import type {
+  ChangeStageRequest,
+  CropCyclePageResponse,
+  CropCycleResponse,
+} from "../../lib/api/types";
 
 export interface CropCycleListParams {
   farmId: string;
@@ -33,4 +37,31 @@ export function listCropCycles(
     method: "GET",
     ...(signal ? { signal } : {}),
   });
+}
+
+export function getCropCycle(
+  api: ApiClient,
+  cycleId: string,
+  signal?: AbortSignal,
+): Promise<CropCycleResponse> {
+  return api.request<CropCycleResponse>(`/api/v1/crop-cycles/${encodeURIComponent(cycleId)}`, {
+    method: "GET",
+    ...(signal ? { signal } : {}),
+  });
+}
+
+export function changeCropCycleStage(
+  api: ApiClient,
+  cycleId: string,
+  request: ChangeStageRequest,
+  signal?: AbortSignal,
+): Promise<CropCycleResponse> {
+  return api.request<CropCycleResponse>(
+    `/api/v1/crop-cycles/${encodeURIComponent(cycleId)}/stage`,
+    {
+      method: "POST",
+      body: request,
+      ...(signal ? { signal } : {}),
+    },
+  );
 }

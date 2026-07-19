@@ -7,4 +7,6 @@ export const cropCycleQueryKeys = {
     ["crop-cycles", subject, "list", farmId] as const,
   list: (subject: string, params: CropCycleListParams) =>
     ["crop-cycles", subject, "list", params.farmId, params] as const,
+  detail: (subject: string, cycleId: string) =>
+    ["crop-cycles", subject, "detail", cycleId] as const,
 };
