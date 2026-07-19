@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgriCore Traceability Service API
-  version: 1.2.0
+  version: 1.2.1
   description: Verified public-safe traceability lookup and privileged projection read/write contract.
 servers:
   - url: http://localhost:8092
@@ -119,10 +119,10 @@ components:
         qualityGrade: { type: [string, 'null'], maxLength: 32 }
         netWeightKg:
           type: [number, 'null']
-          minimum: -99999999999.999
+          minimum: 0.001
           maximum: 99999999999.999
           multipleOf: 0.001
-        careSummary: { type: [string, 'null'] }
+        careSummary: { type: [string, 'null'], maxLength: 1000 }
     PublicTraceabilityResponse:
       type: object
       additionalProperties: false

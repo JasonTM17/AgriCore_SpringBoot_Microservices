@@ -6,10 +6,12 @@ import com.agricore.traceability.infrastructure.persistence.ProcessedEventJpaRep
 import com.agricore.traceability.infrastructure.persistence.TraceabilityBatchJpaRepository;
 import com.agricore.traceability.infrastructure.persistence.entity.ProcessedEventEntity;
 import com.agricore.traceability.infrastructure.persistence.entity.TraceabilityBatchEntity;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
@@ -17,6 +19,7 @@ import java.util.Locale;
 import java.util.UUID;
 
 @Service
+@Validated
 public class TraceabilityApplicationService {
 
     public static final String HARVEST_CONSUMER = "traceability-harvest-completed";
@@ -38,12 +41,10 @@ public class TraceabilityApplicationService {
     }
 
     @Transactional
-    public PublicTraceabilityResponse createFromHarvest(CreateTraceabilityRequest request) {
+    public PublicTraceabilityResponse createFromHarvest(@Valid CreateTraceabilityRequest request) {
         String eventId = request.eventId().toString();
         if (processedEventRepository.findCanonicalOrLegacy(eventId, HARVEST_CONSUMER).isPresent()) {
-            return batchRepository.findAll().stream()
-                    .filter(b -> b.getHarvestBatchId().equals(request.harvestBatchId()))
-                    .findFirst()
+            return batchRepository.findFirstByHarvestBatchId(request.harvestBatchId())
                     .map(this::toPublic)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Event processed but batch missing"));
         }
