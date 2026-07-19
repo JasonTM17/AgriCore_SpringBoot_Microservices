@@ -69,4 +69,12 @@ public class OutboxEventEntity {
         this.publishAttempts = this.publishAttempts + 1;
         this.lastError = error == null ? "unknown" : error.substring(0, Math.min(error.length(), 1000));
     }
+
+    public void requeueForRepublish() {
+        if (this.publishedAt == null) {
+            return;
+        }
+        this.publishedAt = null;
+        this.lastError = null;
+    }
 }

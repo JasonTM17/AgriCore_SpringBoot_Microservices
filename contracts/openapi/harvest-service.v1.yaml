@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgriCore Harvest Service API
-  version: 1.4.0
+  version: 1.5.0
   description: Farm-scoped harvest completion and detail contract backed by a transactional outbox.
 servers:
   - url: http://localhost:8087
@@ -98,6 +98,37 @@ paths:
           $ref: '#/components/responses/Conflict'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/harvests/{harvestId}/completion-event/republish:
+    parameters:
+      - $ref: '#/components/parameters/HarvestId'
+    post:
+      tags: [Harvests]
+      operationId: republishHarvestCompletionEvent
+      summary: Requeue the stable HarvestCompleted event
+      description: |
+        Requires a harvest-completion role and access to the harvest plot. Requeues the original
+        persisted outbox row and envelope without creating another harvest or event identity.
+        Repeated requests are idempotent while the event is already pending. Corrupt persisted
+        event invariants are rejected, and a contended repair lock is retryable.
+      responses:
+        '202':
+          description: The original event is pending publication, or was already pending.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HarvestCompletionEventStatusResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -150,7 +181,7 @@ components:
           schema:
             $ref: '#/components/schemas/ApiError'
     ServiceUnavailable:
-      description: Farm authorization is temporarily unavailable.
+      description: Farm authorization or completion-event locking is temporarily unavailable; retry later.
       content:
         application/json:
           schema:

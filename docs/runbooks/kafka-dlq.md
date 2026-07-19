@@ -26,6 +26,24 @@ Same pattern for `agricore.farm.events`, `agricore.crop-cycle.events`, `agricore
 Harvest service writes to `outbox_events` then `OutboxPublisher` polls and publishes.
 Failed publishes increment `publish_attempts` and set `last_error` (no infinite silent fail).
 
+Operators can inspect producer state through
+`GET /api/v1/harvests/{harvestId}/completion-event`. After fixing the root cause, an
+authorized operator can call
+`POST /api/v1/harvests/{harvestId}/completion-event/republish`. The endpoint returns
+`202`, requeues the original persisted row and envelope, and never creates another
+harvest or event ID. Repeated requests are a no-op while that event is already pending.
+Before requeueing, harvest service verifies the stored topic, envelope metadata and
+projection-critical payload against the harvest record; corrupt rows return `409` and
+remain published. A concurrent repair lock returns retryable `503` instead of waiting.
+
+Publisher instances use `FOR UPDATE SKIP LOCKED`, so replicas do not convoy on the same
+row. The `KafkaTemplate.send()` call is bounded by `KAFKA_PRODUCER_MAX_BLOCK_MS`
+(5 seconds by default), then the send result is bounded by
+`OUTBOX_PUBLISHER_SEND_TIMEOUT_MS` (10 seconds by default). A timeout records a failed
+attempt and releases the database transaction. Downstream consumers remain idempotent
+by the stable event ID because a late broker acknowledgement can still produce an
+at-least-once duplicate.
+
 ## Consumer path
 
 Inventory consumer is idempotent via `processed_events`.

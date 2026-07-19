@@ -46,7 +46,7 @@ The successful response contains authoritative `farmId` and nullable `plotId`. T
 |---|---|
 | crop-cycle | Create verifies the request farm/plot pair. Get and stage change reload the cycle, then verify its stored farm/plot pair. Non-admin lists require an accessible `farmId` or `plotId`; supplying both verifies the pair. |
 | work | Create verifies the request plot. Get, assign, and complete reload the task, then verify its stored plot. Non-admin lists require `plotId`; `cropCycleId`-only or global lists are `SYSTEM_ADMIN`-only. |
-| harvest | Complete verifies the request plot before saving the batch or outbox event. Get reloads the batch, then verifies its stored plot. |
+| harvest | Complete verifies the request plot before saving the batch or outbox event. Detail/status reload the batch, then verify its stored plot. Republish also requires a completion role and plot access before locking and requeueing the original event. |
 | IoT | Device registration verifies the request plot. Reading ingestion reloads the device, then verifies the device's stored plot before updating last-seen state or writing readings/alerts. |
 
 Role checks run before these resource checks. Passing a role check does not bypass farm membership.

@@ -109,6 +109,8 @@ class HarvestCompletionEventStatusIntegrationTest {
         UUID eventId = UUID.randomUUID();
         HarvestBatchEntity harvest = persistHarvest(eventId);
         UUID transitionalRowId = UUID.randomUUID();
+        String payload = HarvestCompletionEventTestEnvelope.valid(eventId, harvest)
+                .replace(eventId.toString(), eventId.toString().toUpperCase());
         jdbcTemplate.update(
                 """
                 INSERT INTO outbox_events
@@ -117,7 +119,7 @@ class HarvestCompletionEventStatusIntegrationTest {
                 """,
                 transitionalRowId,
                 harvest.getId().toString(),
-                "{\"eventId\":\"" + eventId.toString().toUpperCase() + "\"}",
+                payload,
                 java.sql.Timestamp.from(Instant.now())
         );
 

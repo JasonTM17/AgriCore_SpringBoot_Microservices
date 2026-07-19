@@ -769,6 +769,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/harvests/{harvestId}/completion-event/republish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                harvestId: components["parameters"]["HarvestId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Requeue the stable HarvestCompleted event
+         * @description Requires a harvest-completion role and access to the harvest plot. Requeues the original
+         *     persisted outbox row and envelope without creating another harvest or event identity.
+         *     Repeated requests are idempotent while the event is already pending. Corrupt persisted
+         *     event invariants are rejected, and a contended repair lock is retryable.
+         */
+        post: operations["republishHarvestCompletionEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/traceability/batches": {
         parameters: {
             query?: never;
@@ -1692,7 +1717,7 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description Farm authorization is temporarily unavailable. */
+        /** @description Farm authorization or completion-event locking is temporarily unavailable; retry later. */
         "responses-ServiceUnavailable": {
             headers: {
                 [name: string]: unknown;
@@ -1721,6 +1746,15 @@ export interface components {
         };
         /** @description Device code already exists. */
         "iot-service.v1_components-responses-Conflict": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Farm authorization is temporarily unavailable. */
+        "components-responses-ServiceUnavailable": {
             headers: {
                 [name: string]: unknown;
             };
@@ -2603,6 +2637,34 @@ export interface operations {
             503: components["responses"]["responses-ServiceUnavailable"];
         };
     };
+    republishHarvestCompletionEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                harvestId: components["parameters"]["HarvestId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The original event is pending publication, or was already pending. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HarvestCompletionEventStatusResponse"];
+                };
+            };
+            400: components["responses"]["harvest-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["components-responses-Forbidden"];
+            404: components["responses"]["harvest-service.v1_components-responses-NotFound"];
+            409: components["responses"]["harvest-service.v1_components-responses-Conflict"];
+            503: components["responses"]["responses-ServiceUnavailable"];
+        };
+    };
     createTraceabilityBatch: {
         parameters: {
             query?: never;
@@ -2762,7 +2824,7 @@ export interface operations {
             404: components["responses"]["iot-service.v1_components-responses-NotFound"];
             409: components["responses"]["iot-service.v1_components-responses-Conflict"];
             415: components["responses"]["UnsupportedMediaType"];
-            503: components["responses"]["responses-ServiceUnavailable"];
+            503: components["responses"]["components-responses-ServiceUnavailable"];
         };
     };
     ingestIotReading: {
@@ -2792,7 +2854,7 @@ export interface operations {
             403: components["responses"]["components-responses-Forbidden"];
             404: components["responses"]["iot-service.v1_components-responses-NotFound"];
             415: components["responses"]["UnsupportedMediaType"];
-            503: components["responses"]["responses-ServiceUnavailable"];
+            503: components["responses"]["components-responses-ServiceUnavailable"];
         };
     };
 }

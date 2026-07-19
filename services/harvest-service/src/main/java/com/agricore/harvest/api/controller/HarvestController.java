@@ -4,6 +4,7 @@ import com.agricore.harvest.api.request.CompleteHarvestRequest;
 import com.agricore.harvest.api.response.HarvestBatchResponse;
 import com.agricore.harvest.api.response.HarvestCompletionEventStatusResponse;
 import com.agricore.harvest.application.service.HarvestApplicationService;
+import com.agricore.harvest.application.service.HarvestCompletionEventRepairService;
 import com.agricore.harvest.application.service.HarvestCompletionEventStatusService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -19,13 +20,16 @@ public class HarvestController {
 
     private final HarvestApplicationService service;
     private final HarvestCompletionEventStatusService eventStatusService;
+    private final HarvestCompletionEventRepairService eventRepairService;
 
     public HarvestController(
             HarvestApplicationService service,
-            HarvestCompletionEventStatusService eventStatusService
+            HarvestCompletionEventStatusService eventStatusService,
+            HarvestCompletionEventRepairService eventRepairService
     ) {
         this.service = service;
         this.eventStatusService = eventStatusService;
+        this.eventRepairService = eventRepairService;
     }
 
     @PostMapping("/complete")
@@ -46,5 +50,13 @@ public class HarvestController {
             @PathVariable UUID harvestId
     ) {
         return eventStatusService.getStatus(harvestId);
+    }
+
+    @PostMapping("/{harvestId}/completion-event/republish")
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST','WAREHOUSE_MANAGER')")
+    public ResponseEntity<HarvestCompletionEventStatusResponse> republishCompletionEvent(
+            @PathVariable UUID harvestId
+    ) {
+        return ResponseEntity.accepted().body(eventRepairService.republish(harvestId));
     }
 }
