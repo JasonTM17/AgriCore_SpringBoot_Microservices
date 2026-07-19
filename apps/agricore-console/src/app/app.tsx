@@ -2,7 +2,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { SessionProvider } from "../lib/auth/session";
 import { router } from "./router";
 
 export function App() {
@@ -21,9 +20,7 @@ export function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <SessionProvider>
-        <RouterProvider router={router} />
-      </SessionProvider>
+      <RouterProvider router={router} />
     </QueryClientProvider>
   );
 }

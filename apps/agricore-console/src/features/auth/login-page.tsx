@@ -9,7 +9,7 @@ import { loginSchema, mapLoginError } from "./login-validation";
 export function LoginPage() {
   const { login, status } = useSession();
   const navigate = useNavigate();
-  const search = useSearch({ from: "/login" });
+  const search = useSearch({ from: "/session/login" });
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});

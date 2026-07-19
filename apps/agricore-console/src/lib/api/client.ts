@@ -22,6 +22,8 @@ interface RequestOptions {
   signal?: AbortSignal;
   timeoutMs?: number;
   headers?: Record<string, string>;
+  credentials?: RequestCredentials;
+  cache?: RequestCache;
   /** Skip 401 -> refresh -> retry (used by refresh itself). */
   skipAuthRefresh?: boolean;
 }
@@ -115,6 +117,17 @@ export class ApiClient {
     });
   }
 
+  async publicGet<T>(path: string, signal?: AbortSignal): Promise<T> {
+    return this.request<T>(path, {
+      method: "GET",
+      auth: false,
+      skipAuthRefresh: true,
+      credentials: "omit",
+      cache: "no-store",
+      ...(signal ? { signal } : {}),
+    });
+  }
+
   async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
     const response = await this.rawRequest(path, options);
 
@@ -169,7 +182,8 @@ export class ApiClient {
     const init: RequestInit = {
       method: options.method ?? "GET",
       headers,
-      credentials: "include",
+      credentials: options.credentials ?? "include",
+      ...(options.cache ? { cache: options.cache } : {}),
       signal: cancellation.signal,
     };
     if (options.body !== undefined) {

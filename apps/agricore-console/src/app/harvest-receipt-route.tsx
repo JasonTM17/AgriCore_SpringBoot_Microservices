@@ -5,7 +5,7 @@ import { HARVEST_VIEW_ROLES } from "../features/harvest/harvest-roles";
 import { RoleGate } from "./auth-gates";
 
 export function HarvestReceiptRoute() {
-  const { harvestId } = useParams({ from: "/authed/harvests/$harvestId" });
+  const { harvestId } = useParams({ from: "/session/authed/harvests/$harvestId" });
 
   return (
     <RoleGate roles={HARVEST_VIEW_ROLES}>

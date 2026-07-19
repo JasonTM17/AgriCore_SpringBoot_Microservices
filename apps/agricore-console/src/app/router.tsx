@@ -12,6 +12,7 @@ import { CropsPage } from "../features/crop/crops-page";
 import { CropCyclesPage } from "../features/crop-cycle/crop-cycles-page";
 import { CropCycleDetailRoute } from "./crop-cycle-detail-route";
 import { HarvestReceiptRoute } from "./harvest-receipt-route";
+import { PublicTraceabilityRoute } from "./public-traceability-route";
 import { HarvestPage } from "../features/harvest/harvest-page";
 import { HARVEST_VIEW_ROLES } from "../features/harvest/harvest-roles";
 import {
@@ -22,14 +23,21 @@ import {
 import type { NavItem } from "../lib/auth/roles";
 import { sanitizeInternalRedirect } from "../lib/auth/redirects";
 import { AuthenticatedLayout, RoleGate } from "./auth-gates";
+import { SessionRouteBoundary } from "./session-route-boundary";
 
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
   notFoundComponent: NotFoundPage,
 });
 
-const loginRoute = createRoute({
+const sessionRoute = createRoute({
   getParentRoute: () => rootRoute,
+  id: "session",
+  component: SessionRouteBoundary,
+});
+
+const loginRoute = createRoute({
+  getParentRoute: () => sessionRoute,
   path: "/login",
   validateSearch: (search: Record<string, unknown>) => ({
     redirect: sanitizeInternalRedirect(search.redirect),
@@ -38,7 +46,7 @@ const loginRoute = createRoute({
 });
 
 const authedLayoutRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => sessionRoute,
   id: "authed",
   component: AuthenticatedLayout,
 });
@@ -146,39 +154,34 @@ const assistantRoute = moduleRoute(
 const publicTraceRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/public/traceability/$code",
-  component: () => (
-    <main className="min-h-screen bg-canvas px-4 py-8">
-      <PlaceholderModulePage
-        title="Truy xuất nguồn gốc công khai"
-        description="Trang public QR không yêu cầu đăng nhập. Phase sau sẽ bind PublicTraceabilityResponse."
-      />
-    </main>
-  ),
+  component: PublicTraceabilityRoute,
 });
 
 const forbiddenRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => sessionRoute,
   path: "/forbidden",
   component: ForbiddenPage,
 });
 
 const routeTree = rootRoute.addChildren([
-  loginRoute,
   publicTraceRoute,
-  forbiddenRoute,
-  authedLayoutRoute.addChildren([
-    dashboardRoute,
-    farmsRoute,
-    cropsRoute,
-    cyclesRoute,
-    cycleDetailRoute,
-    harvestsRoute,
-    harvestReceiptRoute,
-    inventoryRoute,
-    salesRoute,
-    iotRoute,
-    adminRoute,
-    assistantRoute,
+  sessionRoute.addChildren([
+    loginRoute,
+    forbiddenRoute,
+    authedLayoutRoute.addChildren([
+      dashboardRoute,
+      farmsRoute,
+      cropsRoute,
+      cyclesRoute,
+      cycleDetailRoute,
+      harvestsRoute,
+      harvestReceiptRoute,
+      inventoryRoute,
+      salesRoute,
+      iotRoute,
+      adminRoute,
+      assistantRoute,
+    ]),
   ]),
 ]);
 
