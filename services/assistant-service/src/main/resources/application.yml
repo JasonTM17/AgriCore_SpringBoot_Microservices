@@ -1,0 +1,26 @@
+server:
+  port: ${ASSISTANT_PORT:8093}
+spring:
+  application:
+    name: assistant-service
+  ai:
+    model:
+      chat: none
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+agricore:
+  assistant:
+    provider:
+      type: ${ASSISTANT_PROVIDER:none}
+  security:
+    issuer: ${JWT_ISSUER:https://agricore.local/identity}
+    jwk-set-uri: ${IDENTITY_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
+    dev-mode: ${AGRICORE_DEV_MODE:false}
