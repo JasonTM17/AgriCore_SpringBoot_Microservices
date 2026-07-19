@@ -52,6 +52,12 @@ export type WorkTaskPageResponse = GatewaySchemas["WorkTaskPageResponse"];
 export type HarvestStatus = GatewaySchemas["HarvestStatus"];
 export type CompleteHarvestRequest = GatewaySchemas["CompleteHarvestRequest"];
 export type HarvestBatchResponse = GatewaySchemas["HarvestBatchResponse"];
+export type HarvestCompletionEventStatusResponse =
+  GatewaySchemas["HarvestCompletionEventStatusResponse"];
+export type InventoryHarvestProjectionAcknowledgementResponse =
+  GatewaySchemas["InventoryHarvestProjectionAcknowledgementResponse"];
+export type TraceabilityHarvestProjectionAcknowledgementResponse =
+  GatewaySchemas["TraceabilityHarvestProjectionAcknowledgementResponse"];
 
 export type CreateTraceabilityRequest = GatewaySchemas["CreateTraceabilityRequest"];
 export type PublicTraceabilityResponse = GatewaySchemas["PublicTraceabilityResponse"];
