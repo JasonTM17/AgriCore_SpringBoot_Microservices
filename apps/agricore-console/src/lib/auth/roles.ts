@@ -27,6 +27,12 @@ export const NAV_ITEMS: readonly NavItem[] = [
     roles: ["SYSTEM_ADMIN", "FARM_MANAGER", "AGRONOMIST", "FIELD_WORKER", "AUDITOR"],
   },
   {
+    id: "crops",
+    label: "Danh mục cây trồng",
+    to: "/crops",
+    roles: ["SYSTEM_ADMIN", "FARM_MANAGER", "AGRONOMIST", "FIELD_WORKER", "AUDITOR"],
+  },
+  {
     id: "cycles",
     label: "Mùa vụ & công việc",
     to: "/crop-cycles",

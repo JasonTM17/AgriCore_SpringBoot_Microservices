@@ -8,6 +8,7 @@ import {
 import { LoginPage } from "../features/auth/login-page";
 import { DashboardPage } from "../features/dashboard/dashboard-page";
 import { FarmsPage } from "../features/farm/farms-page";
+import { CropsPage } from "../features/crop/crops-page";
 import {
   ForbiddenPage,
   NotFoundPage,
@@ -66,6 +67,15 @@ const farmsRoute = createRoute({
   component: () => (
     <RoleGate roles={["SYSTEM_ADMIN", "FARM_MANAGER", "AGRONOMIST", "FIELD_WORKER", "AUDITOR"]}>
       <FarmsPage />
+    </RoleGate>
+  ),
+});
+const cropsRoute = createRoute({
+  getParentRoute: () => authedLayoutRoute,
+  path: "/crops",
+  component: () => (
+    <RoleGate roles={["SYSTEM_ADMIN", "FARM_MANAGER", "AGRONOMIST", "FIELD_WORKER", "AUDITOR"]}>
+      <CropsPage />
     </RoleGate>
   ),
 });
@@ -138,6 +148,7 @@ const routeTree = rootRoute.addChildren([
   authedLayoutRoute.addChildren([
     dashboardRoute,
     farmsRoute,
+    cropsRoute,
     cyclesRoute,
     harvestsRoute,
     inventoryRoute,
