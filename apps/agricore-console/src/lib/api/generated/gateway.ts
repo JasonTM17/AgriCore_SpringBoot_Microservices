@@ -564,12 +564,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List work tasks */
+        /**
+         * List work tasks
+         * @description Non-system administrators must provide an accessible plotId scope. SYSTEM_ADMIN may use global or cropCycleId-only views.
+         */
         get: operations["listWorkTasks"];
         put?: never;
         /**
          * Create a work task
-         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST.
+         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST with access to the task plot.
          */
         post: operations["createWorkTask"];
         delete?: never;
@@ -587,7 +590,10 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** Get a work task */
+        /**
+         * Get a work task
+         * @description Requires access to the task's authoritative plot. Missing and inaccessible tasks both return 404.
+         */
         get: operations["getWorkTask"];
         put?: never;
         post?: never;
@@ -610,7 +616,7 @@ export interface paths {
         put?: never;
         /**
          * Assign a work task
-         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST.
+         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST with access to the task plot.
          */
         post: operations["assignWorkTask"];
         delete?: never;
@@ -632,7 +638,7 @@ export interface paths {
         put?: never;
         /**
          * Complete a work task
-         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or FIELD_WORKER. The request body is optional.
+         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or FIELD_WORKER with access to the task plot. The request body is optional.
          */
         post: operations["completeWorkTask"];
         delete?: never;
@@ -1476,7 +1482,7 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description Invalid path, query, JSON, task type, or validation input. */
+        /** @description Invalid path, query, JSON, task type, validation input, or missing required plot scope. */
         "components-responses-BadRequest": {
             headers: {
                 [name: string]: unknown;
@@ -1485,15 +1491,8 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description The authenticated user lacks the required role. */
+        /** @description The authenticated user lacks the required role or plot membership. */
         "responses-Forbidden": {
-            headers: {
-                [name: string]: unknown;
-            };
-            content?: never;
-        };
-        /** @description Duplicate code or a forbidden terminal-state mutation. */
-        "components-responses-Conflict": {
             headers: {
                 [name: string]: unknown;
             };
@@ -1501,8 +1500,17 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description Work task not found. */
+        /** @description Work task, plot, or farm not found or not visible to the caller. */
         "work-service.v1_components-responses-NotFound": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Duplicate code or a forbidden terminal-state mutation. */
+        "components-responses-Conflict": {
             headers: {
                 [name: string]: unknown;
             };
@@ -1518,6 +1526,13 @@ export interface components {
             content: {
                 "application/json": components["schemas"]["ApiError"];
             };
+        };
+        /** @description The authenticated user lacks the required role. */
+        "components-responses-Forbidden": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content?: never;
         };
         /** @description Harvest batch code already exists. */
         "harvest-service.v1_components-responses-Conflict": {
@@ -2125,6 +2140,8 @@ export interface operations {
         parameters: {
             query?: {
                 cropCycleId?: string;
+                /** @description Authoritative plot scope required for non-system administrators. */
+                plotId?: string;
                 /** @description Zero-based page index. */
                 page?: components["parameters"]["parameters-Page"];
                 /** @description Number of records per page. */
@@ -2147,6 +2164,9 @@ export interface operations {
             };
             400: components["responses"]["components-responses-BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["work-service.v1_components-responses-NotFound"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     createWorkTask: {
@@ -2174,9 +2194,11 @@ export interface operations {
             400: components["responses"]["components-responses-BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["work-service.v1_components-responses-NotFound"];
             409: components["responses"]["components-responses-Conflict"];
             415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["responses-InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getWorkTask: {
@@ -2201,7 +2223,9 @@ export interface operations {
             };
             400: components["responses"]["components-responses-BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
             404: components["responses"]["work-service.v1_components-responses-NotFound"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     assignWorkTask: {
@@ -2235,6 +2259,7 @@ export interface operations {
             409: components["responses"]["components-responses-Conflict"];
             415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["responses-InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     completeWorkTask: {
@@ -2268,6 +2293,7 @@ export interface operations {
             409: components["responses"]["components-responses-Conflict"];
             415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["responses-InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     completeHarvest: {
@@ -2294,7 +2320,7 @@ export interface operations {
             };
             400: components["responses"]["harvest-service.v1_components-responses-BadRequest"];
             401: components["responses"]["Unauthorized"];
-            403: components["responses"]["responses-Forbidden"];
+            403: components["responses"]["components-responses-Forbidden"];
             409: components["responses"]["harvest-service.v1_components-responses-Conflict"];
             415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["responses-InternalServerError"];

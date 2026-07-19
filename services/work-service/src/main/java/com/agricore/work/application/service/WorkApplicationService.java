@@ -29,19 +29,23 @@ public class WorkApplicationService {
     private final WorkTaskJpaRepository taskRepository;
     private final OutboxJpaRepository outboxRepository;
     private final ObjectMapper objectMapper;
+    private final WorkAccessGuard accessGuard;
 
     public WorkApplicationService(
             WorkTaskJpaRepository taskRepository,
             OutboxJpaRepository outboxRepository,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            WorkAccessGuard accessGuard
     ) {
         this.taskRepository = taskRepository;
         this.outboxRepository = outboxRepository;
         this.objectMapper = objectMapper;
+        this.accessGuard = accessGuard;
     }
 
     @Transactional
     public WorkTaskResponse create(CreateWorkTaskRequest request) {
+        accessGuard.requirePlot(request.plotId());
         String code = request.code().trim().toUpperCase();
         if (taskRepository.existsByCodeIgnoreCase(code)) {
             throw new WorkException("TASK_CODE_EXISTS", "Task code already exists", 409);
@@ -117,10 +121,18 @@ public class WorkApplicationService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<WorkTaskResponse> list(UUID cropCycleId, Pageable pageable) {
-        Page<WorkTaskEntity> page = cropCycleId == null
-                ? taskRepository.findAll(pageable)
-                : taskRepository.findByCropCycleId(cropCycleId, pageable);
+    public PageResponse<WorkTaskResponse> list(UUID cropCycleId, UUID plotId, Pageable pageable) {
+        accessGuard.requireListScope(plotId);
+        Page<WorkTaskEntity> page;
+        if (cropCycleId != null && plotId != null) {
+            page = taskRepository.findByCropCycleIdAndPlotId(cropCycleId, plotId, pageable);
+        } else if (plotId != null) {
+            page = taskRepository.findByPlotId(plotId, pageable);
+        } else if (cropCycleId != null) {
+            page = taskRepository.findByCropCycleId(cropCycleId, pageable);
+        } else {
+            page = taskRepository.findAll(pageable);
+        }
         return PageResponse.of(
                 page.getContent().stream().map(this::toResponse).toList(),
                 page.getNumber(),
@@ -130,8 +142,10 @@ public class WorkApplicationService {
     }
 
     private WorkTaskEntity require(UUID id) {
-        return taskRepository.findById(id)
+        WorkTaskEntity task = taskRepository.findById(id)
                 .orElseThrow(() -> new WorkException("TASK_NOT_FOUND", "Work task not found", 404));
+        accessGuard.requirePlot(task.getPlotId());
+        return task;
     }
 
     private void enqueue(String eventType, WorkTaskEntity task) {

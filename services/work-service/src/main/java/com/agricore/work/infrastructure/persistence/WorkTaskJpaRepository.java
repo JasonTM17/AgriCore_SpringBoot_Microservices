@@ -10,4 +10,6 @@ import java.util.UUID;
 public interface WorkTaskJpaRepository extends JpaRepository<WorkTaskEntity, UUID> {
     boolean existsByCodeIgnoreCase(String code);
     Page<WorkTaskEntity> findByCropCycleId(UUID cropCycleId, Pageable pageable);
+    Page<WorkTaskEntity> findByPlotId(UUID plotId, Pageable pageable);
+    Page<WorkTaskEntity> findByCropCycleIdAndPlotId(UUID cropCycleId, UUID plotId, Pageable pageable);
 }

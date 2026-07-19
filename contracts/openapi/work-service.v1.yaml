@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgriCore Work Service API
-  version: 1.1.0
+  version: 1.2.0
   description: Verified field-work task creation, assignment, completion, and query contract.
 servers:
   - url: http://localhost:8085
@@ -16,10 +16,16 @@ paths:
       tags: [Work Tasks]
       operationId: listWorkTasks
       summary: List work tasks
+      description: Non-system administrators must provide an accessible plotId scope. SYSTEM_ADMIN may use global or cropCycleId-only views.
       parameters:
         - in: query
           name: cropCycleId
           required: false
+          schema: { type: string, format: uuid }
+        - in: query
+          name: plotId
+          required: false
+          description: Authoritative plot scope required for non-system administrators.
           schema: { type: string, format: uuid }
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Size'
@@ -34,11 +40,17 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
     post:
       tags: [Work Tasks]
       operationId: createWorkTask
       summary: Create a work task
-      description: Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST.
+      description: Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST with access to the task plot.
       requestBody:
         required: true
         content:
@@ -58,12 +70,16 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
         '415':
           $ref: '#/components/responses/UnsupportedMediaType'
         '500':
           $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/work-tasks/{taskId}:
     parameters:
       - $ref: '#/components/parameters/TaskId'
@@ -71,6 +87,7 @@ paths:
       tags: [Work Tasks]
       operationId: getWorkTask
       summary: Get a work task
+      description: Requires access to the task's authoritative plot. Missing and inaccessible tasks both return 404.
       responses:
         '200':
           description: Work task found.
@@ -82,8 +99,12 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/work-tasks/{taskId}/assign:
     parameters:
       - $ref: '#/components/parameters/TaskId'
@@ -91,7 +112,7 @@ paths:
       tags: [Work Tasks]
       operationId: assignWorkTask
       summary: Assign a work task
-      description: Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST.
+      description: Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST with access to the task plot.
       requestBody:
         required: true
         content:
@@ -119,6 +140,8 @@ paths:
           $ref: '#/components/responses/UnsupportedMediaType'
         '500':
           $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/work-tasks/{taskId}/complete:
     parameters:
       - $ref: '#/components/parameters/TaskId'
@@ -126,7 +149,7 @@ paths:
       tags: [Work Tasks]
       operationId: completeWorkTask
       summary: Complete a work task
-      description: Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or FIELD_WORKER. The request body is optional.
+      description: Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or FIELD_WORKER with access to the task plot. The request body is optional.
       requestBody:
         required: false
         content:
@@ -154,6 +177,8 @@ paths:
           $ref: '#/components/responses/UnsupportedMediaType'
         '500':
           $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -178,7 +203,7 @@ components:
       schema: { type: integer, format: int32, minimum: 1, maximum: 100, default: 20 }
   responses:
     BadRequest:
-      description: Invalid path, query, JSON, task type, or validation input.
+      description: Invalid path, query, JSON, task type, validation input, or missing required plot scope.
       content:
         application/json:
           schema:
@@ -186,9 +211,13 @@ components:
     Unauthorized:
       description: Authentication is required or the bearer token is invalid.
     Forbidden:
-      description: The authenticated user lacks the required role.
+      description: The authenticated user lacks the required role or plot membership.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
     NotFound:
-      description: Work task not found.
+      description: Work task, plot, or farm not found or not visible to the caller.
       content:
         application/json:
           schema:
@@ -207,6 +236,12 @@ components:
             $ref: '#/components/schemas/ApiError'
     InternalServerError:
       description: Failed to persist the transactional outbox event.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    ServiceUnavailable:
+      description: Authoritative farm access verification is temporarily unavailable.
       content:
         application/json:
           schema:

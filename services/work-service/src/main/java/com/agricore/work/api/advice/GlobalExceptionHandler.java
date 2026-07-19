@@ -1,12 +1,14 @@
 package com.agricore.work.api.advice;
 
 import com.agricore.common.api.ApiError;
+import com.agricore.farmaccess.FarmAccessException;
 import com.agricore.work.domain.exception.WorkException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -28,6 +30,31 @@ public class GlobalExceptionHandler {
                 request.getRequestURI(),
                 null
         ));
+    }
+
+    @ExceptionHandler(FarmAccessException.class)
+    public ResponseEntity<ApiError> handleFarmAccess(FarmAccessException ex, HttpServletRequest request) {
+        return ResponseEntity.status(ex.getHttpStatus()).body(ApiError.of(
+                ex.getHttpStatus(),
+                HttpStatus.valueOf(ex.getHttpStatus()).getReasonPhrase(),
+                ex.getCode(),
+                ex.getMessage(),
+                request.getRequestURI(),
+                null
+        ));
+    }
+
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    public ResponseEntity<ApiError> handleAuthorizationDenied(
+            AuthorizationDeniedException ex,
+            HttpServletRequest request
+    ) {
+        return error(
+                HttpStatus.FORBIDDEN,
+                "ACCESS_DENIED",
+                "Insufficient privileges for this operation",
+                request
+        );
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

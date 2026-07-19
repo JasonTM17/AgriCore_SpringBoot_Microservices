@@ -40,10 +40,11 @@ public class WorkTaskController {
     @PreAuthorize("isAuthenticated()")
     public PageResponse<WorkTaskResponse> list(
             @RequestParam(required = false) UUID cropCycleId,
+            @RequestParam(required = false) UUID plotId,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
     ) {
-        return service.list(cropCycleId, PageRequest.of(page, size, Sort.by("createdAt").descending()));
+        return service.list(cropCycleId, plotId, PageRequest.of(page, size, Sort.by("createdAt").descending()));
     }
 
     @GetMapping("/{taskId}")
