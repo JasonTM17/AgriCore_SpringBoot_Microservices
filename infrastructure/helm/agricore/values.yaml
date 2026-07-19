@@ -108,5 +108,11 @@ kafka:
   # Internal cluster bootstrap (match compose PLAINTEXT listener)
   bootstrapServers: kafka:19092
 
+farmAccess:
+  serviceUrl: http://agricore-farm:8082
+  allowedHosts: agricore-farm
+  # Current chart has no service-mesh TLS; set false when serviceUrl uses HTTPS.
+  allowInsecureHttp: true
+
 identityJwksUri: http://agricore-identity:8081/.well-known/jwks.json
 jwtIssuer: https://agricore.local/identity
