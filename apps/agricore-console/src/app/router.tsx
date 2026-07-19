@@ -9,6 +9,7 @@ import { LoginPage } from "../features/auth/login-page";
 import { DashboardPage } from "../features/dashboard/dashboard-page";
 import { FarmsPage } from "../features/farm/farms-page";
 import { CropsPage } from "../features/crop/crops-page";
+import { CropCyclesPage } from "../features/crop-cycle/crop-cycles-page";
 import {
   ForbiddenPage,
   NotFoundPage,
@@ -79,12 +80,15 @@ const cropsRoute = createRoute({
     </RoleGate>
   ),
 });
-const cyclesRoute = moduleRoute(
-  "/crop-cycles",
-  "Mùa vụ & công việc",
-  "Vòng đời mùa vụ, giai đoạn và nhiệm vụ đồng ruộng.",
-  ["SYSTEM_ADMIN", "FARM_MANAGER", "AGRONOMIST", "FIELD_WORKER", "AUDITOR"],
-);
+const cyclesRoute = createRoute({
+  getParentRoute: () => authedLayoutRoute,
+  path: "/crop-cycles",
+  component: () => (
+    <RoleGate roles={["SYSTEM_ADMIN", "FARM_MANAGER", "AGRONOMIST", "FIELD_WORKER", "AUDITOR"]}>
+      <CropCyclesPage />
+    </RoleGate>
+  ),
+});
 const harvestsRoute = moduleRoute(
   "/harvests",
   "Thu hoạch",
