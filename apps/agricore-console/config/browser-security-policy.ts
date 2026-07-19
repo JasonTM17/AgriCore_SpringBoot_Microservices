@@ -12,13 +12,14 @@ const SHARED_DIRECTIVES = [
   "manifest-src 'self'",
   "media-src 'self'",
   "object-src 'none'",
-  "script-src 'self'",
   "worker-src 'self'",
   "require-trusted-types-for 'script'",
   "trusted-types 'none'",
 ] as const;
 
 export function buildBrowserSecurityPolicy(command: ViteCommand): string {
+  const scriptSources =
+    command === "serve" ? "script-src 'self' 'unsafe-inline'" : "script-src 'self'";
   const connectSources =
     command === "serve"
       ? "connect-src 'self' ws://127.0.0.1:* ws://localhost:*"
@@ -26,7 +27,7 @@ export function buildBrowserSecurityPolicy(command: ViteCommand): string {
   const styleSources =
     command === "serve" ? "style-src 'self' 'unsafe-inline'" : "style-src 'self'";
 
-  return [...SHARED_DIRECTIVES, connectSources, styleSources].join("; ");
+  return [...SHARED_DIRECTIVES, scriptSources, connectSources, styleSources].join("; ");
 }
 
 export function browserSecurityPolicyPlugin(command: ViteCommand): Plugin {
