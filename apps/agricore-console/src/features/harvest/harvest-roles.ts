@@ -1,0 +1,12 @@
+export const HARVEST_WORKFLOW_ROLES = [
+  "SYSTEM_ADMIN",
+  "FARM_MANAGER",
+  "AGRONOMIST",
+  "WAREHOUSE_MANAGER",
+] as const;
+
+export const HARVEST_VIEW_ROLES = [
+  ...HARVEST_WORKFLOW_ROLES,
+  "FIELD_WORKER",
+  "AUDITOR",
+] as const;

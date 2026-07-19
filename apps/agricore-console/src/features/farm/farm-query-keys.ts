@@ -7,6 +7,8 @@ export const farmQueryKeys = {
   list: (subject: string, params: FarmListParams) =>
     ["farms", subject, "list", params] as const,
   detail: (subject: string, farmId: string) => ["farms", subject, "detail", farmId] as const,
+  plotDetail: (subject: string, plotId: string) =>
+    ["farms", subject, "plot", "detail", plotId] as const,
   plots: (subject: string, farmId: string, params: PlotListParams) =>
     ["farms", subject, farmId, "plots", params] as const,
 };

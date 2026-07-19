@@ -5,6 +5,7 @@ import type {
   FarmSort,
   FarmStatus,
   PlotPageResponse,
+  PlotResponse,
 } from "../../lib/api/types";
 
 export interface FarmListParams {
@@ -70,6 +71,17 @@ export function getFarm(
   signal?: AbortSignal,
 ): Promise<FarmResponse> {
   return api.request<FarmResponse>(`/api/v1/farms/${encodeURIComponent(farmId)}`, {
+    method: "GET",
+    ...(signal ? { signal } : {}),
+  });
+}
+
+export function getPlot(
+  api: ApiClient,
+  plotId: string,
+  signal?: AbortSignal,
+): Promise<PlotResponse> {
+  return api.request<PlotResponse>(`/api/v1/plots/${encodeURIComponent(plotId)}`, {
     method: "GET",
     ...(signal ? { signal } : {}),
   });

@@ -2,11 +2,28 @@ import type {
   HarvestBatchResponse,
   HarvestCompletionEventStatusResponse,
   InventoryHarvestProjectionAcknowledgementResponse,
+  PlotResponse,
   TraceabilityHarvestProjectionAcknowledgementResponse,
 } from "../../lib/api/types";
 
 export const harvestId = "60000000-0000-0000-0000-000000000001";
 export const eventId = "61000000-0000-0000-0000-000000000001";
+
+export const harvestPlot = {
+  id: "30000000-0000-0000-0000-000000000001",
+  farmId: "20000000-0000-0000-0000-000000000001",
+  areaId: null,
+  code: "PLOT-A1",
+  name: "Lô cà phê A1",
+  areaInHectares: 12.5,
+  soilType: "BASALT",
+  status: "IN_USE",
+  latitude: null,
+  longitude: null,
+  createdAt: "2026-07-19T00:00:00Z",
+  updatedAt: "2026-07-19T00:00:00Z",
+  version: 0,
+} satisfies PlotResponse;
 
 export const harvestBatch = {
   id: harvestId,

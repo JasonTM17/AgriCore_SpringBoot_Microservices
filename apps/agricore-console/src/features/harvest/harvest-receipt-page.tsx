@@ -14,6 +14,7 @@ import {
   retryHarvestFailure,
 } from "./harvest-error-policy";
 import { harvestQueryKeys } from "./harvest-query-keys";
+import { HARVEST_WORKFLOW_ROLES } from "./harvest-roles";
 import {
   HarvestReceiptError,
   HarvestReceiptSkeleton,
@@ -27,13 +28,6 @@ import type {
   InventoryHarvestProjectionAcknowledgementResponse,
   TraceabilityHarvestProjectionAcknowledgementResponse,
 } from "../../lib/api/types";
-
-const HARVEST_WORKFLOW_ROLES = [
-  "SYSTEM_ADMIN",
-  "FARM_MANAGER",
-  "AGRONOMIST",
-  "WAREHOUSE_MANAGER",
-] as const;
 
 export function HarvestReceiptPage({ harvestId }: { harvestId: string }) {
   const { api, user } = useSession();

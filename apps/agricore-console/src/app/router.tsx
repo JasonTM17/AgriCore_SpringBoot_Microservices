@@ -12,6 +12,8 @@ import { CropsPage } from "../features/crop/crops-page";
 import { CropCyclesPage } from "../features/crop-cycle/crop-cycles-page";
 import { CropCycleDetailRoute } from "./crop-cycle-detail-route";
 import { HarvestReceiptRoute } from "./harvest-receipt-route";
+import { HarvestPage } from "../features/harvest/harvest-page";
+import { HARVEST_VIEW_ROLES } from "../features/harvest/harvest-roles";
 import {
   ForbiddenPage,
   NotFoundPage,
@@ -100,11 +102,8 @@ const harvestsRoute = createRoute({
   getParentRoute: () => authedLayoutRoute,
   path: "/harvests",
   component: () => (
-    <RoleGate roles={["SYSTEM_ADMIN", "FARM_MANAGER", "AGRONOMIST", "FIELD_WORKER", "WAREHOUSE_MANAGER", "AUDITOR"]}>
-      <PlaceholderModulePage
-        title="Thu hoạch"
-        description="Hoàn tất thu hoạch và theo dõi projection bất đồng bộ."
-      />
+    <RoleGate roles={HARVEST_VIEW_ROLES}>
+      <HarvestPage />
     </RoleGate>
   ),
 });
