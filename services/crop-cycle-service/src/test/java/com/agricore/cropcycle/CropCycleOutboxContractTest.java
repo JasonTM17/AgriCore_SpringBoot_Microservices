@@ -3,6 +3,7 @@ package com.agricore.cropcycle;
 import com.agricore.common.event.EventTypes;
 import com.agricore.cropcycle.infrastructure.persistence.OutboxJpaRepository;
 import com.agricore.cropcycle.infrastructure.persistence.entity.OutboxEventEntity;
+import com.agricore.farmaccess.FarmAccessClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -11,6 +12,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -38,6 +40,8 @@ class CropCycleOutboxContractTest {
     private ObjectMapper objectMapper;
     @Autowired
     private OutboxJpaRepository outboxRepository;
+    @MockitoBean
+    private FarmAccessClient farmAccessClient;
 
     @Test
     void create_writesCropCycleCreatedEnvelope() throws Exception {

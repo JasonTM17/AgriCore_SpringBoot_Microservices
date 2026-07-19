@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgriCore Crop Cycle Service API
-  version: 1.1.0
+  version: 1.2.0
   description: Verified crop-cycle planning and stage workflow contract.
 servers:
   - url: http://localhost:8084
@@ -16,6 +16,7 @@ paths:
       tags: [Crop Cycles]
       operationId: listCropCycles
       summary: List crop cycles
+      description: Non-system administrators must provide an accessible farmId or plotId scope.
       parameters:
         - in: query
           name: farmId
@@ -38,11 +39,17 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
     post:
       tags: [Crop Cycles]
       operationId: createCropCycle
       summary: Create a crop cycle
-      description: Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST.
+      description: Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST with access to the farm and plot.
       requestBody:
         required: true
         content:
@@ -62,12 +69,16 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
         '415':
           $ref: '#/components/responses/UnsupportedMediaType'
         '500':
           $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/crop-cycles/{cycleId}:
     parameters:
       - $ref: '#/components/parameters/CycleId'
@@ -75,6 +86,7 @@ paths:
       tags: [Crop Cycles]
       operationId: getCropCycle
       summary: Get a crop cycle
+      description: Requires access to the cycle's authoritative farm and plot.
       responses:
         '200':
           description: Crop cycle found.
@@ -86,8 +98,12 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/crop-cycles/{cycleId}/stage:
     parameters:
       - $ref: '#/components/parameters/CycleId'
@@ -95,7 +111,7 @@ paths:
       tags: [Crop Cycles]
       operationId: changeCropCycleStage
       summary: Change a crop-cycle stage
-      description: Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST and a legal transition.
+      description: Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST with farm access and a legal transition.
       requestBody:
         required: true
         content:
@@ -123,6 +139,8 @@ paths:
           $ref: '#/components/responses/UnsupportedMediaType'
         '500':
           $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -147,7 +165,7 @@ components:
       schema: { type: integer, format: int32, minimum: 1, maximum: 100, default: 20 }
   responses:
     BadRequest:
-      description: Invalid path, query, JSON, dates, stage, or validation input.
+      description: Invalid path, query, JSON, dates, stage, validation input, or missing required farm scope.
       content:
         application/json:
           schema:
@@ -155,9 +173,13 @@ components:
     Unauthorized:
       description: Authentication is required or the bearer token is invalid.
     Forbidden:
-      description: The authenticated user lacks the required role.
+      description: The authenticated user lacks the required role or farm membership.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
     NotFound:
-      description: Crop cycle not found.
+      description: Crop cycle, farm, or plot not found or not visible to the caller.
       content:
         application/json:
           schema:
@@ -176,6 +198,12 @@ components:
             $ref: '#/components/schemas/ApiError'
     InternalServerError:
       description: Failed to persist the transactional outbox event.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    ServiceUnavailable:
+      description: Authoritative farm access verification is temporarily unavailable.
       content:
         application/json:
           schema:

@@ -1,5 +1,6 @@
 package com.agricore.cropcycle;
 
+import com.agricore.farmaccess.FarmAccessClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -7,6 +8,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -27,6 +29,8 @@ class CropCycleIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+    @MockitoBean
+    private FarmAccessClient farmAccessClient;
 
     @Test
     void legalProgression_toCompleted() throws Exception {

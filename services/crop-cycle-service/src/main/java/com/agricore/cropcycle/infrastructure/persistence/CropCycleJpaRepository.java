@@ -17,6 +17,7 @@ public interface CropCycleJpaRepository extends JpaRepository<CropCycleEntity, U
     boolean existsByCodeIgnoreCase(String code);
     Page<CropCycleEntity> findByFarmId(UUID farmId, Pageable pageable);
     Page<CropCycleEntity> findByPlotId(UUID plotId, Pageable pageable);
+    Page<CropCycleEntity> findByFarmIdAndPlotId(UUID farmId, UUID plotId, Pageable pageable);
 
     /**
      * Overlap when existing.plannedStart <= newEnd AND existing.plannedEnd >= newStart

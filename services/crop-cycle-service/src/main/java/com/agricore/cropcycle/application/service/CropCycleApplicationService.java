@@ -32,17 +32,21 @@ public class CropCycleApplicationService {
 
     private final CropCycleJpaRepository cycleRepository;
     private final CropCycleOutboxWriter outboxWriter;
+    private final CropCycleAccessGuard accessGuard;
 
     public CropCycleApplicationService(
             CropCycleJpaRepository cycleRepository,
-            CropCycleOutboxWriter outboxWriter
+            CropCycleOutboxWriter outboxWriter,
+            CropCycleAccessGuard accessGuard
     ) {
         this.cycleRepository = cycleRepository;
         this.outboxWriter = outboxWriter;
+        this.accessGuard = accessGuard;
     }
 
     @Transactional
     public CropCycleResponse create(CreateCropCycleRequest request) {
+        accessGuard.requireFarmPlot(request.farmId(), request.plotId());
         String code = request.code().trim().toUpperCase();
         if (cycleRepository.existsByCodeIgnoreCase(code)) {
             throw new CropCycleException("CYCLE_CODE_EXISTS", "Crop cycle code already exists", 409);
@@ -96,8 +100,11 @@ public class CropCycleApplicationService {
 
     @Transactional(readOnly = true)
     public PageResponse<CropCycleResponse> list(UUID farmId, UUID plotId, Pageable pageable) {
+        accessGuard.requireListScope(farmId, plotId);
         Page<CropCycleEntity> page;
-        if (plotId != null) {
+        if (farmId != null && plotId != null) {
+            page = cycleRepository.findByFarmIdAndPlotId(farmId, plotId, pageable);
+        } else if (plotId != null) {
             page = cycleRepository.findByPlotId(plotId, pageable);
         } else if (farmId != null) {
             page = cycleRepository.findByFarmId(farmId, pageable);
@@ -166,8 +173,10 @@ public class CropCycleApplicationService {
     }
 
     private CropCycleEntity require(UUID id) {
-        return cycleRepository.findById(id)
+        CropCycleEntity cycle = cycleRepository.findById(id)
                 .orElseThrow(() -> new CropCycleException("CYCLE_NOT_FOUND", "Crop cycle not found", 404));
+        accessGuard.requireFarmPlot(cycle.getFarmId(), cycle.getPlotId());
+        return cycle;
     }
 
     private CropCycleResponse toResponse(CropCycleEntity c) {

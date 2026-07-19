@@ -496,12 +496,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List crop cycles */
+        /**
+         * List crop cycles
+         * @description Non-system administrators must provide an accessible farmId or plotId scope.
+         */
         get: operations["listCropCycles"];
         put?: never;
         /**
          * Create a crop cycle
-         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST.
+         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST with access to the farm and plot.
          */
         post: operations["createCropCycle"];
         delete?: never;
@@ -519,7 +522,10 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** Get a crop cycle */
+        /**
+         * Get a crop cycle
+         * @description Requires access to the cycle's authoritative farm and plot.
+         */
         get: operations["getCropCycle"];
         put?: never;
         post?: never;
@@ -542,7 +548,7 @@ export interface paths {
         put?: never;
         /**
          * Change a crop-cycle stage
-         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST and a legal transition.
+         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST with farm access and a legal transition.
          */
         post: operations["changeCropCycleStage"];
         delete?: never;
@@ -1425,7 +1431,7 @@ export interface components {
             };
             content?: never;
         };
-        /** @description Invalid path, query, JSON, dates, stage, or validation input. */
+        /** @description Invalid path, query, JSON, dates, stage, validation input, or missing required farm scope. */
         "responses-BadRequest": {
             headers: {
                 [name: string]: unknown;
@@ -1434,12 +1440,23 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description The authenticated user lacks the required role. */
-        "responses-Forbidden": {
+        /** @description Crop cycle, farm, or plot not found or not visible to the caller. */
+        "components-responses-NotFound": {
             headers: {
                 [name: string]: unknown;
             };
-            content?: never;
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Authoritative farm access verification is temporarily unavailable. */
+        ServiceUnavailable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
         };
         /** @description Duplicate code, overlapping dates, terminal cycle, or illegal stage transition. */
         "responses-Conflict": {
@@ -1459,15 +1476,6 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description Crop cycle not found. */
-        "components-responses-NotFound": {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ApiError"];
-            };
-        };
         /** @description Invalid path, query, JSON, task type, or validation input. */
         "components-responses-BadRequest": {
             headers: {
@@ -1476,6 +1484,13 @@ export interface components {
             content: {
                 "application/json": components["schemas"]["ApiError"];
             };
+        };
+        /** @description The authenticated user lacks the required role. */
+        "responses-Forbidden": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content?: never;
         };
         /** @description Duplicate code or a forbidden terminal-state mutation. */
         "components-responses-Conflict": {
@@ -2008,6 +2023,9 @@ export interface operations {
             };
             400: components["responses"]["responses-BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["components-responses-NotFound"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     createCropCycle: {
@@ -2034,10 +2052,12 @@ export interface operations {
             };
             400: components["responses"]["responses-BadRequest"];
             401: components["responses"]["Unauthorized"];
-            403: components["responses"]["responses-Forbidden"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["components-responses-NotFound"];
             409: components["responses"]["responses-Conflict"];
             415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["responses-InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getCropCycle: {
@@ -2062,7 +2082,9 @@ export interface operations {
             };
             400: components["responses"]["responses-BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["components-responses-NotFound"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     changeCropCycleStage: {
@@ -2091,11 +2113,12 @@ export interface operations {
             };
             400: components["responses"]["responses-BadRequest"];
             401: components["responses"]["Unauthorized"];
-            403: components["responses"]["responses-Forbidden"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["components-responses-NotFound"];
             409: components["responses"]["responses-Conflict"];
             415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["responses-InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listWorkTasks: {
