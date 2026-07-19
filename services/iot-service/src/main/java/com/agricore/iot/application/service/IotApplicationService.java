@@ -23,6 +23,7 @@ public class IotApplicationService {
     private final SensorReadingJpaRepository readingRepository;
     private final ThresholdRuleJpaRepository ruleRepository;
     private final SensorAlertJpaRepository alertRepository;
+    private final IotAccessGuard accessGuard;
     private final long cooldownMinutes;
 
     public IotApplicationService(
@@ -30,17 +31,20 @@ public class IotApplicationService {
             SensorReadingJpaRepository readingRepository,
             ThresholdRuleJpaRepository ruleRepository,
             SensorAlertJpaRepository alertRepository,
+            IotAccessGuard accessGuard,
             @Value("${agricore.alert.cooldown-minutes:15}") long cooldownMinutes
     ) {
         this.deviceRepository = deviceRepository;
         this.readingRepository = readingRepository;
         this.ruleRepository = ruleRepository;
         this.alertRepository = alertRepository;
+        this.accessGuard = accessGuard;
         this.cooldownMinutes = cooldownMinutes;
     }
 
     @Transactional
     public DeviceResponse registerDevice(RegisterDeviceRequest request) {
+        accessGuard.requirePlot(request.plotId());
         String code = request.deviceCode().trim().toUpperCase();
         if (deviceRepository.existsByDeviceCodeIgnoreCase(code)) {
             throw new IotException("DEVICE_EXISTS", "Device code already registered", 409);
@@ -61,6 +65,7 @@ public class IotApplicationService {
     public IngestResultResponse ingest(IngestReadingRequest request) {
         DeviceEntity device = deviceRepository.findByDeviceCodeIgnoreCase(request.deviceCode().trim())
                 .orElseThrow(() -> new IotException("DEVICE_NOT_FOUND", "Unknown device", 404));
+        accessGuard.requirePlot(device.getPlotId());
 
         Instant now = Instant.now();
         Instant recordedAt = request.recordedAt() == null ? now : request.recordedAt();

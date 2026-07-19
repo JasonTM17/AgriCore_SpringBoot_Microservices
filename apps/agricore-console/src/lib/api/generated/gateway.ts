@@ -769,38 +769,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/iot/{proxy+}": {
+    "/api/v1/iot/devices": {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                "proxy+": string;
-            };
+            path?: never;
             cookie?: never;
         };
-        /** IoT devices and readings */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    "proxy+": string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get?: never;
         put?: never;
-        post?: never;
+        /**
+         * Register an IoT device for a plot
+         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST plus access to the request plot.
+         */
+        post: operations["registerIotDevice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/iot/readings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Store a sensor reading and evaluate threshold alerts
+         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or FIELD_WORKER plus access to the registered device plot.
+         */
+        post: operations["ingestIotReading"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1367,6 +1369,40 @@ export interface components {
             qrUrl: string;
             batchLabel: string;
         };
+        RegisterDeviceRequest: {
+            deviceCode: string;
+            /** Format: uuid */
+            plotId: string;
+            name: string;
+        };
+        DeviceResponse: {
+            /** Format: uuid */
+            id: string;
+            deviceCode: string;
+            /** Format: uuid */
+            plotId: string;
+            name: string;
+            status: string;
+            /** Format: date-time */
+            lastSeenAt: string | null;
+        };
+        IngestReadingRequest: {
+            deviceCode: string;
+            metricType: string;
+            metricValue: number;
+            unit: string;
+            /** Format: date-time */
+            recordedAt?: string | null;
+        };
+        IngestResultResponse: {
+            /** Format: uuid */
+            readingId: string;
+            alertRaised: boolean;
+            /** Format: uuid */
+            alertId: string | null;
+            alertStatus: string | null;
+            message: string;
+        };
     };
     responses: {
         /** @description Invalid path, query, or JSON request. */
@@ -1556,6 +1592,33 @@ export interface components {
         };
         /** @description Farm authorization is temporarily unavailable. */
         "responses-ServiceUnavailable": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Malformed JSON or request validation failed. */
+        "iot-service.v1_components-responses-BadRequest": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Device, plot, or owning farm not found or not visible to the caller. */
+        "iot-service.v1_components-responses-NotFound": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Device code already exists. */
+        "iot-service.v1_components-responses-Conflict": {
             headers: {
                 [name: string]: unknown;
             };
@@ -2452,6 +2515,67 @@ export interface operations {
                 };
                 content?: never;
             };
+        };
+    };
+    registerIotDevice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterDeviceRequest"];
+            };
+        };
+        responses: {
+            /** @description Device registered. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceResponse"];
+                };
+            };
+            400: components["responses"]["iot-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["components-responses-Forbidden"];
+            404: components["responses"]["iot-service.v1_components-responses-NotFound"];
+            409: components["responses"]["iot-service.v1_components-responses-Conflict"];
+            415: components["responses"]["UnsupportedMediaType"];
+            503: components["responses"]["responses-ServiceUnavailable"];
+        };
+    };
+    ingestIotReading: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IngestReadingRequest"];
+            };
+        };
+        responses: {
+            /** @description Reading accepted and any matching threshold rule evaluated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IngestResultResponse"];
+                };
+            };
+            400: components["responses"]["iot-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["components-responses-Forbidden"];
+            404: components["responses"]["iot-service.v1_components-responses-NotFound"];
+            415: components["responses"]["UnsupportedMediaType"];
+            503: components["responses"]["responses-ServiceUnavailable"];
         };
     };
 }
