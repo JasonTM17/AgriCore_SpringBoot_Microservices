@@ -1,6 +1,7 @@
 import type { ApiClient } from "../../lib/api/client";
 import type {
   FarmPageResponse,
+  FarmResponse,
   FarmSort,
   FarmStatus,
   PlotPageResponse,
@@ -61,4 +62,15 @@ export function listFarmPlots(
     `/api/v1/farms/${encodeURIComponent(farmId)}/plots?${search}`,
     { method: "GET", ...(signal ? { signal } : {}) },
   );
+}
+
+export function getFarm(
+  api: ApiClient,
+  farmId: string,
+  signal?: AbortSignal,
+): Promise<FarmResponse> {
+  return api.request<FarmResponse>(`/api/v1/farms/${encodeURIComponent(farmId)}`, {
+    method: "GET",
+    ...(signal ? { signal } : {}),
+  });
 }
