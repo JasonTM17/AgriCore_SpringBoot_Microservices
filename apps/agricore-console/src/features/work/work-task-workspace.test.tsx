@@ -39,7 +39,7 @@ describe("work-task workspace", () => {
 
     expect(await screen.findByRole("heading", { name: "Công việc mùa vụ" })).toBeInTheDocument();
     expect(await screen.findByText(taskA.title)).toBeInTheDocument();
-    expect(screen.getByText("Tưới nước")).toBeInTheDocument();
+    expect(screen.getByText("Tưới nước", { selector: "dd" })).toBeInTheDocument();
     expect(screen.getByText("Đã phân công")).toBeInTheDocument();
 
     await waitFor(() => {

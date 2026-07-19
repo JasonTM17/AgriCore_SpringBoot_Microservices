@@ -29,6 +29,9 @@ const priorityLabels: Readonly<Record<string, string>> = {
   URGENT: "Khẩn cấp",
 };
 
+export const workTaskTypes = Object.keys(taskTypeLabels) as TaskType[];
+export const workTaskPriorities = Object.keys(priorityLabels);
+
 const taskInstantFormatter = new Intl.DateTimeFormat("vi-VN", {
   dateStyle: "short",
   timeStyle: "short",

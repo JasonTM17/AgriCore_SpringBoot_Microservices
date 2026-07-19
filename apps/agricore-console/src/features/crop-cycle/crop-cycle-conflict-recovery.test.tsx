@@ -56,27 +56,31 @@ describe("Crop cycle conflict recovery", () => {
 
     render(<App />);
     await screen.findByRole("heading", { name: "Chi tiết mùa vụ" });
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "HARVESTING" } });
-    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Giữ ghi chú này" } });
+    fireEvent.change(screen.getByLabelText("Giai đoạn tiếp theo"), {
+      target: { value: "HARVESTING" },
+    });
+    fireEvent.change(screen.getByLabelText("Ghi chú chuyển giai đoạn"), {
+      target: { value: "Giữ ghi chú này" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Cập nhật giai đoạn" }));
     await screen.findByText(/Mùa vụ vừa thay đổi/);
 
     fireEvent.click(screen.getByRole("button", { name: "Tải lại trạng thái" }));
     await waitFor(() => expect(detailReads).toBe(2));
     expect(screen.getByRole("button", { name: "Cập nhật giai đoạn" })).toBeDisabled();
-    fireEvent.submit(screen.getByRole("textbox").closest("form")!);
+    fireEvent.submit(screen.getByLabelText("Ghi chú chuyển giai đoạn").closest("form")!);
     expect(stageWrites).toBe(1);
 
     resolveReload(await jsonResponse(externallyUpdated));
     await screen.findByText("Phiên bản 1");
     await waitFor(() => expect(screen.getByRole("button", { name: "Cập nhật giai đoạn" })).toBeEnabled());
-    expect(screen.getByRole("combobox")).toHaveValue("HARVESTING");
-    expect(screen.getByRole("textbox")).toHaveValue("Giữ ghi chú này");
+    expect(screen.getByLabelText("Giai đoạn tiếp theo")).toHaveValue("HARVESTING");
+    expect(screen.getByLabelText("Ghi chú chuyển giai đoạn")).toHaveValue("Giữ ghi chú này");
 
     fireEvent.click(screen.getByRole("button", { name: "Cập nhật giai đoạn" }));
     await screen.findByText("Phiên bản 2");
     expect(stageWrites).toBe(2);
-    expect(screen.getByRole("textbox")).toHaveValue("");
+    expect(screen.getByLabelText("Ghi chú chuyển giai đoạn")).toHaveValue("");
   });
 
   it("keeps cached detail and draft locked when conflict reload fails", async () => {
@@ -100,8 +104,12 @@ describe("Crop cycle conflict recovery", () => {
 
     render(<App />);
     await screen.findByRole("heading", { name: "Chi tiết mùa vụ" });
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "HARVESTING" } });
-    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Không làm mất" } });
+    fireEvent.change(screen.getByLabelText("Giai đoạn tiếp theo"), {
+      target: { value: "HARVESTING" },
+    });
+    fireEvent.change(screen.getByLabelText("Ghi chú chuyển giai đoạn"), {
+      target: { value: "Không làm mất" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Cập nhật giai đoạn" }));
     await screen.findByText(/Mùa vụ vừa thay đổi/);
     fireEvent.click(screen.getByRole("button", { name: "Tải lại trạng thái" }));
@@ -109,7 +117,7 @@ describe("Crop cycle conflict recovery", () => {
     await waitFor(() => expect(detailReads).toBe(3), { timeout: 3_000 });
     expect(await screen.findByText(/Không thể làm mới mùa vụ/)).toBeInTheDocument();
     expect(screen.getByText("Phiên bản 0")).toBeInTheDocument();
-    expect(screen.getByRole("textbox")).toHaveValue("Không làm mất");
+    expect(screen.getByLabelText("Ghi chú chuyển giai đoạn")).toHaveValue("Không làm mất");
     expect(screen.getByRole("button", { name: "Cập nhật giai đoạn" })).toBeDisabled();
     expect(stageWrites).toBe(1);
   });
