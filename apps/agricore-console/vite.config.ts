@@ -31,6 +31,7 @@ export default defineConfig(({ command }) => ({
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     css: true,
+    maxWorkers: 6,
     coverage: {
       reporter: ["text", "lcov"],
     },

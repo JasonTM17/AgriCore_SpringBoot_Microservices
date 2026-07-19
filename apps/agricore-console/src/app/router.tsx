@@ -5,16 +5,6 @@ import {
   createRouter,
 } from "@tanstack/react-router";
 
-import { LoginPage } from "../features/auth/login-page";
-import { DashboardPage } from "../features/dashboard/dashboard-page";
-import { FarmsPage } from "../features/farm/farms-page";
-import { CropsPage } from "../features/crop/crops-page";
-import { CropCyclesPage } from "../features/crop-cycle/crop-cycles-page";
-import { CropCycleDetailRoute } from "./crop-cycle-detail-route";
-import { HarvestReceiptRoute } from "./harvest-receipt-route";
-import { PublicTraceabilityRoute } from "./public-traceability-route";
-import { HarvestPage } from "../features/harvest/harvest-page";
-import { HARVEST_VIEW_ROLES } from "../features/harvest/harvest-roles";
 import {
   ForbiddenPage,
   NotFoundPage,
@@ -23,6 +13,8 @@ import {
 import type { NavItem } from "../lib/auth/roles";
 import { sanitizeInternalRedirect } from "../lib/auth/redirects";
 import { AuthenticatedLayout, RoleGate } from "./auth-gates";
+import { lazyRouteComponents } from "./lazy-route-components";
+import { RouteErrorState, RouteLoadingState } from "./route-states";
 import { SessionRouteBoundary } from "./session-route-boundary";
 
 const rootRoute = createRootRoute({
@@ -42,7 +34,7 @@ const loginRoute = createRoute({
   validateSearch: (search: Record<string, unknown>) => ({
     redirect: sanitizeInternalRedirect(search.redirect),
   }),
-  component: LoginPage,
+  component: lazyRouteComponents.login,
 });
 
 const authedLayoutRoute = createRoute({
@@ -54,7 +46,7 @@ const authedLayoutRoute = createRoute({
 const dashboardRoute = createRoute({
   getParentRoute: () => authedLayoutRoute,
   path: "/",
-  component: DashboardPage,
+  component: lazyRouteComponents.dashboard,
 });
 
 function moduleRoute(
@@ -77,48 +69,32 @@ function moduleRoute(
 const farmsRoute = createRoute({
   getParentRoute: () => authedLayoutRoute,
   path: "/farms",
-  component: () => (
-    <RoleGate roles={["SYSTEM_ADMIN", "FARM_MANAGER", "AGRONOMIST", "FIELD_WORKER", "AUDITOR"]}>
-      <FarmsPage />
-    </RoleGate>
-  ),
+  component: lazyRouteComponents.farms,
 });
 const cropsRoute = createRoute({
   getParentRoute: () => authedLayoutRoute,
   path: "/crops",
-  component: () => (
-    <RoleGate roles={["SYSTEM_ADMIN", "FARM_MANAGER", "AGRONOMIST", "FIELD_WORKER", "AUDITOR"]}>
-      <CropsPage />
-    </RoleGate>
-  ),
+  component: lazyRouteComponents.crops,
 });
 const cyclesRoute = createRoute({
   getParentRoute: () => authedLayoutRoute,
   path: "/crop-cycles",
-  component: () => (
-    <RoleGate roles={["SYSTEM_ADMIN", "FARM_MANAGER", "AGRONOMIST", "FIELD_WORKER", "AUDITOR"]}>
-      <CropCyclesPage />
-    </RoleGate>
-  ),
+  component: lazyRouteComponents.cropCycles,
 });
 const cycleDetailRoute = createRoute({
   getParentRoute: () => authedLayoutRoute,
   path: "/crop-cycles/$cycleId",
-  component: CropCycleDetailRoute,
+  component: lazyRouteComponents.cropCycleDetail,
 });
 const harvestsRoute = createRoute({
   getParentRoute: () => authedLayoutRoute,
   path: "/harvests",
-  component: () => (
-    <RoleGate roles={HARVEST_VIEW_ROLES}>
-      <HarvestPage />
-    </RoleGate>
-  ),
+  component: lazyRouteComponents.harvests,
 });
 const harvestReceiptRoute = createRoute({
   getParentRoute: () => authedLayoutRoute,
   path: "/harvests/$harvestId",
-  component: HarvestReceiptRoute,
+  component: lazyRouteComponents.harvestReceipt,
 });
 const inventoryRoute = moduleRoute(
   "/inventory",
@@ -154,7 +130,7 @@ const assistantRoute = moduleRoute(
 const publicTraceRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/public/traceability/$code",
-  component: PublicTraceabilityRoute,
+  component: lazyRouteComponents.publicTraceability,
 });
 
 const forbiddenRoute = createRoute({
@@ -188,6 +164,10 @@ const routeTree = rootRoute.addChildren([
 export const router = createRouter({
   routeTree,
   defaultPreload: "intent",
+  defaultPendingComponent: RouteLoadingState,
+  defaultPendingMs: 150,
+  defaultPendingMinMs: 250,
+  defaultErrorComponent: RouteErrorState,
 });
 
 declare module "@tanstack/react-router" {
