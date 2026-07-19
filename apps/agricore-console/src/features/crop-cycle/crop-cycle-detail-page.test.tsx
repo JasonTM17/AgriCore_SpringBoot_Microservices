@@ -49,7 +49,7 @@ describe("Crop cycle detail page", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: "Chi tiết mùa vụ" })).toBeInTheDocument();
-    expect(screen.getByText(cycleA.code)).toBeInTheDocument();
+    expect(screen.getByText(cycleA.code, { selector: "p" })).toBeInTheDocument();
     expect(screen.getByText("Phiên bản 0")).toBeInTheDocument();
     expect(screen.getByLabelText("Giai đoạn tiếp theo")).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Đang thu hoạch" })).toBeInTheDocument();

@@ -105,6 +105,7 @@ export function authenticatedFetch(farmsResult: unknown = page([farmA, farmB])) 
     if (url.pathname === "/api/v1/crop-cycles") {
       return jsonResponse(page([url.searchParams.get("farmId") === farmB.id ? cycleB : cycleA]));
     }
+    if (url.pathname === "/api/v1/work-tasks") return jsonResponse(page([]));
     return Promise.resolve(new Response("not found", { status: 404 }));
   });
 }

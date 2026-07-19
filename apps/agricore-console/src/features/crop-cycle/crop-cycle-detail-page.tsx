@@ -6,6 +6,7 @@ import { ApiClientError } from "../../lib/api/errors";
 import type { ChangeStageRequest, CropCycleResponse } from "../../lib/api/types";
 import { hasAnyRole } from "../../lib/auth/roles";
 import { useSession } from "../../lib/auth/session";
+import { WorkTaskWorkspace } from "../work/work-task-workspace";
 import { changeCropCycleStage, getCropCycle } from "./crop-cycle-api";
 import { cropCycleQueryKeys } from "./crop-cycle-query-keys";
 import { allowedNextStages } from "./crop-cycle-stage-policy";
@@ -112,18 +113,21 @@ export function CropCycleDetailPage({ cycleId }: { cycleId: string }) {
   const canMutate = hasAnyRole(user?.roles ?? [], STAGE_MUTATION_ROLES) && !accessRevoked;
   const mutationNeedsReload = requiresAuthoritativeReload(stageMutation.error);
   return (
-    <CropCycleDetailPanel
-      cycle={cycle}
-      canMutate={canMutate}
-      allowedStages={allowedNextStages(cycle.stage)}
-      isMutating={stageMutation.isPending}
-      isReloading={isFetching}
-      isInteractionLocked={isFetching || error !== null || mutationNeedsReload}
-      actionError={stageMutation.error}
-      refreshError={error}
-      formResetKey={formResetKey}
-      onChangeStage={(stage, notes) => stageMutation.mutate({ stage, notes })}
-      onReload={() => void reloadDetail()}
-    />
+    <div className="space-y-6">
+      <CropCycleDetailPanel
+        cycle={cycle}
+        canMutate={canMutate}
+        allowedStages={allowedNextStages(cycle.stage)}
+        isMutating={stageMutation.isPending}
+        isReloading={isFetching}
+        isInteractionLocked={isFetching || error !== null || mutationNeedsReload}
+        actionError={stageMutation.error}
+        refreshError={error}
+        formResetKey={formResetKey}
+        onChangeStage={(stage, notes) => stageMutation.mutate({ stage, notes })}
+        onReload={() => void reloadDetail()}
+      />
+      <WorkTaskWorkspace key={`${cycle.id}:${cycle.plotId}`} cycle={cycle} />
+    </div>
   );
 }
