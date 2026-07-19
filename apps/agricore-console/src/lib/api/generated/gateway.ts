@@ -696,7 +696,7 @@ export interface paths {
         put?: never;
         /**
          * Record a completed harvest and enqueue HarvestCompleted.v1
-         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or WAREHOUSE_MANAGER.
+         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or WAREHOUSE_MANAGER plus access to the request plot.
          */
         post: operations["completeHarvest"];
         delete?: never;
@@ -716,7 +716,7 @@ export interface paths {
         };
         /**
          * Get a harvest batch
-         * @description The current implementation does not reload the outbox event identifier.
+         * @description Requires access to the harvest plot. The current implementation does not reload the outbox event identifier.
          */
         get: operations["getHarvest"];
         put?: never;
@@ -1527,12 +1527,23 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description The authenticated user lacks the required role. */
+        /** @description The authenticated user lacks the required role or plot access. */
         "components-responses-Forbidden": {
             headers: {
                 [name: string]: unknown;
             };
-            content?: never;
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Harvest batch, plot, or owning farm not found or not visible to the caller. */
+        "harvest-service.v1_components-responses-NotFound": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
         };
         /** @description Harvest batch code already exists. */
         "harvest-service.v1_components-responses-Conflict": {
@@ -1543,8 +1554,8 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description Harvest batch not found. */
-        "harvest-service.v1_components-responses-NotFound": {
+        /** @description Farm authorization is temporarily unavailable. */
+        "responses-ServiceUnavailable": {
             headers: {
                 [name: string]: unknown;
             };
@@ -2321,9 +2332,11 @@ export interface operations {
             400: components["responses"]["harvest-service.v1_components-responses-BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["components-responses-Forbidden"];
+            404: components["responses"]["harvest-service.v1_components-responses-NotFound"];
             409: components["responses"]["harvest-service.v1_components-responses-Conflict"];
             415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["responses-InternalServerError"];
+            503: components["responses"]["responses-ServiceUnavailable"];
         };
     };
     getHarvest: {
@@ -2348,7 +2361,9 @@ export interface operations {
             };
             400: components["responses"]["harvest-service.v1_components-responses-BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["components-responses-Forbidden"];
             404: components["responses"]["harvest-service.v1_components-responses-NotFound"];
+            503: components["responses"]["responses-ServiceUnavailable"];
         };
     };
     createTraceabilityBatch: {

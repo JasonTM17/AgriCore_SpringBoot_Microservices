@@ -1,5 +1,6 @@
 package com.agricore.harvest;
 
+import com.agricore.farmaccess.FarmAccessClient;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -9,6 +10,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -28,6 +30,8 @@ class HarvestErrorBoundaryIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
+    @MockitoBean
+    private FarmAccessClient farmAccessClient;
 
     @Test
     void malformedJson_returnsStableBadRequest() throws Exception {

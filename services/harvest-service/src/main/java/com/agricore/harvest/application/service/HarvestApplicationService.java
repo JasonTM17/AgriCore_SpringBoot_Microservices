@@ -23,15 +23,18 @@ public class HarvestApplicationService {
     private final HarvestBatchJpaRepository harvestRepository;
     private final OutboxJpaRepository outboxRepository;
     private final ObjectMapper objectMapper;
+    private final HarvestAccessGuard accessGuard;
 
     public HarvestApplicationService(
             HarvestBatchJpaRepository harvestRepository,
             OutboxJpaRepository outboxRepository,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            HarvestAccessGuard accessGuard
     ) {
         this.harvestRepository = harvestRepository;
         this.outboxRepository = outboxRepository;
         this.objectMapper = objectMapper;
+        this.accessGuard = accessGuard;
     }
 
     /**
@@ -40,6 +43,7 @@ public class HarvestApplicationService {
      */
     @Transactional
     public HarvestBatchResponse completeHarvest(CompleteHarvestRequest request) {
+        accessGuard.requirePlot(request.plotId());
         String code = request.code().trim().toUpperCase();
         if (harvestRepository.existsByCodeIgnoreCase(code)) {
             throw new HarvestException("HARVEST_CODE_EXISTS", "Harvest batch code already exists", 409);
@@ -119,6 +123,7 @@ public class HarvestApplicationService {
     public HarvestBatchResponse get(UUID id) {
         HarvestBatchEntity batch = harvestRepository.findById(id)
                 .orElseThrow(() -> new HarvestException("HARVEST_NOT_FOUND", "Harvest batch not found", 404));
+        accessGuard.requirePlot(batch.getPlotId());
         return toResponse(batch, null);
     }
 

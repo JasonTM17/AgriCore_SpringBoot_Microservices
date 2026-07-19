@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: AgriCore Harvest Service API
-  version: 1.1.0
-  description: Verified harvest completion and detail contract backed by a transactional outbox.
+  version: 1.2.0
+  description: Farm-scoped harvest completion and detail contract backed by a transactional outbox.
 servers:
   - url: http://localhost:8087
     description: Direct local service endpoint
@@ -16,7 +16,7 @@ paths:
       tags: [Harvests]
       operationId: completeHarvest
       summary: Record a completed harvest and enqueue HarvestCompleted.v1
-      description: Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or WAREHOUSE_MANAGER.
+      description: Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or WAREHOUSE_MANAGER plus access to the request plot.
       requestBody:
         required: true
         content:
@@ -36,12 +36,16 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
         '415':
           $ref: '#/components/responses/UnsupportedMediaType'
         '500':
           $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/harvests/{harvestId}:
     parameters:
       - $ref: '#/components/parameters/HarvestId'
@@ -49,7 +53,7 @@ paths:
       tags: [Harvests]
       operationId: getHarvest
       summary: Get a harvest batch
-      description: The current implementation does not reload the outbox event identifier.
+      description: Requires access to the harvest plot. The current implementation does not reload the outbox event identifier.
       responses:
         '200':
           description: Harvest batch found.
@@ -61,8 +65,12 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -85,9 +93,13 @@ components:
     Unauthorized:
       description: Authentication is required or the bearer token is invalid.
     Forbidden:
-      description: The authenticated user lacks the required role.
+      description: The authenticated user lacks the required role or plot access.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
     NotFound:
-      description: Harvest batch not found.
+      description: Harvest batch, plot, or owning farm not found or not visible to the caller.
       content:
         application/json:
           schema:
@@ -106,6 +118,12 @@ components:
             $ref: '#/components/schemas/ApiError'
     InternalServerError:
       description: Failed to persist the transactional outbox event.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    ServiceUnavailable:
+      description: Farm authorization is temporarily unavailable.
       content:
         application/json:
           schema:
