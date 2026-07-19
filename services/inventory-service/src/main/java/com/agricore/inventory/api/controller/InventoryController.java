@@ -1,9 +1,11 @@
 package com.agricore.inventory.api.controller;
 
 import com.agricore.inventory.api.request.*;
+import com.agricore.inventory.api.response.InventoryHarvestProjectionAcknowledgementResponse;
 import com.agricore.inventory.api.response.InventoryItemResponse;
 import com.agricore.inventory.api.response.ReservationResponse;
 import com.agricore.inventory.api.response.WarehouseResponse;
+import com.agricore.inventory.application.service.HarvestProjectionAcknowledgementQueryService;
 import com.agricore.inventory.application.service.InventoryApplicationService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -18,9 +20,14 @@ import java.util.UUID;
 public class InventoryController {
 
     private final InventoryApplicationService service;
+    private final HarvestProjectionAcknowledgementQueryService acknowledgementQueryService;
 
-    public InventoryController(InventoryApplicationService service) {
+    public InventoryController(
+            InventoryApplicationService service,
+            HarvestProjectionAcknowledgementQueryService acknowledgementQueryService
+    ) {
         this.service = service;
+        this.acknowledgementQueryService = acknowledgementQueryService;
     }
 
     @PostMapping("/warehouses")
@@ -73,5 +80,13 @@ public class InventoryController {
     @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','WAREHOUSE_MANAGER')")
     public InventoryItemResponse harvestCompleted(@Valid @RequestBody HarvestCompletedCommand command) {
         return service.processHarvestCompleted(command);
+    }
+
+    @GetMapping("/events/harvest-completed/{eventId}/acknowledgement")
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST','WAREHOUSE_MANAGER')")
+    public InventoryHarvestProjectionAcknowledgementResponse getHarvestProjectionAcknowledgement(
+            @PathVariable UUID eventId
+    ) {
+        return acknowledgementQueryService.getAcknowledgement(eventId);
     }
 }

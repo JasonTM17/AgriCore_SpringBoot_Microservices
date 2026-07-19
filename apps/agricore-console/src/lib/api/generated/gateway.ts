@@ -685,6 +685,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/inventory/events/harvest-completed/{eventId}/acknowledgement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read inventory acknowledgement for a harvest event
+         * @description Marker absence means inventory has not acknowledged the event; it does not prove failure or DLT routing.
+         */
+        get: operations["getInventoryHarvestProjectionAcknowledgement"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/harvests/complete": {
         parameters: {
             query?: never;
@@ -1284,6 +1304,16 @@ export interface components {
         };
         CompleteTaskRequest: {
             notes?: string | null;
+        };
+        InventoryHarvestProjectionAcknowledgementResponse: {
+            /** Format: uuid */
+            eventId: string;
+            /** @enum {string} */
+            projection: "INVENTORY";
+            /** @enum {string} */
+            state: "ACKNOWLEDGED" | "NOT_ACKNOWLEDGED";
+            /** Format: date-time */
+            acknowledgedAt: string | null;
         };
         CompleteHarvestRequest: {
             code: string;
@@ -2369,6 +2399,49 @@ export interface operations {
             415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["responses-InternalServerError"];
             503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    getInventoryHarvestProjectionAcknowledgement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                eventId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current inventory consumer acknowledgement state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryHarvestProjectionAcknowledgementResponse"];
+                };
+            };
+            /** @description Invalid event identifier */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Harvest workflow role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     completeHarvest: {

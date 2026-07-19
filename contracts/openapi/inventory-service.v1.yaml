@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgriCore Inventory Service API
-  version: 1.0.0
+  version: 1.1.0
   description: Warehouses, stock movements, reservations; Kafka HarvestCompleted consumer is idempotent
 servers:
   - url: http://localhost:8086
@@ -89,6 +89,28 @@ paths:
       responses:
         '200':
           description: Stock applied (idempotent on eventId)
+  /api/v1/inventory/events/harvest-completed/{eventId}/acknowledgement:
+    get:
+      operationId: getInventoryHarvestProjectionAcknowledgement
+      summary: Read inventory acknowledgement for a harvest event
+      description: Marker absence means inventory has not acknowledged the event; it does not prove failure or DLT routing.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Current inventory consumer acknowledgement state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryHarvestProjectionAcknowledgementResponse'
+        '400': { description: Invalid event identifier }
+        '401': { description: Authentication required }
+        '403': { description: Harvest workflow role required }
   /api/v1/inventory/items/{itemId}:
     get:
       summary: Get inventory item
@@ -109,6 +131,15 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    InventoryHarvestProjectionAcknowledgementResponse:
+      type: object
+      additionalProperties: false
+      required: [eventId, projection, state, acknowledgedAt]
+      properties:
+        eventId: { type: string, format: uuid }
+        projection: { type: string, enum: [INVENTORY] }
+        state: { type: string, enum: [ACKNOWLEDGED, NOT_ACKNOWLEDGED] }
+        acknowledgedAt: { type: [string, 'null'], format: date-time }
     HarvestCompletedCommand:
       type: object
       required: [eventId, harvestBatchId, warehouseId, productCode, netWeightKg]
