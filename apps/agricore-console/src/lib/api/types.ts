@@ -3,6 +3,7 @@ import type { components as GatewayComponents } from "./generated/gateway";
 import type { components as IdentityComponents } from "./generated/identity";
 
 type GatewaySchemas = GatewayComponents["schemas"];
+type GatewayParameters = GatewayComponents["parameters"];
 type IdentitySchemas = IdentityComponents["schemas"];
 
 export type UserStatus = IdentitySchemas["UserResponse"]["status"];
@@ -16,6 +17,7 @@ export type UserPageResponse = IdentitySchemas["UserPageResponse"];
 export type UpdateUserRolesRequest = IdentitySchemas["UpdateUserRolesRequest"];
 
 export type FarmStatus = GatewaySchemas["FarmStatus"];
+export type FarmSort = GatewayParameters["FarmSort"];
 export type PlotStatus = GatewaySchemas["PlotStatus"];
 export type CreateFarmRequest = GatewaySchemas["CreateFarmRequest"];
 export type UpdateFarmRequest = GatewaySchemas["UpdateFarmRequest"];

@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useCallback,
   useEffect,
@@ -24,10 +25,19 @@ class AccessTokenStore {
 }
 
 export function SessionProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [tokenStore] = useState(() => new AccessTokenStore());
   const [accessToken, setAccessTokenState] = useState<string | null>(null);
   const [user, setUser] = useState<UserResponse | null>(null);
   const [status, setStatus] = useState<SessionStatus>("bootstrapping");
+
+  const clearSession = useCallback(() => {
+    tokenStore.set(null);
+    setAccessTokenState(null);
+    setUser(null);
+    setStatus("anonymous");
+    queryClient.clear();
+  }, [queryClient, tokenStore]);
 
   const [api] = useState(
     () =>
@@ -37,19 +47,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           tokenStore.set(token);
           setAccessTokenState(token);
         },
-        onSessionCleared: () => {
-          setUser(null);
-          setStatus("anonymous");
-        },
+        onSessionCleared: clearSession,
       }),
   );
-
-  const clearSession = useCallback(() => {
-    tokenStore.set(null);
-    setAccessTokenState(null);
-    setUser(null);
-    setStatus("anonymous");
-  }, [tokenStore]);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,10 +80,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (credentials: LoginRequest) => {
       const tokens = await api.webLogin(credentials);
+      queryClient.clear();
       setUser(tokens.user);
       setStatus("authenticated");
     },
-    [api],
+    [api, queryClient],
   );
 
   const logout = useCallback(async () => {
@@ -97,6 +98,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const refreshSession = useCallback(async () => {
     try {
       const tokens = await api.webRefresh();
+      if (!user || user.id !== tokens.user.id) {
+        queryClient.clear();
+      }
       setUser(tokens.user);
       setStatus("authenticated");
       return true;
@@ -104,7 +108,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       clearSession();
       return false;
     }
-  }, [api, clearSession]);
+  }, [api, clearSession, queryClient, user]);
 
   const value = useMemo<SessionContextValue>(
     () => ({

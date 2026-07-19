@@ -7,6 +7,7 @@ import {
 
 import { LoginPage } from "../features/auth/login-page";
 import { DashboardPage } from "../features/dashboard/dashboard-page";
+import { FarmsPage } from "../features/farm/farms-page";
 import {
   ForbiddenPage,
   NotFoundPage,
@@ -59,12 +60,15 @@ function moduleRoute(
   });
 }
 
-const farmsRoute = moduleRoute(
-  "/farms",
-  "Nông trại & lô canh tác",
-  "Master-detail nông trại/lô theo farm-service.",
-  ["SYSTEM_ADMIN", "FARM_MANAGER", "AGRONOMIST", "FIELD_WORKER", "AUDITOR"],
-);
+const farmsRoute = createRoute({
+  getParentRoute: () => authedLayoutRoute,
+  path: "/farms",
+  component: () => (
+    <RoleGate roles={["SYSTEM_ADMIN", "FARM_MANAGER", "AGRONOMIST", "FIELD_WORKER", "AUDITOR"]}>
+      <FarmsPage />
+    </RoleGate>
+  ),
+});
 const cyclesRoute = moduleRoute(
   "/crop-cycles",
   "Mùa vụ & công việc",

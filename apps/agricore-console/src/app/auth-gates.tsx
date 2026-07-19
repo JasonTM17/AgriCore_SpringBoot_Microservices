@@ -2,6 +2,7 @@ import { Navigate, Outlet, useRouterState } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
 import { AppShell } from "../components/layout/app-shell";
+import { FarmScopeProvider } from "../features/farm/farm-scope-provider";
 import { ForbiddenPage } from "../features/system/status-pages";
 import { hasAnyRole, type NavItem } from "../lib/auth/roles";
 import { useSession } from "../lib/auth/session";
@@ -42,11 +43,15 @@ export function RoleGate({
 }
 
 export function AuthenticatedLayout() {
+  const { user } = useSession();
+
   return (
     <AuthGate>
-      <AppShell>
-        <Outlet />
-      </AppShell>
+      <FarmScopeProvider key={user?.id ?? "anonymous"}>
+        <AppShell>
+          <Outlet />
+        </AppShell>
+      </FarmScopeProvider>
     </AuthGate>
   );
 }
