@@ -86,7 +86,7 @@ public class WorkApplicationService {
         task.setAssignedEmployeeId(request.assignedEmployeeId());
         task.setStatus(TaskStatus.ASSIGNED);
         task.setUpdatedAt(Instant.now());
-        taskRepository.save(task);
+        task = taskRepository.saveAndFlush(task);
         enqueue(EventTypes.WORK_TASK_ASSIGNED, task);
         return toResponse(task);
     }
@@ -110,7 +110,7 @@ public class WorkApplicationService {
             task.setNotes(request.notes());
         }
         task.setUpdatedAt(now);
-        taskRepository.save(task);
+        task = taskRepository.saveAndFlush(task);
         enqueue(EventTypes.WORK_TASK_COMPLETED, task);
         return toResponse(task);
     }

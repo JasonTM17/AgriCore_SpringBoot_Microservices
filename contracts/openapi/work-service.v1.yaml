@@ -223,7 +223,7 @@ components:
           schema:
             $ref: '#/components/schemas/ApiError'
     Conflict:
-      description: Duplicate code or a forbidden terminal-state mutation.
+      description: Duplicate code, a forbidden terminal-state mutation, or a concurrent task update requiring reload.
       content:
         application/json:
           schema:

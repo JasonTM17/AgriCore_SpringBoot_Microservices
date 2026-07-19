@@ -1545,7 +1545,7 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description Duplicate code or a forbidden terminal-state mutation. */
+        /** @description Duplicate code, a forbidden terminal-state mutation, or a concurrent task update requiring reload. */
         "components-responses-Conflict": {
             headers: {
                 [name: string]: unknown;
