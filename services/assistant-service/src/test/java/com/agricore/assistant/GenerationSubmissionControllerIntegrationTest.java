@@ -2,6 +2,7 @@ package com.agricore.assistant;
 
 import com.agricore.assistant.application.model.ProviderCapabilities;
 import com.agricore.assistant.application.port.ChatProvider;
+import com.agricore.assistant.application.port.GenerationWorkDispatcher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -13,6 +14,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -28,6 +30,9 @@ class GenerationSubmissionControllerIntegrationTest extends AssistantApiIntegrat
 
     @MockitoBean
     private ChatProvider chatProvider;
+
+    @MockitoBean
+    private GenerationWorkDispatcher workDispatcher;
 
     @BeforeEach
     void providerIsAvailable() {
@@ -70,6 +75,8 @@ class GenerationSubmissionControllerIntegrationTest extends AssistantApiIntegrat
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(generationId.toString()))
                 .andExpect(jsonPath("$.deduplicated").value(true));
+
+        verify(workDispatcher).dispatchAfterCommit(generationId);
 
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM chat_generations", Integer.class)).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM conversation_messages", Integer.class)).isEqualTo(1);

@@ -8,6 +8,7 @@ import com.agricore.assistant.application.port.ChatProvider;
 import com.agricore.assistant.application.port.ChatGenerationPolicy;
 import com.agricore.assistant.application.port.ConversationRepository;
 import com.agricore.assistant.application.port.GenerationRepository;
+import com.agricore.assistant.application.port.GenerationWorkDispatcher;
 import com.agricore.assistant.domain.exception.AssistantException;
 import com.agricore.assistant.domain.model.AssistantActor;
 import com.agricore.assistant.domain.model.AssistantAuditEvent;
@@ -22,7 +23,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
@@ -31,14 +31,13 @@ import java.util.UUID;
 @Service
 public class GenerationApplicationService {
 
-    private static final Duration EVENT_RETENTION = Duration.ofHours(24);
-
     private final GenerationRepository generationRepository;
     private final ConversationRepository conversationRepository;
     private final AssistantAuditRepository auditRepository;
     private final AssistantRetentionPolicy retentionPolicy;
     private final ChatProvider chatProvider;
     private final ChatGenerationPolicy generationPolicy;
+    private final GenerationWorkDispatcher workDispatcher;
     private final Clock clock;
 
     public GenerationApplicationService(
@@ -48,6 +47,7 @@ public class GenerationApplicationService {
             AssistantRetentionPolicy retentionPolicy,
             ChatProvider chatProvider,
             ChatGenerationPolicy generationPolicy,
+            GenerationWorkDispatcher workDispatcher,
             Clock clock
     ) {
         this.generationRepository = generationRepository;
@@ -56,6 +56,7 @@ public class GenerationApplicationService {
         this.retentionPolicy = retentionPolicy;
         this.chatProvider = chatProvider;
         this.generationPolicy = generationPolicy;
+        this.workDispatcher = workDispatcher;
         this.clock = clock;
     }
 
@@ -91,7 +92,7 @@ public class GenerationApplicationService {
                 generationPolicy.model(),
                 now,
                 null,
-                now.plus(EVENT_RETENTION)
+                now.plus(retentionPolicy.generationEventRetention())
         ));
         if (!result.deduplicated()) {
             auditRepository.save(AssistantAuditEvent.generationSuccess(
@@ -99,6 +100,7 @@ public class GenerationApplicationService {
                     result.generation().id(), "GENERATION_SUBMITTED", now,
                     now.plus(retentionPolicy.auditEventRetention())
             ));
+            workDispatcher.dispatchAfterCommit(result.generation().id());
         }
         return result;
     }
