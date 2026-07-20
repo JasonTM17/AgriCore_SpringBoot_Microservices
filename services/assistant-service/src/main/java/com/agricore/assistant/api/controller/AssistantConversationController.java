@@ -11,6 +11,7 @@ import com.agricore.assistant.application.model.PageQuery;
 import com.agricore.assistant.application.model.PageResult;
 import com.agricore.assistant.application.service.ConversationApplicationService;
 import com.agricore.assistant.application.service.GenerationApplicationService;
+import com.agricore.assistant.application.service.GenerationEventReplayService;
 import com.agricore.assistant.domain.model.AssistantConversation;
 import com.agricore.assistant.domain.model.AssistantMessage;
 import com.agricore.assistant.domain.model.ConversationStatus;
@@ -42,15 +43,18 @@ public class AssistantConversationController {
 
     private final ConversationApplicationService service;
     private final GenerationApplicationService generationService;
+    private final GenerationEventReplayService replayService;
     private final CurrentAssistantActorResolver actorResolver;
 
     public AssistantConversationController(
             ConversationApplicationService service,
             GenerationApplicationService generationService,
+            GenerationEventReplayService replayService,
             CurrentAssistantActorResolver actorResolver
     ) {
         this.service = service;
         this.generationService = generationService;
+        this.replayService = replayService;
         this.actorResolver = actorResolver;
     }
 
@@ -178,7 +182,7 @@ public class AssistantConversationController {
             @RequestParam(defaultValue = "100") @Min(1) @Max(1000) int limit,
             Authentication authentication
     ) {
-        return generationService.events(
+        return replayService.events(
                         actorResolver.resolve(authentication), conversationId, generationId, after, limit)
                 .stream()
                 .map(GenerationEventResponse::from)

@@ -1,6 +1,5 @@
 package com.agricore.assistant.application.service;
 
-import com.agricore.assistant.application.model.GenerationEventReplayBatch;
 import com.agricore.assistant.application.model.GenerationSubmissionCommand;
 import com.agricore.assistant.application.model.GenerationSubmissionResult;
 import com.agricore.assistant.application.port.AssistantAuditRepository;
@@ -16,7 +15,6 @@ import com.agricore.assistant.domain.model.AssistantActor;
 import com.agricore.assistant.domain.model.AssistantAuditEvent;
 import com.agricore.assistant.domain.model.AssistantConversation;
 import com.agricore.assistant.domain.model.AssistantGeneration;
-import com.agricore.assistant.domain.model.AssistantGenerationEvent;
 import com.agricore.assistant.application.model.ProviderCapabilities;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,7 +25,6 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.HexFormat;
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -145,40 +142,6 @@ public class GenerationApplicationService {
             workDispatcher.cancelAfterCommit(generationId);
         }
         return result.generation();
-    }
-
-    @Transactional(readOnly = true)
-    public List<AssistantGenerationEvent> events(
-            AssistantActor actor,
-            UUID conversationId,
-            UUID generationId,
-            long afterSequence,
-            int limit
-    ) {
-        return eventBatch(actor, conversationId, generationId, afterSequence, limit).events();
-    }
-
-    @Transactional(readOnly = true)
-    public GenerationEventReplayBatch eventBatch(
-            AssistantActor actor,
-            UUID conversationId,
-            UUID generationId,
-            long afterSequence,
-            int limit
-    ) {
-        conversationRepository.findOwned(conversationId, actor.subject())
-                .orElseThrow(AssistantException::notFound);
-        AssistantGeneration generation = generationRepository.findOwned(
-                        generationId, conversationId, actor.subject())
-                .orElseThrow(AssistantException::generationNotFound);
-        List<AssistantGenerationEvent> events = generationRepository.findEventsOwned(
-                generationId, conversationId, actor.subject(), afterSequence, limit, clock.instant());
-        return GenerationEventReplayBatch.validated(
-                events,
-                generation.nextEventSequence(),
-                generation.terminal(),
-                afterSequence
-        );
     }
 
     private static String requestHash(UUID conversationId, String prompt) {
