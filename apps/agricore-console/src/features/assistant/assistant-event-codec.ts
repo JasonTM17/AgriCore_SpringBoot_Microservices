@@ -12,6 +12,7 @@ const eventTypesByName: Readonly<Record<string, z.infer<typeof eventTypeSchema>>
   cancelled: "CANCELLED",
 };
 const safeIntegerSchema = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
+const tokenCountSchema = z.number().int().min(0).max(2_147_483_647);
 const safeCodeSchema = z.string().min(1).max(128).regex(/^[A-Z0-9_]+$/);
 const uuidSchema = z.string().regex(
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
@@ -33,9 +34,9 @@ const deltaPayloadSchema = z.object({ delta: z.string().min(1) }).strict();
 const completedPayloadSchema = z.object({
   status: z.literal("COMPLETED"),
   assistantMessageId: uuidSchema,
-  finishReason: z.string().min(1).max(128),
-  inputTokens: safeIntegerSchema.optional(),
-  outputTokens: safeIntegerSchema.optional(),
+  finishReason: z.string().min(1).max(100).regex(/^[a-z0-9._-]+$/),
+  inputTokens: tokenCountSchema.optional(),
+  outputTokens: tokenCountSchema.optional(),
 }).strict();
 const errorPayloadSchema = z.object({
   status: z.literal("FAILED"),
@@ -54,11 +55,16 @@ type TypedEnvelope<T extends AssistantGenerationEventResponse["eventType"]> =
   AssistantGenerationEventResponse & { eventType: T };
 
 export type DecodedAssistantGenerationEvent =
-  | { kind: "event"; event: TypedEnvelope<"STATUS">; payload: AssistantStatusEventPayload }
-  | { kind: "event"; event: TypedEnvelope<"DELTA">; payload: AssistantDeltaEventPayload }
-  | { kind: "event"; event: TypedEnvelope<"COMPLETED">; payload: AssistantCompletedEventPayload }
-  | { kind: "event"; event: TypedEnvelope<"ERROR">; payload: AssistantErrorEventPayload }
-  | { kind: "event"; event: TypedEnvelope<"CANCELLED">; payload: AssistantCancelledEventPayload };
+  | { kind: "event"; eventType: "STATUS"; event: TypedEnvelope<"STATUS">;
+    payload: AssistantStatusEventPayload }
+  | { kind: "event"; eventType: "DELTA"; event: TypedEnvelope<"DELTA">;
+    payload: AssistantDeltaEventPayload }
+  | { kind: "event"; eventType: "COMPLETED"; event: TypedEnvelope<"COMPLETED">;
+    payload: AssistantCompletedEventPayload }
+  | { kind: "event"; eventType: "ERROR"; event: TypedEnvelope<"ERROR">;
+    payload: AssistantErrorEventPayload }
+  | { kind: "event"; eventType: "CANCELLED"; event: TypedEnvelope<"CANCELLED">;
+    payload: AssistantCancelledEventPayload };
 
 export interface DecodedAssistantStreamError {
   kind: "stream-error";
@@ -115,19 +121,19 @@ function decodePayload(
   const value = parseJson(event.payload, "INVALID_EVENT_PAYLOAD");
   switch (event.eventType) {
     case "STATUS":
-      return { kind: "event", event: { ...event, eventType: "STATUS" },
+      return { kind: "event", eventType: "STATUS", event: { ...event, eventType: "STATUS" },
         payload: parseSchema(statusPayloadSchema, value, "INVALID_EVENT_PAYLOAD") };
     case "DELTA":
-      return { kind: "event", event: { ...event, eventType: "DELTA" },
+      return { kind: "event", eventType: "DELTA", event: { ...event, eventType: "DELTA" },
         payload: parseSchema(deltaPayloadSchema, value, "INVALID_EVENT_PAYLOAD") };
     case "COMPLETED":
-      return { kind: "event", event: { ...event, eventType: "COMPLETED" },
+      return { kind: "event", eventType: "COMPLETED", event: { ...event, eventType: "COMPLETED" },
         payload: parseSchema(completedPayloadSchema, value, "INVALID_EVENT_PAYLOAD") };
     case "ERROR":
-      return { kind: "event", event: { ...event, eventType: "ERROR" },
+      return { kind: "event", eventType: "ERROR", event: { ...event, eventType: "ERROR" },
         payload: parseSchema(errorPayloadSchema, value, "INVALID_EVENT_PAYLOAD") };
     case "CANCELLED":
-      return { kind: "event", event: { ...event, eventType: "CANCELLED" },
+      return { kind: "event", eventType: "CANCELLED", event: { ...event, eventType: "CANCELLED" },
         payload: parseSchema(cancelledPayloadSchema, value, "INVALID_EVENT_PAYLOAD") };
   }
 }
@@ -150,13 +156,21 @@ export function decodeAssistantSseMessage(
     );
   }
   const rawEnvelope = parseJson(message.data, "MALFORMED_EVENT_DATA");
-  const event = parseSchema(eventEnvelopeSchema, rawEnvelope, "INVALID_EVENT_ENVELOPE");
-  if (message.id !== String(event.sequenceNo)) {
+  const decoded = decodeAssistantGenerationEvent(rawEnvelope, expectedGenerationId);
+  if (message.id !== String(decoded.event.sequenceNo)) {
     throw new AssistantStreamProtocolError("EVENT_CURSOR_MISMATCH", "Event cursor did not match sequence");
   }
-  if (event.eventType !== expectedType) {
+  if (decoded.event.eventType !== expectedType) {
     throw new AssistantStreamProtocolError("EVENT_TYPE_MISMATCH", "Event name did not match payload type");
   }
+  return decoded;
+}
+
+export function decodeAssistantGenerationEvent(
+  value: unknown,
+  expectedGenerationId: string,
+): DecodedAssistantGenerationEvent {
+  const event = parseSchema(eventEnvelopeSchema, value, "INVALID_EVENT_ENVELOPE");
   if (event.generationId !== expectedGenerationId) {
     throw new AssistantStreamProtocolError("UNEXPECTED_GENERATION", "Event belonged to another generation");
   }
