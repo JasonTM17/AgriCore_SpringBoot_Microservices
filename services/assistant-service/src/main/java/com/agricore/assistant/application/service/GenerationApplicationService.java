@@ -5,6 +5,7 @@ import com.agricore.assistant.application.model.GenerationSubmissionResult;
 import com.agricore.assistant.application.port.AssistantAuditRepository;
 import com.agricore.assistant.application.port.AssistantRetentionPolicy;
 import com.agricore.assistant.application.port.ChatProvider;
+import com.agricore.assistant.application.port.ChatGenerationPolicy;
 import com.agricore.assistant.application.port.ConversationRepository;
 import com.agricore.assistant.application.port.GenerationRepository;
 import com.agricore.assistant.domain.exception.AssistantException;
@@ -37,6 +38,7 @@ public class GenerationApplicationService {
     private final AssistantAuditRepository auditRepository;
     private final AssistantRetentionPolicy retentionPolicy;
     private final ChatProvider chatProvider;
+    private final ChatGenerationPolicy generationPolicy;
     private final Clock clock;
 
     public GenerationApplicationService(
@@ -45,6 +47,7 @@ public class GenerationApplicationService {
             AssistantAuditRepository auditRepository,
             AssistantRetentionPolicy retentionPolicy,
             ChatProvider chatProvider,
+            ChatGenerationPolicy generationPolicy,
             Clock clock
     ) {
         this.generationRepository = generationRepository;
@@ -52,6 +55,7 @@ public class GenerationApplicationService {
         this.auditRepository = auditRepository;
         this.retentionPolicy = retentionPolicy;
         this.chatProvider = chatProvider;
+        this.generationPolicy = generationPolicy;
         this.clock = clock;
     }
 
@@ -62,7 +66,7 @@ public class GenerationApplicationService {
             String prompt,
             String idempotencyKey
     ) {
-        validatePrompt(prompt);
+        validatePrompt(prompt, generationPolicy.maxInputCharacters());
         validateIdempotencyKey(idempotencyKey);
         AssistantConversation conversation = conversationRepository.findOwned(conversationId, actor.subject())
                 .orElseThrow(AssistantException::notFound);
@@ -84,7 +88,7 @@ public class GenerationApplicationService {
                 requestHash,
                 prompt,
                 capabilities.provider(),
-                null,
+                generationPolicy.model(),
                 now,
                 null,
                 now.plus(EVENT_RETENTION)
@@ -132,8 +136,8 @@ public class GenerationApplicationService {
         }
     }
 
-    private static void validatePrompt(String prompt) {
-        if (prompt == null || prompt.isBlank() || prompt.strip().length() > 200_000) {
+    private static void validatePrompt(String prompt, int maximumLength) {
+        if (prompt == null || prompt.isBlank() || prompt.strip().length() > maximumLength) {
             throw new IllegalArgumentException("Invalid generation prompt");
         }
     }

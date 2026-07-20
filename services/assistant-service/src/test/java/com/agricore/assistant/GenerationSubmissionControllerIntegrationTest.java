@@ -18,7 +18,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+@SpringBootTest(properties = "agricore.assistant.provider.model=test-model")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class GenerationSubmissionControllerIntegrationTest extends AssistantApiIntegrationTestSupport {
@@ -50,6 +50,7 @@ class GenerationSubmissionControllerIntegrationTest extends AssistantApiIntegrat
                 .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.status").value("QUEUED"))
                 .andExpect(jsonPath("$.provider").value("test"))
+                .andExpect(jsonPath("$.model").value("test-model"))
                 .andExpect(jsonPath("$.deduplicated").value(false))
                 .andExpect(jsonPath("$.userMessageId").isNotEmpty())
                 .andExpect(jsonPath("$.requestHash").doesNotExist())
