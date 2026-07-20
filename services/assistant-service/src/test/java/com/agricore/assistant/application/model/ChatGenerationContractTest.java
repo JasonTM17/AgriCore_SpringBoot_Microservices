@@ -65,6 +65,8 @@ class ChatGenerationContractTest {
         assertThat(ChatChunk.terminal(null, 12, 4)).isEqualTo(
                 new ChatChunk("", true, "unknown", 12, 4)
         );
+        assertThat(ChatChunk.terminal(" STOP ", 12, 4).finishReason()).isEqualTo("stop");
+        assertThat(ChatChunk.terminal("unsafe reason", 12, 4).finishReason()).isEqualTo("unknown");
         assertThatThrownBy(() -> ChatChunk.delta(""))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("delta must contain text");
