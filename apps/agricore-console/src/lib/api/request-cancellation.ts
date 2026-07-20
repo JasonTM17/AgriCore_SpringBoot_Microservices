@@ -1,6 +1,7 @@
 export interface RequestCancellation {
   readonly signal: AbortSignal;
   didTimeout(): boolean;
+  releaseTimeout(): void;
   dispose(): void;
 }
 
@@ -22,12 +23,14 @@ export function createRequestCancellation(
     timedOut = true;
     controller.abort(new DOMException("Request timed out", "TimeoutError"));
   }, timeoutMs);
+  const releaseTimeout = () => globalThis.clearTimeout(timeout);
 
   return {
     signal: controller.signal,
     didTimeout: () => timedOut,
+    releaseTimeout,
     dispose: () => {
-      globalThis.clearTimeout(timeout);
+      releaseTimeout();
       callerSignal?.removeEventListener("abort", abortFromCaller);
     },
   };

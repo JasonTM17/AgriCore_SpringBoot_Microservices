@@ -5,6 +5,11 @@ import type {
   RequestOptions,
   SessionClearedHandler,
 } from "./client-options";
+import {
+  requestAuthenticatedEventStream,
+  type EventStreamConsumer,
+  type EventStreamRequestOptions,
+} from "./event-stream-request";
 import { parseApiError } from "./errors";
 import { requestJsonResponse } from "./json-request";
 import type { LoginRequest, UserResponse, WebAuthTokensResponse } from "./types";
@@ -15,6 +20,7 @@ export type {
   ApiClientOptions,
   SessionClearedHandler,
 } from "./client-options";
+export type { EventStreamConsumer, EventStreamRequestOptions } from "./event-stream-request";
 
 /**
  * Gateway-facing fetch helper.
@@ -113,6 +119,24 @@ export class ApiClient {
       credentials: "omit",
       cache: "no-store",
       ...(signal ? { signal } : {}),
+    });
+  }
+
+  async withEventStream<T>(
+    path: string,
+    options: EventStreamRequestOptions,
+    consumer: EventStreamConsumer<T>,
+  ): Promise<T> {
+    return requestAuthenticatedEventStream(path, options, consumer, {
+      baseUrl: this.baseUrl,
+      getAccessToken: this.getAccessToken,
+      fetchImpl: this.fetchImpl,
+      defaultTimeoutMs: this.defaultTimeoutMs,
+      refreshAccessToken: () => this.refreshSingleFlight(),
+      clearSession: () => {
+        this.setAccessToken(null);
+        this.onSessionCleared?.();
+      },
     });
   }
 
