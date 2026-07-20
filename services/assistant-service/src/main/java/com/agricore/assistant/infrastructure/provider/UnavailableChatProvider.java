@@ -1,8 +1,12 @@
 package com.agricore.assistant.infrastructure.provider;
 
+import com.agricore.assistant.application.model.ChatChunk;
+import com.agricore.assistant.application.model.ChatGenerationRequest;
 import com.agricore.assistant.application.model.ProviderCapabilities;
+import com.agricore.assistant.application.port.AssistantProviderException;
 import com.agricore.assistant.application.port.ChatProvider;
 import com.agricore.assistant.infrastructure.configuration.AssistantProviderProperties.ProviderType;
+import reactor.core.publisher.Flux;
 
 public class UnavailableChatProvider implements ChatProvider {
 
@@ -23,5 +27,10 @@ public class UnavailableChatProvider implements ChatProvider {
                 false,
                 reasonCode
         );
+    }
+
+    @Override
+    public Flux<ChatChunk> stream(ChatGenerationRequest request) {
+        return Flux.error(AssistantProviderException.unavailable());
     }
 }

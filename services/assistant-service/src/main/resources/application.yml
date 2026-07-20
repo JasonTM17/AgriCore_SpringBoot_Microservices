@@ -30,6 +30,15 @@ agricore:
   assistant:
     provider:
       type: ${ASSISTANT_PROVIDER:none}
+      model: ${ASSISTANT_PROVIDER_MODEL:}
+      api-key: ${ASSISTANT_PROVIDER_API_KEY:}
+      base-url: ${ASSISTANT_PROVIDER_BASE_URL:}
+      connect-timeout: ${ASSISTANT_PROVIDER_CONNECT_TIMEOUT:PT5S}
+      read-timeout: ${ASSISTANT_PROVIDER_READ_TIMEOUT:PT60S}
+      max-generation-duration: ${ASSISTANT_MAX_GENERATION_DURATION:PT90S}
+      max-input-characters: ${ASSISTANT_MAX_INPUT_CHARACTERS:40000}
+      max-output-tokens: ${ASSISTANT_MAX_OUTPUT_TOKENS:1024}
+      temperature: ${ASSISTANT_PROVIDER_TEMPERATURE:0.2}
     retention:
       archived-conversation: ${ASSISTANT_ARCHIVED_CONVERSATION_RETENTION:P90D}
       audit-event: ${ASSISTANT_AUDIT_RETENTION:P365D}
