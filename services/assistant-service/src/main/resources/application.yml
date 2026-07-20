@@ -56,6 +56,13 @@ agricore:
       heartbeat-interval: ${ASSISTANT_WORKER_HEARTBEAT_INTERVAL:PT10S}
       delta-batch-size: ${ASSISTANT_WORKER_DELTA_BATCH_SIZE:16}
       delta-flush-interval: ${ASSISTANT_WORKER_DELTA_FLUSH_INTERVAL:PT0.1S}
+    streaming:
+      max-connections: ${ASSISTANT_STREAM_MAX_CONNECTIONS:64}
+      scheduler-threads: ${ASSISTANT_STREAM_SCHEDULER_THREADS:2}
+      batch-size: ${ASSISTANT_STREAM_BATCH_SIZE:100}
+      poll-interval: ${ASSISTANT_STREAM_POLL_INTERVAL:PT0.75S}
+      heartbeat-interval: ${ASSISTANT_STREAM_HEARTBEAT_INTERVAL:PT15S}
+      max-connection-duration: ${ASSISTANT_STREAM_MAX_CONNECTION_DURATION:PT5M}
   security:
     issuer: ${JWT_ISSUER:https://agricore.local/identity}
     jwk-set-uri: ${IDENTITY_JWKS_URI:http://localhost:8081/.well-known/jwks.json}

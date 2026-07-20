@@ -71,7 +71,7 @@ public class AssistantException extends RuntimeException {
 
     public static AssistantException invalidEventCursor() {
         return new AssistantException(
-                "INVALID_EVENT_CURSOR", "Generation event cursor is ahead of the stream", 400
+                "INVALID_EVENT_CURSOR", "Generation event cursor is invalid", 400
         );
     }
 
