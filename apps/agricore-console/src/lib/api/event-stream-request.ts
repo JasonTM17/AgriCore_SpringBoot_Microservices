@@ -11,8 +11,10 @@ export interface EventStreamRequestOptions {
   headers?: Record<string, string>;
 }
 
+export type EventStreamResponse = Response & { readonly body: ReadableStream<Uint8Array> };
+
 export type EventStreamConsumer<T> = (
-  response: Response,
+  response: EventStreamResponse,
   signal: AbortSignal,
 ) => Promise<T>;
 
@@ -101,7 +103,7 @@ async function consumeOpenedStream<T>(
         fallbackCode: "INVALID_EVENT_STREAM_RESPONSE",
       });
     }
-    return await consumer(response, cancellation.signal);
+    return await consumer(response as EventStreamResponse, cancellation.signal);
   } finally {
     cancellation.dispose();
   }

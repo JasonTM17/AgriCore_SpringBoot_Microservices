@@ -20,7 +20,11 @@ export type {
   ApiClientOptions,
   SessionClearedHandler,
 } from "./client-options";
-export type { EventStreamConsumer, EventStreamRequestOptions } from "./event-stream-request";
+export type {
+  EventStreamConsumer,
+  EventStreamRequestOptions,
+  EventStreamResponse,
+} from "./event-stream-request";
 
 /**
  * Gateway-facing fetch helper.
