@@ -14,6 +14,7 @@ public record AssistantGeneration(
         String requestHash,
         GenerationStatus status,
         UUID activeConversationId,
+        String errorCode,
         List<String> roleSnapshot,
         long nextEventSequence,
         String provider,
@@ -53,6 +54,7 @@ public record AssistantGeneration(
             throw new IllegalArgumentException("requestHash must be a SHA-256 or legacy migration value");
         }
         roleSnapshot = roleSnapshot == null ? List.of() : List.copyOf(roleSnapshot);
+        errorCode = errorCode == null || errorCode.isBlank() ? null : requireText(errorCode, "errorCode", 64);
         provider = requireText(provider, "provider", MAX_PROVIDER_LENGTH);
         model = model == null || model.isBlank() ? null : requireText(model, "model", MAX_MODEL_LENGTH);
         requireNonNegative(nextEventSequence, "nextEventSequence");

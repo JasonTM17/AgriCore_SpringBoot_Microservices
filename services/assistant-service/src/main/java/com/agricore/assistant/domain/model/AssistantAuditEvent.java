@@ -33,4 +33,20 @@ public record AssistantAuditEvent(
                 action, "SUCCESS", null, null, null, null, createdAt, retainUntil
         );
     }
+
+    public static AssistantAuditEvent generationSuccess(
+            UUID actorSubject,
+            UUID ownerUserId,
+            UUID farmId,
+            UUID conversationId,
+            UUID generationId,
+            String action,
+            Instant createdAt,
+            Instant retainUntil
+    ) {
+        return new AssistantAuditEvent(
+                UUID.randomUUID(), actorSubject, ownerUserId, farmId, conversationId, generationId,
+                action, "SUCCESS", null, null, null, null, createdAt, retainUntil
+        );
+    }
 }

@@ -25,7 +25,7 @@ public class GenerationPersistenceMapper {
         return new AssistantGeneration(
                 entity.getId(), entity.getConversationId(), entity.getOwnerUserId(), entity.getFarmId(),
                 entity.getIdempotencyKey(), entity.getRequestHash(), entity.getStatus(),
-                entity.getActiveConversationId(), roleSnapshotCodec.decode(entity.getRoleSnapshot()),
+                entity.getActiveConversationId(), entity.getErrorCode(), roleSnapshotCodec.decode(entity.getRoleSnapshot()),
                 entity.getNextEventSequence(), entity.getProvider(), entity.getModel(), entity.getInputTokens(),
                 entity.getOutputTokens(), entity.getFirstTokenLatencyMs(), entity.getProviderLatencyMs(),
                 entity.getTotalLatencyMs(), entity.getQueuedAt(), entity.getCreatedAt(), entity.getUpdatedAt(),
@@ -59,6 +59,7 @@ public class GenerationPersistenceMapper {
         entity.setIdempotencyKey(generation.idempotencyKey());
         entity.setRequestHash(generation.requestHash());
         entity.setStatus(generation.status());
+        entity.setErrorCode(generation.errorCode());
         entity.setRoleSnapshot(roleSnapshotCodec.encode(generation.roleSnapshot()));
         entity.setNextEventSequence(generation.nextEventSequence());
         entity.setProvider(generation.provider());

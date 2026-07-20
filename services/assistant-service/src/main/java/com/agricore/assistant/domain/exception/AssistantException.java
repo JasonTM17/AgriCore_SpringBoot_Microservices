@@ -68,4 +68,15 @@ public class AssistantException extends RuntimeException {
                 "GENERATION_NOT_FOUND", "Generation not found", 404
         );
     }
+
+    public static AssistantException providerUnavailable(String reasonCode) {
+        String safeCode = switch (reasonCode) {
+            case "AI_PROVIDER_CONFIGURATION_MISSING", "AI_PROVIDER_ADAPTER_UNAVAILABLE",
+                 "AI_PROVIDER_CIRCUIT_OPEN" -> reasonCode;
+            default -> "AI_PROVIDER_UNAVAILABLE";
+        };
+        return new AssistantException(
+                safeCode, "The configured AI provider is unavailable", 503
+        );
+    }
 }

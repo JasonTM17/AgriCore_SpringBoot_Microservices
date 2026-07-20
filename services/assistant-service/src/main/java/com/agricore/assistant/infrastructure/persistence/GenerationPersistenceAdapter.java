@@ -50,6 +50,28 @@ public class GenerationPersistenceAdapter implements GenerationRepository {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Optional<GenerationSubmissionResult> findIdempotent(
+            UUID conversationId,
+            UUID ownerUserId,
+            String idempotencyKey,
+            String requestHash
+    ) {
+        return generationRepository.findByOwnerUserIdAndConversationIdAndIdempotencyKey(
+                        ownerUserId, conversationId, idempotencyKey)
+                .map(generation -> {
+                    if (!requestHash.equalsIgnoreCase(generation.getRequestHash())) {
+                        throw AssistantException.idempotencyKeyReused();
+                    }
+                    AssistantMessage userMessage = messageRepository
+                            .findByGenerationIdAndRole(generation.getId(), MessageRole.USER)
+                            .map(mapper::toDomain)
+                            .orElse(null);
+                    return new GenerationSubmissionResult(mapper.toDomain(generation), userMessage, true);
+                });
+    }
+
+    @Override
     @Transactional
     public GenerationSubmissionResult submit(GenerationSubmissionCommand command) {
         Objects.requireNonNull(command, "command is required");
@@ -92,7 +114,8 @@ public class GenerationPersistenceAdapter implements GenerationRepository {
                 command.requestHash(),
                 GenerationStatus.QUEUED,
                 conversation.getId(),
-                mapperRoleSnapshot(conversation),
+                null,
+                mapper.decodeRoleSnapshot(conversation.getRoleSnapshot()),
                 1,
                 command.provider(),
                 command.model(),
@@ -172,9 +195,5 @@ public class GenerationPersistenceAdapter implements GenerationRepository {
                 .stream()
                 .map(mapper::toDomain)
                 .toList();
-    }
-
-    private List<String> mapperRoleSnapshot(ConversationEntity conversation) {
-        return mapper.decodeRoleSnapshot(conversation.getRoleSnapshot());
     }
 }

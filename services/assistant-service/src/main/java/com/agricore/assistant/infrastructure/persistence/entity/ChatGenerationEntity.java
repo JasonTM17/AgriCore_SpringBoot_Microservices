@@ -28,6 +28,9 @@ public class ChatGenerationEntity {
     @Column(name = "active_conversation_id")
     private UUID activeConversationId;
 
+    @Column(name = "error_code", length = 64)
+    private String errorCode;
+
     @Column(name = "farm_id")
     private UUID farmId;
 
@@ -118,6 +121,8 @@ public class ChatGenerationEntity {
     public void setOwnerUserId(UUID ownerUserId) { this.ownerUserId = ownerUserId; }
     public UUID getActiveConversationId() { return activeConversationId; }
     public void setActiveConversationId(UUID activeConversationId) { this.activeConversationId = activeConversationId; }
+    public String getErrorCode() { return errorCode; }
+    public void setErrorCode(String errorCode) { this.errorCode = errorCode; }
     public UUID getFarmId() { return farmId; }
     public void setFarmId(UUID farmId) { this.farmId = farmId; }
     public String getIdempotencyKey() { return idempotencyKey; }

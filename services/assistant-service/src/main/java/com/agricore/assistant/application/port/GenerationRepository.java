@@ -12,6 +12,13 @@ import java.util.UUID;
 
 public interface GenerationRepository {
 
+    Optional<GenerationSubmissionResult> findIdempotent(
+            UUID conversationId,
+            UUID ownerUserId,
+            String idempotencyKey,
+            String requestHash
+    );
+
     GenerationSubmissionResult submit(GenerationSubmissionCommand command);
 
     Optional<AssistantGeneration> findOwned(
