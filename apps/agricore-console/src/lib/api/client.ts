@@ -1,32 +1,20 @@
-import { parseApiError, ApiClientError } from "./errors";
-import { createRequestCancellation } from "./request-cancellation";
+import type {
+  AccessTokenProvider,
+  AccessTokenSetter,
+  ApiClientOptions,
+  RequestOptions,
+  SessionClearedHandler,
+} from "./client-options";
+import { parseApiError } from "./errors";
+import { requestJsonResponse } from "./json-request";
 import type { LoginRequest, UserResponse, WebAuthTokensResponse } from "./types";
 
-export type AccessTokenProvider = () => string | null;
-export type AccessTokenSetter = (token: string | null) => void;
-export type SessionClearedHandler = () => void;
-
-export interface ApiClientOptions {
-  baseUrl?: string;
-  getAccessToken: AccessTokenProvider;
-  setAccessToken: AccessTokenSetter;
-  onSessionCleared?: SessionClearedHandler;
-  fetchImpl?: typeof fetch;
-  defaultTimeoutMs?: number;
-}
-
-interface RequestOptions {
-  method?: string;
-  body?: unknown;
-  auth?: boolean;
-  signal?: AbortSignal;
-  timeoutMs?: number;
-  headers?: Record<string, string>;
-  credentials?: RequestCredentials;
-  cache?: RequestCache;
-  /** Skip 401 -> refresh -> retry (used by refresh itself). */
-  skipAuthRefresh?: boolean;
-}
+export type {
+  AccessTokenProvider,
+  AccessTokenSetter,
+  ApiClientOptions,
+  SessionClearedHandler,
+} from "./client-options";
 
 /**
  * Gateway-facing fetch helper.
@@ -160,48 +148,12 @@ export class ApiClient {
   }
 
   private async rawRequest(path: string, options: RequestOptions): Promise<Response> {
-    const headers = new Headers(options.headers);
-    headers.set("Accept", "application/json");
-
-    if (options.body !== undefined) {
-      headers.set("Content-Type", "application/json");
-    }
-
-    if (options.auth !== false) {
-      const token = this.getAccessToken();
-      if (token) {
-        headers.set("Authorization", `Bearer ${token}`);
-      }
-    }
-
-    const cancellation = createRequestCancellation(
-      options.signal,
-      options.timeoutMs ?? this.defaultTimeoutMs,
-    );
-
-    const init: RequestInit = {
-      method: options.method ?? "GET",
-      headers,
-      credentials: options.credentials ?? "include",
-      ...(options.cache ? { cache: options.cache } : {}),
-      signal: cancellation.signal,
-    };
-    if (options.body !== undefined) {
-      init.body = JSON.stringify(options.body);
-    }
-
-    try {
-      return await this.fetchImpl(`${this.baseUrl}${path}`, init);
-    } catch (error) {
-      if (cancellation.didTimeout()) {
-        throw new ApiClientError(408, null, "Request timed out", {
-          fallbackCode: "REQUEST_TIMEOUT",
-        });
-      }
-      throw error;
-    } finally {
-      cancellation.dispose();
-    }
+    return requestJsonResponse(path, options, {
+      baseUrl: this.baseUrl,
+      getAccessToken: this.getAccessToken,
+      fetchImpl: this.fetchImpl,
+      defaultTimeoutMs: this.defaultTimeoutMs,
+    });
   }
 
   private async refreshSingleFlight(): Promise<boolean> {
