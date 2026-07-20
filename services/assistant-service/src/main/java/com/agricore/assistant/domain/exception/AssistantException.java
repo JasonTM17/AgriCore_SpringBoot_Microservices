@@ -38,4 +38,10 @@ public class AssistantException extends RuntimeException {
                 "INVALID_CONVERSATION_TITLE", "Conversation title is invalid", 400
         );
     }
+
+    public static AssistantException invalidActorSubject() {
+        return new AssistantException(
+                "INVALID_ACTOR_SUBJECT", "Authenticated subject is invalid", 401
+        );
+    }
 }
