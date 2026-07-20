@@ -14,10 +14,14 @@ final class AssistantLegacyMigrationTestSupport {
     }
 
     static void migrateToV1(DataSource dataSource) {
+        migrateToVersion(dataSource, "1");
+    }
+
+    static void migrateToVersion(DataSource dataSource, String target) {
         Flyway.configure()
                 .dataSource(dataSource)
                 .locations("classpath:db/migration")
-                .target("1")
+                .target(target)
                 .load()
                 .migrate();
     }
@@ -101,7 +105,7 @@ final class AssistantLegacyMigrationTestSupport {
         jdbc.update("""
                         INSERT INTO conversations (
                             id, owner_user_id, title, status, role_snapshot, created_at, updated_at
-                        ) VALUES (?, ?, 'Legacy conversation', ?, '["FARM_MANAGER"]', ?, ?)
+                        ) VALUES (?, ?, 'Legacy conversation', ?, 'FARM_MANAGER,AGRONOMIST', ?, ?)
                         """,
                 conversationId, ownerId, status, Timestamp.from(now), Timestamp.from(now));
     }

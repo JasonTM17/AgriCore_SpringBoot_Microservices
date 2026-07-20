@@ -37,7 +37,7 @@ class AssistantPersistenceMigrationIntegrationTest {
                 Integer.class
         );
 
-        assertThat(successfulMigrations).isEqualTo(2);
+        assertThat(successfulMigrations).isEqualTo(3);
     }
 
     @Test

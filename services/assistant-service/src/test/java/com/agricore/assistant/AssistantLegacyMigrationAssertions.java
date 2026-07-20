@@ -21,6 +21,12 @@ final class AssistantLegacyMigrationAssertions {
         assertThat(messageGeneration(jdbc, fixture.assistantMessageId())).isEqualTo(fixture.generationId());
         assertThat(messageGeneration(jdbc, fixture.queuedMessageId())).isEqualTo(fixture.queuedGenerationId());
         assertThat(messageGeneration(jdbc, fixture.runningMessageId())).isEqualTo(fixture.runningGenerationId());
+        assertThat(jdbc.queryForObject(
+                "SELECT role_snapshot FROM conversations WHERE id = ?", String.class, fixture.conversationId()))
+                .isEqualTo("[\"FARM_MANAGER\",\"AGRONOMIST\"]");
+        assertThat(jdbc.queryForObject(
+                "SELECT role_snapshot FROM chat_generations WHERE id = ?", String.class, fixture.generationId()))
+                .isEqualTo("[\"FARM_MANAGER\",\"AGRONOMIST\"]");
 
         assertLegacyActiveFailedClosed(jdbc, fixture.queuedGenerationId());
         assertLegacyActiveFailedClosed(jdbc, fixture.runningGenerationId());

@@ -30,6 +30,9 @@ agricore:
   assistant:
     provider:
       type: ${ASSISTANT_PROVIDER:none}
+    retention:
+      archived-conversation: ${ASSISTANT_ARCHIVED_CONVERSATION_RETENTION:P90D}
+      audit-event: ${ASSISTANT_AUDIT_RETENTION:P365D}
   security:
     issuer: ${JWT_ISSUER:https://agricore.local/identity}
     jwk-set-uri: ${IDENTITY_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
