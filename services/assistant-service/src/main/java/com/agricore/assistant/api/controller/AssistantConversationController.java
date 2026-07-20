@@ -158,6 +158,17 @@ public class AssistantConversationController {
                 actorResolver.resolve(authentication), conversationId, generationId));
     }
 
+    @PostMapping("/{conversationId}/generations/{generationId}/cancel")
+    @PreAuthorize("isAuthenticated()")
+    public GenerationResponse cancelGeneration(
+            @PathVariable UUID conversationId,
+            @PathVariable UUID generationId,
+            Authentication authentication
+    ) {
+        return GenerationResponse.from(generationService.cancel(
+                actorResolver.resolve(authentication), conversationId, generationId));
+    }
+
     @GetMapping("/{conversationId}/generations/{generationId}/events")
     @PreAuthorize("isAuthenticated()")
     public List<GenerationEventResponse> generationEvents(

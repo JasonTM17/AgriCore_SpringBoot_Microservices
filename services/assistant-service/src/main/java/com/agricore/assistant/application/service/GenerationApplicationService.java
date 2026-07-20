@@ -7,6 +7,7 @@ import com.agricore.assistant.application.port.AssistantRetentionPolicy;
 import com.agricore.assistant.application.port.ChatProvider;
 import com.agricore.assistant.application.port.ChatGenerationPolicy;
 import com.agricore.assistant.application.port.ConversationRepository;
+import com.agricore.assistant.application.port.GenerationExecutionRepository;
 import com.agricore.assistant.application.port.GenerationRepository;
 import com.agricore.assistant.application.port.GenerationWorkDispatcher;
 import com.agricore.assistant.domain.exception.AssistantException;
@@ -32,6 +33,7 @@ import java.util.UUID;
 public class GenerationApplicationService {
 
     private final GenerationRepository generationRepository;
+    private final GenerationExecutionRepository executionRepository;
     private final ConversationRepository conversationRepository;
     private final AssistantAuditRepository auditRepository;
     private final AssistantRetentionPolicy retentionPolicy;
@@ -42,6 +44,7 @@ public class GenerationApplicationService {
 
     public GenerationApplicationService(
             GenerationRepository generationRepository,
+            GenerationExecutionRepository executionRepository,
             ConversationRepository conversationRepository,
             AssistantAuditRepository auditRepository,
             AssistantRetentionPolicy retentionPolicy,
@@ -51,6 +54,7 @@ public class GenerationApplicationService {
             Clock clock
     ) {
         this.generationRepository = generationRepository;
+        this.executionRepository = executionRepository;
         this.conversationRepository = conversationRepository;
         this.auditRepository = auditRepository;
         this.retentionPolicy = retentionPolicy;
@@ -111,6 +115,35 @@ public class GenerationApplicationService {
                 .orElseThrow(AssistantException::notFound);
         return generationRepository.findOwned(generationId, conversationId, actor.subject())
                 .orElseThrow(AssistantException::generationNotFound);
+    }
+
+    @Transactional
+    public AssistantGeneration cancel(
+            AssistantActor actor,
+            UUID conversationId,
+            UUID generationId
+    ) {
+        AssistantConversation conversation = conversationRepository.findOwned(conversationId, actor.subject())
+                .orElseThrow(AssistantException::notFound);
+        Instant now = clock.instant();
+        var result = executionRepository.requestCancellation(
+                generationId,
+                conversation.id(),
+                actor.subject(),
+                now,
+                now.plus(retentionPolicy.generationEventRetention())
+        );
+        if (result.changed()) {
+            auditRepository.save(AssistantAuditEvent.generationSuccess(
+                    actor.subject(), actor.subject(), conversation.farmId(), conversation.id(),
+                    generationId, "GENERATION_CANCELLATION_REQUESTED", now,
+                    now.plus(retentionPolicy.auditEventRetention())
+            ));
+        }
+        if (result.workerCancellationRequired()) {
+            workDispatcher.cancelAfterCommit(generationId);
+        }
+        return result.generation();
     }
 
     @Transactional(readOnly = true)
