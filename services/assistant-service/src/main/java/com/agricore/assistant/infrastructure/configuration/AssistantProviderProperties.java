@@ -15,8 +15,10 @@ public class AssistantProviderProperties {
     private Duration connectTimeout = Duration.ofSeconds(5);
     private Duration readTimeout = Duration.ofSeconds(60);
     private Duration maxGenerationDuration = Duration.ofSeconds(90);
+    private Duration circuitOpenDuration = Duration.ofSeconds(30);
     private int maxInputCharacters = 40_000;
     private int maxOutputTokens = 1_024;
+    private int circuitFailureThreshold = 5;
     private double temperature = 0.2;
 
     public ProviderType getType() {
@@ -88,6 +90,18 @@ public class AssistantProviderProperties {
         );
     }
 
+    public Duration getCircuitOpenDuration() {
+        return circuitOpenDuration;
+    }
+
+    public void setCircuitOpenDuration(Duration circuitOpenDuration) {
+        this.circuitOpenDuration = requireDurationAtMost(
+                circuitOpenDuration,
+                Duration.ofMinutes(10),
+                "circuitOpenDuration"
+        );
+    }
+
     public int getMaxInputCharacters() {
         return maxInputCharacters;
     }
@@ -102,6 +116,14 @@ public class AssistantProviderProperties {
 
     public void setMaxOutputTokens(int maxOutputTokens) {
         this.maxOutputTokens = requireRange(maxOutputTokens, 1, 8_192, "maxOutputTokens");
+    }
+
+    public int getCircuitFailureThreshold() {
+        return circuitFailureThreshold;
+    }
+
+    public void setCircuitFailureThreshold(int circuitFailureThreshold) {
+        this.circuitFailureThreshold = requireRange(circuitFailureThreshold, 1, 100, "circuitFailureThreshold");
     }
 
     public double getTemperature() {

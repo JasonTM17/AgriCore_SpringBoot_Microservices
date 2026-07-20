@@ -36,8 +36,10 @@ agricore:
       connect-timeout: ${ASSISTANT_PROVIDER_CONNECT_TIMEOUT:PT5S}
       read-timeout: ${ASSISTANT_PROVIDER_READ_TIMEOUT:PT60S}
       max-generation-duration: ${ASSISTANT_MAX_GENERATION_DURATION:PT90S}
+      circuit-open-duration: ${ASSISTANT_PROVIDER_CIRCUIT_OPEN_DURATION:PT30S}
       max-input-characters: ${ASSISTANT_MAX_INPUT_CHARACTERS:40000}
       max-output-tokens: ${ASSISTANT_MAX_OUTPUT_TOKENS:1024}
+      circuit-failure-threshold: ${ASSISTANT_PROVIDER_CIRCUIT_FAILURE_THRESHOLD:5}
       temperature: ${ASSISTANT_PROVIDER_TEMPERATURE:0.2}
     retention:
       archived-conversation: ${ASSISTANT_ARCHIVED_CONVERSATION_RETENTION:P90D}

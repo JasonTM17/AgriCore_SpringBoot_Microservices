@@ -59,12 +59,12 @@ public final class SpringAiChatProviderFactory {
                 .retryTemplate(singleAttemptRetry())
                 .observationRegistry(observationRegistry)
                 .build();
-        return new SpringAiChatProvider(
+        return withCircuitBreaker(new SpringAiChatProvider(
                 ProviderType.OPENAI.externalName(),
                 model,
                 SpringAiChatProviderFactory::openAiOptions,
                 properties.getMaxGenerationDuration()
-        );
+        ), properties);
     }
 
     private ChatProvider createOllama(AssistantProviderProperties properties) {
@@ -83,11 +83,24 @@ public final class SpringAiChatProviderFactory {
                 .retryTemplate(singleAttemptRetry())
                 .observationRegistry(observationRegistry)
                 .build();
-        return new SpringAiChatProvider(
+        return withCircuitBreaker(new SpringAiChatProvider(
                 ProviderType.OLLAMA.externalName(),
                 model,
                 SpringAiChatProviderFactory::ollamaOptions,
                 properties.getMaxGenerationDuration()
+        ), properties);
+    }
+
+    private ChatProvider withCircuitBreaker(
+            ChatProvider provider,
+            AssistantProviderProperties properties
+    ) {
+        return new CircuitBreakingChatProvider(
+                provider,
+                new ProviderCircuitBreaker(
+                        properties.getCircuitFailureThreshold(),
+                        properties.getCircuitOpenDuration()
+                )
         );
     }
 

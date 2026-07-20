@@ -31,6 +31,14 @@ public class AssistantProviderException extends RuntimeException {
         );
     }
 
+    public static AssistantProviderException circuitOpen() {
+        return new AssistantProviderException(
+                "AI_PROVIDER_CIRCUIT_OPEN",
+                "The AI provider is temporarily unavailable",
+                true
+        );
+    }
+
     public static AssistantProviderException failed() {
         return failed(null);
     }

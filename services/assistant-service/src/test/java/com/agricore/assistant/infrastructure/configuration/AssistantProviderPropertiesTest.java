@@ -37,8 +37,10 @@ class AssistantProviderPropertiesTest {
         assertThat(properties.getConnectTimeout()).isEqualTo(Duration.ofSeconds(3));
         assertThat(properties.getReadTimeout()).isEqualTo(Duration.ofSeconds(45));
         assertThat(properties.getMaxGenerationDuration()).isEqualTo(Duration.ofMinutes(2));
+        assertThat(properties.getCircuitOpenDuration()).isEqualTo(Duration.ofSeconds(30));
         assertThat(properties.getMaxInputCharacters()).isEqualTo(50_000);
         assertThat(properties.getMaxOutputTokens()).isEqualTo(2_048);
+        assertThat(properties.getCircuitFailureThreshold()).isEqualTo(5);
         assertThat(properties.getTemperature()).isEqualTo(0.4);
     }
 
@@ -53,8 +55,10 @@ class AssistantProviderPropertiesTest {
         assertThat(properties.getConnectTimeout()).isEqualTo(Duration.ofSeconds(5));
         assertThat(properties.getReadTimeout()).isEqualTo(Duration.ofSeconds(60));
         assertThat(properties.getMaxGenerationDuration()).isEqualTo(Duration.ofSeconds(90));
+        assertThat(properties.getCircuitOpenDuration()).isEqualTo(Duration.ofSeconds(30));
         assertThat(properties.getMaxInputCharacters()).isEqualTo(40_000);
         assertThat(properties.getMaxOutputTokens()).isEqualTo(1_024);
+        assertThat(properties.getCircuitFailureThreshold()).isEqualTo(5);
         assertThat(properties.getTemperature()).isEqualTo(0.2);
     }
 
@@ -66,8 +70,10 @@ class AssistantProviderPropertiesTest {
         assertBindingFails("agricore.assistant.provider.connect-timeout", "PT31S");
         assertBindingFails("agricore.assistant.provider.read-timeout", "PT6M");
         assertBindingFails("agricore.assistant.provider.max-generation-duration", "PT11M");
+        assertBindingFails("agricore.assistant.provider.circuit-open-duration", "PT11M");
         assertBindingFails("agricore.assistant.provider.max-input-characters", "200001");
         assertBindingFails("agricore.assistant.provider.max-output-tokens", "8193");
+        assertBindingFails("agricore.assistant.provider.circuit-failure-threshold", "101");
         assertBindingFails("agricore.assistant.provider.temperature", "2.1");
     }
 
