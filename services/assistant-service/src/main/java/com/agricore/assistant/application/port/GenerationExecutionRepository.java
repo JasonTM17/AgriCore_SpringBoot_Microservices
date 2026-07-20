@@ -68,4 +68,6 @@ public interface GenerationExecutionRepository {
     );
 
     List<UUID> findQueuedGenerationIds(int limit);
+
+    int expireLeases(Instant now, Instant eventExpiresAt, int limit);
 }

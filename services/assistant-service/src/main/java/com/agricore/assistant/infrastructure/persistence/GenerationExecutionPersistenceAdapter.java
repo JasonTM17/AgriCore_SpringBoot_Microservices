@@ -27,17 +27,20 @@ public class GenerationExecutionPersistenceAdapter implements GenerationExecutio
     private final GenerationLeaseTransitionStore leaseStore;
     private final GenerationTerminalTransitionStore terminalStore;
     private final GenerationCancellationTransitionStore cancellationStore;
+    private final GenerationLeaseExpiryStore leaseExpiryStore;
 
     public GenerationExecutionPersistenceAdapter(
             ChatGenerationJpaRepository generationRepository,
             GenerationLeaseTransitionStore leaseStore,
             GenerationTerminalTransitionStore terminalStore,
-            GenerationCancellationTransitionStore cancellationStore
+            GenerationCancellationTransitionStore cancellationStore,
+            GenerationLeaseExpiryStore leaseExpiryStore
     ) {
         this.generationRepository = generationRepository;
         this.leaseStore = leaseStore;
         this.terminalStore = terminalStore;
         this.cancellationStore = cancellationStore;
+        this.leaseExpiryStore = leaseExpiryStore;
     }
 
     @Override
@@ -125,5 +128,10 @@ public class GenerationExecutionPersistenceAdapter implements GenerationExecutio
             throw new IllegalArgumentException("queue batch limit must be between 1 and 1000");
         }
         return generationRepository.findIdsByStatus(GenerationStatus.QUEUED, PageRequest.of(0, limit));
+    }
+
+    @Override
+    public int expireLeases(Instant now, Instant eventExpiresAt, int limit) {
+        return leaseExpiryStore.expire(now, eventExpiresAt, limit);
     }
 }

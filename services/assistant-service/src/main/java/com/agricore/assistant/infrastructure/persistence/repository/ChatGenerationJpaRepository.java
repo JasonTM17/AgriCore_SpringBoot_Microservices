@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -85,6 +86,21 @@ public interface ChatGenerationJpaRepository extends JpaRepository<ChatGeneratio
             """)
     List<UUID> findIdsByStatus(
             @Param("status") GenerationStatus status,
+            Pageable pageable
+    );
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT generation
+              FROM ChatGenerationEntity generation
+             WHERE generation.status IN :statuses
+               AND generation.leaseExpiresAt IS NOT NULL
+               AND generation.leaseExpiresAt <= :now
+             ORDER BY generation.leaseExpiresAt ASC, generation.queuedAt ASC, generation.id ASC
+            """)
+    List<ChatGenerationEntity> findExpiredLeasesForUpdate(
+            @Param("statuses") List<GenerationStatus> statuses,
+            @Param("now") Instant now,
             Pageable pageable
     );
 }
