@@ -3,11 +3,13 @@ package com.agricore.assistant.infrastructure.configuration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(AssistantGenerationWorkerProperties.class)
+@EnableScheduling
 public class AssistantGenerationWorkerConfiguration {
 
     @Bean(destroyMethod = "dispose")

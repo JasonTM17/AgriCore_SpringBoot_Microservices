@@ -14,6 +14,7 @@ agricore:
   assistant:
     worker:
       enabled: false
+      recovery-enabled: false
     provider:
       type: none
   security:

@@ -47,8 +47,11 @@ agricore:
       generation-event: ${ASSISTANT_GENERATION_EVENT_RETENTION:PT24H}
     worker:
       enabled: ${ASSISTANT_WORKER_ENABLED:true}
+      recovery-enabled: ${ASSISTANT_WORKER_RECOVERY_ENABLED:true}
       concurrency: ${ASSISTANT_WORKER_CONCURRENCY:4}
       queue-capacity: ${ASSISTANT_WORKER_QUEUE_CAPACITY:512}
+      recovery-batch-size: ${ASSISTANT_WORKER_RECOVERY_BATCH_SIZE:100}
+      recovery-interval: ${ASSISTANT_WORKER_RECOVERY_INTERVAL:PT5S}
       lease-duration: ${ASSISTANT_WORKER_LEASE_DURATION:PT30S}
       heartbeat-interval: ${ASSISTANT_WORKER_HEARTBEAT_INTERVAL:PT10S}
       delta-batch-size: ${ASSISTANT_WORKER_DELTA_BATCH_SIZE:16}

@@ -18,8 +18,11 @@ class AssistantGenerationWorkerPropertiesTest {
     void bindsBoundedWorkerControls() {
         AssistantGenerationWorkerProperties properties = bind(Map.of(
                 "agricore.assistant.worker.enabled", "false",
+                "agricore.assistant.worker.recovery-enabled", "false",
                 "agricore.assistant.worker.concurrency", "8",
                 "agricore.assistant.worker.queue-capacity", "1024",
+                "agricore.assistant.worker.recovery-batch-size", "250",
+                "agricore.assistant.worker.recovery-interval", "PT20S",
                 "agricore.assistant.worker.lease-duration", "PT45S",
                 "agricore.assistant.worker.heartbeat-interval", "PT15S",
                 "agricore.assistant.worker.delta-batch-size", "32",
@@ -28,8 +31,11 @@ class AssistantGenerationWorkerPropertiesTest {
 
         properties.validate();
         assertThat(properties.isEnabled()).isFalse();
+        assertThat(properties.isRecoveryEnabled()).isFalse();
         assertThat(properties.getConcurrency()).isEqualTo(8);
         assertThat(properties.getQueueCapacity()).isEqualTo(1_024);
+        assertThat(properties.getRecoveryBatchSize()).isEqualTo(250);
+        assertThat(properties.getRecoveryInterval()).isEqualTo(Duration.ofSeconds(20));
         assertThat(properties.getLeaseDuration()).isEqualTo(Duration.ofSeconds(45));
         assertThat(properties.getHeartbeatInterval()).isEqualTo(Duration.ofSeconds(15));
         assertThat(properties.getDeltaBatchSize()).isEqualTo(32);
@@ -42,8 +48,11 @@ class AssistantGenerationWorkerPropertiesTest {
 
         properties.validate();
         assertThat(properties.isEnabled()).isTrue();
+        assertThat(properties.isRecoveryEnabled()).isTrue();
         assertThat(properties.getConcurrency()).isEqualTo(4);
         assertThat(properties.getQueueCapacity()).isEqualTo(512);
+        assertThat(properties.getRecoveryBatchSize()).isEqualTo(100);
+        assertThat(properties.getRecoveryInterval()).isEqualTo(Duration.ofSeconds(5));
         assertThat(properties.getLeaseDuration()).isEqualTo(Duration.ofSeconds(30));
         assertThat(properties.getHeartbeatInterval()).isEqualTo(Duration.ofSeconds(10));
         assertThat(properties.getDeltaBatchSize()).isEqualTo(16);
@@ -54,6 +63,8 @@ class AssistantGenerationWorkerPropertiesTest {
     void rejectsUnboundedOrUnsafeControls() {
         assertBindingFails("agricore.assistant.worker.concurrency", "33");
         assertBindingFails("agricore.assistant.worker.queue-capacity", "15");
+        assertBindingFails("agricore.assistant.worker.recovery-batch-size", "1001");
+        assertBindingFails("agricore.assistant.worker.recovery-interval", "PT6M");
         assertBindingFails("agricore.assistant.worker.lease-duration", "PT6M");
         assertBindingFails("agricore.assistant.worker.delta-batch-size", "65");
         assertBindingFails("agricore.assistant.worker.delta-flush-interval", "PT2S");

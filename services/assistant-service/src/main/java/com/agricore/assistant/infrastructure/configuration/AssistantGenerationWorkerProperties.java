@@ -8,8 +8,11 @@ import java.time.Duration;
 public class AssistantGenerationWorkerProperties {
 
     private boolean enabled = true;
+    private boolean recoveryEnabled = true;
     private int concurrency = 4;
     private int queueCapacity = 512;
+    private int recoveryBatchSize = 100;
+    private Duration recoveryInterval = Duration.ofSeconds(5);
     private Duration leaseDuration = Duration.ofSeconds(30);
     private Duration heartbeatInterval = Duration.ofSeconds(10);
     private int deltaBatchSize = 16;
@@ -21,6 +24,14 @@ public class AssistantGenerationWorkerProperties {
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+    }
+
+    public boolean isRecoveryEnabled() {
+        return recoveryEnabled;
+    }
+
+    public void setRecoveryEnabled(boolean recoveryEnabled) {
+        this.recoveryEnabled = recoveryEnabled;
     }
 
     public int getConcurrency() {
@@ -37,6 +48,23 @@ public class AssistantGenerationWorkerProperties {
 
     public void setQueueCapacity(int queueCapacity) {
         this.queueCapacity = requireRange(queueCapacity, 16, 10_000, "queueCapacity");
+    }
+
+    public int getRecoveryBatchSize() {
+        return recoveryBatchSize;
+    }
+
+    public void setRecoveryBatchSize(int recoveryBatchSize) {
+        this.recoveryBatchSize = requireRange(recoveryBatchSize, 1, 1_000, "recoveryBatchSize");
+    }
+
+    public Duration getRecoveryInterval() {
+        return recoveryInterval;
+    }
+
+    public void setRecoveryInterval(Duration recoveryInterval) {
+        this.recoveryInterval = requireDurationAtMost(
+                recoveryInterval, Duration.ofMinutes(5), "recoveryInterval");
     }
 
     public Duration getLeaseDuration() {
