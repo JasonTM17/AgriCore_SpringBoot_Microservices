@@ -1,6 +1,7 @@
 package com.agricore.assistant.infrastructure.persistence.repository;
 
 import com.agricore.assistant.infrastructure.persistence.entity.ConversationMessageEntity;
+import com.agricore.assistant.domain.model.MessageRole;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -8,8 +9,12 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.UUID;
+import java.util.Optional;
 
 public interface ConversationMessageJpaRepository extends JpaRepository<ConversationMessageEntity, UUID> {
+
+    Optional<ConversationMessageEntity> findByGenerationIdAndRole(UUID generationId, MessageRole role);
+
     @Query("""
             SELECT message
               FROM ConversationMessageEntity message

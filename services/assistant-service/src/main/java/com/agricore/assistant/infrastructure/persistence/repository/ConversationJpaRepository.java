@@ -2,8 +2,10 @@ package com.agricore.assistant.infrastructure.persistence.repository;
 
 import com.agricore.assistant.domain.model.ConversationStatus;
 import com.agricore.assistant.infrastructure.persistence.entity.ConversationEntity;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -21,6 +23,18 @@ public interface ConversationJpaRepository extends JpaRepository<ConversationEnt
     );
 
     java.util.Optional<ConversationEntity> findByIdAndOwnerUserId(UUID id, UUID ownerUserId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT conversation
+              FROM ConversationEntity conversation
+             WHERE conversation.id = :conversationId
+               AND conversation.ownerUserId = :ownerUserId
+            """)
+    java.util.Optional<ConversationEntity> findOwnedForUpdate(
+            @Param("conversationId") UUID conversationId,
+            @Param("ownerUserId") UUID ownerUserId
+    );
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""

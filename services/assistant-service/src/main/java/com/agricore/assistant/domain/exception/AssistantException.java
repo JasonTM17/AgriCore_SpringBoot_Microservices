@@ -44,4 +44,28 @@ public class AssistantException extends RuntimeException {
                 "INVALID_ACTOR_SUBJECT", "Authenticated subject is invalid", 401
         );
     }
+
+    public static AssistantException conversationNotOpen() {
+        return new AssistantException(
+                "CONVERSATION_NOT_OPEN", "Conversation is not open for a new generation", 409
+        );
+    }
+
+    public static AssistantException generationAlreadyActive() {
+        return new AssistantException(
+                "GENERATION_ALREADY_ACTIVE", "Conversation already has an active generation", 409
+        );
+    }
+
+    public static AssistantException idempotencyKeyReused() {
+        return new AssistantException(
+                "IDEMPOTENCY_KEY_REUSED", "Idempotency key was used with a different request", 409
+        );
+    }
+
+    public static AssistantException generationNotFound() {
+        return new AssistantException(
+                "GENERATION_NOT_FOUND", "Generation not found", 404
+        );
+    }
 }
