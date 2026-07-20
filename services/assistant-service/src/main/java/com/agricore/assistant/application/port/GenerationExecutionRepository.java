@@ -4,6 +4,7 @@ import com.agricore.assistant.application.model.DeltaAppendResult;
 import com.agricore.assistant.application.model.GenerationCancelResult;
 import com.agricore.assistant.application.model.GenerationCompletion;
 import com.agricore.assistant.application.model.GenerationExecutionContext;
+import com.agricore.assistant.application.model.GenerationLeaseStatus;
 import com.agricore.assistant.domain.model.AssistantGeneration;
 
 import java.time.Instant;
@@ -28,6 +29,13 @@ public interface GenerationExecutionRepository {
             Instant now,
             Instant leaseExpiresAt,
             Instant eventExpiresAt
+    );
+
+    GenerationLeaseStatus renewLease(
+            UUID generationId,
+            UUID leaseToken,
+            Instant now,
+            Instant leaseExpiresAt
     );
 
     Optional<AssistantGeneration> complete(

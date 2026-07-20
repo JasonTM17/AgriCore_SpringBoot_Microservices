@@ -2,6 +2,7 @@ package com.agricore.assistant;
 
 import com.agricore.assistant.application.model.DeltaAppendResult;
 import com.agricore.assistant.application.model.GenerationSubmissionResult;
+import com.agricore.assistant.application.model.GenerationLeaseStatus;
 import com.agricore.assistant.domain.exception.AssistantException;
 import com.agricore.assistant.domain.model.AssistantGenerationEvent;
 import com.agricore.assistant.domain.model.GenerationEventType;
@@ -117,6 +118,41 @@ class GenerationTerminalPersistenceIntegrationTest
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM conversation_messages WHERE generation_id = ?",
                 Integer.class, submitted.generation().id())).isEqualTo(1);
+    }
+
+    @Test
+    void heartbeatRenewsOnlyTheActiveLeaseAndSurfacesCancellation() {
+        UUID owner = UUID.randomUUID();
+        UUID conversationId = insertConversation(owner);
+        GenerationSubmissionResult submitted = submit(conversationId, owner, "heartbeat", NOW);
+        UUID leaseToken = UUID.randomUUID();
+        executionRepository.claim(submitted.generation().id(), leaseToken, at(1), at(31), expiresAt(1));
+
+        assertThat(executionRepository.renewLease(
+                submitted.generation().id(), UUID.randomUUID(), at(2), at(62)))
+                .isEqualTo(GenerationLeaseStatus.STALE);
+        assertThat(executionRepository.renewLease(
+                submitted.generation().id(), leaseToken, at(2), at(62)))
+                .isEqualTo(GenerationLeaseStatus.ACTIVE);
+        var renewed = generationRepository.findOwned(
+                submitted.generation().id(), conversationId, owner).orElseThrow();
+        assertThat(renewed.leaseExpiresAt()).isEqualTo(at(62));
+        assertThat(renewed.updatedAt()).isEqualTo(at(2));
+
+        executionRepository.requestCancellation(
+                submitted.generation().id(), conversationId, owner, at(3), expiresAt(3));
+        assertThat(executionRepository.renewLease(
+                submitted.generation().id(), leaseToken, at(4), at(64)))
+                .isEqualTo(GenerationLeaseStatus.CANCEL_REQUESTED);
+        assertThat(generationRepository.findOwned(
+                submitted.generation().id(), conversationId, owner).orElseThrow().leaseExpiresAt())
+                .isEqualTo(at(62));
+
+        executionRepository.finishCancellation(
+                submitted.generation().id(), leaseToken, at(5), expiresAt(5));
+        assertThat(executionRepository.renewLease(
+                submitted.generation().id(), leaseToken, at(6), at(66)))
+                .isEqualTo(GenerationLeaseStatus.STALE);
     }
 
     @Test
