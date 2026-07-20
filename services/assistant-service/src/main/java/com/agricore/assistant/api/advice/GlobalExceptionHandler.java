@@ -8,6 +8,7 @@ import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
@@ -30,7 +31,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AssistantException.class)
     public ResponseEntity<ApiError> assistant(AssistantException ex, HttpServletRequest request) {
         HttpStatus status = HttpStatus.valueOf(ex.getHttpStatus());
-        return ResponseEntity.status(status).body(ApiError.of(
+        return response(status, ApiError.of(
                 status.value(),
                 status.getReasonPhrase(),
                 ex.getCode(),
@@ -43,7 +44,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(FarmAccessException.class)
     public ResponseEntity<ApiError> farmAccess(FarmAccessException ex, HttpServletRequest request) {
         HttpStatus status = HttpStatus.valueOf(ex.getHttpStatus());
-        return ResponseEntity.status(status).body(ApiError.of(
+        return response(status, ApiError.of(
                 status.value(),
                 status.getReasonPhrase(),
                 ex.getCode(),
@@ -71,7 +72,8 @@ public class GlobalExceptionHandler {
         var violations = ex.getBindingResult().getFieldErrors().stream()
                 .map(this::toViolation)
                 .toList();
-        return ResponseEntity.badRequest().body(
+        return response(
+                HttpStatus.BAD_REQUEST,
                 ApiError.validation("Request validation failed", request.getRequestURI(), null, violations)
         );
     }
@@ -176,7 +178,7 @@ public class GlobalExceptionHandler {
             String message,
             HttpServletRequest request
     ) {
-        return ResponseEntity.status(status).body(ApiError.of(
+        return response(status, ApiError.of(
                 status.value(),
                 status.getReasonPhrase(),
                 code,
@@ -184,5 +186,11 @@ public class GlobalExceptionHandler {
                 request.getRequestURI(),
                 null
         ));
+    }
+
+    private ResponseEntity<ApiError> response(HttpStatus status, ApiError body) {
+        return ResponseEntity.status(status)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body);
     }
 }
