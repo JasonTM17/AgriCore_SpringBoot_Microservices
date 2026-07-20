@@ -6,4 +6,6 @@ public interface AssistantRetentionPolicy {
     Duration archivedConversationRetention();
 
     Duration auditEventRetention();
+
+    Duration generationEventRetention();
 }

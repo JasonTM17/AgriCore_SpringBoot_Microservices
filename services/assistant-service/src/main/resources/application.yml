@@ -44,6 +44,15 @@ agricore:
     retention:
       archived-conversation: ${ASSISTANT_ARCHIVED_CONVERSATION_RETENTION:P90D}
       audit-event: ${ASSISTANT_AUDIT_RETENTION:P365D}
+      generation-event: ${ASSISTANT_GENERATION_EVENT_RETENTION:PT24H}
+    worker:
+      enabled: ${ASSISTANT_WORKER_ENABLED:true}
+      concurrency: ${ASSISTANT_WORKER_CONCURRENCY:4}
+      queue-capacity: ${ASSISTANT_WORKER_QUEUE_CAPACITY:512}
+      lease-duration: ${ASSISTANT_WORKER_LEASE_DURATION:PT30S}
+      heartbeat-interval: ${ASSISTANT_WORKER_HEARTBEAT_INTERVAL:PT10S}
+      delta-batch-size: ${ASSISTANT_WORKER_DELTA_BATCH_SIZE:16}
+      delta-flush-interval: ${ASSISTANT_WORKER_DELTA_FLUSH_INTERVAL:PT0.1S}
   security:
     issuer: ${JWT_ISSUER:https://agricore.local/identity}
     jwk-set-uri: ${IDENTITY_JWKS_URI:http://localhost:8081/.well-known/jwks.json}

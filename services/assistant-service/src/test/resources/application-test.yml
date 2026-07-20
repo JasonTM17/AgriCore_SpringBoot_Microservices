@@ -12,6 +12,8 @@ spring:
 
 agricore:
   assistant:
+    worker:
+      enabled: false
     provider:
       type: none
   security:

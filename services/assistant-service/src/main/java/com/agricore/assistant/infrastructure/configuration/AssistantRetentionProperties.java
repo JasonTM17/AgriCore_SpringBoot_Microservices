@@ -10,6 +10,7 @@ public class AssistantRetentionProperties implements AssistantRetentionPolicy {
 
     private Duration archivedConversation = Duration.ofDays(90);
     private Duration auditEvent = Duration.ofDays(365);
+    private Duration generationEvent = Duration.ofHours(24);
 
     public Duration getArchivedConversation() {
         return archivedConversation;
@@ -35,6 +36,19 @@ public class AssistantRetentionProperties implements AssistantRetentionPolicy {
 
     public void setAuditEvent(Duration auditEvent) {
         this.auditEvent = requirePositive(auditEvent, "auditEvent");
+    }
+
+    public Duration getGenerationEvent() {
+        return generationEvent;
+    }
+
+    @Override
+    public Duration generationEventRetention() {
+        return generationEvent;
+    }
+
+    public void setGenerationEvent(Duration generationEvent) {
+        this.generationEvent = requirePositive(generationEvent, "generationEvent");
     }
 
     private static Duration requirePositive(Duration value, String name) {
