@@ -11,8 +11,8 @@
     "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
-    "contracts:generate": "openapi-typescript ../../contracts/openapi/identity-service.v1.yaml -o src/lib/api/generated/identity.ts && openapi-typescript ../../contracts/openapi/api-gateway.v1.yaml -o src/lib/api/generated/gateway.ts",
-    "contracts:check": "pnpm contracts:generate && git ls-files --error-unmatch src/lib/api/generated/identity.ts src/lib/api/generated/gateway.ts && git diff --exit-code -- src/lib/api/generated",
+    "contracts:generate": "openapi-typescript ../../contracts/openapi/identity-service.v1.yaml -o src/lib/api/generated/identity.ts && openapi-typescript ../../contracts/openapi/api-gateway.v1.yaml -o src/lib/api/generated/gateway.ts && openapi-typescript ../../contracts/openapi/assistant-service.v1.yaml -o src/lib/api/generated/assistant.ts",
+    "contracts:check": "pnpm contracts:generate && git ls-files --error-unmatch src/lib/api/generated/identity.ts src/lib/api/generated/gateway.ts src/lib/api/generated/assistant.ts && git diff --exit-code -- src/lib/api/generated",
     "build": "tsc -b --pretty false && vite build && node scripts/verify-built-security-policy.mjs",
     "preview": "vite preview"
   },

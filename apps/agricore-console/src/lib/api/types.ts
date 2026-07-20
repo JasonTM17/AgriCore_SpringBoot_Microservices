@@ -1,7 +1,9 @@
 /** Contract-derived aliases. Regenerate with `pnpm contracts:generate`. */
+import type { components as AssistantComponents } from "./generated/assistant";
 import type { components as GatewayComponents } from "./generated/gateway";
 import type { components as IdentityComponents } from "./generated/identity";
 
+type AssistantSchemas = AssistantComponents["schemas"];
 type GatewaySchemas = GatewayComponents["schemas"];
 type GatewayParameters = GatewayComponents["parameters"];
 type IdentitySchemas = IdentityComponents["schemas"];
@@ -15,6 +17,21 @@ export type FieldViolation = IdentitySchemas["FieldViolation"];
 export type ApiErrorBody = IdentitySchemas["ApiError"];
 export type UserPageResponse = IdentitySchemas["UserPageResponse"];
 export type UpdateUserRolesRequest = IdentitySchemas["UpdateUserRolesRequest"];
+
+export type AssistantCapabilitiesResponse = AssistantSchemas["AssistantCapabilitiesResponse"];
+export type AssistantConversationContextType = AssistantSchemas["ConversationContextType"];
+export type AssistantConversationStatus = AssistantSchemas["ConversationStatus"];
+export type AssistantConversationResponse = AssistantSchemas["ConversationResponse"];
+export type AssistantConversationPageResponse = AssistantSchemas["ConversationPageResponse"];
+export type CreateAssistantConversationRequest = AssistantSchemas["CreateConversationRequest"];
+export type AssistantMessageResponse = AssistantSchemas["MessageResponse"];
+export type AssistantMessagePageResponse = AssistantSchemas["MessagePageResponse"];
+export type AssistantGenerationStatus = AssistantSchemas["GenerationStatus"];
+export type AssistantGenerationResponse = AssistantSchemas["GenerationResponse"];
+export type CreateAssistantGenerationRequest = AssistantSchemas["CreateGenerationRequest"];
+export type AssistantGenerationEventType = AssistantSchemas["GenerationEventType"];
+export type AssistantGenerationEventResponse = AssistantSchemas["GenerationEventResponse"];
+export type AssistantGenerationStreamError = AssistantSchemas["GenerationStreamErrorResponse"];
 
 export type FarmStatus = GatewaySchemas["FarmStatus"];
 export type FarmSort = GatewayParameters["FarmSort"];
