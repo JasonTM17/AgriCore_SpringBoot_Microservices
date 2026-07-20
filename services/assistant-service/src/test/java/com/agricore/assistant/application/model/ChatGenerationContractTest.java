@@ -2,6 +2,7 @@ package com.agricore.assistant.application.model;
 
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -76,6 +77,25 @@ class ChatGenerationContractTest {
         assertThatThrownBy(() -> ChatChunk.terminal("stop", -1, 1))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("inputTokens must not be negative");
+    }
+
+    @Test
+    void completionPreservesGeneratedContentAndSanitizesTerminalMetadata() {
+        Instant completedAt = Instant.parse("2026-07-20T05:00:00Z");
+        GenerationCompletion completion = new GenerationCompletion(
+                "  formatted answer\n", "unsafe reason", 12, 4,
+                completedAt, completedAt.plusSeconds(60));
+
+        assertThat(completion.content()).isEqualTo("  formatted answer\n");
+        assertThat(completion.finishReason()).isEqualTo("unknown");
+        assertThatThrownBy(() -> new GenerationCompletion(
+                "answer", "stop", -1, 4, completedAt, completedAt.plusSeconds(60)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("inputTokens must not be negative");
+        assertThatThrownBy(() -> new GenerationCompletion(
+                "answer", "stop", 1, 1, completedAt, completedAt))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("completion timestamps are invalid");
     }
 
     private ChatTurn user(String content) {

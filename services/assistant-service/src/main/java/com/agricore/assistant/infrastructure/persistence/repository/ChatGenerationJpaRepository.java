@@ -1,16 +1,37 @@
 package com.agricore.assistant.infrastructure.persistence.repository;
 
+import com.agricore.assistant.domain.model.GenerationStatus;
 import com.agricore.assistant.infrastructure.persistence.entity.ChatGenerationEntity;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 public interface ChatGenerationJpaRepository extends JpaRepository<ChatGenerationEntity, UUID> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT generation FROM ChatGenerationEntity generation WHERE generation.id = :generationId")
+    Optional<ChatGenerationEntity> findByIdForUpdate(@Param("generationId") UUID generationId);
+
+    @Query("""
+            SELECT new com.agricore.assistant.infrastructure.persistence.repository.GenerationExecutionReference(
+                generation.conversationId,
+                generation.ownerUserId,
+                generation.status,
+                generation.leaseToken
+            )
+              FROM ChatGenerationEntity generation
+             WHERE generation.id = :generationId
+            """)
+    Optional<GenerationExecutionReference> findExecutionReference(
+            @Param("generationId") UUID generationId
+    );
 
     Optional<ChatGenerationEntity> findByOwnerUserIdAndConversationIdAndIdempotencyKey(
             UUID ownerUserId,
@@ -54,5 +75,16 @@ public interface ChatGenerationJpaRepository extends JpaRepository<ChatGeneratio
 
     Optional<ChatGenerationEntity> findFirstByConversationIdAndActiveConversationIdIsNotNull(
             UUID conversationId
+    );
+
+    @Query("""
+            SELECT generation.id
+              FROM ChatGenerationEntity generation
+             WHERE generation.status = :status
+             ORDER BY generation.queuedAt ASC, generation.id ASC
+            """)
+    List<UUID> findIdsByStatus(
+            @Param("status") GenerationStatus status,
+            Pageable pageable
     );
 }
