@@ -46,9 +46,13 @@ public record GenerationEventReplayBatch(
             long afterSequence,
             long latestSequence
     ) {
-        if (!events.isEmpty()) {
-            return events.getFirst().sequenceNo() != afterSequence + 1;
+        long expectedSequence = afterSequence + 1;
+        for (AssistantGenerationEvent event : events) {
+            if (event.sequenceNo() != expectedSequence || event.sequenceNo() > latestSequence) {
+                return true;
+            }
+            expectedSequence++;
         }
-        return afterSequence < latestSequence;
+        return events.isEmpty() && afterSequence < latestSequence;
     }
 }

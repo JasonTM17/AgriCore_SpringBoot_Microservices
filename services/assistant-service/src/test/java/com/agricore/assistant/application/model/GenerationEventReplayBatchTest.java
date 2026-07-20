@@ -47,6 +47,14 @@ class GenerationEventReplayBatchTest {
     }
 
     @Test
+    void rejectsInternalSequenceGap() {
+        assertThatThrownBy(() -> GenerationEventReplayBatch.validated(
+                List.of(event(1), event(3)), 4, true, 0))
+                .isInstanceOfSatisfying(AssistantException.class, exception ->
+                        assertThat(exception.getCode()).isEqualTo("GENERATION_EVENT_REPLAY_EXPIRED"));
+    }
+
+    @Test
     void acceptsEmptyBatchWhenCursorAlreadyReachedLatestEvent() {
         GenerationEventReplayBatch batch = GenerationEventReplayBatch.validated(List.of(), 3, true, 2);
 
