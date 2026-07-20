@@ -69,6 +69,18 @@ public class AssistantException extends RuntimeException {
         );
     }
 
+    public static AssistantException invalidEventCursor() {
+        return new AssistantException(
+                "INVALID_EVENT_CURSOR", "Generation event cursor is ahead of the stream", 400
+        );
+    }
+
+    public static AssistantException eventReplayExpired() {
+        return new AssistantException(
+                "GENERATION_EVENT_REPLAY_EXPIRED", "Generation event replay window expired", 410
+        );
+    }
+
     public static AssistantException providerUnavailable(String reasonCode) {
         String safeCode = switch (reasonCode) {
             case "AI_PROVIDER_CONFIGURATION_MISSING", "AI_PROVIDER_ADAPTER_UNAVAILABLE",

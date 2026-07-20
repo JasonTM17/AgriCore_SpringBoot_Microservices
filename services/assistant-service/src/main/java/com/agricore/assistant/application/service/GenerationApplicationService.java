@@ -1,5 +1,6 @@
 package com.agricore.assistant.application.service;
 
+import com.agricore.assistant.application.model.GenerationEventReplayBatch;
 import com.agricore.assistant.application.model.GenerationSubmissionCommand;
 import com.agricore.assistant.application.model.GenerationSubmissionResult;
 import com.agricore.assistant.application.port.AssistantAuditRepository;
@@ -154,10 +155,30 @@ public class GenerationApplicationService {
             long afterSequence,
             int limit
     ) {
+        return eventBatch(actor, conversationId, generationId, afterSequence, limit).events();
+    }
+
+    @Transactional(readOnly = true)
+    public GenerationEventReplayBatch eventBatch(
+            AssistantActor actor,
+            UUID conversationId,
+            UUID generationId,
+            long afterSequence,
+            int limit
+    ) {
         conversationRepository.findOwned(conversationId, actor.subject())
                 .orElseThrow(AssistantException::notFound);
-        return generationRepository.findEventsOwned(
+        AssistantGeneration generation = generationRepository.findOwned(
+                        generationId, conversationId, actor.subject())
+                .orElseThrow(AssistantException::generationNotFound);
+        List<AssistantGenerationEvent> events = generationRepository.findEventsOwned(
                 generationId, conversationId, actor.subject(), afterSequence, limit, clock.instant());
+        return GenerationEventReplayBatch.validated(
+                events,
+                generation.nextEventSequence(),
+                generation.terminal(),
+                afterSequence
+        );
     }
 
     private static String requestHash(UUID conversationId, String prompt) {
