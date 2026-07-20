@@ -2,6 +2,7 @@ package com.agricore.assistant.infrastructure.worker;
 
 import com.agricore.assistant.application.port.AssistantRetentionPolicy;
 import com.agricore.assistant.application.port.GenerationExecutionRepository;
+import com.agricore.assistant.application.port.GenerationWorkDispatcher;
 import com.agricore.assistant.infrastructure.configuration.AssistantGenerationWorkerProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,20 +21,20 @@ public class GenerationQueueRecovery {
     private static final Logger LOGGER = LoggerFactory.getLogger(GenerationQueueRecovery.class);
 
     private final GenerationExecutionRepository repository;
-    private final GenerationWorkCoordinator coordinator;
+    private final GenerationWorkDispatcher dispatcher;
     private final AssistantGenerationWorkerProperties properties;
     private final AssistantRetentionPolicy retentionPolicy;
     private final Clock clock;
 
     public GenerationQueueRecovery(
             GenerationExecutionRepository repository,
-            GenerationWorkCoordinator coordinator,
+            GenerationWorkDispatcher dispatcher,
             AssistantGenerationWorkerProperties properties,
             AssistantRetentionPolicy retentionPolicy,
             Clock clock
     ) {
         this.repository = repository;
-        this.coordinator = coordinator;
+        this.dispatcher = dispatcher;
         this.properties = properties;
         this.retentionPolicy = retentionPolicy;
         this.clock = clock;
@@ -70,7 +71,7 @@ public class GenerationQueueRecovery {
         try {
             for (UUID generationId : repository.findQueuedGenerationIds(
                     properties.getRecoveryBatchSize())) {
-                coordinator.dispatch(generationId);
+                dispatcher.dispatch(generationId);
             }
         } catch (RuntimeException error) {
             logSafeFailure("queue-dispatch", error);

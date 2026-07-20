@@ -7,12 +7,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import reactor.core.publisher.Mono;
+import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Scheduler;
 
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 @Component
 public class GenerationWorkCoordinator implements GenerationWorkDispatcher {
@@ -22,7 +24,7 @@ public class GenerationWorkCoordinator implements GenerationWorkDispatcher {
     private final GenerationWorker worker;
     private final AssistantGenerationWorkerProperties properties;
     private final Scheduler scheduler;
-    private final Set<UUID> activeGenerations = ConcurrentHashMap.newKeySet();
+    private final ConcurrentMap<UUID, GenerationTask> activeGenerations = new ConcurrentHashMap<>();
 
     public GenerationWorkCoordinator(
             GenerationWorker worker,
@@ -43,31 +45,49 @@ public class GenerationWorkCoordinator implements GenerationWorkDispatcher {
         runAfterCommit(() -> dispatch(generationId));
     }
 
+    @Override
+    public void cancelAfterCommit(UUID generationId) {
+        Objects.requireNonNull(generationId, "generationId is required");
+        if (!properties.isEnabled()) {
+            return;
+        }
+        runAfterCommit(() -> signalCancellation(generationId));
+    }
+
+    @Override
     public void dispatch(UUID generationId) {
         Objects.requireNonNull(generationId, "generationId is required");
-        if (!properties.isEnabled() || !activeGenerations.add(generationId)) {
+        GenerationTask task = new GenerationTask();
+        if (!properties.isEnabled() || activeGenerations.putIfAbsent(generationId, task) != null) {
             return;
         }
         try {
-            scheduler.schedule(() -> execute(generationId));
+            scheduler.schedule(() -> execute(generationId, task));
         } catch (RuntimeException error) {
-            activeGenerations.remove(generationId);
+            activeGenerations.remove(generationId, task);
             logSafeFailure(generationId, error);
         }
     }
 
-    private void execute(UUID generationId) {
+    private void execute(UUID generationId, GenerationTask task) {
         try {
-            worker.execute(generationId)
-                    .doFinally(signal -> activeGenerations.remove(generationId))
+            worker.execute(generationId, task.cancellationSignal())
+                    .doFinally(signal -> activeGenerations.remove(generationId, task))
                     .subscribe(
                             ignored -> {
                             },
                             error -> logSafeFailure(generationId, error)
                     );
         } catch (RuntimeException error) {
-            activeGenerations.remove(generationId);
+            activeGenerations.remove(generationId, task);
             logSafeFailure(generationId, error);
+        }
+    }
+
+    private void signalCancellation(UUID generationId) {
+        GenerationTask task = activeGenerations.get(generationId);
+        if (task != null) {
+            task.cancel();
         }
     }
 
@@ -91,5 +111,18 @@ public class GenerationWorkCoordinator implements GenerationWorkDispatcher {
                 generationId,
                 error.getClass().getSimpleName()
         );
+    }
+
+    private static final class GenerationTask {
+
+        private final Sinks.Empty<Void> cancellation = Sinks.empty();
+
+        Mono<Void> cancellationSignal() {
+            return cancellation.asMono();
+        }
+
+        void cancel() {
+            cancellation.tryEmitEmpty();
+        }
     }
 }

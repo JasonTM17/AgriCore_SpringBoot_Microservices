@@ -2,6 +2,7 @@ package com.agricore.assistant.infrastructure.worker;
 
 import com.agricore.assistant.application.port.AssistantRetentionPolicy;
 import com.agricore.assistant.application.port.GenerationExecutionRepository;
+import com.agricore.assistant.application.port.GenerationWorkDispatcher;
 import com.agricore.assistant.infrastructure.configuration.AssistantGenerationWorkerProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,12 +26,12 @@ class GenerationQueueRecoveryTest {
     private static final Instant NOW = Instant.parse("2026-07-20T16:00:00Z");
 
     private final GenerationExecutionRepository repository = mock(GenerationExecutionRepository.class);
-    private final GenerationWorkCoordinator coordinator = mock(GenerationWorkCoordinator.class);
+    private final GenerationWorkDispatcher dispatcher = mock(GenerationWorkDispatcher.class);
     private final AssistantRetentionPolicy retentionPolicy = mock(AssistantRetentionPolicy.class);
     private final AssistantGenerationWorkerProperties properties = new AssistantGenerationWorkerProperties();
     private final GenerationQueueRecovery recovery = new GenerationQueueRecovery(
             repository,
-            coordinator,
+            dispatcher,
             properties,
             retentionPolicy,
             Clock.fixed(NOW, ZoneOffset.UTC)
@@ -50,11 +51,11 @@ class GenerationQueueRecoveryTest {
 
         recovery.recover();
 
-        var order = inOrder(repository, coordinator);
+        var order = inOrder(repository, dispatcher);
         order.verify(repository).expireLeases(NOW, NOW.plus(Duration.ofHours(24)), 2);
         order.verify(repository).findQueuedGenerationIds(2);
-        order.verify(coordinator).dispatch(first);
-        order.verify(coordinator).dispatch(second);
+        order.verify(dispatcher).dispatch(first);
+        order.verify(dispatcher).dispatch(second);
     }
 
     @Test
@@ -66,7 +67,7 @@ class GenerationQueueRecoveryTest {
 
         recovery.recover();
 
-        verify(coordinator).dispatch(queued);
+        verify(dispatcher).dispatch(queued);
     }
 
     @Test
@@ -75,7 +76,7 @@ class GenerationQueueRecoveryTest {
 
         recovery.recover();
 
-        verifyNoInteractions(repository, coordinator);
+        verifyNoInteractions(repository, dispatcher);
         verify(retentionPolicy, never()).generationEventRetention();
     }
 }

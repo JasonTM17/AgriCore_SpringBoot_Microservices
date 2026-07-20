@@ -66,7 +66,12 @@ public class GenerationWorker {
     }
 
     public Mono<Void> execute(UUID generationId) {
+        return execute(generationId, Mono.never());
+    }
+
+    public Mono<Void> execute(UUID generationId, Mono<Void> cancellationSignal) {
         Objects.requireNonNull(generationId, "generationId is required");
+        Objects.requireNonNull(cancellationSignal, "cancellationSignal is required");
         UUID leaseToken = UUID.randomUUID();
         Instant now = clock.instant();
         return repositoryCall(() -> repository.claim(
@@ -76,7 +81,7 @@ public class GenerationWorker {
                 now.plus(properties.getLeaseDuration()),
                 now.plus(retentionPolicy.generationEventRetention())
         )).flatMap(context -> context
-                .map(value -> executeClaimed(generationId, leaseToken, value)
+                .map(value -> executeClaimed(generationId, leaseToken, value, cancellationSignal)
                         .onErrorResume(error -> terminalCoordinator.settle(
                                 generationId, leaseToken, error)))
                 .orElseGet(Mono::empty)
@@ -90,7 +95,8 @@ public class GenerationWorker {
     private Mono<Void> executeClaimed(
             UUID generationId,
             UUID leaseToken,
-            GenerationExecutionContext context
+            GenerationExecutionContext context,
+            Mono<Void> cancellationSignal
     ) {
         return Mono.defer(() -> {
             providerGuard.verify(context);
@@ -98,7 +104,9 @@ public class GenerationWorker {
             GenerationStreamState state = new GenerationStreamState();
             Mono<Void> providerStream = providerStream(generationId, leaseToken, request, state);
             Mono<Void> heartbeat = heartbeat(generationId, leaseToken);
-            return Mono.firstWithSignal(providerStream, heartbeat);
+            Mono<Void> cancellation = cancellationSignal.then(Mono.error(
+                    GenerationProcessingException.cancellationRequested()));
+            return Mono.firstWithSignal(cancellation, providerStream, heartbeat);
         });
     }
 
@@ -111,7 +119,7 @@ public class GenerationWorker {
         return Flux.defer(() -> chatProvider.stream(request))
                 .timeout(generationPolicy.maxGenerationDuration())
                 .bufferTimeout(properties.getDeltaBatchSize(), properties.getDeltaFlushInterval())
-                .takeUntil(this::containsTerminal)
+                .takeUntil(batch -> batch.stream().anyMatch(ChatChunk::terminal))
                 .concatMap(batch -> persistBatch(generationId, leaseToken, state, batch))
                 .then(terminalCoordinator.complete(generationId, leaseToken, state));
     }
@@ -166,10 +174,6 @@ public class GenerationWorker {
                     return status;
                 }))
                 .then();
-    }
-
-    private boolean containsTerminal(List<ChatChunk> batch) {
-        return batch.stream().anyMatch(ChatChunk::terminal);
     }
 
     private void requireActive(DeltaAppendResult result) {
