@@ -81,6 +81,12 @@ public class AssistantException extends RuntimeException {
         );
     }
 
+    public static AssistantException streamCapacityExceeded() {
+        return new AssistantException(
+                "GENERATION_STREAM_CAPACITY_EXCEEDED", "Generation stream capacity is temporarily exhausted", 503
+        );
+    }
+
     public static AssistantException providerUnavailable(String reasonCode) {
         String safeCode = switch (reasonCode) {
             case "AI_PROVIDER_CONFIGURATION_MISSING", "AI_PROVIDER_ADAPTER_UNAVAILABLE",

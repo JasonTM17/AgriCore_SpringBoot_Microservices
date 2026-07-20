@@ -173,7 +173,10 @@ public class AssistantConversationController {
                 actorResolver.resolve(authentication), conversationId, generationId));
     }
 
-    @GetMapping("/{conversationId}/generations/{generationId}/events")
+    @GetMapping(
+            value = "/{conversationId}/generations/{generationId}/events",
+            produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE
+    )
     @PreAuthorize("isAuthenticated()")
     public List<GenerationEventResponse> generationEvents(
             @PathVariable UUID conversationId,
