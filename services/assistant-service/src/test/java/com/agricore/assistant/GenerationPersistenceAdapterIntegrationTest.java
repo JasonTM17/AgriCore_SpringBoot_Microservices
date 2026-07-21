@@ -2,6 +2,9 @@ package com.agricore.assistant;
 
 import com.agricore.assistant.application.model.GenerationSubmissionCommand;
 import com.agricore.assistant.application.model.GenerationSubmissionResult;
+import com.agricore.assistant.application.model.ToolEvidenceSnapshot;
+import com.agricore.assistant.application.model.ToolFact;
+import com.agricore.assistant.application.model.ToolSource;
 import com.agricore.assistant.application.port.GenerationRepository;
 import com.agricore.assistant.domain.exception.AssistantException;
 import com.agricore.assistant.domain.model.AssistantGenerationEvent;
@@ -47,12 +50,17 @@ class GenerationPersistenceAdapterIntegrationTest {
     void submissionAtomicallyPersistsUserMessageAndQueuedEvent() {
         UUID owner = UUID.randomUUID();
         UUID conversation = insertConversation(owner, ConversationStatus.OPEN);
+        ToolEvidenceSnapshot evidence = new ToolEvidenceSnapshot(List.of(
+                new ToolFact("FARM-1", ToolSource.FARM, java.util.Map.of("status", "ACTIVE"))
+        ));
 
-        GenerationSubmissionResult result = repository.submit(command(conversation, owner, "request-1", HASH));
+        GenerationSubmissionResult result = repository.submit(command(
+                conversation, owner, "request-1", HASH, evidence));
 
         assertThat(result.deduplicated()).isFalse();
         assertThat(result.generation().status()).isEqualTo(com.agricore.assistant.domain.model.GenerationStatus.QUEUED);
         assertThat(result.generation().activeConversationId()).isEqualTo(conversation);
+        assertThat(result.generation().toolEvidence()).isEqualTo(evidence);
         assertThat(result.userMessage().sequenceNo()).isZero();
         assertThat(jdbc.queryForObject(
                 "SELECT next_message_sequence FROM conversations WHERE id = ?", Long.class, conversation))
@@ -159,12 +167,23 @@ class GenerationPersistenceAdapterIntegrationTest {
             String key,
             String hash
     ) {
+        return command(conversationId, owner, key, hash, ToolEvidenceSnapshot.empty());
+    }
+
+    private GenerationSubmissionCommand command(
+            UUID conversationId,
+            UUID owner,
+            String key,
+            String hash,
+            ToolEvidenceSnapshot evidence
+    ) {
         return new GenerationSubmissionCommand(
                 conversationId,
                 owner,
                 key,
                 hash,
                 "How is the crop?",
+                evidence,
                 "none",
                 null,
                 NOW,

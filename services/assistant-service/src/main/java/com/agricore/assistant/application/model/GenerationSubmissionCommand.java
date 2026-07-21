@@ -10,6 +10,7 @@ public record GenerationSubmissionCommand(
         String idempotencyKey,
         String requestHash,
         String prompt,
+        ToolEvidenceSnapshot toolEvidence,
         String provider,
         String model,
         Instant now,
@@ -29,6 +30,7 @@ public record GenerationSubmissionCommand(
             throw new IllegalArgumentException("requestHash must be a SHA-256 hex value");
         }
         prompt = normalizeRequired(prompt, "prompt", MAX_PROMPT_LENGTH);
+        toolEvidence = toolEvidence == null ? ToolEvidenceSnapshot.empty() : toolEvidence;
         provider = normalizeRequired(provider, "provider", 32);
         model = model == null || model.isBlank() ? null : normalizeRequired(model, "model", 128);
         if (now == null || eventExpiresAt == null) {

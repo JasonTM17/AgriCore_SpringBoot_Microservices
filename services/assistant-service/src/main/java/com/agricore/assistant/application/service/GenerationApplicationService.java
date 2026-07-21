@@ -2,6 +2,8 @@ package com.agricore.assistant.application.service;
 
 import com.agricore.assistant.application.model.GenerationSubmissionCommand;
 import com.agricore.assistant.application.model.GenerationSubmissionResult;
+import com.agricore.assistant.application.model.ProviderCapabilities;
+import com.agricore.assistant.application.model.ToolEvidenceSnapshot;
 import com.agricore.assistant.application.port.AssistantAuditRepository;
 import com.agricore.assistant.application.port.AssistantRetentionPolicy;
 import com.agricore.assistant.application.port.ChatProvider;
@@ -15,7 +17,6 @@ import com.agricore.assistant.domain.model.AssistantActor;
 import com.agricore.assistant.domain.model.AssistantAuditEvent;
 import com.agricore.assistant.domain.model.AssistantConversation;
 import com.agricore.assistant.domain.model.AssistantGeneration;
-import com.agricore.assistant.application.model.ProviderCapabilities;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -90,6 +91,7 @@ public class GenerationApplicationService {
                 idempotencyKey,
                 requestHash,
                 prompt,
+                ToolEvidenceSnapshot.empty(),
                 capabilities.provider(),
                 generationPolicy.model(),
                 now,

@@ -47,6 +47,9 @@ public class ChatGenerationEntity {
     @Column(name = "role_snapshot", nullable = false, columnDefinition = "TEXT")
     private String roleSnapshot;
 
+    @Column(name = "tool_evidence", nullable = false, columnDefinition = "TEXT")
+    private String toolEvidence;
+
     @Column(name = "next_event_sequence", nullable = false)
     private long nextEventSequence;
 
@@ -133,6 +136,8 @@ public class ChatGenerationEntity {
     public void setStatus(GenerationStatus status) { this.status = status; }
     public String getRoleSnapshot() { return roleSnapshot; }
     public void setRoleSnapshot(String roleSnapshot) { this.roleSnapshot = roleSnapshot; }
+    public String getToolEvidence() { return toolEvidence; }
+    public void setToolEvidence(String toolEvidence) { this.toolEvidence = toolEvidence; }
     public long getNextEventSequence() { return nextEventSequence; }
     public void setNextEventSequence(long nextEventSequence) { this.nextEventSequence = nextEventSequence; }
     public String getProvider() { return provider; }

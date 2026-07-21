@@ -116,6 +116,7 @@ public class GenerationPersistenceAdapter implements GenerationRepository {
                 conversation.getId(),
                 null,
                 mapper.decodeRoleSnapshot(conversation.getRoleSnapshot()),
+                command.toolEvidence(),
                 1,
                 command.provider(),
                 command.model(),

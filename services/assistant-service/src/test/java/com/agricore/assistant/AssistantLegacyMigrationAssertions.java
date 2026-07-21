@@ -27,6 +27,9 @@ final class AssistantLegacyMigrationAssertions {
         assertThat(jdbc.queryForObject(
                 "SELECT role_snapshot FROM chat_generations WHERE id = ?", String.class, fixture.generationId()))
                 .isEqualTo("[\"FARM_MANAGER\",\"AGRONOMIST\"]");
+        assertThat(jdbc.queryForObject(
+                "SELECT tool_evidence FROM chat_generations WHERE id = ?", String.class, fixture.generationId()))
+                .isEqualTo("{\"facts\":[]}");
 
         assertLegacyActiveFailedClosed(jdbc, fixture.queuedGenerationId());
         assertLegacyActiveFailedClosed(jdbc, fixture.runningGenerationId());

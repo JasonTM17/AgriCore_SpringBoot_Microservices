@@ -10,10 +10,14 @@ public record ToolEvidenceSnapshot(List<ToolFact> facts) {
     private static final ToolEvidenceSnapshot EMPTY = new ToolEvidenceSnapshot(List.of());
 
     public ToolEvidenceSnapshot {
-        facts = facts == null ? List.of() : List.copyOf(facts);
-        if (facts.size() > MAX_FACTS) {
+        List<ToolFact> candidateFacts = facts == null ? List.of() : facts;
+        if (candidateFacts.size() > MAX_FACTS) {
             throw new IllegalArgumentException("tool evidence must contain at most 25 facts");
         }
+        if (candidateFacts.stream().anyMatch(java.util.Objects::isNull)) {
+            throw new IllegalArgumentException("tool evidence facts must not be null");
+        }
+        facts = List.copyOf(candidateFacts);
         Set<String> citationIds = new HashSet<>();
         if (facts.stream().anyMatch(fact -> !citationIds.add(fact.citationId()))) {
             throw new IllegalArgumentException("tool evidence citation ids must be unique");

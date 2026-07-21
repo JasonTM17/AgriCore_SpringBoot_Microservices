@@ -12,9 +12,14 @@ import org.springframework.stereotype.Component;
 public class GenerationPersistenceMapper {
 
     private final RoleSnapshotJsonCodec roleSnapshotCodec;
+    private final ToolEvidenceJsonCodec toolEvidenceCodec;
 
-    public GenerationPersistenceMapper(RoleSnapshotJsonCodec roleSnapshotCodec) {
+    public GenerationPersistenceMapper(
+            RoleSnapshotJsonCodec roleSnapshotCodec,
+            ToolEvidenceJsonCodec toolEvidenceCodec
+    ) {
         this.roleSnapshotCodec = roleSnapshotCodec;
+        this.toolEvidenceCodec = toolEvidenceCodec;
     }
 
     public java.util.List<String> decodeRoleSnapshot(String value) {
@@ -26,6 +31,7 @@ public class GenerationPersistenceMapper {
                 entity.getId(), entity.getConversationId(), entity.getOwnerUserId(), entity.getFarmId(),
                 entity.getIdempotencyKey(), entity.getRequestHash(), entity.getStatus(),
                 entity.getActiveConversationId(), entity.getErrorCode(), roleSnapshotCodec.decode(entity.getRoleSnapshot()),
+                toolEvidenceCodec.decode(entity.getToolEvidence()),
                 entity.getNextEventSequence(), entity.getProvider(), entity.getModel(), entity.getInputTokens(),
                 entity.getOutputTokens(), entity.getFirstTokenLatencyMs(), entity.getProviderLatencyMs(),
                 entity.getTotalLatencyMs(), entity.getQueuedAt(), entity.getCreatedAt(), entity.getUpdatedAt(),
@@ -61,6 +67,7 @@ public class GenerationPersistenceMapper {
         entity.setStatus(generation.status());
         entity.setErrorCode(generation.errorCode());
         entity.setRoleSnapshot(roleSnapshotCodec.encode(generation.roleSnapshot()));
+        entity.setToolEvidence(toolEvidenceCodec.encode(generation.toolEvidence()));
         entity.setNextEventSequence(generation.nextEventSequence());
         entity.setProvider(generation.provider());
         entity.setModel(generation.model());

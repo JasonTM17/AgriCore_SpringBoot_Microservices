@@ -37,6 +37,9 @@ class ToolEvidenceSnapshotTest {
         assertThatThrownBy(() -> new ToolEvidenceSnapshot(List.of(fact, fact)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("unique");
+        assertThatThrownBy(() -> new ToolEvidenceSnapshot(java.util.Arrays.asList(fact, null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("must not be null");
         assertThatThrownBy(() -> new ToolFact("plot 1", ToolSource.PLOT, Map.of("status", "ACTIVE")))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ToolFact("PLOT-1", ToolSource.PLOT, Map.of("raw_notes", "hidden")))
