@@ -7,7 +7,8 @@ export type AssistantGenerationCommandErrorCode =
   | "PROMPT_REQUIRED"
   | "PROMPT_TOO_LONG"
   | "IDEMPOTENCY_KEY_UNAVAILABLE"
-  | "INVALID_GENERATION_RESPONSE";
+  | "INVALID_GENERATION_RESPONSE"
+  | "GENERATION_ALREADY_ACTIVE";
 
 export class AssistantGenerationCommandError extends Error {
   readonly code: AssistantGenerationCommandErrorCode;
@@ -51,10 +52,12 @@ export function createAssistantIdempotencyKey(
 export function validateSubmittedGeneration(
   generation: AssistantGenerationResponse,
   expectedConversationId: string,
+  expectedGenerationId?: string,
 ): AssistantGenerationResponse {
   if (!UUID_PATTERN.test(generation.id)
     || generation.conversationId !== expectedConversationId
-    || !UUID_PATTERN.test(generation.conversationId)) {
+    || !UUID_PATTERN.test(generation.conversationId)
+    || (expectedGenerationId !== undefined && generation.id !== expectedGenerationId)) {
     throw new AssistantGenerationCommandError(
       "INVALID_GENERATION_RESPONSE",
       "Generation response did not match the submitted conversation",

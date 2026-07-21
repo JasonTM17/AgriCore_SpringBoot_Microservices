@@ -62,5 +62,10 @@ describe("assistant generation command", () => {
       generation({ id: "not-a-uuid" }),
       CONVERSATION_ID,
     )).toThrow(expect.objectContaining({ code: "INVALID_GENERATION_RESPONSE" }));
+    expect(() => validateSubmittedGeneration(
+      generation(),
+      CONVERSATION_ID,
+      "20000000-0000-0000-0000-000000000002",
+    )).toThrow(expect.objectContaining({ code: "INVALID_GENERATION_RESPONSE" }));
   });
 });
