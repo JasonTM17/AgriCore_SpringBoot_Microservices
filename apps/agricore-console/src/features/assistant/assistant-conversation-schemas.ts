@@ -38,6 +38,10 @@ const conversationSchema = z.object({
   if ((conversation.contextType === "FARM") !== (conversation.farmId !== null)) {
     context.addIssue({ code: "custom", message: "Conversation context and farm ID disagree" });
   }
+  const archived = conversation.archivedAt !== null && conversation.purgeAfter !== null;
+  if ((conversation.status === "ARCHIVED") !== archived) {
+    context.addIssue({ code: "custom", message: "Conversation status and retention dates disagree" });
+  }
 });
 export const assistantConversationPageSchema = z.object({
   ...pageMetadataShape,
