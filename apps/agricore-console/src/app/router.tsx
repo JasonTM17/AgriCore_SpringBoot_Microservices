@@ -120,12 +120,11 @@ const adminRoute = moduleRoute(
   "Danh sách người dùng và cập nhật vai trò (SYSTEM_ADMIN).",
   ["SYSTEM_ADMIN"],
 );
-const assistantRoute = moduleRoute(
-  "/assistant",
-  "Trợ lý vận hành",
-  "Chat assistant sẽ được nối sau khi assistant-service sẵn sàng.",
-  "all",
-);
+const assistantRoute = createRoute({
+  getParentRoute: () => authedLayoutRoute,
+  path: "/assistant",
+  component: lazyRouteComponents.assistant,
+});
 
 const publicTraceRoute = createRoute({
   getParentRoute: () => rootRoute,

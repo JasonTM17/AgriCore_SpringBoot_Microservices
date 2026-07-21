@@ -33,6 +33,10 @@ export const lazyRouteComponents = {
     () => import("../features/dashboard/dashboard-page"),
     "DashboardPage",
   ),
+  assistant: lazyRouteComponent(
+    () => import("../features/assistant/assistant-page"),
+    "AssistantPage",
+  ),
   farms: withRoleGate(
     lazyRouteComponent(() => import("../features/farm/farms-page"), "FarmsPage"),
     FARM_OPERATIONS_ROLES,
