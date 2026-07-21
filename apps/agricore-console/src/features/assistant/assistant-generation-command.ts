@@ -1,7 +1,7 @@
 import type { AssistantGenerationResponse } from "../../lib/api/types";
+import { isAssistantIdentifier } from "./assistant-identifiers";
 
 const MAX_PROMPT_CHARACTERS = 200_000;
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type AssistantGenerationCommandErrorCode =
   | "PROMPT_REQUIRED"
@@ -39,7 +39,7 @@ export function createAssistantIdempotencyKey(
 ): string {
   try {
     const key = randomUuid();
-    if (!UUID_PATTERN.test(key)) throw new Error("Invalid UUID");
+    if (!isAssistantIdentifier(key)) throw new Error("Invalid UUID");
     return key;
   } catch {
     throw new AssistantGenerationCommandError(
@@ -54,9 +54,9 @@ export function validateSubmittedGeneration(
   expectedConversationId: string,
   expectedGenerationId?: string,
 ): AssistantGenerationResponse {
-  if (!UUID_PATTERN.test(generation.id)
+  if (!isAssistantIdentifier(generation.id)
     || generation.conversationId !== expectedConversationId
-    || !UUID_PATTERN.test(generation.conversationId)
+    || !isAssistantIdentifier(generation.conversationId)
     || (expectedGenerationId !== undefined && generation.id !== expectedGenerationId)) {
     throw new AssistantGenerationCommandError(
       "INVALID_GENERATION_RESPONSE",

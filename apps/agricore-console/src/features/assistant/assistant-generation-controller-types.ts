@@ -32,8 +32,10 @@ export interface AssistantGenerationControllerState {
 export interface UseAssistantGenerationOptions {
   api: ApiClient;
   conversationId: string;
+  initialGenerationId?: string | null;
   createIdempotencyKey?: () => string;
   runner?: typeof runAssistantGeneration;
+  onGenerationChanged?: (generationId: string | null) => void;
   onHistoryChanged?: () => void;
 }
 

@@ -16,6 +16,7 @@ interface AssistantGenerationLifecycleOptions {
   api: ApiClient;
   conversationId: string;
   runner?: typeof runAssistantGeneration;
+  onGenerationChanged?: (generationId: string | null) => void;
   onHistoryChanged?: () => void;
 }
 
@@ -23,7 +24,13 @@ export function useAssistantGenerationLifecycle(
   options: AssistantGenerationLifecycleOptions,
   setState: Dispatch<SetStateAction<AssistantGenerationControllerState>>,
 ) {
-  const { api, conversationId, onHistoryChanged, runner: runnerOverride } = options;
+  const {
+    api,
+    conversationId,
+    onGenerationChanged,
+    onHistoryChanged,
+    runner: runnerOverride,
+  } = options;
   const mountedRef = useRef(true);
   const versionRef = useRef(0);
   const runnerAbortRef = useRef<AbortController | null>(null);
@@ -85,7 +92,10 @@ export function useAssistantGenerationLifecycle(
           ? (result.errorCode ?? "ASSISTANT_SYNC_FAILED")
           : null,
       }));
-      if (result.kind === "terminal") onHistoryChanged?.();
+      if (result.kind === "terminal") {
+        onGenerationChanged?.(null);
+        onHistoryChanged?.();
+      }
     }).catch(() => {
       updateForVersion(version, (current) => ({
         ...current,
@@ -94,7 +104,15 @@ export function useAssistantGenerationLifecycle(
       }));
       if (versionRef.current === version) runnerActiveRef.current = false;
     });
-  }, [api, conversationId, onHistoryChanged, runner, setState, updateForVersion]);
+  }, [
+    api,
+    conversationId,
+    onGenerationChanged,
+    onHistoryChanged,
+    runner,
+    setState,
+    updateForVersion,
+  ]);
 
   useEffect(() => {
     mountedRef.current = true;

@@ -9,6 +9,7 @@ import {
   generationResponse,
   jsonResponse,
   TEST_CONVERSATION_ID,
+  TEST_GENERATION_ID,
   TEST_IDEMPOTENCY_KEY,
 } from "./assistant-generation-controller-test-fixtures";
 import { useAssistantGeneration } from "./use-assistant-generation";
@@ -20,6 +21,7 @@ function StrictWrapper({ children }: { children: ReactNode }) {
 describe("useAssistantGeneration submission", () => {
   it("submits a normalized prompt once and starts its authoritative generation", async () => {
     const fetchImpl = vi.fn<FetchFn>(() => jsonResponse(generationResponse()));
+    const generationChanged = vi.fn();
     const historyChanged = vi.fn();
     const runner = vi.fn<typeof runAssistantGeneration>(async (_api, options) => {
       if (!options.initialProjection) throw new Error("Missing initial projection");
@@ -39,6 +41,7 @@ describe("useAssistantGeneration submission", () => {
       conversationId: TEST_CONVERSATION_ID,
       createIdempotencyKey: () => TEST_IDEMPOTENCY_KEY,
       runner,
+      onGenerationChanged: generationChanged,
       onHistoryChanged: historyChanged,
     }), { wrapper: StrictWrapper });
 
@@ -54,6 +57,7 @@ describe("useAssistantGeneration submission", () => {
     expect(init?.body).toBe(JSON.stringify({ prompt: "Tóm tắt\n công việc" }));
     expect(new Headers(init?.headers).get("Idempotency-Key")).toBe(TEST_IDEMPOTENCY_KEY);
     expect(runner).toHaveBeenCalledOnce();
+    expect(generationChanged.mock.calls).toEqual([[TEST_GENERATION_ID], [null]]);
     expect(historyChanged).toHaveBeenCalledTimes(2);
     expect(result.current).toMatchObject({
       pendingPrompt: null,

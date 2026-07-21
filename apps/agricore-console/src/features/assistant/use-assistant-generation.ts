@@ -14,12 +14,15 @@ import {
   type UseAssistantGenerationOptions,
 } from "./assistant-generation-controller-types";
 import { useAssistantGenerationLifecycle } from "./use-assistant-generation-lifecycle";
+import { useAssistantGenerationResume } from "./use-assistant-generation-resume";
 
 export function useAssistantGeneration(options: UseAssistantGenerationOptions) {
   const {
     api,
     conversationId,
     createIdempotencyKey: idempotencyKeyFactory,
+    initialGenerationId,
+    onGenerationChanged,
     onHistoryChanged,
     runner,
   } = options;
@@ -38,6 +41,7 @@ export function useAssistantGeneration(options: UseAssistantGenerationOptions) {
   } = useAssistantGenerationLifecycle({
     api,
     conversationId,
+    ...(onGenerationChanged ? { onGenerationChanged } : {}),
     ...(onHistoryChanged ? { onHistoryChanged } : {}),
     ...(runner ? { runner } : {}),
   }, setState);
@@ -67,6 +71,7 @@ export function useAssistantGeneration(options: UseAssistantGenerationOptions) {
       if (!mountedRef.current || versionRef.current !== version) return false;
       const generation = validateSubmittedGeneration(response, conversationId);
       pendingRef.current = null;
+      onGenerationChanged?.(generation.id);
       onHistoryChanged?.();
       launchRunner(createAssistantGenerationProjection(generation.id));
       return true;
@@ -84,7 +89,10 @@ export function useAssistantGeneration(options: UseAssistantGenerationOptions) {
         updateForVersion(version, (current) => ({ ...current, isSubmitting: false }));
       }
     }
-  }, [api, conversationId, launchRunner, mountedRef, onHistoryChanged, updateForVersion, versionRef]);
+  }, [
+    api, conversationId, launchRunner, mountedRef, onGenerationChanged,
+    onHistoryChanged, updateForVersion, versionRef,
+  ]);
 
   const send = useCallback(async (value: string): Promise<boolean> => {
     try {
@@ -185,6 +193,8 @@ export function useAssistantGeneration(options: UseAssistantGenerationOptions) {
       commandAbortRef.current?.abort();
     };
   }, [conversationId]);
+
+  useAssistantGenerationResume({ conversationId, initialGenerationId, launchRunner, projectionRef });
 
   return { ...state, send, retrySubmission, retryConnection, cancel };
 }
