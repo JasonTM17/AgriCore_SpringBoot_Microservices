@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -22,10 +22,17 @@ export function AssistantNewConversationForm({
   const [contextType, setContextType] = useState<"ENTERPRISE" | "FARM">(
     activeFarm ? "FARM" : "ENTERPRISE",
   );
+  const submitLockedRef = useRef(false);
   const selectedContext = contextType === "FARM" && !activeFarm ? "ENTERPRISE" : contextType;
+
+  useEffect(() => {
+    if (!isPending) submitLockedRef.current = false;
+  }, [isPending]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitLockedRef.current || isPending || title.trim().length === 0) return;
+    submitLockedRef.current = true;
     onSubmit(selectedContext === "FARM"
       ? { title, contextType: "FARM", farmId: activeFarm?.id ?? null }
       : { title, contextType: "ENTERPRISE", farmId: null });

@@ -28,7 +28,7 @@ const ACTIVE_FARM = {
 describe("assistant conversation controls", () => {
   it("submits the verified active farm context and can switch to enterprise", () => {
     const onSubmit = vi.fn();
-    render(
+    const view = render(
       <AssistantNewConversationForm
         activeFarm={ACTIVE_FARM}
         error={null}
@@ -41,16 +41,35 @@ describe("assistant conversation controls", () => {
       target: { value: "Theo dõi mùa vụ" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Tạo hội thoại" }));
+    fireEvent.click(screen.getByRole("button", { name: "Tạo hội thoại" }));
+    expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(onSubmit).toHaveBeenLastCalledWith({
       title: "Theo dõi mùa vụ",
       contextType: "FARM",
       farmId: TEST_ASSISTANT_FARM_ID,
     });
 
+    view.rerender(
+      <AssistantNewConversationForm
+        activeFarm={ACTIVE_FARM}
+        error={null}
+        isPending
+        onSubmit={onSubmit}
+      />,
+    );
+    view.rerender(
+      <AssistantNewConversationForm
+        activeFarm={ACTIVE_FARM}
+        error={null}
+        isPending={false}
+        onSubmit={onSubmit}
+      />,
+    );
     fireEvent.change(screen.getByLabelText("Phạm vi dữ liệu"), {
       target: { value: "ENTERPRISE" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Tạo hội thoại" }));
+    expect(onSubmit).toHaveBeenCalledTimes(2);
     expect(onSubmit).toHaveBeenLastCalledWith({
       title: "Theo dõi mùa vụ",
       contextType: "ENTERPRISE",
