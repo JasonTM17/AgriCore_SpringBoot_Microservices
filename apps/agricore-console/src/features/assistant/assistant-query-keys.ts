@@ -19,16 +19,16 @@ export const assistantQueryKeys = {
   ] as const,
   conversation: (subject: string, conversationId: string) =>
     ["assistant", subject, "conversation", conversationId] as const,
+  messageHistories: (subject: string, conversationId: string) => [
+    ...assistantQueryKeys.conversation(subject, conversationId),
+    "messages",
+  ] as const,
   messages: (
     subject: string,
     conversationId: string,
     params: AssistantMessageListParams,
   ) => [
-    "assistant",
-    subject,
-    "conversation",
-    conversationId,
-    "messages",
+    ...assistantQueryKeys.messageHistories(subject, conversationId),
     params.page,
     params.size,
   ] as const,

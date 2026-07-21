@@ -46,6 +46,9 @@ describe("assistant query keys", () => {
     );
 
     expect(messages.slice(0, conversation.length)).toEqual(conversation);
+    expect(messages.slice(0, -2)).toEqual(
+      assistantQueryKeys.messageHistories("user-a", "conversation-1"),
+    );
     expect(events.slice(0, generation.length)).toEqual(generation);
     expect(events).toContain(4);
     expect(events).toContain(100);
