@@ -23,7 +23,7 @@ public class WorkTaskCompletionService {
         this.inventoryStockClient = inventoryStockClient;
     }
 
-    public WorkTaskEntity complete(UUID taskId, CompleteTaskRequest request) {
+    public WorkTaskEntity complete(UUID taskId, CompleteTaskRequest request, String executedBy) {
         WorkTaskCompletionStateService.CompletionPreparation preparation =
                 stateService.prepare(taskId, request.materials());
         if (preparation.alreadyCompleted()) {
@@ -37,7 +37,7 @@ public class WorkTaskCompletionService {
             }
             consumeMaterial(taskId, preparation.farmId(), usageId, attempt);
         }
-        return stateService.finalizeTask(taskId, request.notes());
+        return stateService.finalizeTask(taskId, request.notes(), executedBy);
     }
 
     private void consumeMaterial(

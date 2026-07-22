@@ -87,19 +87,23 @@ public class WorkApplicationService {
     }
 
     public WorkTaskResponse assign(UUID taskId, AssignTaskRequest request, String assignedBy) {
-        return toResponse(lifecycleService.assign(taskId, request.assignedEmployeeId(), assignedBy));
+        String actor = AuthenticatedActor.requireValid(assignedBy);
+        return toResponse(lifecycleService.assign(taskId, request.assignedEmployeeId(), actor));
     }
 
-    public WorkTaskResponse start(UUID taskId) {
-        return toResponse(lifecycleService.start(taskId));
+    public WorkTaskResponse start(UUID taskId, String executedBy) {
+        String actor = AuthenticatedActor.requireValid(executedBy);
+        return toResponse(lifecycleService.start(taskId, actor));
     }
 
-    public WorkTaskResponse cancel(UUID taskId, CancelTaskRequest request) {
-        return toResponse(lifecycleService.cancel(taskId, request.notes()));
+    public WorkTaskResponse cancel(UUID taskId, CancelTaskRequest request, String executedBy) {
+        String actor = AuthenticatedActor.requireValid(executedBy);
+        return toResponse(lifecycleService.cancel(taskId, request.notes(), actor));
     }
 
-    public WorkTaskResponse complete(UUID taskId, CompleteTaskRequest request) {
-        return toResponse(completionService.complete(taskId, request));
+    public WorkTaskResponse complete(UUID taskId, CompleteTaskRequest request, String executedBy) {
+        String actor = AuthenticatedActor.requireValid(executedBy);
+        return toResponse(completionService.complete(taskId, request, actor));
     }
 
     @Transactional(readOnly = true)

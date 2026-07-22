@@ -4,6 +4,7 @@ import com.agricore.common.event.EventTypes;
 import com.agricore.work.api.request.MaterialUsageRequest;
 import com.agricore.work.domain.exception.WorkException;
 import com.agricore.work.domain.model.MaterialUsageStatus;
+import com.agricore.work.domain.model.TaskExecutionAction;
 import com.agricore.work.domain.model.TaskStatus;
 import com.agricore.work.infrastructure.client.InventoryStockClientException;
 import com.agricore.work.infrastructure.persistence.MaterialUsageJpaRepository;
@@ -27,17 +28,20 @@ public class WorkTaskCompletionStateService {
     private final MaterialUsageJpaRepository materialUsageRepository;
     private final WorkAccessGuard accessGuard;
     private final WorkEventOutboxWriter eventWriter;
+    private final TaskExecutionService executionService;
 
     public WorkTaskCompletionStateService(
             WorkTaskJpaRepository taskRepository,
             MaterialUsageJpaRepository materialUsageRepository,
             WorkAccessGuard accessGuard,
-            WorkEventOutboxWriter eventWriter
+            WorkEventOutboxWriter eventWriter,
+            TaskExecutionService executionService
     ) {
         this.taskRepository = taskRepository;
         this.materialUsageRepository = materialUsageRepository;
         this.accessGuard = accessGuard;
         this.eventWriter = eventWriter;
+        this.executionService = executionService;
     }
 
     @Transactional
@@ -117,7 +121,7 @@ public class WorkTaskCompletionStateService {
     }
 
     @Transactional
-    public WorkTaskEntity finalizeTask(UUID taskId, String notes) {
+    public WorkTaskEntity finalizeTask(UUID taskId, String notes, String executedBy) {
         WorkTaskEntity task = requireForUpdate(taskId);
         accessGuard.requirePlot(task.getPlotId());
         if (task.getStatus() == TaskStatus.COMPLETED) {
@@ -153,6 +157,7 @@ public class WorkTaskCompletionStateService {
         }
         task.setUpdatedAt(now);
         task = taskRepository.saveAndFlush(task);
+        executionService.record(task, TaskExecutionAction.COMPLETED, TaskStatus.IN_PROGRESS, notes, executedBy);
         eventWriter.workTask(EventTypes.WORK_TASK_COMPLETED, task);
         return task;
     }

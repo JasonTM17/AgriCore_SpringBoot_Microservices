@@ -2,6 +2,7 @@ package com.agricore.work.application.service;
 
 import com.agricore.common.event.EventTypes;
 import com.agricore.work.domain.exception.WorkException;
+import com.agricore.work.domain.model.TaskExecutionAction;
 import com.agricore.work.domain.model.TaskStatus;
 import com.agricore.work.infrastructure.persistence.MaterialUsageJpaRepository;
 import com.agricore.work.infrastructure.persistence.WorkTaskJpaRepository;
@@ -21,19 +22,22 @@ public class WorkTaskLifecycleService {
     private final WorkAccessGuard accessGuard;
     private final WorkEventOutboxWriter eventWriter;
     private final WorkAssignmentService assignmentService;
+    private final TaskExecutionService executionService;
 
     public WorkTaskLifecycleService(
             WorkTaskJpaRepository taskRepository,
             MaterialUsageJpaRepository materialUsageRepository,
             WorkAccessGuard accessGuard,
             WorkEventOutboxWriter eventWriter,
-            WorkAssignmentService assignmentService
+            WorkAssignmentService assignmentService,
+            TaskExecutionService executionService
     ) {
         this.taskRepository = taskRepository;
         this.materialUsageRepository = materialUsageRepository;
         this.accessGuard = accessGuard;
         this.eventWriter = eventWriter;
         this.assignmentService = assignmentService;
+        this.executionService = executionService;
     }
 
     @Transactional
@@ -59,7 +63,7 @@ public class WorkTaskLifecycleService {
     }
 
     @Transactional
-    public WorkTaskEntity start(UUID taskId) {
+    public WorkTaskEntity start(UUID taskId, String executedBy) {
         WorkTaskEntity task = requireForUpdate(taskId);
         if (task.getStatus() == TaskStatus.IN_PROGRESS) {
             return task;
@@ -71,15 +75,18 @@ public class WorkTaskLifecycleService {
             throw new WorkException("TASK_UNASSIGNED", "Cannot start a task without an assignee", 409);
         }
 
+        TaskStatus previousStatus = task.getStatus();
         Instant now = Instant.now();
         task.setActualStart(now);
         task.setStatus(TaskStatus.IN_PROGRESS);
         task.setUpdatedAt(now);
-        return taskRepository.saveAndFlush(task);
+        task = taskRepository.saveAndFlush(task);
+        executionService.record(task, TaskExecutionAction.STARTED, previousStatus, null, executedBy);
+        return task;
     }
 
     @Transactional
-    public WorkTaskEntity cancel(UUID taskId, String notes) {
+    public WorkTaskEntity cancel(UUID taskId, String notes, String executedBy) {
         WorkTaskEntity task = requireForUpdate(taskId);
         if (task.getStatus() == TaskStatus.CANCELLED) {
             return task;
@@ -95,6 +102,7 @@ public class WorkTaskLifecycleService {
             );
         }
 
+        TaskStatus previousStatus = task.getStatus();
         Instant now = Instant.now();
         if (task.getActualStart() != null) {
             task.setActualEnd(now);
@@ -104,7 +112,9 @@ public class WorkTaskLifecycleService {
             task.setNotes(notes);
         }
         task.setUpdatedAt(now);
-        return taskRepository.saveAndFlush(task);
+        task = taskRepository.saveAndFlush(task);
+        executionService.record(task, TaskExecutionAction.CANCELLED, previousStatus, notes, executedBy);
+        return task;
     }
 
     private WorkTaskEntity requireForUpdate(UUID taskId) {

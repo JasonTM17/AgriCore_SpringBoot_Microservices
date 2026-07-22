@@ -5,8 +5,10 @@ import com.agricore.work.api.request.AssignTaskRequest;
 import com.agricore.work.api.request.CancelTaskRequest;
 import com.agricore.work.api.request.CompleteTaskRequest;
 import com.agricore.work.api.request.CreateWorkTaskRequest;
+import com.agricore.work.api.response.TaskExecutionResponse;
 import com.agricore.work.api.response.WorkAssignmentResponse;
 import com.agricore.work.api.response.WorkTaskResponse;
+import com.agricore.work.application.service.TaskExecutionService;
 import com.agricore.work.application.service.WorkApplicationService;
 import com.agricore.work.application.service.WorkAssignmentService;
 import jakarta.validation.Valid;
@@ -30,10 +32,16 @@ public class WorkTaskController {
 
     private final WorkApplicationService service;
     private final WorkAssignmentService assignmentService;
+    private final TaskExecutionService executionService;
 
-    public WorkTaskController(WorkApplicationService service, WorkAssignmentService assignmentService) {
+    public WorkTaskController(
+            WorkApplicationService service,
+            WorkAssignmentService assignmentService,
+            TaskExecutionService executionService
+    ) {
         this.service = service;
         this.assignmentService = assignmentService;
+        this.executionService = executionService;
     }
 
     @PostMapping
@@ -86,25 +94,50 @@ public class WorkTaskController {
 
     @PostMapping("/{taskId}/start")
     @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST','FIELD_WORKER')")
-    public WorkTaskResponse start(@PathVariable UUID taskId) {
-        return service.start(taskId);
+    public WorkTaskResponse start(@PathVariable UUID taskId, Principal principal) {
+        return service.start(taskId, principal.getName());
     }
 
     @PostMapping("/{taskId}/complete")
     @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST','FIELD_WORKER')")
     public WorkTaskResponse complete(
             @PathVariable UUID taskId,
-            @Valid @RequestBody(required = false) CompleteTaskRequest request
+            @Valid @RequestBody(required = false) CompleteTaskRequest request,
+            Principal principal
     ) {
-        return service.complete(taskId, request == null ? new CompleteTaskRequest(null) : request);
+        return service.complete(
+                taskId,
+                request == null ? new CompleteTaskRequest(null) : request,
+                principal.getName()
+        );
     }
 
     @PostMapping("/{taskId}/cancel")
     @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST')")
     public WorkTaskResponse cancel(
             @PathVariable UUID taskId,
-            @Valid @RequestBody(required = false) CancelTaskRequest request
+            @Valid @RequestBody(required = false) CancelTaskRequest request,
+            Principal principal
     ) {
-        return service.cancel(taskId, request == null ? new CancelTaskRequest(null) : request);
+        return service.cancel(
+                taskId,
+                request == null ? new CancelTaskRequest(null) : request,
+                principal.getName()
+        );
+    }
+
+    @GetMapping("/{taskId}/executions")
+    @PreAuthorize("isAuthenticated()")
+    public PageResponse<TaskExecutionResponse> listExecutions(
+            @PathVariable UUID taskId,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
+    ) {
+        Sort sort = Sort.by(
+                Sort.Order.desc("taskVersion"),
+                Sort.Order.desc("executedAt"),
+                Sort.Order.desc("id")
+        );
+        return executionService.list(taskId, PageRequest.of(page, size, sort));
     }
 }

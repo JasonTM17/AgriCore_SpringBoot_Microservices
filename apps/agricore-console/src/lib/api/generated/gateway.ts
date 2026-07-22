@@ -760,6 +760,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/work-tasks/{taskId}/executions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List immutable task execution history
+         * @description Returns lifecycle executions by newest committed task version after verifying access to the task's authoritative plot. Idempotent lifecycle retries do not append duplicate execution records.
+         */
+        get: operations["listTaskExecutions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/work-tasks/{taskId}/start": {
         parameters: {
             query?: never;
@@ -1876,6 +1898,35 @@ export interface components {
         };
         WorkAssignmentPageResponse: {
             content: components["schemas"]["WorkAssignmentResponse"][];
+            /** Format: int32 */
+            page: number;
+            /** Format: int32 */
+            size: number;
+            /** Format: int64 */
+            totalElements: number;
+            /** Format: int32 */
+            totalPages: number;
+            first: boolean;
+            last: boolean;
+        };
+        TaskExecutionResponse: {
+            /** Format: int64 */
+            id: number;
+            /** Format: uuid */
+            workTaskId: string;
+            /** @enum {string} */
+            action: "STARTED" | "COMPLETED" | "CANCELLED";
+            previousStatus: components["schemas"]["TaskStatus"] | null;
+            status: components["schemas"]["TaskStatus"];
+            notes: string | null;
+            executedBy: string;
+            /** Format: date-time */
+            executedAt: string;
+            /** Format: int64 */
+            taskVersion: number;
+        };
+        TaskExecutionPageResponse: {
+            content: components["schemas"]["TaskExecutionResponse"][];
             /** Format: int32 */
             page: number;
             /** Format: int32 */
@@ -3480,6 +3531,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkAssignmentPageResponse"];
+                };
+            };
+            400: components["responses"]["work-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["work-service.v1_components-responses-NotFound"];
+            503: components["responses"]["responses-ServiceUnavailable"];
+        };
+    };
+    listTaskExecutions: {
+        parameters: {
+            query?: {
+                /** @description Zero-based page index. */
+                page?: components["parameters"]["parameters-Page"];
+                /** @description Number of records per page. */
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path: {
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Task execution history page. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskExecutionPageResponse"];
                 };
             };
             400: components["responses"]["work-service.v1_components-responses-BadRequest"];
