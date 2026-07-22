@@ -5,6 +5,7 @@ import { AssistantGenerationCommandError } from "./assistant-generation-command"
 import {
   assistantCapabilityMessage,
   assistantErrorMessage,
+  assistantFailureKind,
   assistantFailureMessage,
   assistantSupportCode,
 } from "./assistant-error-policy";
@@ -49,5 +50,15 @@ describe("assistant error policy", () => {
       streaming: true,
       reasonCode: null,
     })).toBeNull();
+  });
+
+  it("classifies safe UI outcomes without exposing provider details", () => {
+    expect(assistantFailureKind("ASSISTANT_REQUEST_BUDGET_EXCEEDED")).toBe("LIMITED");
+    expect(assistantFailureKind("AI_OUTPUT_CITATION_UNAUTHORIZED")).toBe("REFUSED");
+    expect(assistantFailureKind("AI_OUTPUT_POLICY_UNAVAILABLE")).toBe("UNAVAILABLE");
+    expect(assistantFailureKind("AI_PROVIDER_UNAVAILABLE")).toBe("UNAVAILABLE");
+    expect(assistantFailureKind("AI_PROVIDER_PROTOCOL_ERROR")).toBe("ERROR");
+    expect(assistantFailureKind("unsafe code <secret>")).toBe("ERROR");
+    expect(assistantFailureKind(null)).toBeNull();
   });
 });

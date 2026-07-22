@@ -1,7 +1,7 @@
 import { Button } from "../../components/ui/button";
 import type { AssistantGenerationControllerState } from "./assistant-generation-controller-types";
 import { isTerminalAssistantStatus } from "./assistant-generation-projection";
-import { assistantFailureMessage } from "./assistant-error-policy";
+import { assistantFailureKind, assistantFailureMessage } from "./assistant-error-policy";
 import { AssistantErrorNotice } from "./assistant-error-notice";
 
 const PHASE_LABELS: Readonly<Record<AssistantGenerationControllerState["phase"], string>> = {
@@ -24,6 +24,25 @@ const STATUS_LABELS = {
   FAILED: "Xử lý thất bại",
   CANCELLED: "Đã hủy",
 } as const;
+const FAILURE_KIND_LABELS = {
+  LIMITED: "Đã chạm hạn mức",
+  REFUSED: "Đã từ chối an toàn",
+  UNAVAILABLE: "Tạm thời không khả dụng",
+  ERROR: "Không hoàn tất",
+} as const;
+
+const ACTIVITY_LABELS: Readonly<Record<AssistantGenerationControllerState["phase"], string>> = {
+  IDLE: "",
+  SUBMITTING: "Đang kiểm tra phạm vi và dữ liệu được cấp quyền",
+  SUBMIT_FAILED: "",
+  RECONCILING: "Đang đồng bộ tiến trình bền vững",
+  CONNECTING: "Đang mở luồng phản hồi",
+  RECONNECTING: "Đang nối lại luồng phản hồi",
+  LIVE: "Đang nhận phản hồi theo thứ tự",
+  TERMINAL: "",
+  FAILED: "",
+  DETACHED: "",
+};
 
 interface AssistantGenerationStatusProps {
   state: AssistantGenerationControllerState;
@@ -44,6 +63,8 @@ export function AssistantGenerationStatus({
   const failureMessage = assistantFailureMessage(
     projection?.errorCode ?? state.syncErrorCode,
   );
+  const failureKind = assistantFailureKind(projection?.errorCode ?? state.syncErrorCode);
+  const activityLabel = ACTIVITY_LABELS[state.phase];
   const showStatus = state.phase !== "IDLE" || projection !== null;
 
   if (!showStatus && !operationError) return null;
@@ -57,6 +78,11 @@ export function AssistantGenerationStatus({
             </span>
             {projection && state.phase !== "TERMINAL" ? (
               <span className="text-muted">{PHASE_LABELS[state.phase]}</span>
+            ) : null}
+            {failureKind ? (
+              <span className="rounded-full border border-danger/25 bg-red-50 px-2.5 py-1 text-xs font-semibold text-danger">
+                {FAILURE_KIND_LABELS[failureKind]}
+              </span>
             ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
@@ -75,6 +101,11 @@ export function AssistantGenerationStatus({
             ) : null}
           </div>
         </div>
+      ) : null}
+      {activityLabel ? (
+        <p className="text-xs text-muted" role="status" aria-live="polite">
+          {activityLabel}
+        </p>
       ) : null}
       {state.recovery ? (
         <p className="text-xs text-warning" role="status">

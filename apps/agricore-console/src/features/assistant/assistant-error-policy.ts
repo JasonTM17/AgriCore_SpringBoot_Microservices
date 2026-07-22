@@ -5,6 +5,19 @@ import { AssistantGenerationCommandError } from "./assistant-generation-command"
 
 const SAFE_CODE_PATTERN = /^[A-Z0-9_]{1,128}$/;
 const ERROR_MESSAGES: Readonly<Record<string, string>> = {
+  AI_OUTPUT_CITATION_REQUIRED: "Phản hồi không được chấp nhận vì thiếu mã tham chiếu dữ liệu.",
+  AI_OUTPUT_CITATION_UNAUTHORIZED: "Phản hồi bị từ chối vì chứa mã tham chiếu chưa được cấp quyền.",
+  AI_OUTPUT_POLICY_UNAVAILABLE: "Không thể xác minh an toàn phản hồi; yêu cầu đã bị dừng.",
+  AI_OUTPUT_POLICY_VIOLATION: "Phản hồi bị từ chối vì không vượt qua chính sách an toàn.",
+  AI_OUTPUT_SENSITIVE_DATA: "Phản hồi bị dừng vì có nguy cơ chứa dữ liệu nhạy cảm.",
+  AI_OUTPUT_UNSAFE_CONTROL: "Phản hồi bị dừng vì chứa ký tự không an toàn.",
+  ASSISTANT_BUDGET_UNAVAILABLE: "Chưa thể kiểm tra hạn mức chatbot; hãy thử lại sau.",
+  ASSISTANT_REQUEST_BUDGET_EXCEEDED: "Bạn đã dùng hết hạn mức chatbot trong thời gian ngắn; hãy thử lại sau.",
+  TOOL_AUTHORIZATION_UNAVAILABLE: "Chưa thể xác nhận quyền đọc dữ liệu được cấp phép.",
+  TOOL_DEPENDENCY_RATE_LIMITED: "Nguồn dữ liệu nghiệp vụ đang giới hạn truy cập; hãy thử lại sau.",
+  TOOL_DEPENDENCY_UNAVAILABLE: "Nguồn dữ liệu nghiệp vụ tạm thời không khả dụng.",
+  TOOL_RESPONSE_INVALID: "Nguồn dữ liệu nghiệp vụ trả về dữ liệu không hợp lệ.",
+  TOOL_SCOPE_UNAVAILABLE: "Không thể xác nhận phạm vi dữ liệu của hội thoại.",
   AI_PROVIDER_ADAPTER_UNAVAILABLE: "Bộ kết nối AI chưa sẵn sàng trên máy chủ.",
   AI_PROVIDER_AUTHENTICATION_FAILED: "Nhà cung cấp AI từ chối thông tin xác thực.",
   AI_PROVIDER_CIRCUIT_OPEN: "Nhà cung cấp AI đang tạm ngắt sau nhiều lỗi liên tiếp.",
@@ -34,6 +47,33 @@ const ERROR_MESSAGES: Readonly<Record<string, string>> = {
   PROMPT_REQUIRED: "Hãy nhập câu hỏi trước khi gửi.",
   PROMPT_TOO_LONG: "Câu hỏi vượt quá giới hạn 200.000 ký tự.",
 };
+
+const LIMITED_ERROR_CODES = new Set([
+  "AI_PROVIDER_RATE_LIMITED",
+  "ASSISTANT_REQUEST_BUDGET_EXCEEDED",
+  "ASSISTANT_BUDGET_UNAVAILABLE",
+  "GENERATION_STREAM_CAPACITY_EXCEEDED",
+  "TOOL_DEPENDENCY_RATE_LIMITED",
+]);
+const REFUSAL_ERROR_CODES = new Set([
+  "AI_OUTPUT_CITATION_REQUIRED",
+  "AI_OUTPUT_CITATION_UNAUTHORIZED",
+  "AI_OUTPUT_POLICY_VIOLATION",
+  "AI_OUTPUT_SENSITIVE_DATA",
+  "AI_OUTPUT_UNSAFE_CONTROL",
+  "AI_PROVIDER_REQUEST_REJECTED",
+  "TOOL_RESPONSE_INVALID",
+]);
+
+export type AssistantFailureKind = "LIMITED" | "REFUSED" | "UNAVAILABLE" | "ERROR";
+
+export function assistantFailureKind(code: string | null): AssistantFailureKind | null {
+  if (!code) return null;
+  if (LIMITED_ERROR_CODES.has(code)) return "LIMITED";
+  if (REFUSAL_ERROR_CODES.has(code)) return "REFUSED";
+  if (code.includes("UNAVAILABLE") || code.includes("TIMEOUT")) return "UNAVAILABLE";
+  return "ERROR";
+}
 
 function errorCode(error: unknown): string | null {
   if (error instanceof ApiClientError
