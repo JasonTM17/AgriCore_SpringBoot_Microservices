@@ -33,7 +33,23 @@ management:
     health:
       probes:
         enabled: true
+      group:
+        readiness:
+          include: readinessState,mqtt
 agricore:
+  mqtt:
+    enabled: ${IOT_MQTT_ENABLED:false}
+    broker: ${IOT_MQTT_BROKER:tcp://localhost:1883}
+    allow-insecure: ${IOT_MQTT_ALLOW_INSECURE:false}
+    client-id: ${IOT_MQTT_CLIENT_ID:agricore-iot-service}
+    topic: ${IOT_MQTT_TOPIC:agricore/telemetry/+/reading}
+    qos: ${IOT_MQTT_QOS:1}
+    connection-timeout-seconds: ${IOT_MQTT_CONNECTION_TIMEOUT_SECONDS:5}
+    reconnect-delay-seconds: ${IOT_MQTT_RECONNECT_DELAY_SECONDS:10}
+    max-reading-age: ${IOT_MQTT_MAX_READING_AGE:P30D}
+    max-future-skew: ${IOT_MQTT_MAX_FUTURE_SKEW:PT5M}
+    username: ${IOT_MQTT_USERNAME:}
+    password: ${IOT_MQTT_PASSWORD:}
   security:
     issuer: ${JWT_ISSUER:https://agricore.local/identity}
     jwk-set-uri: ${IDENTITY_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
