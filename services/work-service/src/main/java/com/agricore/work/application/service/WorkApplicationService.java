@@ -9,12 +9,8 @@ import com.agricore.work.api.response.WorkTaskResponse;
 import com.agricore.work.domain.exception.WorkException;
 import com.agricore.work.domain.model.TaskStatus;
 import com.agricore.work.domain.model.TaskType;
-import com.agricore.work.infrastructure.persistence.OutboxJpaRepository;
 import com.agricore.work.infrastructure.persistence.WorkTaskJpaRepository;
-import com.agricore.work.infrastructure.persistence.entity.OutboxEventEntity;
 import com.agricore.work.infrastructure.persistence.entity.WorkTaskEntity;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -27,20 +23,17 @@ import java.util.UUID;
 public class WorkApplicationService {
 
     private final WorkTaskJpaRepository taskRepository;
-    private final OutboxJpaRepository outboxRepository;
-    private final ObjectMapper objectMapper;
     private final WorkAccessGuard accessGuard;
+    private final WorkEventOutboxWriter eventWriter;
 
     public WorkApplicationService(
             WorkTaskJpaRepository taskRepository,
-            OutboxJpaRepository outboxRepository,
-            ObjectMapper objectMapper,
-            WorkAccessGuard accessGuard
+            WorkAccessGuard accessGuard,
+            WorkEventOutboxWriter eventWriter
     ) {
         this.taskRepository = taskRepository;
-        this.outboxRepository = outboxRepository;
-        this.objectMapper = objectMapper;
         this.accessGuard = accessGuard;
+        this.eventWriter = eventWriter;
     }
 
     @Transactional
@@ -73,7 +66,7 @@ public class WorkApplicationService {
         task.setCreatedAt(now);
         task.setUpdatedAt(now);
         taskRepository.save(task);
-        enqueue(EventTypes.WORK_TASK_CREATED, task);
+        eventWriter.workTask(EventTypes.WORK_TASK_CREATED, task);
         return toResponse(task);
     }
 
@@ -87,7 +80,7 @@ public class WorkApplicationService {
         task.setStatus(TaskStatus.ASSIGNED);
         task.setUpdatedAt(Instant.now());
         task = taskRepository.saveAndFlush(task);
-        enqueue(EventTypes.WORK_TASK_ASSIGNED, task);
+        eventWriter.workTask(EventTypes.WORK_TASK_ASSIGNED, task);
         return toResponse(task);
     }
 
@@ -111,7 +104,7 @@ public class WorkApplicationService {
         }
         task.setUpdatedAt(now);
         task = taskRepository.saveAndFlush(task);
-        enqueue(EventTypes.WORK_TASK_COMPLETED, task);
+        eventWriter.workTask(EventTypes.WORK_TASK_COMPLETED, task);
         return toResponse(task);
     }
 
@@ -146,36 +139,6 @@ public class WorkApplicationService {
                 .orElseThrow(() -> new WorkException("TASK_NOT_FOUND", "Work task not found", 404));
         accessGuard.requirePlot(task.getPlotId());
         return task;
-    }
-
-    private void enqueue(String eventType, WorkTaskEntity task) {
-        try {
-            UUID eventId = UUID.randomUUID();
-            ObjectNode payload = objectMapper.createObjectNode();
-            payload.put("taskId", task.getId().toString());
-            payload.put("code", task.getCode());
-            payload.put("cropCycleId", task.getCropCycleId().toString());
-            payload.put("plotId", task.getPlotId().toString());
-            payload.put("taskType", task.getTaskType().name());
-            payload.put("status", task.getStatus().name());
-            if (task.getAssignedEmployeeId() != null) {
-                payload.put("assignedEmployeeId", task.getAssignedEmployeeId().toString());
-            }
-            ObjectNode envelope = objectMapper.createObjectNode();
-            envelope.put("eventId", eventId.toString());
-            envelope.put("eventType", eventType);
-            envelope.put("eventVersion", 1);
-            envelope.put("occurredAt", Instant.now().toString());
-            envelope.put("producer", "work-service");
-            envelope.set("payload", payload);
-            outboxRepository.save(OutboxEventEntity.create(
-                    eventId,
-                    "WorkTask", task.getId().toString(), eventType,
-                    "agricore.work.events", objectMapper.writeValueAsString(envelope)
-            ));
-        } catch (Exception ex) {
-            throw new WorkException("OUTBOX_WRITE_FAILED", "Failed to write outbox event", 500);
-        }
     }
 
     private WorkTaskResponse toResponse(WorkTaskEntity t) {
