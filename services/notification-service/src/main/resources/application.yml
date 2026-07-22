@@ -13,6 +13,18 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+  mail:
+    host: ${NOTIFICATION_SMTP_HOST:localhost}
+    port: ${NOTIFICATION_SMTP_PORT:1025}
+    username: ${NOTIFICATION_SMTP_USERNAME:}
+    password: ${NOTIFICATION_SMTP_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${NOTIFICATION_SMTP_AUTH:false}
+      mail.smtp.starttls.enable: ${NOTIFICATION_SMTP_STARTTLS:false}
+      mail.smtp.starttls.required: ${NOTIFICATION_SMTP_STARTTLS_REQUIRED:false}
+      mail.smtp.connectiontimeout: ${NOTIFICATION_SMTP_CONNECTION_TIMEOUT_MS:3000}
+      mail.smtp.timeout: ${NOTIFICATION_SMTP_READ_TIMEOUT_MS:5000}
+      mail.smtp.writetimeout: ${NOTIFICATION_SMTP_WRITE_TIMEOUT_MS:5000}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
@@ -43,6 +55,11 @@ management:
         enabled: true
 
 agricore:
+  notification:
+    delivery:
+      provider: ${NOTIFICATION_DELIVERY_PROVIDER:smtp}
+      smtp:
+        from-address: ${NOTIFICATION_SMTP_FROM:no-reply@agricore.local}
   security:
     issuer: ${JWT_ISSUER:https://agricore.local/identity}
     jwk-set-uri: ${IDENTITY_JWKS_URI:http://localhost:8081/.well-known/jwks.json}

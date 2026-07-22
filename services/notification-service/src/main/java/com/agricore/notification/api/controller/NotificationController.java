@@ -6,6 +6,7 @@ import com.agricore.notification.application.service.NotificationApplicationServ
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -19,6 +20,7 @@ public class NotificationController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<NotificationResponse> send(@Valid @RequestBody SendNotificationRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.send(request));
     }
