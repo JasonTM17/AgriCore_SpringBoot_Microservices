@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agricore.local/schemas/TraceabilityCodeGenerated.v1.json",
+  "title": "TraceabilityCodeGenerated.v1",
+  "allOf": [
+    { "$ref": "DomainEventEnvelope.v1.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "TraceabilityCodeGenerated.v1" },
+        "eventVersion": { "const": 1 },
+        "producer": { "const": "traceability-service" },
+        "payload": {
+          "type": "object",
+          "required": [
+            "traceabilityBatchId",
+            "traceabilityCode",
+            "publicUrl",
+            "qrImageUrl",
+            "batchLabel",
+            "generatedAt"
+          ],
+          "properties": {
+            "traceabilityBatchId": { "type": "string", "format": "uuid" },
+            "traceabilityCode": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "publicUrl": { "type": "string", "format": "uri", "maxLength": 500 },
+            "qrImageUrl": { "type": "string", "format": "uri", "maxLength": 503 },
+            "batchLabel": { "type": "string", "minLength": 1, "maxLength": 70 },
+            "generatedAt": { "type": "string", "format": "date-time" }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}

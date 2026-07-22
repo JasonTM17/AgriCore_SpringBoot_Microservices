@@ -81,7 +81,17 @@ class EventContractCatalogTest {
                     set("minValue", "maxValue")),
             contract(EventTypes.DEVICE_OFFLINE_DETECTED, "iot-service", "agricore.iot.events",
                     set("deviceId", "deviceCode", "plotId", "deviceName", "lastActivityAt", "detectedAt",
-                            "offlineAfterSeconds"))
+                            "offlineAfterSeconds")),
+            new Contract(EventTypes.TRACEABILITY_BATCH_CREATED, "traceability-service",
+                    "agricore.traceability.events",
+                    set("traceabilityBatchId", "traceabilityCode", "harvestBatchId", "productName", "harvestDate",
+                            "publicUrl", "batchLabel", "createdAt"),
+                    set("cropCycleId", "plotId", "farmName", "plotCode", "varietyName", "plantingDate",
+                            "qualityGrade", "netWeightKg", "careSummary")),
+            contract(EventTypes.TRACEABILITY_CODE_GENERATED, "traceability-service",
+                    "agricore.traceability.events",
+                    set("traceabilityBatchId", "traceabilityCode", "publicUrl", "qrImageUrl", "batchLabel",
+                            "generatedAt"))
     );
 
     @Test
@@ -155,7 +165,7 @@ class EventContractCatalogTest {
         assertThat(versionedMessageNames(channels))
                 .containsExactlyInAnyOrderElementsOf(CONTRACTS.stream().map(Contract::eventType).toList());
 
-        assertThat(actionCount(operations, "send")).isEqualTo(8);
+        assertThat(actionCount(operations, "send")).isEqualTo(9);
         assertThat(actionCount(operations, "receive")).isEqualTo(2);
         assertThat(fieldNames(operations)).contains(
                 "inventoryServiceReceivesHarvestCompleted",
