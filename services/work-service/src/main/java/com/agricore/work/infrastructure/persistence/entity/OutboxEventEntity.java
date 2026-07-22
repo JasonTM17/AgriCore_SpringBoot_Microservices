@@ -29,9 +29,16 @@ public class OutboxEventEntity {
     @Column(name = "last_error", columnDefinition = "TEXT")
     private String lastError;
 
-    public static OutboxEventEntity create(String aggregateType, String aggregateId, String eventType, String topic, String payload) {
+    public static OutboxEventEntity create(
+            UUID eventId,
+            String aggregateType,
+            String aggregateId,
+            String eventType,
+            String topic,
+            String payload
+    ) {
         OutboxEventEntity e = new OutboxEventEntity();
-        e.id = UUID.randomUUID();
+        e.id = eventId;
         e.aggregateType = aggregateType;
         e.aggregateId = aggregateId;
         e.eventType = eventType;
@@ -43,12 +50,18 @@ public class OutboxEventEntity {
     }
 
     public UUID getId() { return id; }
+    public String getAggregateType() { return aggregateType; }
+    public String getAggregateId() { return aggregateId; }
     public String getEventType() { return eventType; }
     public String getTopic() { return topic; }
     public String getPayload() { return payload; }
+    public Instant getCreatedAt() { return createdAt; }
     public Instant getPublishedAt() { return publishedAt; }
+    public int getPublishAttempts() { return publishAttempts; }
+    public String getLastError() { return lastError; }
 
     public void markPublished() {
+        this.publishAttempts = this.publishAttempts + 1;
         this.publishedAt = Instant.now();
         this.lastError = null;
     }

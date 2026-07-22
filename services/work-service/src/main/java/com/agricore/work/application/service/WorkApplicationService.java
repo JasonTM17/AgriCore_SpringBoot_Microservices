@@ -150,6 +150,7 @@ public class WorkApplicationService {
 
     private void enqueue(String eventType, WorkTaskEntity task) {
         try {
+            UUID eventId = UUID.randomUUID();
             ObjectNode payload = objectMapper.createObjectNode();
             payload.put("taskId", task.getId().toString());
             payload.put("code", task.getCode());
@@ -161,13 +162,14 @@ public class WorkApplicationService {
                 payload.put("assignedEmployeeId", task.getAssignedEmployeeId().toString());
             }
             ObjectNode envelope = objectMapper.createObjectNode();
-            envelope.put("eventId", UUID.randomUUID().toString());
+            envelope.put("eventId", eventId.toString());
             envelope.put("eventType", eventType);
             envelope.put("eventVersion", 1);
             envelope.put("occurredAt", Instant.now().toString());
             envelope.put("producer", "work-service");
             envelope.set("payload", payload);
             outboxRepository.save(OutboxEventEntity.create(
+                    eventId,
                     "WorkTask", task.getId().toString(), eventType,
                     "agricore.work.events", objectMapper.writeValueAsString(envelope)
             ));

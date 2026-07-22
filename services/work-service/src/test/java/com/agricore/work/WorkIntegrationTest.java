@@ -1,6 +1,9 @@
 package com.agricore.work;
 
 import com.agricore.farmaccess.FarmAccessClient;
+import com.agricore.work.infrastructure.persistence.OutboxJpaRepository;
+import com.agricore.work.infrastructure.persistence.entity.OutboxEventEntity;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,6 +17,7 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -27,6 +31,8 @@ class WorkIntegrationTest {
     private MockMvc mockMvc;
     @Autowired
     private ObjectMapper objectMapper;
+    @Autowired
+    private OutboxJpaRepository outboxRepository;
     @MockitoBean
     private FarmAccessClient farmAccessClient;
 
@@ -52,6 +58,12 @@ class WorkIntegrationTest {
                 .andReturn();
 
         String taskId = objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asText();
+        OutboxEventEntity taskCreated = outboxRepository.findAll().stream()
+                .filter(event -> event.getAggregateId().equals(taskId))
+                .findFirst()
+                .orElseThrow();
+        JsonNode taskCreatedEnvelope = objectMapper.readTree(taskCreated.getPayload());
+        assertThat(taskCreatedEnvelope.path("eventId").asText()).isEqualTo(taskCreated.getId().toString());
         UUID employee = UUID.randomUUID();
 
         mockMvc.perform(post("/api/v1/work-tasks/" + taskId + "/assign")
