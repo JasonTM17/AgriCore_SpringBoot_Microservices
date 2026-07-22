@@ -1,6 +1,7 @@
 package com.agricore.gateway.infrastructure.security;
 
 import com.agricore.security.AgricoreJwtValidators;
+import com.agricore.security.JwtRolesConverter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -10,7 +11,6 @@ import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.NimbusReactiveJwtDecoder;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
@@ -18,10 +18,6 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.oauth2.server.resource.authentication.ReactiveJwtAuthenticationConverterAdapter;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import reactor.core.publisher.Mono;
-
-import java.util.Collection;
-import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Gateway-level JWT validation against Identity Service JWKS (issuer + audience).
@@ -81,16 +77,7 @@ public class GatewaySecurityConfig {
 
     private Converter<Jwt, Mono<AbstractAuthenticationToken>> jwtAuthConverter() {
         JwtAuthenticationConverter delegate = new JwtAuthenticationConverter();
-        delegate.setJwtGrantedAuthoritiesConverter(jwt -> {
-            Object roles = jwt.getClaims().get("roles");
-            if (roles instanceof Collection<?> collection) {
-                return collection.stream()
-                        .map(Object::toString)
-                        .map(r -> new SimpleGrantedAuthority("ROLE_" + r))
-                        .collect(Collectors.toList());
-            }
-            return List.of();
-        });
+        delegate.setJwtGrantedAuthoritiesConverter(new JwtRolesConverter());
         return new ReactiveJwtAuthenticationConverterAdapter(delegate);
     }
 }
