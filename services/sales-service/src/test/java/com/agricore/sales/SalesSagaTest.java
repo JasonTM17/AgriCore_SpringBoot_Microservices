@@ -93,6 +93,20 @@ class SalesSagaTest {
     }
 
     @Test
+    void placeOrder_referenceConflictDoesNotClaimStockIsUnavailable() throws Exception {
+        when(inventoryClient.reserve(any(), any(), anyString()))
+                .thenThrow(new InventoryClient.InventoryReservationException(
+                        409,
+                        "RESERVATION_REFERENCE_CONFLICT"
+                ));
+
+        placeOrder("SO-REF", createCustomer("C-REF"), 10)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.sagaStatus").value("FAILED"));
+    }
+
+    @Test
     void placeOrder_confirmFailure_releasesReservationBeforeCancelling() throws Exception {
         UUID reservationId = UUID.randomUUID();
         when(inventoryClient.reserve(any(), any(), anyString())).thenReturn(reservationId);

@@ -5,11 +5,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 import static com.agricore.sales.infrastructure.client.InventoryClient.ReleaseOutcome.FULFILLED;
@@ -20,6 +22,7 @@ import static org.springframework.test.web.client.ExpectedCount.once;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 
 class InventoryClientTest {
 
@@ -28,6 +31,48 @@ class InventoryClientTest {
     @AfterEach
     void clearSecurityContext() {
         SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    void reserveClassifiesOnlyExplicitInsufficientStockCode() {
+        TestClient fixture = client();
+        fixture.server().expect(once(), requestTo(BASE_URL + "/api/v1/inventory/reservations"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withStatus(HttpStatus.CONFLICT)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("""
+                                {"code":"INSUFFICIENT_STOCK","message":"Not enough available stock"}
+                                """));
+
+        assertThatExceptionOfType(InventoryClient.InventoryReservationException.class)
+                .isThrownBy(() -> fixture.client().reserve(
+                        UUID.randomUUID(),
+                        new BigDecimal("5.000"),
+                        UUID.randomUUID().toString()
+                ))
+                .satisfies(exception -> assertThat(exception.isInsufficientStock()).isTrue());
+        fixture.server().verify();
+    }
+
+    @Test
+    void reserveReferenceConflictIsNotMisclassifiedAsInsufficientStock() {
+        TestClient fixture = client();
+        fixture.server().expect(once(), requestTo(BASE_URL + "/api/v1/inventory/reservations"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withStatus(HttpStatus.CONFLICT)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("""
+                                {"code":"RESERVATION_REFERENCE_CONFLICT","message":"Reference conflict"}
+                                """));
+
+        assertThatExceptionOfType(InventoryClient.InventoryReservationException.class)
+                .isThrownBy(() -> fixture.client().reserve(
+                        UUID.randomUUID(),
+                        new BigDecimal("5.000"),
+                        UUID.randomUUID().toString()
+                ))
+                .satisfies(exception -> assertThat(exception.isInsufficientStock()).isFalse());
+        fixture.server().verify();
     }
 
     @Test

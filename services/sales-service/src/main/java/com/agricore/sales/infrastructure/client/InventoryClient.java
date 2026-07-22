@@ -58,7 +58,7 @@ public class InventoryClient {
             JsonNode json = objectMapper.readTree(body);
             return UUID.fromString(json.get("id").asText());
         } catch (RestClientResponseException ex) {
-            throw new InventoryReservationException(ex.getStatusCode().value(), ex.getResponseBodyAsString());
+            throw responseFailure(ex);
         } catch (InventoryReservationException ex) {
             throw ex;
         } catch (Exception ex) {
@@ -79,7 +79,7 @@ public class InventoryClient {
             JsonNode response = objectMapper.readTree(body);
             return ReleaseOutcome.fromInventoryStatus(response.path("status").asText());
         } catch (RestClientResponseException ex) {
-            throw new InventoryReservationException(ex.getStatusCode().value(), ex.getResponseBodyAsString());
+            throw responseFailure(ex);
         } catch (InventoryReservationException ex) {
             throw ex;
         } catch (Exception ex) {
@@ -98,8 +98,19 @@ public class InventoryClient {
                     .retrieve()
                     .toBodilessEntity();
         } catch (RestClientResponseException ex) {
-            throw new InventoryReservationException(ex.getStatusCode().value(), ex.getResponseBodyAsString());
+            throw responseFailure(ex);
         }
+    }
+
+    private InventoryReservationException responseFailure(RestClientResponseException failure) {
+        String body = failure.getResponseBodyAsString();
+        String errorCode = null;
+        try {
+            errorCode = objectMapper.readTree(body).path("code").textValue();
+        } catch (Exception ignored) {
+            // Malformed bodies are retained for diagnostics but never classified by status alone.
+        }
+        return new InventoryReservationException(failure.getStatusCode().value(), body, errorCode);
     }
 
     private Consumer<HttpHeaders> authHeaders() {
@@ -135,10 +146,16 @@ public class InventoryClient {
 
     public static class InventoryReservationException extends RuntimeException {
         private final int status;
+        private final String errorCode;
 
         public InventoryReservationException(int status, String body) {
+            this(status, body, "INSUFFICIENT_STOCK".equals(body) ? body : null);
+        }
+
+        private InventoryReservationException(int status, String body, String errorCode) {
             super(body);
             this.status = status;
+            this.errorCode = errorCode;
         }
 
         public int getStatus() {
@@ -146,7 +163,7 @@ public class InventoryClient {
         }
 
         public boolean isInsufficientStock() {
-            return status == 409 || (getMessage() != null && getMessage().contains("INSUFFICIENT_STOCK"));
+            return "INSUFFICIENT_STOCK".equals(errorCode);
         }
     }
 }
