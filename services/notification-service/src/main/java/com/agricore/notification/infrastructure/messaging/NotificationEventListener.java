@@ -6,6 +6,7 @@ import com.agricore.notification.application.service.NotificationApplicationServ
 import com.agricore.notification.application.service.NotificationEventCommand;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
@@ -27,13 +28,16 @@ public class NotificationEventListener {
 
     private final NotificationApplicationService notificationService;
     private final ObjectMapper objectMapper;
+    private final NotificationEventSourcePolicy eventSourcePolicy;
 
     public NotificationEventListener(
             NotificationApplicationService notificationService,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            NotificationEventSourcePolicy eventSourcePolicy
     ) {
         this.notificationService = notificationService;
         this.objectMapper = objectMapper;
+        this.eventSourcePolicy = eventSourcePolicy;
     }
 
     @KafkaListener(
@@ -44,12 +48,14 @@ public class NotificationEventListener {
             },
             groupId = "${agricore.kafka.consumer.group-id:notification-service}"
     )
-    public void onMessage(String raw) {
+    public void onMessage(ConsumerRecord<String, String> record) {
+        String raw = record.value();
         JsonNode root = readRoot(raw);
         DomainEventEnvelopeReader.Envelope envelope = DomainEventEnvelopeReader.read(objectMapper, raw);
         if (!SUPPORTED_EVENTS.contains(envelope.eventType()) || envelope.eventVersion() != 1) {
             throw new IllegalArgumentException("Unsupported notification event: " + envelope.eventType());
         }
+        eventSourcePolicy.validate(record.topic(), envelope);
         notificationService.consume(toCommand(root, envelope));
     }
 
