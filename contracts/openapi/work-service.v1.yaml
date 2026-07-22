@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: AgriCore Work Service API
-  version: 1.4.0
-  description: Verified field-work task creation, assignment, explicit lifecycle, completion, cancellation, and query contract.
+  version: 1.5.0
+  description: Verified field-work task creation, immutable assignment history, explicit lifecycle, completion, cancellation, and query contract.
 servers:
   - url: http://localhost:8085
     description: Direct local service endpoint
@@ -142,6 +142,36 @@ paths:
           $ref: '#/components/responses/UnsupportedMediaType'
         '500':
           $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/work-tasks/{taskId}/assignments:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    get:
+      tags: [Work Tasks]
+      operationId: listWorkTaskAssignments
+      summary: List immutable assignment history
+      description: >-
+        Returns newest task versions first after verifying access to the task's authoritative plot.
+        Repeating the same assignment does not append a duplicate history record.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Assignment history page.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkAssignmentPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/work-tasks/{taskId}/start:
@@ -434,6 +464,32 @@ components:
         inventoryReferenceId: { type: string, maxLength: 100 }
         lastError: { type: [string, 'null'], maxLength: 1000 }
         consumedAt: { type: [string, 'null'], format: date-time }
+    WorkAssignmentResponse:
+      type: object
+      additionalProperties: false
+      required: [id, workTaskId, employeeId, assignedBy, assignedAt, taskVersion]
+      properties:
+        id: { type: string, format: uuid }
+        workTaskId: { type: string, format: uuid }
+        employeeId: { type: string, format: uuid }
+        assignedBy: { type: string, minLength: 1, maxLength: 255 }
+        assignedAt: { type: string, format: date-time }
+        taskVersion: { type: integer, format: int64, minimum: 0 }
+    WorkAssignmentPageResponse:
+      type: object
+      additionalProperties: false
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkAssignmentResponse'
+        page: { type: integer, format: int32, minimum: 0 }
+        size: { type: integer, format: int32, minimum: 1, maximum: 100 }
+        totalElements: { type: integer, format: int64, minimum: 0 }
+        totalPages: { type: integer, format: int32, minimum: 0 }
+        first: { type: boolean }
+        last: { type: boolean }
     WorkTaskPageResponse:
       type: object
       additionalProperties: false

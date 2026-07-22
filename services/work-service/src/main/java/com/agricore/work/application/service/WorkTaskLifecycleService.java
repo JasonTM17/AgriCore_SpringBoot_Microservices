@@ -20,21 +20,24 @@ public class WorkTaskLifecycleService {
     private final MaterialUsageJpaRepository materialUsageRepository;
     private final WorkAccessGuard accessGuard;
     private final WorkEventOutboxWriter eventWriter;
+    private final WorkAssignmentService assignmentService;
 
     public WorkTaskLifecycleService(
             WorkTaskJpaRepository taskRepository,
             MaterialUsageJpaRepository materialUsageRepository,
             WorkAccessGuard accessGuard,
-            WorkEventOutboxWriter eventWriter
+            WorkEventOutboxWriter eventWriter,
+            WorkAssignmentService assignmentService
     ) {
         this.taskRepository = taskRepository;
         this.materialUsageRepository = materialUsageRepository;
         this.accessGuard = accessGuard;
         this.eventWriter = eventWriter;
+        this.assignmentService = assignmentService;
     }
 
     @Transactional
-    public WorkTaskEntity assign(UUID taskId, UUID assignedEmployeeId) {
+    public WorkTaskEntity assign(UUID taskId, UUID assignedEmployeeId, String assignedBy) {
         WorkTaskEntity task = requireForUpdate(taskId);
         if (task.getStatus() != TaskStatus.CREATED
                 && task.getStatus() != TaskStatus.ASSIGNED
@@ -50,6 +53,7 @@ public class WorkTaskLifecycleService {
         task.setStatus(TaskStatus.ASSIGNED);
         task.setUpdatedAt(Instant.now());
         task = taskRepository.saveAndFlush(task);
+        assignmentService.record(task, assignedBy);
         eventWriter.workTask(EventTypes.WORK_TASK_ASSIGNED, task);
         return task;
     }

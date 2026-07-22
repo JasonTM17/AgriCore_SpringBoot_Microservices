@@ -86,8 +86,8 @@ public class WorkApplicationService {
         return toResponse(task);
     }
 
-    public WorkTaskResponse assign(UUID taskId, AssignTaskRequest request) {
-        return toResponse(lifecycleService.assign(taskId, request.assignedEmployeeId()));
+    public WorkTaskResponse assign(UUID taskId, AssignTaskRequest request, String assignedBy) {
+        return toResponse(lifecycleService.assign(taskId, request.assignedEmployeeId(), assignedBy));
     }
 
     public WorkTaskResponse start(UUID taskId) {

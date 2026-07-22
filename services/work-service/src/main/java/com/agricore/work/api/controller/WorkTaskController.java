@@ -5,8 +5,10 @@ import com.agricore.work.api.request.AssignTaskRequest;
 import com.agricore.work.api.request.CancelTaskRequest;
 import com.agricore.work.api.request.CompleteTaskRequest;
 import com.agricore.work.api.request.CreateWorkTaskRequest;
+import com.agricore.work.api.response.WorkAssignmentResponse;
 import com.agricore.work.api.response.WorkTaskResponse;
 import com.agricore.work.application.service.WorkApplicationService;
+import com.agricore.work.application.service.WorkAssignmentService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -18,6 +20,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
 import java.util.UUID;
 
 @RestController
@@ -26,9 +29,11 @@ import java.util.UUID;
 public class WorkTaskController {
 
     private final WorkApplicationService service;
+    private final WorkAssignmentService assignmentService;
 
-    public WorkTaskController(WorkApplicationService service) {
+    public WorkTaskController(WorkApplicationService service, WorkAssignmentService assignmentService) {
         this.service = service;
+        this.assignmentService = assignmentService;
     }
 
     @PostMapping
@@ -56,8 +61,27 @@ public class WorkTaskController {
 
     @PostMapping("/{taskId}/assign")
     @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST')")
-    public WorkTaskResponse assign(@PathVariable UUID taskId, @Valid @RequestBody AssignTaskRequest request) {
-        return service.assign(taskId, request);
+    public WorkTaskResponse assign(
+            @PathVariable UUID taskId,
+            @Valid @RequestBody AssignTaskRequest request,
+            Principal principal
+    ) {
+        return service.assign(taskId, request, principal.getName());
+    }
+
+    @GetMapping("/{taskId}/assignments")
+    @PreAuthorize("isAuthenticated()")
+    public PageResponse<WorkAssignmentResponse> listAssignments(
+            @PathVariable UUID taskId,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
+    ) {
+        Sort sort = Sort.by(
+                Sort.Order.desc("taskVersion"),
+                Sort.Order.desc("assignedAt"),
+                Sort.Order.desc("id")
+        );
+        return assignmentService.list(taskId, PageRequest.of(page, size, sort));
     }
 
     @PostMapping("/{taskId}/start")

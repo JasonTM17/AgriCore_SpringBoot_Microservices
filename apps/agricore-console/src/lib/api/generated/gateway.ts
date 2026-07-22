@@ -738,6 +738,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/work-tasks/{taskId}/assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List immutable assignment history
+         * @description Returns newest task versions first after verifying access to the task's authoritative plot. Repeating the same assignment does not append a duplicate history record.
+         */
+        get: operations["listWorkTaskAssignments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/work-tasks/{taskId}/start": {
         parameters: {
             query?: never;
@@ -1838,6 +1860,32 @@ export interface components {
         AssignTaskRequest: {
             /** Format: uuid */
             assignedEmployeeId: string;
+        };
+        WorkAssignmentResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            workTaskId: string;
+            /** Format: uuid */
+            employeeId: string;
+            assignedBy: string;
+            /** Format: date-time */
+            assignedAt: string;
+            /** Format: int64 */
+            taskVersion: number;
+        };
+        WorkAssignmentPageResponse: {
+            content: components["schemas"]["WorkAssignmentResponse"][];
+            /** Format: int32 */
+            page: number;
+            /** Format: int32 */
+            size: number;
+            /** Format: int64 */
+            totalElements: number;
+            /** Format: int32 */
+            totalPages: number;
+            first: boolean;
+            last: boolean;
         };
         MaterialUsageRequest: {
             /** Format: uuid */
@@ -3406,6 +3454,38 @@ export interface operations {
             409: components["responses"]["components-responses-Conflict"];
             415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["responses-InternalServerError"];
+            503: components["responses"]["responses-ServiceUnavailable"];
+        };
+    };
+    listWorkTaskAssignments: {
+        parameters: {
+            query?: {
+                /** @description Zero-based page index. */
+                page?: components["parameters"]["parameters-Page"];
+                /** @description Number of records per page. */
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path: {
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Assignment history page. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkAssignmentPageResponse"];
+                };
+            };
+            400: components["responses"]["work-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["work-service.v1_components-responses-NotFound"];
             503: components["responses"]["responses-ServiceUnavailable"];
         };
     };
