@@ -118,6 +118,44 @@ spec:
             - name: SALES_PORT
               value: {{ $svc.port | quote }}
             {{- end }}
+            {{- if eq $name "notification" }}
+            - name: NOTIFICATION_PORT
+              value: {{ $svc.port | quote }}
+            - name: NOTIFICATION_DELIVERY_PROVIDER
+              value: {{ $svc.deliveryProvider | default "smtp" | quote }}
+            - name: NOTIFICATION_SMTP_HOST
+              value: {{ $svc.smtp.host | quote }}
+            - name: NOTIFICATION_SMTP_PORT
+              value: {{ $svc.smtp.port | quote }}
+            - name: NOTIFICATION_SMTP_FROM
+              value: {{ $svc.smtp.fromAddress | quote }}
+            - name: NOTIFICATION_SMTP_AUTH
+              value: {{ $svc.smtp.auth | quote }}
+            - name: NOTIFICATION_SMTP_STARTTLS
+              value: {{ $svc.smtp.startTls | quote }}
+            - name: NOTIFICATION_SMTP_STARTTLS_REQUIRED
+              value: {{ $svc.smtp.startTlsRequired | quote }}
+            {{- if $svc.smtp.auth }}
+            - name: NOTIFICATION_SMTP_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $svc.smtp.credentialSecretName | quote }}
+                  key: {{ $svc.smtp.usernameKey | default "username" | quote }}
+            - name: NOTIFICATION_SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $svc.smtp.credentialSecretName | quote }}
+                  key: {{ $svc.smtp.passwordKey | default "password" | quote }}
+            {{- end }}
+            - name: NOTIFICATION_DELIVERY_MAX_ATTEMPTS
+              value: {{ $svc.delivery.maxAttempts | default 3 | quote }}
+            - name: NOTIFICATION_DELIVERY_LEASE
+              value: {{ $svc.delivery.lease | default "PT30S" | quote }}
+            - name: NOTIFICATION_DELIVERY_RECOVERY_POLL_MS
+              value: {{ $svc.delivery.recoveryPollMs | default 30000 | quote }}
+            - name: NOTIFICATION_DELIVERY_RECOVERY_BATCH_SIZE
+              value: {{ $svc.delivery.recoveryBatchSize | default 50 | quote }}
+            {{- end }}
             {{- if eq $name "assistant" }}
             - name: ASSISTANT_PORT
               value: {{ $svc.port | quote }}

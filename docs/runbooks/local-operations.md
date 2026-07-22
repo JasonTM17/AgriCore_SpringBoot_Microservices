@@ -31,6 +31,7 @@ docker compose up -d --build
 | Console | `http://localhost:3000` |
 | Gateway | `http://localhost:8080` |
 | Kafka UI | `http://localhost:8088` |
+| Mailpit captured email | `http://localhost:8025` |
 | Grafana | `http://localhost:3001` |
 | Prometheus | `http://localhost:9090` |
 | Prometheus targets | `http://localhost:9090/targets` |
@@ -48,6 +49,7 @@ docker compose -f docker-compose.observability.yml ps
 Invoke-RestMethod http://localhost:8080/actuator/health
 Invoke-RestMethod http://localhost:9090/-/ready
 Invoke-RestMethod http://localhost:3200/ready
+Invoke-RestMethod http://localhost:8025/readyz
 ```
 
 Open Prometheus targets and confirm all 13 application jobs are `UP`. Twelve targets use host-published ports; assistant-service is scraped on the shared Compose network.
@@ -113,7 +115,7 @@ After a traced request, entries emitted inside that request may also include `tr
 | `agricore_iot_alerts_total` | `outcome=created|suppressed` |
 | `agricore_iot_open_alerts` | Current open alerts gauge |
 | `agricore_sales_sagas_total` | Terminal saga outcome |
-| `agricore_notification_deliveries_total` | `outcome=sent|duplicate`; notification delivery outcomes |
+| `agricore_notification_deliveries_total` | `outcome=sent|failed|duplicate`; notification delivery outcomes |
 | `agricore_assistant_generations_total` | `outcome=completed|failed|cancelled` |
 
 Example Prometheus API query:
@@ -145,6 +147,14 @@ pnpm build
 - Provider settings are `ASSISTANT_PROVIDER`, `ASSISTANT_PROVIDER_MODEL`, `ASSISTANT_PROVIDER_BASE_URL`, and `ASSISTANT_PROVIDER_API_KEY`.
 - Provider `none` keeps the API available with a safe limited/unavailable outcome.
 - Tool calls are read-only farm reads, carry the caller JWT, and enforce host, row, response-size, and timeout bounds.
+
+## Notification delivery
+
+- Compose routes email to `mailpit:1025`; only the Mailpit UI is host-published on port `8025`.
+- The direct notification endpoint requires `SYSTEM_ADMIN`. An optional `idempotencyKey` prevents repeated delivery and returns `409` if reused for different content.
+- Email delivery uses at most `NOTIFICATION_DELIVERY_MAX_ATTEMPTS` attempts. `IN_APP` delivery is the persisted in-app notification itself; unsupported or exhausted delivery ends in `FAILED`.
+- A short delivery lease and recovery poll reclaim `REQUESTED` or stale `DELIVERING` rows. This is at-least-once recovery; SMTP cannot provide exactly-once delivery.
+- Production SMTP host, TLS policy, and credentials are deployment inputs. Helm reads username/password from the Secret configured by `notification.smtp.credentialSecretName`.
 
 | Situation | Action |
 |---|---|

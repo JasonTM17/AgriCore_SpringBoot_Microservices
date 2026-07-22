@@ -1,16 +1,20 @@
 openapi: 3.1.0
 info:
   title: AgriCore Notification Service API
-  version: 1.0.0
+  version: 1.1.0
   description: |
-    REST notification sink (log/delivery record).
-    Kafka NotificationRequested consumers are planned, not yet wired.
+    Authorized direct notification delivery plus idempotent Kafka-driven notifications.
+    Delivery is persisted as REQUESTED before transitioning to SENT or FAILED.
 servers:
   - url: http://localhost:8089
 paths:
   /api/v1/notifications:
     post:
-      summary: Send/log notification
+      summary: Deliver a notification
+      description: |
+        Requires ROLE_SYSTEM_ADMIN. `idempotencyKey` may be reused only with the same
+        channel, recipient, subject, and body. A FAILED response is a persisted delivery
+        outcome and still returns 201.
       security:
         - bearerAuth: []
       requestBody:
@@ -18,26 +22,62 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [channel, recipient, subject, body]
-              properties:
-                channel: { type: string, enum: [EMAIL, SMS, IN_APP] }
-                recipient: { type: string }
-                subject: { type: string }
-                body: { type: string }
+              $ref: '#/components/schemas/SendNotificationRequest'
       responses:
         '201':
-          description: Accepted
-    get:
-      summary: List recent notifications
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Notification list
+          description: Persisted delivery result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationResponse'
+        '400':
+          description: Invalid or unbounded request
+        '401':
+          description: Authentication required
+        '403':
+          description: System administrator role required
+        '409':
+          description: Idempotency key is bound to another notification intent
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  schemas:
+    SendNotificationRequest:
+      type: object
+      additionalProperties: false
+      required: [channel, recipient, subject, body]
+      properties:
+        channel: { type: string, enum: [EMAIL, SMS, IN_APP] }
+        recipient: { type: string, minLength: 1, maxLength: 320 }
+        subject: { type: string, minLength: 1, maxLength: 300 }
+        body: { type: string, minLength: 1, maxLength: 10000 }
+        correlationId: { type: [string, 'null'], maxLength: 100 }
+        idempotencyKey: { type: [string, 'null'], maxLength: 100 }
+    NotificationResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - channel
+        - recipient
+        - subject
+        - status
+        - createdAt
+        - deliveryAttempts
+      properties:
+        id: { type: string, format: uuid }
+        channel: { type: string, enum: [EMAIL, SMS, IN_APP] }
+        recipient: { type: string, maxLength: 320 }
+        subject: { type: string, maxLength: 300 }
+        status: { type: string, enum: [REQUESTED, DELIVERING, SENT, FAILED] }
+        correlationId: { type: [string, 'null'], maxLength: 100 }
+        createdAt: { type: string, format: date-time }
+        sentAt: { type: [string, 'null'], format: date-time }
+        failedAt: { type: [string, 'null'], format: date-time }
+        errorCode: { type: [string, 'null'], maxLength: 100 }
+        errorMessage: { type: [string, 'null'], maxLength: 500 }
+        failureRetryable: { type: [boolean, 'null'] }
+        deliveryAttempts: { type: integer, minimum: 0, maximum: 5 }

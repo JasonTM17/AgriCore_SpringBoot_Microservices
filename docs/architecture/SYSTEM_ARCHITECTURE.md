@@ -54,7 +54,7 @@ The browser uses a same-origin edge: Nginx serves `/` and forwards `/api` and `/
 | Traceability | Public QR timeline/read model | Consumes `HarvestCompleted.v1`, idempotent with DLT recovery; publishes QR lifecycle events |
 | IoT | Devices, readings, threshold alerts | Publishes reading, threshold, and offline events through outbox |
 | Sales | Orders and inventory saga state | Synchronous reserve/confirm/release calls to inventory; publishes order lifecycle events |
-| Notification | Delivery log and event dedupe | Consumes Sales, Traceability, and IoT events; publishes notification lifecycle events |
+| Notification | Truthful delivery lifecycle and event dedupe | Consumes Sales, Traceability, and IoT events; delivers email through SMTP; publishes requested, sent, and failed events |
 | Assistant | Conversations, messages, generations, event replay, redacted tool evidence | No Kafka event path implemented |
 
 Implemented consumer topology includes `HarvestCompleted.v1` from harvest to inventory and traceability, plus Sales order, Traceability QR, and IoT alert/offline events into notification-service. All consumers persist a stable event marker before acknowledging a side effect; contract-invalid records use bounded retry and `<topic>.DLT` recovery.
@@ -144,7 +144,7 @@ Prometheus defines 13 scrape jobs: 12 host-published applications through `host.
 | `agricore_iot_alerts_total` | Created and suppressed alert outcomes |
 | `agricore_iot_open_alerts` | Current open alert count |
 | `agricore_sales_sagas_total` | Sales saga terminal outcomes |
-| `agricore_notification_deliveries_total` | Notification delivery outcomes by sent or duplicate |
+| `agricore_notification_deliveries_total` | Notification delivery outcomes by sent, failed, or duplicate |
 | `agricore_assistant_generations_total` | Completed, failed, and cancelled generations |
 
 There is no Loki or other centralized log backend. ECS stdout is collector-ready but remains container-local. Tempo uses non-persistent container storage with 48-hour configured retention in the local stack.
@@ -153,11 +153,11 @@ There is no Loki or other centralized log backend. ECS stdout is collector-ready
 
 | Environment | Repository mechanism | Scope |
 |---|---|---|
-| Local | `docker-compose.yml` plus `docker-compose.observability.yml` | Infrastructure, 13 applications, console, Tempo, Prometheus, Grafana |
+| Local | `docker-compose.yml` plus `docker-compose.observability.yml` | Infrastructure, Mailpit, 13 applications, console, Tempo, Prometheus, Grafana |
 | Cluster | `infrastructure/helm/agricore` | 13 application Deployments/Services, console, optional Ingress, assistant database Job |
 | CI | GitHub Actions | Build/test, frontend, secret, Compose, Helm, CodeQL, Trivy, and gated publishing workflows |
 
-The Helm chart expects external PostgreSQL, Redis, and Kafka services and a pre-created database credential Secret. It does not install Tempo, Prometheus, Grafana, or a log backend. These repository mechanisms do not prove a production cluster is deployed.
+The Helm chart expects external PostgreSQL, Redis, Kafka, and SMTP services plus pre-created database and SMTP credential Secrets. It does not install Tempo, Prometheus, Grafana, or a log backend. These repository mechanisms do not prove a production cluster is deployed.
 
 ## 10. Non-goals
 

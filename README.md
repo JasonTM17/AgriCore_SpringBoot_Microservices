@@ -78,11 +78,14 @@ docker compose up -d --build
 | Console | `http://localhost:3000` |
 | Gateway | `http://localhost:8080` |
 | Kafka UI | `http://localhost:8088` |
+| Mailpit | `http://localhost:8025` |
 | Grafana | `http://localhost:3001` |
 | Prometheus | `http://localhost:9090` |
 | Tempo | `http://localhost:3200` |
 
 The assistant is not published directly. Use the console or gateway route `/api/v1/assistant/**`. `ASSISTANT_PROVIDER=none` is the safe default; provider type, model, base URL, and API key belong only in a local `.env`, secret manager, or Kubernetes Secret.
+
+Local email delivery uses Mailpit. Notification state is persisted as `REQUESTED` before bounded delivery attempts and ends as `SENT` or `FAILED`; captured development email is visible in the Mailpit UI.
 
 For an existing PostgreSQL volume, follow the [assistant database provisioning runbook](docs/runbooks/assistant-database-provisioning.md).
 
@@ -158,7 +161,7 @@ Default roles: `SYSTEM_ADMIN`, `FARM_MANAGER`, `AGRONOMIST`, `FIELD_WORKER`, `WA
 
 The chart at `infrastructure/helm/agricore` renders Deployments and Services for all 13 Spring applications and the console, plus an optional same-origin Ingress. It also includes an idempotent pre-install/pre-upgrade Job for the assistant database.
 
-The chart does not install PostgreSQL, Redis, Kafka, Tempo, Prometheus, or Grafana. Operators must provide those dependencies and create the database credential Secret named by `postgres.databaseSecretName`. OTLP trace export is disabled until `observability.otlpTracingEndpoint` is set; the chart's sampling default is `0.1`.
+The chart does not install PostgreSQL, Redis, Kafka, Tempo, Prometheus, or Grafana. Operators must provide those dependencies and create the database credential Secret named by `postgres.databaseSecretName`. Configure the notification chart's external SMTP host, TLS, and username/password Secret before enabling delivery; SMTP defaults are intentionally placeholders. OTLP trace export is disabled until `observability.otlpTracingEndpoint` is set; the chart's sampling default is `0.1`.
 
 ## CI, security, and publishing
 

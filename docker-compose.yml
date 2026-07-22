@@ -48,6 +48,17 @@ x-app-healthcheck: &app-healthcheck
   start_period: 90s
 
 services:
+  mailpit:
+    image: axllent/mailpit:v1.30.0
+    container_name: agricore-mailpit
+    restart: unless-stopped
+    environment:
+      MP_MAX_MESSAGES: "5000"
+    ports:
+      - "${MAILPIT_UI_BIND:-127.0.0.1}:${MAILPIT_UI_PORT:-8025}:8025"
+    expose:
+      - "1025"
+
   identity-service:
     build:
       context: .
@@ -222,9 +233,20 @@ services:
         condition: service_healthy
       identity-service:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
     environment:
-      <<: [*db-env, *security-env, *observability-env]
+      <<: [*db-env, *security-env, *kafka-env, *observability-env]
       NOTIFICATION_PORT: 8089
+      NOTIFICATION_DELIVERY_PROVIDER: smtp
+      NOTIFICATION_SMTP_HOST: mailpit
+      NOTIFICATION_SMTP_PORT: 1025
+      NOTIFICATION_SMTP_AUTH: "false"
+      NOTIFICATION_SMTP_STARTTLS: "false"
+      NOTIFICATION_SMTP_STARTTLS_REQUIRED: "false"
+      NOTIFICATION_SMTP_FROM: no-reply@agricore.local
     ports:
       - "8089:8089"
     healthcheck:

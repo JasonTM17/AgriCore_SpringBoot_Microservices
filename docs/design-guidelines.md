@@ -124,7 +124,7 @@ Top bar contains breadcrumb, environment badge, global search affordance only wh
 ## Content Language
 
 - Use direct Vietnamese verbs: `Tạo vụ canh tác`, `Giao việc`, `Hoàn tất thu hoạch`, `Giữ hàng`, `Xác nhận giữ hàng`.
-- Avoid success claims stronger than backend evidence. Use `Đã ghi nhận` for notification sink and `Đang đồng bộ` after harvest.
+- Avoid success claims stronger than backend evidence. Render notification status from `REQUESTED`, `DELIVERING`, `SENT`, or `FAILED`; use `Đang đồng bộ` after harvest.
 - Error messages state what happened, the affected object, and the safe next step.
 - Preserve agricultural terms consistently: `Trang trại`, `Lô canh tác`, `Vụ canh tác`, `Công việc`, `Thu hoạch`, `Tồn kho`, `Giữ hàng`, `Truy xuất nguồn gốc`.
 

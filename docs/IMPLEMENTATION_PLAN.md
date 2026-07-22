@@ -32,7 +32,7 @@ Jaeger, Loki, centralized log aggregation, and MinIO are not part of the deliver
 | Work | 8085 | `agricore_work` | Field tasks and assignments |
 | Inventory | 8086 | `agricore_inventory` | Stock, reservations, movements |
 | Harvest | 8087 | `agricore_harvest` | Harvest batches, completion outbox, repair |
-| Notification | 8089 | `agricore_notification` | Notification delivery log |
+| Notification | 8089 | `agricore_notification` | Requested/sent/failed notification delivery lifecycle |
 | IoT | 8090 | `agricore_iot` | Devices, readings, threshold alerts |
 | Sales | 8091 | `agricore_sales` | Orders and inventory saga orchestration |
 | Traceability | 8092 | `agricore_traceability` | QR and public timeline read model |
@@ -67,7 +67,7 @@ Idempotent public QR read model without internal identifiers or personal data.
 
 ### M6 — IoT, sales, and notification (delivered)
 
-Sensor ingestion and alert cooldown, inventory-backed sales saga with transactional order lifecycle events, and idempotent Notification consumption of Sales, Traceability, and IoT events.
+Sensor ingestion and alert cooldown, inventory-backed sales saga with transactional order lifecycle events, and idempotent Notification consumption of Sales, Traceability, and IoT events. Notification email uses bounded SMTP delivery, while in-app notifications persist locally; both produce truthful lifecycle events.
 
 ### M7 — Gateway and observability
 
@@ -93,7 +93,6 @@ Application Helm chart, security review, runbooks, seed scripts, gateway happy p
 
 - Reject malformed or wrong-version `HarvestCompleted.v1` envelopes to DLT instead of acknowledging them silently.
 - Bring farm, crop-cycle, and work publishers to the harvest publisher's locking, bounded-send, index, metric, and test standard.
-- Add a real external delivery adapter before advertising `NotificationFailed.v1`; the current notification sink is an internal, deterministic delivery log.
 
 ## Release acceptance criteria
 

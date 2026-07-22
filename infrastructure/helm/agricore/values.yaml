@@ -57,6 +57,22 @@ notification:
   replicaCount: 1
   image: nguyenson1710/agricore-notification
   port: 8089
+  deliveryProvider: smtp
+  smtp:
+    host: smtp.example.invalid
+    port: 587
+    fromAddress: no-reply@agricore.local
+    auth: true
+    startTls: true
+    startTlsRequired: true
+    credentialSecretName: agricore-notification-smtp
+    usernameKey: username
+    passwordKey: password
+  delivery:
+    maxAttempts: 3
+    lease: PT30S
+    recoveryPollMs: 30000
+    recoveryBatchSize: 50
 
 iot:
   enabled: true
