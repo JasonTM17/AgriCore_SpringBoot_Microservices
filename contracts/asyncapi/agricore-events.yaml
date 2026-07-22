@@ -4,7 +4,7 @@ info:
   version: 0.1.0
   description: |
     Kafka contracts for the events currently emitted by AgriCore transactional
-    outbox producers. The implemented scope is 17 events on the farm,
+    outbox producers. The implemented scope is 19 events on the farm,
     crop-cycle, work, inventory, and harvest topics. Other constants in EventTypes are not
     implemented event flows and are intentionally not documented as messages.
 defaultContentType: application/json
@@ -91,8 +91,16 @@ channels:
           $ref: ../event-schemas/StockDeducted.v1.json
   agricore.harvest.events:
     address: agricore.harvest.events
-    description: HarvestCompleted events emitted by harvest-service.
+    description: Harvest lifecycle events emitted by harvest-service.
     messages:
+      HarvestBatchCreated:
+        name: HarvestBatchCreated.v1
+        payload:
+          $ref: ../event-schemas/HarvestBatchCreated.v1.json
+      HarvestStarted:
+        name: HarvestStarted.v1
+        payload:
+          $ref: ../event-schemas/HarvestStarted.v1.json
       HarvestCompleted:
         name: HarvestCompleted.v1
         payload:
@@ -156,6 +164,8 @@ operations:
     channel:
       $ref: '#/channels/agricore.harvest.events'
     messages:
+      - $ref: '#/channels/agricore.harvest.events/messages/HarvestBatchCreated'
+      - $ref: '#/channels/agricore.harvest.events/messages/HarvestStarted'
       - $ref: '#/channels/agricore.harvest.events/messages/HarvestCompleted'
   inventoryServiceReceivesHarvestCompleted:
     action: receive
