@@ -1,6 +1,6 @@
 package com.agricore.inventory.api.controller;
 
-import com.agricore.inventory.api.request.StockOutRequest;
+import com.agricore.inventory.api.request.InternalStockOutRequest;
 import com.agricore.inventory.api.response.InventoryItemResponse;
 import com.agricore.inventory.application.service.InventoryApplicationService;
 import com.agricore.inventory.infrastructure.security.InventoryInternalServiceTokenValidator;
@@ -31,11 +31,11 @@ public class InventoryInternalController {
     @PostMapping("/stock-out")
     public InventoryItemResponse stockOut(
             @RequestHeader(value = "X-Internal-Service-Token", required = false) String serviceToken,
-            @Valid @RequestBody StockOutRequest request
+            @Valid @RequestBody InternalStockOutRequest request
     ) {
         if (!serviceTokenValidator.matches(serviceToken)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Internal service authentication required");
         }
-        return inventoryService.stockOut(request);
+        return inventoryService.stockOutForFarm(request.farmId(), request.toStockOutRequest());
     }
 }

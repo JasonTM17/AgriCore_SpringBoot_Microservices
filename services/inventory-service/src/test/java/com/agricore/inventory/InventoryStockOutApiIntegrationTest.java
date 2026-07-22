@@ -33,7 +33,8 @@ class InventoryStockOutApiIntegrationTest {
 
     @Test
     void warehouseManagerCanStockOutIdempotentlyWhileOtherRolesAreForbidden() throws Exception {
-        String itemId = createStockedItem();
+        UUID farmId = UUID.randomUUID();
+        String itemId = createStockedItem(farmId);
         String requestBody = """
                 {
                   "inventoryItemId":"%s",
@@ -79,12 +80,30 @@ class InventoryStockOutApiIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
+                                  "farmId":"%s",
+                                  "inventoryItemId":"%s",
+                                  "quantity":1.000,
+                                  "referenceType":"WorkTask",
+                                  "referenceId":"TASK-API-WRONG-FARM"
+                                }
+                                """.formatted(UUID.randomUUID(), itemId)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("ITEM_NOT_FOUND"));
+
+        mockMvc.perform(post("/internal/api/v1/inventory/stock-out")
+                        .header(USER_HEADER, "worker")
+                        .header(ROLES_HEADER, "FIELD_WORKER")
+                        .header(INTERNAL_TOKEN_HEADER, INTERNAL_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "farmId":"%s",
                                   "inventoryItemId":"%s",
                                   "quantity":1.000,
                                   "referenceType":"WorkTask",
                                   "referenceId":"TASK-API-INTERNAL"
                                 }
-                                """.formatted(itemId)))
+                                """.formatted(farmId, itemId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.onHandQuantity").value(5.5));
 
@@ -92,13 +111,21 @@ class InventoryStockOutApiIntegrationTest {
                         .header(USER_HEADER, "worker")
                         .header(ROLES_HEADER, "FIELD_WORKER")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
+                        .content("""
+                                {
+                                  "farmId":"%s",
+                                  "inventoryItemId":"%s",
+                                  "quantity":1.000,
+                                  "referenceType":"WorkTask",
+                                  "referenceId":"TASK-API-NO-SERVICE-TOKEN"
+                                }
+                                """.formatted(farmId, itemId)))
                 .andExpect(status().isForbidden());
     }
 
     @Test
     void stockOutRejectsDatabaseOverflowAtTheApiBoundary() throws Exception {
-        String itemId = createStockedItem();
+        String itemId = createStockedItem(UUID.randomUUID());
 
         mockMvc.perform(post("/api/v1/inventory/stock-out")
                         .header(USER_HEADER, "warehouse")
@@ -116,15 +143,16 @@ class InventoryStockOutApiIntegrationTest {
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
     }
 
-    private String createStockedItem() throws Exception {
+    private String createStockedItem(UUID farmId) throws Exception {
         MvcResult warehouse = mockMvc.perform(post("/api/v1/inventory/warehouses")
                         .header(USER_HEADER, "warehouse")
                         .header(ROLES_HEADER, "WAREHOUSE_MANAGER")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"code":"WH-%s","name":"API Test Warehouse"}
-                                """.formatted(UUID.randomUUID())))
+                                {"farmId":"%s","code":"WH-%s","name":"API Test Warehouse"}
+                                """.formatted(farmId, UUID.randomUUID())))
                 .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.farmId").value(farmId.toString()))
                 .andReturn();
         String warehouseId = objectMapper.readTree(warehouse.getResponse().getContentAsString()).path("id").asText();
 

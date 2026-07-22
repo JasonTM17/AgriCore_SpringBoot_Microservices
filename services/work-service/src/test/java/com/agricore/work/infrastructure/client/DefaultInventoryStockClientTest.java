@@ -30,6 +30,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 class DefaultInventoryStockClientTest {
 
     private static final String BASE_URL = "https://inventory-service";
+    private static final UUID FARM_ID = UUID.fromString("10000000-0000-0000-0000-000000000001");
 
     @AfterEach
     void clearSecurityContext() {
@@ -44,12 +45,13 @@ class DefaultInventoryStockClientTest {
         fixture.server().expect(once(), requestTo(BASE_URL + "/internal/api/v1/inventory/stock-out"))
                 .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer signed-access-token"))
                 .andExpect(header("X-Internal-Service-Token", "test-inventory-work-service-token-012345678901234567890123"))
+                .andExpect(jsonPath("$.farmId").value(FARM_ID.toString()))
                 .andExpect(jsonPath("$.inventoryItemId").value(itemId.toString()))
                 .andExpect(jsonPath("$.referenceType").value("WorkTask"))
                 .andRespond(withSuccess(response(itemId), MediaType.APPLICATION_JSON));
 
         InventoryStockClient.StockOutResult result = fixture.client().stockOut(
-                itemId, new BigDecimal("2.500"), "material-ref"
+                FARM_ID, itemId, new BigDecimal("2.500"), "material-ref"
         );
 
         assertThat(result.inventoryItemId()).isEqualTo(itemId);
@@ -68,7 +70,7 @@ class DefaultInventoryStockClientTest {
                 .andExpect(header("X-Internal-Service-Token", "test-inventory-work-service-token-012345678901234567890123"))
                 .andRespond(withSuccess(response(itemId), MediaType.APPLICATION_JSON));
 
-        fixture.client().stockOut(itemId, BigDecimal.ONE, "material-ref");
+        fixture.client().stockOut(FARM_ID, itemId, BigDecimal.ONE, "material-ref");
 
         fixture.server().verify();
     }
@@ -82,7 +84,7 @@ class DefaultInventoryStockClientTest {
                 .andRespond(withStatus(org.springframework.http.HttpStatus.CONFLICT));
 
         assertThatExceptionOfType(InventoryStockClientException.class)
-                .isThrownBy(() -> fixture.client().stockOut(itemId, BigDecimal.TEN, "material-ref"))
+                .isThrownBy(() -> fixture.client().stockOut(FARM_ID, itemId, BigDecimal.TEN, "material-ref"))
                 .satisfies(exception -> assertThat(exception.getDownstreamStatus()).isEqualTo(409));
     }
 
@@ -94,14 +96,14 @@ class DefaultInventoryStockClientTest {
         unknownField.server().expect(once(), requestTo(BASE_URL + "/internal/api/v1/inventory/stock-out"))
                 .andRespond(withSuccess(response(itemId).replace("}", ",\"unknown\":true}"), MediaType.APPLICATION_JSON));
         assertThatExceptionOfType(InventoryStockClientException.class)
-                .isThrownBy(() -> unknownField.client().stockOut(itemId, BigDecimal.ONE, "material-ref"))
+                .isThrownBy(() -> unknownField.client().stockOut(FARM_ID, itemId, BigDecimal.ONE, "material-ref"))
                 .satisfies(exception -> assertThat(exception.getDownstreamStatus()).isEqualTo(503));
 
         TestClient mismatch = client(true);
         mismatch.server().expect(once(), requestTo(BASE_URL + "/internal/api/v1/inventory/stock-out"))
                 .andRespond(withSuccess(response(UUID.randomUUID()), MediaType.APPLICATION_JSON));
         assertThatExceptionOfType(InventoryStockClientException.class)
-                .isThrownBy(() -> mismatch.client().stockOut(itemId, BigDecimal.ONE, "material-ref"))
+                .isThrownBy(() -> mismatch.client().stockOut(FARM_ID, itemId, BigDecimal.ONE, "material-ref"))
                 .satisfies(exception -> assertThat(exception.getDownstreamStatus()).isEqualTo(503));
     }
 
@@ -109,7 +111,9 @@ class DefaultInventoryStockClientTest {
     void stockOutFailsClosedWithoutForwardableProductionAuthentication() {
         TestClient fixture = client(false);
         assertThatExceptionOfType(InventoryStockClientException.class)
-                .isThrownBy(() -> fixture.client().stockOut(UUID.randomUUID(), BigDecimal.ONE, "material-ref"))
+                .isThrownBy(() -> fixture.client().stockOut(
+                        FARM_ID, UUID.randomUUID(), BigDecimal.ONE, "material-ref"
+                ))
                 .satisfies(exception -> assertThat(exception.getDownstreamStatus()).isEqualTo(503));
     }
 

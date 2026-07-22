@@ -2,6 +2,7 @@ package com.agricore.work.application.service;
 
 import com.agricore.farmaccess.FarmAccessClient;
 import com.agricore.farmaccess.FarmAccessException;
+import com.agricore.farmaccess.FarmResourceAccess;
 import org.springframework.stereotype.Component;
 
 import java.util.UUID;
@@ -15,8 +16,8 @@ final class WorkAccessGuard {
         this.farmAccessClient = farmAccessClient;
     }
 
-    void requirePlot(UUID plotId) {
-        farmAccessClient.requirePlot(plotId);
+    FarmResourceAccess requirePlot(UUID plotId) {
+        return farmAccessClient.requirePlot(plotId);
     }
 
     void requireListScope(UUID plotId) {

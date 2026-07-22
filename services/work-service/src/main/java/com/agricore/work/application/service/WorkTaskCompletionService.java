@@ -35,18 +35,20 @@ public class WorkTaskCompletionService {
             if (attempt.alreadyConsumed()) {
                 continue;
             }
-            consumeMaterial(taskId, usageId, attempt);
+            consumeMaterial(taskId, preparation.farmId(), usageId, attempt);
         }
         return stateService.finalizeTask(taskId, request.notes());
     }
 
     private void consumeMaterial(
             UUID taskId,
+            UUID farmId,
             UUID usageId,
             WorkTaskCompletionStateService.MaterialAttempt attempt
     ) {
         try {
             InventoryStockClient.StockOutResult result = inventoryStockClient.stockOut(
+                    farmId,
                     attempt.inventoryItemId(),
                     attempt.quantity(),
                     attempt.inventoryReferenceId()

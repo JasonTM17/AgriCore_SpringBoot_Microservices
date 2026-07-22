@@ -42,13 +42,20 @@ final class DefaultInventoryStockClient implements InventoryStockClient {
     }
 
     @Override
-    public StockOutResult stockOut(UUID inventoryItemId, BigDecimal quantity, String referenceId) {
+    public StockOutResult stockOut(
+            UUID farmId,
+            UUID inventoryItemId,
+            BigDecimal quantity,
+            String referenceId
+    ) {
+        Objects.requireNonNull(farmId, "farmId");
         Objects.requireNonNull(inventoryItemId, "inventoryItemId");
         Objects.requireNonNull(quantity, "quantity");
         if (referenceId == null || referenceId.isBlank()) {
             throw new IllegalArgumentException("referenceId must not be blank");
         }
         Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("farmId", farmId);
         payload.put("inventoryItemId", inventoryItemId);
         payload.put("quantity", quantity);
         payload.put("referenceType", "WorkTask");

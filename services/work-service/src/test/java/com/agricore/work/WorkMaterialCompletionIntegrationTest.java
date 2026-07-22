@@ -2,6 +2,7 @@ package com.agricore.work;
 
 import com.agricore.common.event.EventTypes;
 import com.agricore.farmaccess.FarmAccessClient;
+import com.agricore.farmaccess.FarmResourceAccess;
 import com.agricore.work.infrastructure.client.InventoryStockClient;
 import com.agricore.work.infrastructure.client.InventoryStockClientException;
 import com.agricore.work.infrastructure.persistence.MaterialUsageJpaRepository;
@@ -9,6 +10,7 @@ import com.agricore.work.infrastructure.persistence.OutboxJpaRepository;
 import com.agricore.work.infrastructure.persistence.entity.OutboxEventEntity;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +46,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class WorkMaterialCompletionIntegrationTest {
 
+    private static final UUID FARM_ID = UUID.fromString("10000000-0000-0000-0000-000000000001");
+
     @Autowired
     private MockMvc mockMvc;
     @Autowired
@@ -57,11 +61,17 @@ class WorkMaterialCompletionIntegrationTest {
     @MockitoBean
     private InventoryStockClient inventoryStockClient;
 
+    @BeforeEach
+    void authorizePlotAccess() {
+        when(farmAccessClient.requirePlot(any(UUID.class)))
+                .thenAnswer(invocation -> new FarmResourceAccess(FARM_ID, invocation.getArgument(0)));
+    }
+
     @Test
     void successfulMaterialCompletionIsIdempotentAndEmitsOneEventPerFact() throws Exception {
         String taskId = createTask();
         UUID inventoryItemId = UUID.randomUUID();
-        when(inventoryStockClient.stockOut(eq(inventoryItemId), any(BigDecimal.class), anyString()))
+        when(inventoryStockClient.stockOut(eq(FARM_ID), eq(inventoryItemId), any(BigDecimal.class), anyString()))
                 .thenReturn(new InventoryStockClient.StockOutResult(inventoryItemId, "KG"));
         String body = completionBody(inventoryItemId, "2.500");
 
@@ -81,7 +91,9 @@ class WorkMaterialCompletionIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("COMPLETED"));
 
-        verify(inventoryStockClient).stockOut(eq(inventoryItemId), eq(new BigDecimal("2.500")), anyString());
+        verify(inventoryStockClient).stockOut(
+                eq(FARM_ID), eq(inventoryItemId), eq(new BigDecimal("2.500")), anyString()
+        );
         assertTaskEventCount(taskId, EventTypes.MATERIAL_CONSUMED, 1);
         assertTaskEventCount(taskId, EventTypes.WORK_TASK_COMPLETED, 1);
     }
@@ -91,10 +103,10 @@ class WorkMaterialCompletionIntegrationTest {
         String taskId = createTask();
         UUID firstItem = UUID.randomUUID();
         UUID secondItem = UUID.randomUUID();
-        when(inventoryStockClient.stockOut(eq(firstItem), any(BigDecimal.class), anyString()))
+        when(inventoryStockClient.stockOut(eq(FARM_ID), eq(firstItem), any(BigDecimal.class), anyString()))
                 .thenReturn(new InventoryStockClient.StockOutResult(firstItem, "L"));
         AtomicInteger secondAttempts = new AtomicInteger();
-        when(inventoryStockClient.stockOut(eq(secondItem), any(BigDecimal.class), anyString()))
+        when(inventoryStockClient.stockOut(eq(FARM_ID), eq(secondItem), any(BigDecimal.class), anyString()))
                 .thenAnswer(ignored -> {
                     if (secondAttempts.getAndIncrement() == 0) {
                         throw InventoryStockClientException.downstream(409);
@@ -133,10 +145,12 @@ class WorkMaterialCompletionIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("COMPLETED"));
 
-        verify(inventoryStockClient, times(1)).stockOut(eq(firstItem), any(BigDecimal.class), anyString());
+        verify(inventoryStockClient, times(1)).stockOut(
+                eq(FARM_ID), eq(firstItem), any(BigDecimal.class), anyString()
+        );
         ArgumentCaptor<String> referenceCaptor = ArgumentCaptor.forClass(String.class);
         verify(inventoryStockClient, times(2)).stockOut(
-                eq(secondItem), eq(new BigDecimal("3.000")), referenceCaptor.capture()
+                eq(FARM_ID), eq(secondItem), eq(new BigDecimal("3.000")), referenceCaptor.capture()
         );
         assertThat(referenceCaptor.getAllValues()).hasSize(2).allMatch(referenceCaptor.getValue()::equals);
         assertTaskEventCount(taskId, EventTypes.MATERIAL_CONSUMED, 2);
@@ -159,11 +173,11 @@ class WorkMaterialCompletionIntegrationTest {
                                 """.formatted(duplicatedItem, duplicatedItem)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("DUPLICATE_MATERIAL_ITEM"));
-        verify(inventoryStockClient, never()).stockOut(any(), any(), anyString());
+        verify(inventoryStockClient, never()).stockOut(any(), any(), any(), anyString());
 
         String retryTaskId = createTask();
         UUID retryItem = UUID.randomUUID();
-        when(inventoryStockClient.stockOut(eq(retryItem), any(BigDecimal.class), anyString()))
+        when(inventoryStockClient.stockOut(eq(FARM_ID), eq(retryItem), any(BigDecimal.class), anyString()))
                 .thenThrow(InventoryStockClientException.downstream(409));
         mockMvc.perform(authenticated(post("/api/v1/work-tasks/{taskId}/complete", retryTaskId))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -181,7 +195,9 @@ class WorkMaterialCompletionIntegrationTest {
                         .content("{}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("MATERIAL_REQUEST_CHANGED"));
-        verify(inventoryStockClient, times(1)).stockOut(eq(retryItem), any(BigDecimal.class), anyString());
+        verify(inventoryStockClient, times(1)).stockOut(
+                eq(FARM_ID), eq(retryItem), any(BigDecimal.class), anyString()
+        );
     }
 
     @Test
@@ -191,7 +207,7 @@ class WorkMaterialCompletionIntegrationTest {
                         .content(completionBody(UUID.randomUUID(), "1.0009")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
-        verify(inventoryStockClient, never()).stockOut(any(), any(), anyString());
+        verify(inventoryStockClient, never()).stockOut(any(), any(), any(), anyString());
     }
 
     private String createTask() throws Exception {

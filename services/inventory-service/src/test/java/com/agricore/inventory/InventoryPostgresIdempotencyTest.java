@@ -149,7 +149,9 @@ class InventoryPostgresIdempotencyTest {
     @Test
     void harvestCompleted_twice_addsStockOnce_onPostgres() {
         var warehouse = inventoryService.createWarehouse(
-                new CreateWarehouseRequest("WH-TC-" + System.nanoTime(), "TC Warehouse"));
+                new CreateWarehouseRequest(
+                        UUID.randomUUID(), "WH-TC-" + System.nanoTime(), "TC Warehouse"
+                ));
         String eventId = UUID.randomUUID().toString();
 
         HarvestCompletedCommand cmd = new HarvestCompletedCommand(
@@ -172,7 +174,9 @@ class InventoryPostgresIdempotencyTest {
     @Test
     void concurrentReserve_ofRemainingStock_allowsOnlyOneSuccess() throws Exception {
         var warehouse = inventoryService.createWarehouse(
-                new CreateWarehouseRequest("WH-RACE-" + System.nanoTime(), "TC Race WH"));
+                new CreateWarehouseRequest(
+                        UUID.randomUUID(), "WH-RACE-" + System.nanoTime(), "TC Race WH"
+                ));
         var stocked = inventoryService.processHarvestCompleted(new HarvestCompletedCommand(
                 UUID.randomUUID().toString(),
                 UUID.randomUUID(),
@@ -221,7 +225,9 @@ class InventoryPostgresIdempotencyTest {
     @Test
     void concurrentSameReferenceForDifferentItemsCommitsOneReservationAndOneMetric() throws Exception {
         var warehouse = inventoryService.createWarehouse(
-                new CreateWarehouseRequest("WH-REF-RACE-" + System.nanoTime(), "Reference Race WH"));
+                new CreateWarehouseRequest(
+                        UUID.randomUUID(), "WH-REF-RACE-" + System.nanoTime(), "Reference Race WH"
+                ));
         InventoryItemResponse firstItem = stockedItem(warehouse.id(), "REF-RACE-A");
         InventoryItemResponse secondItem = stockedItem(warehouse.id(), "REF-RACE-B");
         String referenceId = UUID.randomUUID().toString();

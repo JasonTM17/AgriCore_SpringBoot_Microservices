@@ -1,10 +1,12 @@
 package com.agricore.work;
 
 import com.agricore.farmaccess.FarmAccessClient;
+import com.agricore.farmaccess.FarmResourceAccess;
 import com.agricore.work.infrastructure.persistence.OutboxJpaRepository;
 import com.agricore.work.infrastructure.persistence.entity.OutboxEventEntity;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -18,6 +20,8 @@ import org.springframework.test.web.servlet.MvcResult;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -27,6 +31,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class WorkIntegrationTest {
 
+    private static final UUID FARM_ID = UUID.fromString("10000000-0000-0000-0000-000000000001");
+
     @Autowired
     private MockMvc mockMvc;
     @Autowired
@@ -35,6 +41,12 @@ class WorkIntegrationTest {
     private OutboxJpaRepository outboxRepository;
     @MockitoBean
     private FarmAccessClient farmAccessClient;
+
+    @BeforeEach
+    void authorizePlotAccess() {
+        when(farmAccessClient.requirePlot(any(UUID.class)))
+                .thenAnswer(invocation -> new FarmResourceAccess(FARM_ID, invocation.getArgument(0)));
+    }
 
     @Test
     void createAssignComplete_flow() throws Exception {

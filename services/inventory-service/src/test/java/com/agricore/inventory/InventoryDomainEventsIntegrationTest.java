@@ -169,7 +169,7 @@ class InventoryDomainEventsIntegrationTest {
 
     private InventoryItemResponse createItem(String itemType) {
         var warehouse = inventoryService.createWarehouse(new CreateWarehouseRequest(
-                "WH-" + UUID.randomUUID(), "Event Test Warehouse"
+                UUID.randomUUID(), "WH-" + UUID.randomUUID(), "Event Test Warehouse"
         ));
         return inventoryService.createItem(new CreateItemRequest(
                 warehouse.id(), "SKU-" + UUID.randomUUID(), "Event Test Item", itemType, "KG"

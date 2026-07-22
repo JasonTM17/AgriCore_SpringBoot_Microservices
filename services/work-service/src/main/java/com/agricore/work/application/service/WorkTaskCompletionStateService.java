@@ -43,9 +43,9 @@ public class WorkTaskCompletionStateService {
     @Transactional
     public CompletionPreparation prepare(UUID taskId, List<MaterialUsageRequest> requestedMaterials) {
         WorkTaskEntity task = requireForUpdate(taskId);
-        accessGuard.requirePlot(task.getPlotId());
+        UUID farmId = accessGuard.requirePlot(task.getPlotId()).farmId();
         if (task.getStatus() == TaskStatus.COMPLETED) {
-            return new CompletionPreparation(task, List.of(), true);
+            return new CompletionPreparation(task, farmId, List.of(), true);
         }
         if (task.getStatus() == TaskStatus.CANCELLED) {
             throw new WorkException("TASK_CANCELLED", "Cannot complete a cancelled task", 409);
@@ -62,6 +62,7 @@ public class WorkTaskCompletionStateService {
         markTaskInProgressWhenUsingMaterials(task, existing);
         return new CompletionPreparation(
                 task,
+                farmId,
                 existing.stream().map(MaterialUsageEntity::getId).toList(),
                 false
         );
@@ -197,6 +198,7 @@ public class WorkTaskCompletionStateService {
 
     record CompletionPreparation(
             WorkTaskEntity task,
+            UUID farmId,
             List<UUID> materialUsageIds,
             boolean alreadyCompleted
     ) {

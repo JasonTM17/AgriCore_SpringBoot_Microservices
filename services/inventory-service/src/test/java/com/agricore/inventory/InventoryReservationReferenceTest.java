@@ -76,6 +76,7 @@ class InventoryReservationReferenceTest {
 
     private InventoryItemResponse stockedItem(String suffix) {
         var warehouse = inventoryService.createWarehouse(new CreateWarehouseRequest(
+                UUID.randomUUID(),
                 "WH-REF-" + suffix + '-' + System.nanoTime(),
                 "Reservation Reference Warehouse"
         ));

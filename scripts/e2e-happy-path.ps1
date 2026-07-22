@@ -154,7 +154,7 @@ Log "Work task completed id=$($taskObj.id)"
 
 Log "== 5. Warehouse + harvest (outbox -> Kafka) =="
 $whObj = PostJson "$Gateway/api/v1/inventory/warehouses" $Auth @{
-  code = "WH-$(Get-Random)"; name = "E2E Warehouse"
+  farmId = $farmObj.id; code = "WH-$(Get-Random)"; name = "E2E Warehouse"
 }
 $harvestCode = "HB-$(Get-Random)"
 $harvestObj = PostJson "$Gateway/api/v1/harvests/complete" $Auth @{

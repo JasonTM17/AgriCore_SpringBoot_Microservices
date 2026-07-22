@@ -54,11 +54,12 @@ public class InventoryApplicationService {
         }
         WarehouseEntity wh = new WarehouseEntity();
         wh.setId(UUID.randomUUID());
+        wh.setFarmId(request.farmId());
         wh.setCode(code);
         wh.setName(request.name().trim());
         wh.setCreatedAt(Instant.now());
         warehouseRepository.save(wh);
-        return new WarehouseResponse(wh.getId(), wh.getCode(), wh.getName(), wh.getCreatedAt());
+        return new WarehouseResponse(wh.getId(), wh.getFarmId(), wh.getCode(), wh.getName(), wh.getCreatedAt());
     }
 
     @Transactional
@@ -104,6 +105,21 @@ public class InventoryApplicationService {
     @Transactional
     public InventoryItemResponse stockOut(StockOutRequest request) {
         InventoryItemEntity item = requireItemForUpdate(request.inventoryItemId());
+        return applyStockOut(item, request);
+    }
+
+    @Transactional
+    public InventoryItemResponse stockOutForFarm(UUID farmId, StockOutRequest request) {
+        InventoryItemEntity item = requireItemForUpdate(request.inventoryItemId());
+        WarehouseEntity warehouse = warehouseRepository.findById(item.getWarehouseId())
+                .orElseThrow(() -> itemNotFound());
+        if (farmId == null || !farmId.equals(warehouse.getFarmId())) {
+            throw itemNotFound();
+        }
+        return applyStockOut(item, request);
+    }
+
+    private InventoryItemResponse applyStockOut(InventoryItemEntity item, StockOutRequest request) {
         String referenceType = request.referenceType().trim();
         String referenceId = request.referenceId().trim();
         var existingMovement = movementRepository.findFirstByInventoryItemIdAndMovementTypeAndReferenceTypeAndReferenceId(
@@ -337,12 +353,16 @@ public class InventoryApplicationService {
 
     private InventoryItemEntity requireItem(UUID id) {
         return itemRepository.findById(id)
-                .orElseThrow(() -> new InventoryException("ITEM_NOT_FOUND", "Inventory item not found", 404));
+                .orElseThrow(InventoryApplicationService::itemNotFound);
     }
 
     private InventoryItemEntity requireItemForUpdate(UUID id) {
         return itemRepository.findByIdForUpdate(id)
-                .orElseThrow(() -> new InventoryException("ITEM_NOT_FOUND", "Inventory item not found", 404));
+                .orElseThrow(InventoryApplicationService::itemNotFound);
+    }
+
+    private static InventoryException itemNotFound() {
+        return new InventoryException("ITEM_NOT_FOUND", "Inventory item not found", 404);
     }
 
     private ReservationResponse validateReplay(

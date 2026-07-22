@@ -36,8 +36,8 @@ class InventoryIdempotencyTest {
                         .header("X-Dev-Roles", "WAREHOUSE_MANAGER")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"code":"WH-%d","name":"Dak Lak Produce"}
-                                """.formatted(System.nanoTime())))
+                                {"farmId":"%s","code":"WH-%d","name":"Dak Lak Produce"}
+                                """.formatted(UUID.randomUUID(), System.nanoTime())))
                 .andExpect(status().isCreated())
                 .andReturn();
         String warehouseId = objectMapper.readTree(whResult.getResponse().getContentAsString()).get("id").asText();
@@ -92,8 +92,8 @@ class InventoryIdempotencyTest {
                         .header("X-Dev-Roles", "WAREHOUSE_MANAGER")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"code":"WH2-%d","name":"Seed Store"}
-                                """.formatted(System.nanoTime())))
+                                {"farmId":"%s","code":"WH2-%d","name":"Seed Store"}
+                                """.formatted(UUID.randomUUID(), System.nanoTime())))
                 .andExpect(status().isCreated())
                 .andReturn();
         String warehouseId = objectMapper.readTree(whResult.getResponse().getContentAsString()).get("id").asText();
@@ -153,8 +153,8 @@ class InventoryIdempotencyTest {
                         .header("X-Dev-Roles", "WAREHOUSE_MANAGER")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"code":"WHC-%d","name":"Confirm WH"}
-                                """.formatted(System.nanoTime())))
+                                {"farmId":"%s","code":"WHC-%d","name":"Confirm WH"}
+                                """.formatted(UUID.randomUUID(), System.nanoTime())))
                 .andExpect(status().isCreated())
                 .andReturn();
         String warehouseId = objectMapper.readTree(whResult.getResponse().getContentAsString()).get("id").asText();

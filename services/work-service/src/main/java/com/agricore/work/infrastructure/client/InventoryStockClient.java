@@ -5,7 +5,7 @@ import java.util.UUID;
 
 public interface InventoryStockClient {
 
-    StockOutResult stockOut(UUID inventoryItemId, BigDecimal quantity, String referenceId);
+    StockOutResult stockOut(UUID farmId, UUID inventoryItemId, BigDecimal quantity, String referenceId);
 
     record StockOutResult(UUID inventoryItemId, String unit) {
     }

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgriCore Inventory Service API
-  version: 1.1.0
+  version: 1.2.0
   description: Warehouses, stock movements, reservations; Kafka HarvestCompleted consumer is idempotent
 servers:
   - url: http://localhost:8086
@@ -17,13 +17,48 @@ paths:
           application/json:
             schema:
               type: object
-              required: [code, name]
+              additionalProperties: false
+              required: [farmId, code, name]
               properties:
-                code: { type: string }
-                name: { type: string }
+                farmId: { type: string, format: uuid }
+                code: { type: string, minLength: 1, maxLength: 64 }
+                name: { type: string, minLength: 1, maxLength: 200 }
       responses:
         '201':
           description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WarehouseResponse'
+  /internal/api/v1/inventory/stock-out:
+    post:
+      summary: Deduct task material from the authoritative farm inventory
+      description: >-
+        Internal Work service contract. The caller supplies the farm resolved from the task plot;
+        Inventory returns 404 when the item is absent or belongs to another farm.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: header
+          name: X-Internal-Service-Token
+          required: true
+          schema: { type: string, minLength: 32 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InternalStockOutRequest'
+      responses:
+        '200':
+          description: Stock deducted or an idempotent replay resolved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryItemResponse'
+        '403': { description: Internal service authentication failed }
+        '404': { description: Item absent from the authorized farm }
+        '409': { description: Insufficient stock or idempotency conflict }
   /api/v1/inventory/reservations:
     post:
       summary: Reserve stock idempotently by business reference
@@ -168,6 +203,52 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    WarehouseResponse:
+      type: object
+      additionalProperties: false
+      required: [id, farmId, code, name, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        farmId: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        createdAt: { type: string, format: date-time }
+    InternalStockOutRequest:
+      type: object
+      additionalProperties: false
+      required: [farmId, inventoryItemId, quantity, referenceType, referenceId]
+      properties:
+        farmId: { type: string, format: uuid }
+        inventoryItemId: { type: string, format: uuid }
+        quantity: { type: number, minimum: 0.001, multipleOf: 0.001 }
+        referenceType: { type: string, minLength: 1, maxLength: 64 }
+        referenceId: { type: string, minLength: 1, maxLength: 100 }
+        note: { type: [string, 'null'], maxLength: 1000 }
+    InventoryItemResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - warehouseId
+        - sku
+        - name
+        - itemType
+        - unit
+        - onHandQuantity
+        - reservedQuantity
+        - availableQuantity
+        - version
+      properties:
+        id: { type: string, format: uuid }
+        warehouseId: { type: string, format: uuid }
+        sku: { type: string }
+        name: { type: string }
+        itemType: { type: string }
+        unit: { type: string }
+        onHandQuantity: { type: number }
+        reservedQuantity: { type: number }
+        availableQuantity: { type: number }
+        version: { type: integer, format: int64, minimum: 0 }
     ReservationResponse:
       type: object
       additionalProperties: false
