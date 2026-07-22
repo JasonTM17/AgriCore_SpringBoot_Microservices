@@ -1,158 +1,148 @@
 # AgriCore – Agricultural Enterprise Management Platform
 
-Portfolio-grade **Java 21 / Spring Boot microservices** platform for enterprise crop production: farms, plots, crop catalog, seasons, field work, harvest, inventory, IoT, sales, and QR traceability.
+AgriCore is a Java 21 and Spring Boot microservices platform for farm operations: farms, crop catalog, crop cycles, field work, harvest, inventory, IoT, sales, notifications, QR traceability, and a bounded assistant. A React console provides the browser interface through a same-origin Nginx edge.
 
 ## Status
 
-**Full 12-service portfolio live** on `main`: compose stack, gateway JWT e2e (farm→cycle→work→harvest→Kafka→inventory→QR), Helm charts, CI (Maven + Gitleaks + Compose config), CodeQL, Trivy FS, and Docker Hub images under `nguyenson1710/agricore-*`.
+Pre-release implementation: the repository contains 13 Spring applications, the React console, local Compose stacks, a Helm application chart, automated quality and security gates, and a gated Docker Hub publishing workflow. Event-contract and producer coverage is still being completed before the release gate; this status does not claim a production installation.
 
-| Service | Port | Image |
-|---------|------|--------|
-| api-gateway | 8080 | `nguyenson1710/agricore-gateway` |
-| identity-service | 8081 | `nguyenson1710/agricore-identity` |
-| farm-service | 8082 | `nguyenson1710/agricore-farm` |
-| crop-catalog-service | 8083 | `nguyenson1710/agricore-crop-catalog` |
-| crop-cycle-service | 8084 | `nguyenson1710/agricore-crop-cycle` |
-| work-service | 8085 | `nguyenson1710/agricore-work` |
-| inventory-service | 8086 | `nguyenson1710/agricore-inventory` |
-| harvest-service | 8087 | `nguyenson1710/agricore-harvest` |
-| notification-service | 8089 | `nguyenson1710/agricore-notification` |
-| iot-service | 8090 | `nguyenson1710/agricore-iot` |
-| sales-service | 8091 | `nguyenson1710/agricore-sales` |
-| traceability-service | 8092 | `nguyenson1710/agricore-traceability` |
-| assistant-service | 8093 (internal) | `nguyenson1710/agricore-assistant` |
-| agricore-console | 3000 (host) | `nguyenson1710/agricore-console` |
+| Application | Port | Image |
+|---|---:|---|
+| API gateway | 8080 | `nguyenson1710/agricore-gateway` |
+| Identity service | 8081 | `nguyenson1710/agricore-identity` |
+| Farm service | 8082 | `nguyenson1710/agricore-farm` |
+| Crop catalog service | 8083 | `nguyenson1710/agricore-crop-catalog` |
+| Crop cycle service | 8084 | `nguyenson1710/agricore-crop-cycle` |
+| Work service | 8085 | `nguyenson1710/agricore-work` |
+| Inventory service | 8086 | `nguyenson1710/agricore-inventory` |
+| Harvest service | 8087 | `nguyenson1710/agricore-harvest` |
+| Notification service | 8089 | `nguyenson1710/agricore-notification` |
+| IoT service | 8090 | `nguyenson1710/agricore-iot` |
+| Sales service | 8091 | `nguyenson1710/agricore-sales` |
+| Traceability service | 8092 | `nguyenson1710/agricore-traceability` |
+| Assistant service | 8093, internal | `nguyenson1710/agricore-assistant` |
+| React console | 3000 on host | `nguyenson1710/agricore-console` |
 
-Tags: `latest`, short git SHA, full commit SHA. Images publish only after successful default-branch `ci`.
+Published image tags are `latest`, the seven-character commit SHA, and the full commit SHA.
 
 ## Architecture
 
 ```text
-Client → API Gateway (:8080)  JWT RS256 / JWKS
-            ├─ Identity, Farm, Crop Catalog, Crop Cycle, Work
-            ├─ Harvest (outbox) → Kafka → Inventory + Traceability
-            ├─ Sales (HTTP saga reserve→confirm inventory)
-            └─ IoT, Notification
+Browser :3000 ── Nginx ── /api, /public/api ── API Gateway :8080
+                                                ├─ Identity, Farm, Catalog
+                                                ├─ Cycle, Work, Harvest, Inventory
+                                                └─ Traceability, IoT, Sales, Notification, Assistant
+
+Harvest transactional outbox ── Kafka ── Inventory + Traceability
+Sales ── synchronous inventory reservation saga
 ```
 
-- **Database per service** (PostgreSQL)
-- **Transactional outbox** on farm / crop-cycle / work / harvest
-- **Idempotent Kafka consumers** (inventory, traceability + DLT)
-- Docs: [System Architecture](docs/architecture/SYSTEM_ARCHITECTURE.md) · [ADRs](docs/adr/)
+- Database per service with PostgreSQL and Flyway.
+- Transactional outbox publishers in farm, crop-cycle, work, and harvest.
+- Idempotent `HarvestCompleted.v1` consumers in inventory and traceability.
+- RS256 JWTs, JWKS validation, role checks, and farm membership authorization.
+- Persisted assistant with authenticated replayable SSE, read-only farm tools, and Redis-backed budgets.
+
+See [System Architecture](docs/architecture/SYSTEM_ARCHITECTURE.md), [ADRs](docs/adr/), and [local operations](docs/runbooks/local-operations.md).
 
 ## Prerequisites
 
-- JDK 21+ (compile target 21)
-- Maven 3.9+
-- Docker / Docker Compose
+- JDK 21+
+- Maven 3.9+ or the included Maven wrapper
+- Node.js 22.13.0+
+- pnpm 11+
+- Docker with Docker Compose
+- OpenSSL for local JWT key generation
 
 ## Quick start
 
-### 1. Infrastructure
+Create local configuration and JWT keys once:
 
 ```powershell
-# Windows
-.\scripts\dev-up.ps1
-```
-
-```bash
-# Linux/macOS
-./scripts/dev-up.sh
-```
-
-Starts PostgreSQL (multi-DB on host **5434**), Redis (**6380**), Kafka (**9092**), Kafka UI (`http://localhost:8088`).
-
-> Ports 5434/6380 avoid clashes with other local stacks. Override via `.env` if needed.
-
-### 2. Build & test
-
-```bash
-mvn verify
-```
-
-### 3. Run services locally
-
-```bash
-# terminals
-mvn -pl services/identity-service spring-boot:run
-mvn -pl services/farm-service spring-boot:run
-mvn -pl services/crop-catalog-service spring-boot:run
-mvn -pl services/api-gateway spring-boot:run
-```
-
-### 4. Full Docker stack
-
-```bash
-# Local build
-docker compose up --build
-
-# Or pull published images (after login to Docker Hub if private)
-docker pull nguyenson1710/agricore-gateway:latest
-```
-
-JWT keys for identity (once):
-
-```powershell
+Copy-Item .env.example .env
 .\scripts\generate-jwt-keys.ps1
 ```
 
-Gateway: `http://localhost:8080`
-
-### 5. Platform verification (gating)
-
-One script builds/starts the **full** compose stack (infra + all app services with healthchecks), runs Maven tests, and executes the gateway JWT e2e happy path, writing an evidence bundle:
+Start infrastructure first so Compose creates the `agricore_default` network, then observability, then the applications:
 
 ```powershell
-# Windows — evidence dir is where compose-ps.txt, traceability.json, mvn-test.log land
+docker compose up -d postgres redis kafka kafka-ui
+docker compose -f docker-compose.observability.yml up -d
+docker compose up -d --build
+```
+
+| Endpoint | URL |
+|---|---|
+| Console | `http://localhost:3000` |
+| Gateway | `http://localhost:8080` |
+| Kafka UI | `http://localhost:8088` |
+| Grafana | `http://localhost:3001` |
+| Prometheus | `http://localhost:9090` |
+| Tempo | `http://localhost:3200` |
+
+The assistant is not published directly. Use the console or gateway route `/api/v1/assistant/**`. `ASSISTANT_PROVIDER=none` is the safe default; provider type, model, base URL, and API key belong only in a local `.env`, secret manager, or Kubernetes Secret.
+
+For an existing PostgreSQL volume, follow the [assistant database provisioning runbook](docs/runbooks/assistant-database-provisioning.md).
+
+## Build and verification
+
+Backend:
+
+```bash
+./mvnw -B verify
+```
+
+Frontend:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm contracts:check
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+The CI browser gate additionally installs Playwright Chromium and runs `pnpm e2e`.
+
+Full platform verification builds and starts the application stack, runs Maven tests, and executes the gateway JWT happy path:
+
+```powershell
 .\scripts\verify-platform.ps1 -EvidenceDir C:\path\to\evidence
 ```
 
 ```bash
-# Linux/macOS (requires pwsh for e2e)
 export EVIDENCE_DIR=./.verify-evidence
 ./scripts/verify-platform.sh
 ```
 
-Artifacts produced under the evidence directory:
-
-| File | Content |
-|------|---------|
-| `compose-ps.txt` | `docker compose ps` including **app** containers (identity, farm, harvest, inventory, traceability, gateway, …) |
-| `mvn-test.log` | full `./mvnw test` |
-| `e2e-flow.log` | gateway JWT farm→cycle→harvest→Kafka flow |
-| `traceability.json` | public QR response body (`farmName`, `plotCode`, `productName`) |
-| `git-log.txt` | recent conventional commits |
-
-Standalone e2e (stack already up):
+For an already-running stack:
 
 ```powershell
 .\scripts\e2e-happy-path.ps1 -EvidenceDir C:\path\to\evidence
 ```
 
-## Console and assistant
+## Observability
 
-The production-shaped local entrypoint is `http://localhost:3000`; Nginx serves the console and forwards `/api` and `/public/api` to the gateway. The assistant service is not published directly; use the console or gateway at `http://localhost:8080`.
+```text
+13 Spring applications ── /actuator/prometheus ── Prometheus ── Grafana
+        │
+        └─ Micrometer tracing bridge ── OTLP/HTTP ── Tempo ─────┘
 
-The assistant is safe to start without a provider:
-
-```powershell
-Copy-Item .env.example .env
-docker compose up --build
+Application logs ── ECS JSON ── container stdout
 ```
 
-`ASSISTANT_PROVIDER=none` returns a clear limited/unavailable outcome until a compatible provider is configured. Set `ASSISTANT_PROVIDER`, `ASSISTANT_PROVIDER_MODEL`, `ASSISTANT_PROVIDER_BASE_URL`, and `ASSISTANT_PROVIDER_API_KEY` only in a local `.env`, a secret manager, or a Kubernetes Secret; never commit the key. Tool access is read-only and allowlisted to farm-service, and Redis request/token budgets fail closed when Redis is unavailable.
+Local Compose exports traces to `http://tempo:4318/v1/traces` with sampling probability `1.0`. Prometheus scrapes all 13 Spring applications. Grafana provisions Prometheus and Tempo datasources plus seven read-only dashboards. Custom meters cover transactional outbox backlog, Kafka dead-letter recovery attempts, harvest processing latency, inventory outcomes, IoT ingestion and alerts, sales sagas, and assistant generations.
 
-For an existing Postgres volume, provision the assistant database once before starting the service: [assistant database runbook](docs/runbooks/assistant-database-provisioning.md). The Helm chart runs an idempotent pre-install/pre-upgrade Job, but the configured database credential Secret must already exist.
+Logs are structured ECS JSON on stdout; no centralized log backend is provisioned. See [local operations](docs/runbooks/local-operations.md) for verification commands and the exact metric catalog.
 
-## Auth examples
+## Authentication example
 
 ```bash
-# Register
 curl -s -X POST http://localhost:8080/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"manager@agricore.local","password":"Secret123!","fullName":"Farm Manager"}'
 
-# Login
 curl -s -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"manager@agricore.local","password":"Secret123!"}'
@@ -160,44 +150,47 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 
 JWKS: `GET /.well-known/jwks.json`
 
-## Default roles
+Default roles: `SYSTEM_ADMIN`, `FARM_MANAGER`, `AGRONOMIST`, `FIELD_WORKER`, `WAREHOUSE_MANAGER`, `SALES_STAFF`, and `AUDITOR`. New users receive `FIELD_WORKER`; administrators manage roles through `PATCH /api/v1/admin/users/{id}/roles`.
 
-`SYSTEM_ADMIN` · `FARM_MANAGER` · `AGRONOMIST` · `FIELD_WORKER` · `WAREHOUSE_MANAGER` · `SALES_STAFF` · `AUDITOR`
+## Helm deployment scope
 
-New users receive `FIELD_WORKER`. Promote via `PATCH /api/v1/admin/users/{id}/roles` (admin only).
+The chart at `infrastructure/helm/agricore` renders Deployments and Services for all 13 Spring applications and the console, plus an optional same-origin Ingress. It also includes an idempotent pre-install/pre-upgrade Job for the assistant database.
 
-## Seeded crops
+The chart does not install PostgreSQL, Redis, Kafka, Tempo, Prometheus, or Grafana. Operators must provide those dependencies and create the database credential Secret named by `postgres.databaseSecretName`. OTLP trace export is disabled until `observability.otlpTracingEndpoint` is set; the chart's sampling default is `0.1`.
 
-Robusta coffee, Ri6 durian, red dragon fruit, ST25 rice, lettuce, tomato, black pepper.
+## CI, security, and publishing
+
+GitHub Actions define these release gates:
+
+- `ci.yml`: Maven `verify`; generated contract drift check; frontend lint, typecheck, unit tests, production build, and Playwright journeys; Gitleaks; Compose validation; Helm lint and render.
+- `codeql.yml`: scheduled and push/PR Java CodeQL analysis.
+- `trivy.yml`: scheduled and push/PR filesystem scan that fails on fixable high or critical findings.
+- `docker-publish.yml`: publishes the 13 Spring images and console image only for an eligible successful default-branch CI revision, or an eligible manual default-branch dispatch.
+
+Docker Hub credentials must be repository secrets named `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`; never put them in `.env`, Compose, or Helm values.
 
 ## Project layout
 
 ```text
-services/          Spring Boot microservices
-libs/common-lib/   API errors, event envelope (no domain)
-contracts/         OpenAPI / event schemas
-infrastructure/    Docker, K8s (later), monitoring
-docs/              Architecture, ADRs, runbooks
-plans/             CK implementation plans
+apps/agricore-console/      React/Vite console and Nginx edge
+services/                   Spring Boot applications
+libs/                       Shared API, security, and farm-access libraries
+contracts/                  OpenAPI and AsyncAPI contracts
+infrastructure/docker/      Database initialization and local assets
+infrastructure/helm/        Application Helm chart
+infrastructure/monitoring/  Tempo, Prometheus, and Grafana configuration
+docs/                       Architecture, ADRs, evidence, and runbooks
+scripts/                    Local setup, verification, and seed tools
 ```
 
 ## Security notes
 
-- Passwords: BCrypt (cost 12 production)
-- Access tokens: short-lived RS256 JWT
-- Refresh tokens: opaque, hashed, rotated; reuse revokes family
-- Account lockout after failed logins
-- Login rate limit via Redis
-- **Never commit** `.env`, private keys, or production secrets
-
-## Docker Hub packages
-
-`.github/workflows/docker-publish.yml` publishes the service matrix, gateway, assistant, and console images only after the default-branch `ci` workflow succeeds. Configure repository secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`; do not put credentials in `.env`, Compose, Helm values, or Git. Tags include `latest`, the short SHA, and the full commit SHA. A local push must use the same Docker Hub credentials and the exact commit tag after all gates pass.
-
-## CI
-
-GitHub Actions: build + test on push/PR (`.github/workflows/ci.yml`).
+- Passwords use BCrypt; production cost is 12.
+- Access tokens are short-lived RS256 JWTs.
+- Refresh tokens are opaque, hashed, rotated, and family-revoked on reuse.
+- Login rate limiting uses Redis and fails closed in the local stack.
+- Never commit `.env`, private keys, tokens, provider credentials, or production secrets.
 
 ## License
 
-[MIT](LICENSE).
+[MIT](LICENSE)

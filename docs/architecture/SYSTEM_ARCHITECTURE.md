@@ -1,138 +1,176 @@
 # AgriCore System Architecture
 
 **Last updated:** 2026-07-22
-
-**Status:** Active (implementation matrix honest — see §4)
+**Status:** Active
 
 ## 1. Purpose
 
-AgriCore manages the full agricultural production chain for an enterprise: farms → crop cycles → field work → harvest → inventory → sales → QR traceability, plus IoT monitoring and notifications.
+AgriCore manages the agricultural production chain from farms and crop cycles through field work, harvest, inventory, sales, and QR traceability. IoT monitoring, notifications, and a bounded assistant support those workflows.
 
-## 2. Style
+## 2. Architectural style
 
-- **Microservices** by business capability (not by table)
-- **Database per service** — no cross-service SQL joins
-- **Hexagonal / Clean Architecture** inside each service
-- **Event-driven** integration via Apache Kafka
-- **Transactional Outbox** for reliable publish
-- **Idempotent consumers** for at-least-once delivery
-- **API Gateway** as single external entry
+- Microservices split by business capability.
+- Database per service; no cross-service SQL joins.
+- Hexagonal/Clean Architecture within services.
+- REST through a single API gateway for synchronous operations.
+- Kafka, transactional outbox, and idempotent consumers for implemented asynchronous flows.
+- RS256 JWT and JWKS validation at the gateway and domain services.
 
-## 3. Context Diagram
+## 3. System context
 
 ```text
-[AgriCore Console / API clients]
-        |
-   [API Gateway :8080]
-        |
-   +----+----+----+----+----+----+
-   |    |    |    |    |    |    |
- Identity Farm Crop Work Harvest Inventory Traceability ...
-   |    |    |    |    |    |    |
-   +----+----+---- Kafka ----+----+
-                    |
-              [Notification]
-                    |
-         [Postgres x N] [Redis] [MinIO]
+[Browser / API client]
+          |
+  [Console + Nginx :3000]
+          | /api, /public/api
+  [API Gateway :8080]
+          |
+  +-------+--------+--------------------+
+  |       |        |                    |
+Identity Farm   Domain services     Assistant
+  |       |        |                    |
+  +-------+--- Kafka -------------------+
+              |
+       Inventory + Traceability
+
+[PostgreSQL databases] [Redis] [Kafka]
+[Prometheus] [Tempo] [Grafana]
 ```
 
-The browser uses a same-origin edge: `/` serves the console and `/api` is forwarded to the gateway. The assistant service is an internal gateway target, not a public listener.
+The browser uses a same-origin edge: Nginx serves `/` and forwards `/api` and `/public/api` to the gateway. The assistant service is an internal gateway target and is not host-published by Compose.
 
-## 4. Service Boundaries
+## 4. Application boundaries
 
-**Legend:** Implemented in code today vs planned/schema-only.
+| Application | Owns or performs | Runtime events |
+|---|---|---|
+| API gateway | Routing, JWT validation, external boundary | None |
+| Identity | Users, roles, access and refresh tokens, JWKS | None; outbox table is unused |
+| Farm | Farms, areas, plots, memberships | Publishes farm events through outbox |
+| Crop catalog | Crops, varieties, care specifications | None |
+| Crop cycle | Cycles, stages, lifecycle | Publishes crop-cycle events through outbox |
+| Work | Tasks and assignments | Publishes work events through outbox |
+| Harvest | Harvest batches and completion repair | Publishes `HarvestCompleted.v1` through outbox |
+| Inventory | Stock, reservations, movements | Consumes `HarvestCompleted.v1`, idempotent with DLT recovery |
+| Traceability | Public QR timeline/read model | Consumes `HarvestCompleted.v1`, idempotent with DLT recovery |
+| IoT | Devices, readings, threshold alerts | No Kafka event path implemented |
+| Sales | Orders and inventory saga state | Synchronous reserve/confirm/release calls to inventory |
+| Notification | Delivery log | No Kafka event path implemented |
+| Assistant | Conversations, messages, generations, event replay, redacted tool evidence | No Kafka event path implemented |
 
-| Service | Owns | Publishes (runtime) | Consumes (runtime) | Notes |
-|---------|------|---------------------|--------------------|-------|
-| identity | users, roles, tokens | — (outbox table unused) | — | UserRegistered planned |
-| farm | farms, areas, plots | Farm* via outbox+Kafka poller | — | Publisher wired 2026-07-17 |
-| crop-catalog | crops, varieties | — | — | REST catalog only |
-| crop-cycle | cycles, stages | CropCycle* via outbox+Kafka poller | — (read models optional) | Publisher wired 2026-07-17 |
-| work | tasks | WorkTask* via outbox+Kafka poller | — | Publisher wired 2026-07-17 |
-| harvest | harvest batches | HarvestCompleted via outbox+Kafka | — | **Primary event producer** |
-| inventory | stock, reservations | — (outbox table unused) | HarvestCompleted (Kafka, idempotent+DLT) | REST reserve/release/**confirm** |
-| traceability | public timeline / QR | — | HarvestCompleted (Kafka, idempotent+DLT) | Public read model |
-| iot | devices, readings, alerts | — | — | REST only; Sensor* events planned |
-| sales | orders, saga | — | Inventory via sync HTTP | Saga: reserve → **confirm** → CONFIRMED |
-| notification | delivery log | — | — | REST sink; Kafka NotificationRequested planned |
+The only implemented consumer topology is `HarvestCompleted.v1` from harvest to inventory and traceability. Farm, crop-cycle, and work publish events, but no broader event mesh is claimed.
 
-Empty “planned” rows are intentional honesty for portfolio reviewers — do not claim full event mesh.
+### Assistant boundary
 
-### Assistant service boundary
+- Own database: `agricore_assistant`.
+- Authenticated generation metadata and fetch-SSE replay through the gateway.
+- Provider `none` by default; provider secrets are deployment inputs only.
+- Current tool access is authenticated, read-only, host-allowlisted farm data with row, byte, and timeout bounds.
+- Redis-backed request/token budgets fail closed when Redis is unavailable.
+- Autonomous writes, arbitrary URLs, RAG ingestion, and cross-service database access are out of scope.
 
-- Owns conversations, messages, generations, event sequence, retention timestamps, and redacted tool evidence in `agricore_assistant`.
-- Exposes authenticated generation metadata and fetch-SSE replay through the gateway; submission is idempotent and durable.
-- Uses `ASSISTANT_PROVIDER=none` by default. A provider is enabled only with provider type, model, base URL, and API key supplied by environment variables or a Kubernetes Secret.
-- The only current tool is an authenticated, allowlisted farm read. It forwards the caller JWT, limits response bytes/rows, and fails closed on unavailable or invalid downstream responses. Autonomous writes, RAG ingestion, and arbitrary URLs are out of scope.
-- Redis-backed request/token budgets fail closed when the budget store is unavailable; policy and citation failures are surfaced as safe 4xx outcomes without provider or credential details.
-
-## 5. Communication Patterns
+## 5. Communication patterns
 
 | Need | Pattern |
-|------|---------|
-| Sync request/response (auth, CRUD) | REST via Gateway |
+|---|---|
+| External and synchronous service operations | REST through the gateway |
 | Cross-service farm authorization | Authenticated REST to farm-service with the caller bearer token |
-| Domain facts others may need | Kafka domain events |
-| Dual DB+message write | Transactional Outbox |
-| Cross-service transaction | Saga (sales inventory) |
-| Aggregated public view | Local read model in Traceability |
+| Implemented domain event | Kafka |
+| Atomic database change and event publication | Transactional outbox |
+| Cross-service order transaction | Sales orchestration saga with inventory compensation |
+| Public aggregated view | Traceability local read model |
 
-## 6. Internal Service Layers
+## 6. Internal layers
 
 ```text
 api → application → domain ← infrastructure
 ```
 
-- Controllers: HTTP only, no business rules
-- Application services: use cases, transactions
-- Domain: models, policies, pure exceptions
-- Infrastructure: JPA, Kafka, Redis, security adapters
+- Controllers handle HTTP and validation, not business rules.
+- Application services coordinate use cases and transactions.
+- Domain code contains models, policies, and domain exceptions.
+- Infrastructure contains JPA, Kafka, Redis, security, and downstream adapters.
 
-## 7. Security Architecture
+## 7. Security architecture
 
-- External clients → Gateway → JWT validation (JWKS from identity)
-- Gateway and servlet domain services validate RS256 JWTs against identity-service JWKS, including issuer and `agricore-api` audience validation.
-- Gateway routing preserves the caller bearer token. `libs/farm-access-client` forwards that token from crop-cycle, work, harvest, and IoT to farm-service; it does not substitute a service identity.
-- `farm_memberships` is the authoritative JWT-subject-to-farm ownership mapping. Farm creation grants the creator the initial membership in the same transaction. Membership grants scope, not a JWT role.
-- `ROLE_SYSTEM_ADMIN` is the explicit global override. Other callers need both the controller role, where required, and membership in the target farm.
-- Farm-service resolves farms, plots, and farm/plot pairs for downstream guards. Plot resolution masks missing, inaccessible, and mismatched plots as `404`.
-- Crop-cycle, work, harvest, and IoT check request or stored resource IDs before returning protected data or committing a mutation. Farm-access outages, unexpected statuses, invalid responses, or missing request authentication fail closed as `503 FARM_ACCESS_UNAVAILABLE`.
-- Dev identity headers are accepted only when `agricore.security.dev-mode=true`; compose and Helm defaults set dev mode off.
-- Passwords: BCrypt
-- Refresh tokens: opaque, hashed, rotated, revocable
-- Secrets: env / K8s Secret only
+- Gateway and servlet domain services validate RS256 JWTs against identity-service JWKS, issuer, and `agricore-api` audience.
+- Gateway routes preserve the caller bearer token. `libs/farm-access-client` forwards it from crop-cycle, work, harvest, and IoT to farm-service.
+- `farm_memberships` maps JWT subjects to farm scope. `ROLE_SYSTEM_ADMIN` is the explicit global override.
+- Plot resolution masks missing, inaccessible, and mismatched plots as `404`.
+- Farm-access network errors, unexpected statuses, invalid responses, and missing request authentication fail closed as `503 FARM_ACCESS_UNAVAILABLE`.
+- Dev identity headers are accepted only when `agricore.security.dev-mode=true`; Compose and Helm set dev mode off.
+- Passwords use BCrypt. Refresh tokens are opaque, hashed, rotated, and revocable.
+- Secrets come from environment variables or Kubernetes Secrets, not committed configuration.
 
 See [Microservices authorization model](../security/microservices-authz.md) for endpoint and failure semantics.
 
-## 8. Observability
+## 8. Observability architecture
 
-Service configurations expose Actuator health and Prometheus endpoints. The repository contains Tempo configuration, but this review found no application-side OpenTelemetry exporter wiring; runtime trace export is not claimed here.
+All 13 Spring applications include `micrometer-tracing-bridge-otel`, `opentelemetry-exporter-otlp`, and `micrometer-registry-prometheus`. They expose Actuator health and `/actuator/prometheus`.
 
-- `GET /actuator/health`
-- `GET /actuator/prometheus`
+```text
+Spring observations → Micrometer OTel bridge → OTLP/HTTP → Tempo
+/actuator/prometheus ← Prometheus ← Grafana
+Tempo traces ────────────────────────────────↑
+ECS JSON logs → container stdout
+```
 
-## 9. Deployment
+### Environment behavior
 
-| Env | Mechanism |
-|-----|-----------|
-| Local | Docker Compose |
-| Cluster | Kubernetes + Helm |
-| CI | GitHub Actions |
+| Environment | Trace endpoint | Sampling | Logging |
+|---|---|---:|---|
+| Local Compose | `http://tempo:4318/v1/traces` | `1.0` | ECS JSON, environment `local` by default |
+| Helm | Empty by default; export starts only when configured | `0.1` default when export is enabled | ECS JSON when `observability.structuredLogging=true` |
 
-These rows describe repository mechanisms, not evidence that a production cluster is currently deployed.
+Prometheus defines 13 scrape jobs: 12 host-published applications through `host.docker.internal`, plus the internal assistant service on the shared Compose network. Grafana provisions non-editable Prometheus and Tempo datasources, Prometheus exemplar links to Tempo, and seven read-only dashboards:
 
-Local Compose exposes the console at `http://localhost:3000` and the gateway at `http://localhost:8080`. Helm can install the console, assistant, gateway, and an idempotent pre-install/pre-upgrade assistant database Job; the database credential Secret must exist before the release. Docker publishing is performed by `.github/workflows/docker-publish.yml` after the default-branch CI gate and uses `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN` repository secrets.
+1. AgriCore Platform Overview
+2. AgriCore Service Health
+3. AgriCore Database Health
+4. AgriCore Kafka Health
+5. AgriCore Inventory Operations
+6. AgriCore IoT Ingestion
+7. AgriCore Business Metrics
 
-## 10. Non-Goals (YAGNI)
+### Custom Prometheus metric families
 
-- No Eureka / Consul in v1
-- No shared JPA entities across services
-- No Debezium until polling outbox proven insufficient
+| Family | Meaning |
+|---|---|
+| `agricore_outbox_backlog` | Unpublished farm, crop-cycle, work, or harvest outbox rows |
+| `agricore_kafka_dlq_attempts_total{consumer=...}` | Records handed to DLT recovery; not DLT depth or confirmed publish success |
+| `agricore_harvest_processing_seconds_*` | Harvest completion latency histogram and timer series by outcome |
+| `agricore_inventory_reservations_total` | Reservation outcomes |
+| `agricore_inventory_harvest_events_total` | Applied and duplicate harvest events |
+| `agricore_iot_readings_total` | Accepted sensor readings |
+| `agricore_iot_alerts_total` | Created and suppressed alert outcomes |
+| `agricore_iot_open_alerts` | Current open alert count |
+| `agricore_sales_sagas_total` | Sales saga terminal outcomes |
+| `agricore_assistant_generations_total` | Completed, failed, and cancelled generations |
+
+There is no Loki or other centralized log backend. ECS stdout is collector-ready but remains container-local. Tempo uses non-persistent container storage with 48-hour configured retention in the local stack.
+
+## 9. Deployment scope
+
+| Environment | Repository mechanism | Scope |
+|---|---|---|
+| Local | `docker-compose.yml` plus `docker-compose.observability.yml` | Infrastructure, 13 applications, console, Tempo, Prometheus, Grafana |
+| Cluster | `infrastructure/helm/agricore` | 13 application Deployments/Services, console, optional Ingress, assistant database Job |
+| CI | GitHub Actions | Build/test, frontend, secret, Compose, Helm, CodeQL, Trivy, and gated publishing workflows |
+
+The Helm chart expects external PostgreSQL, Redis, and Kafka services and a pre-created database credential Secret. It does not install Tempo, Prometheus, Grafana, or a log backend. These repository mechanisms do not prove a production cluster is deployed.
+
+## 10. Non-goals
+
+- No Eureka or Consul.
+- No shared JPA entities across services.
+- No Debezium until polling outbox is insufficient.
+- No MinIO or other object-storage integration is implemented.
+- No centralized log aggregation is provisioned.
 
 ## References
 
+- [Observability ADR](../adr/0010-observability-stack.md)
+- [Local operations](../runbooks/local-operations.md)
 - [Security review](../security/SECURITY_REVIEW.md)
 - [Microservices authorization model](../security/microservices-authz.md)
-- ADRs under `docs/adr/`
-- OpenAPI under `contracts/openapi/`
-- AsyncAPI under `contracts/asyncapi/`
+- OpenAPI contracts under `contracts/openapi/`
+- AsyncAPI contracts under `contracts/asyncapi/`

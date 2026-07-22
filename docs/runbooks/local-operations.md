@@ -1,64 +1,167 @@
-# Local operations runbook
+# Local Operations Runbook
 
-## Start infrastructure
+## Prerequisites
 
-```powershell
-.\scripts\dev-up.ps1
-# Postgres :5434  Redis :6380  Kafka :9092  Kafka UI :8088
-```
+- JDK 21 and the included Maven wrapper.
+- Node.js 22.13.0+ and pnpm 11+ for console work.
+- Docker with Docker Compose.
+- OpenSSL for local JWT key generation.
 
-## Build & test
-
-```bash
-mvn -B test
-# Testcontainers inventory IT requires Docker
-```
-
-## Run core services (example)
+Create local configuration and JWT keys once:
 
 ```powershell
-$env:AGRICORE_DEV_MODE="true"
-$env:GATEWAY_JWT_ENABLED="false"  # optional for seed scripts without JWT
-mvn -pl services/identity-service spring-boot:run
-# farm, crop-catalog, crop-cycle, work, harvest, inventory, traceability, gateway ...
+Copy-Item .env.example .env
+.\scripts\generate-jwt-keys.ps1
 ```
 
-## Happy path
+Never commit `.env`, generated private keys, or provider credentials.
+
+## Start the full local stack
+
+The observability Compose file joins the external `agricore_default` network. Create that network by starting the core infrastructure first, then start observability, then the applications:
 
 ```powershell
+docker compose up -d postgres redis kafka kafka-ui
+docker compose -f docker-compose.observability.yml up -d
+docker compose up -d --build
+```
+
+| Component | Local endpoint |
+|---|---|
+| Console | `http://localhost:3000` |
+| Gateway | `http://localhost:8080` |
+| Kafka UI | `http://localhost:8088` |
+| Grafana | `http://localhost:3001` |
+| Prometheus | `http://localhost:9090` |
+| Prometheus targets | `http://localhost:9090/targets` |
+| Tempo readiness/API | `http://localhost:3200/ready` |
+| Tempo OTLP/HTTP receiver | `http://localhost:4318/v1/traces` |
+
+The local Grafana credentials come from `docker-compose.observability.yml`: user `admin`, password `agricore_dev_change_me`. They are development-only.
+
+## Verify startup
+
+```powershell
+docker compose ps
+docker compose -f docker-compose.observability.yml ps
+
+Invoke-RestMethod http://localhost:8080/actuator/health
+Invoke-RestMethod http://localhost:9090/-/ready
+Invoke-RestMethod http://localhost:3200/ready
+```
+
+Open Prometheus targets and confirm all 13 application jobs are `UP`. Twelve targets use host-published ports; assistant-service is scraped on the shared Compose network.
+
+Grafana provisions these dashboards in the read-only `AgriCore` folder:
+
+1. AgriCore Platform Overview
+2. AgriCore Service Health
+3. AgriCore Database Health
+4. AgriCore Kafka Health
+5. AgriCore Inventory Operations
+6. AgriCore IoT Ingestion
+7. AgriCore Business Metrics
+
+Dashboard and datasource edits must be made in `infrastructure/monitoring/grafana/` and applied by restarting Grafana; UI edits are disabled by provisioning.
+
+## Verify traces
+
+Generate a gateway request, then query Tempo for recent gateway traces:
+
+```powershell
+Invoke-RestMethod http://localhost:8080/.well-known/jwks.json | Out-Null
+
+$query = [uri]::EscapeDataString('{ resource.service.name = "api-gateway" }')
+$result = Invoke-RestMethod "http://localhost:3200/api/search?q=$query&limit=5"
+if (-not $result.traces) {
+  throw "No api-gateway traces found in Tempo"
+}
+$result.traces
+```
+
+Local Compose sends OTLP/HTTP traces to `http://tempo:4318/v1/traces` with sampling probability `1.0`. Helm defaults to sampling probability `0.1`, but the endpoint is empty and export is disabled until an operator sets `observability.otlpTracingEndpoint`.
+
+Tempo local retention is configured for 48 hours. Its container storage is not persistent, so container removal can discard traces before that limit.
+
+## Verify ECS JSON logs
+
+Compose enables ECS structured console logging for all 13 Spring applications:
+
+```powershell
+$entry = docker logs agricore-gateway --tail 100 2>&1 |
+  Where-Object { $_ -match '^\{' } |
+  Select-Object -Last 1 |
+  ConvertFrom-Json
+
+$entry.ecs.version
+$entry.service.name
+$entry.service.environment
+```
+
+After a traced request, entries emitted inside that request may also include `trace.id` and `span.id`. ECS logs remain on container stdout: no Loki or other centralized log aggregation backend is provisioned. A local `spring-boot:run` process emits ECS JSON only when the corresponding structured logging environment or properties are set.
+
+## Custom Prometheus metrics
+
+| Metric family | Labels/notes |
+|---|---|
+| `agricore_outbox_backlog` | Gauge in farm, crop-cycle, work, and harvest |
+| `agricore_kafka_dlq_attempts_total` | `consumer=inventory-service|traceability-service`; DLT recovery attempts, not topic depth or confirmed success |
+| `agricore_harvest_processing_seconds_*` | `outcome=success|failure`; timer/histogram series |
+| `agricore_inventory_reservations_total` | `outcome=success|insufficient_stock` |
+| `agricore_inventory_harvest_events_total` | `outcome=applied|duplicate` |
+| `agricore_iot_readings_total` | Accepted readings |
+| `agricore_iot_alerts_total` | `outcome=created|suppressed` |
+| `agricore_iot_open_alerts` | Current open alerts gauge |
+| `agricore_sales_sagas_total` | Terminal saga outcome |
+| `agricore_assistant_generations_total` | `outcome=completed|failed|cancelled` |
+
+Example Prometheus API query:
+
+```powershell
+$metric = [uri]::EscapeDataString('agricore_outbox_backlog')
+Invoke-RestMethod "http://localhost:9090/api/v1/query?query=$metric"
+```
+
+## Build, test, and exercise the platform
+
+```powershell
+.\mvnw.cmd -B verify
+pnpm install --frozen-lockfile
+pnpm contracts:check
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+
 .\scripts\e2e-happy-path.ps1
-```
-
-## Seed
-
-```powershell
 .\scripts\seed-data.ps1
 ```
 
 ## Console and assistant
 
-```powershell
-Copy-Item .env.example .env
-# Keep ASSISTANT_PROVIDER=none for a no-key smoke run.
-docker compose up --build
-```
-
-- Console: `http://localhost:3000`
-- Gateway: `http://localhost:8080`
-- Assistant: internal Compose service `assistant-service:8093`; use `/api/v1/assistant/**` through the gateway.
-- Traceability: `http://localhost:8092` for direct local verification; public browser calls use `/public/api` through the console edge.
-
-Provider configuration is environment-only: `ASSISTANT_PROVIDER`, `ASSISTANT_PROVIDER_MODEL`, `ASSISTANT_PROVIDER_BASE_URL`, and `ASSISTANT_PROVIDER_API_KEY`. Never paste the key into Git, logs, Helm values, or a chat transcript. With the default `none` provider the API remains available and returns a safe limited/unavailable result. Tool calls are read-only farm reads, bounded by host/row/response limits, and carry the caller JWT.
-
-## Assistant operational controls
+- Assistant is internal at `assistant-service:8093`; use `/api/v1/assistant/**` through the gateway.
+- Traceability is host-published at `http://localhost:8092`; public browser requests use `/public/api` through the console edge.
+- Provider settings are `ASSISTANT_PROVIDER`, `ASSISTANT_PROVIDER_MODEL`, `ASSISTANT_PROVIDER_BASE_URL`, and `ASSISTANT_PROVIDER_API_KEY`.
+- Provider `none` keeps the API available with a safe limited/unavailable outcome.
+- Tool calls are read-only farm reads, carry the caller JWT, and enforce host, row, response-size, and timeout bounds.
 
 | Situation | Action |
 |---|---|
-| Rotate provider key | Update the secret manager/Kubernetes Secret or local `.env`, restart only `assistant-service`, then check `/actuator/health`; never append the old/new key to evidence. |
-| 429 budget response | Inspect the assistant service metric/log counters and wait for the configured `ASSISTANT_BUDGET_WINDOW`; do not increase limits during an incident without an owner-approved change. |
-| `ASSISTANT_BUDGET_UNAVAILABLE` | Treat Redis as unavailable and restore Redis first. The assistant fails closed rather than admitting unbounded traffic. |
-| SSE reconnect/replay | Reuse the generation ID and `Last-Event-ID`/sequence supported by the API; do not submit a second generation with a new idempotency key. |
-| Retention/deletion | The worker purges archived conversations, audit events, and generation events according to `ASSISTANT_ARCHIVED_CONVERSATION_RETENTION`, `ASSISTANT_AUDIT_RETENTION`, and `ASSISTANT_GENERATION_EVENT_RETENTION`. Verify only counts/IDs in evidence. |
-| Provider incident | Set `ASSISTANT_PROVIDER=none`, restart the assistant, and keep existing conversation data. Roll back by restoring the previous image tag and configuration after health/test gates pass. |
+| Rotate provider key | Update the secret source, restart only assistant-service, then check `/actuator/health`. Do not record either key in evidence. |
+| `429` budget response | Wait for `ASSISTANT_BUDGET_WINDOW`; change limits only through an approved configuration change. |
+| `ASSISTANT_BUDGET_UNAVAILABLE` | Restore Redis first. The assistant fails closed. |
+| SSE reconnect/replay | Reuse the generation ID and `Last-Event-ID`; do not submit a second generation with a new idempotency key. |
+| Provider incident | Set `ASSISTANT_PROVIDER=none`, restart assistant-service, and preserve conversation data. |
 
-For cluster installs, create the external database Secret before `helm upgrade --install`; the chart's assistant database Job is idempotent and waits for Postgres. See [assistant database provisioning](./assistant-database-provisioning.md).
+For an existing PostgreSQL volume, follow [assistant database provisioning](./assistant-database-provisioning.md). For cluster installs, create the external database Secret before `helm upgrade --install`.
+
+## Stop the stack
+
+Stop observability before the main project so its containers release the external network:
+
+```powershell
+docker compose -f docker-compose.observability.yml down
+docker compose down
+```
+
+Named PostgreSQL data remains. Add `--volumes` only when intentionally deleting local data.
