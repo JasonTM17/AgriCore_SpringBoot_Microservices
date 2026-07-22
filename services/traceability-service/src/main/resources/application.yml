@@ -48,6 +48,13 @@ agricore:
     jwk-set-uri: ${IDENTITY_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
     dev-mode: ${AGRICORE_DEV_MODE:false}
   kafka:
+    retry:
+      attempts: ${AGRICORE_KAFKA_RETRY_ATTEMPTS:4}
+      delay-ms: ${AGRICORE_KAFKA_RETRY_DELAY_MS:1000}
+      multiplier: ${AGRICORE_KAFKA_RETRY_MULTIPLIER:2}
+      max-delay-ms: ${AGRICORE_KAFKA_RETRY_MAX_DELAY_MS:8000}
+      timeout-ms: ${AGRICORE_KAFKA_RETRY_TIMEOUT_MS:30000}
+      auto-create-topics: ${AGRICORE_KAFKA_RETRY_AUTO_CREATE_TOPICS:false}
     consumer:
       enabled: true
       group-id: traceability-service

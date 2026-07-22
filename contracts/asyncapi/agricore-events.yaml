@@ -171,8 +171,10 @@ channels:
       Real dead-letter destination used by the inventory-service and
       traceability-service error handlers. Non-retryable records are sent
       directly; retryable failures are sent after in-process retries are
-      exhausted. No Kafka retry topics are implemented. The record value is the
-      unchanged original string and can be malformed JSON or an invalid event;
+      exhausted. Retryable records use the bounded Kafka topics
+      `agricore.harvest.events-retry-1000`, `-retry-2000`, and `-retry-4000`
+      before reaching this DLT. The record value is the unchanged original
+      string and can be malformed JSON or an invalid event;
       Spring Kafka adds dead-letter headers.
     messages:
       HarvestCompletedDeadLetter:
@@ -188,7 +190,8 @@ channels:
       Dead-letter destination used by notification-service for rejected sales
       records. Contract failures are recovered immediately; retryable failures
       are recovered after bounded in-process retries.
-      No Kafka retry topics are implemented. The value is the unchanged
+      Retryable records use `agricore.sales.events-retry-1000`, `-retry-2000`,
+      and `-retry-4000` before reaching this DLT. The value is the unchanged
       original string and Spring Kafka adds dead-letter headers.
     messages:
       SalesOrderDeadLetter:
@@ -204,8 +207,9 @@ channels:
       Dead-letter destination used by notification-service for rejected
       traceability records. Contract failures are recovered immediately;
       retryable failures are recovered after bounded in-process retries.
-      No Kafka retry topics are implemented. The value is the unchanged
-      original string and Spring Kafka adds dead-letter headers.
+      Retryable records use `agricore.traceability.events-retry-1000`,
+      `-retry-2000`, and `-retry-4000` before reaching this DLT. The value is
+      the unchanged original string and Spring Kafka adds dead-letter headers.
     messages:
       TraceabilityDeadLetter:
         name: TraceabilityDeadLetter
@@ -220,7 +224,8 @@ channels:
       Dead-letter destination used by notification-service for rejected IoT
       records. Contract failures are recovered immediately; retryable failures
       are recovered after bounded in-process retries.
-      No Kafka retry topics are implemented. The value is the unchanged
+      Retryable records use `agricore.iot.events-retry-1000`, `-retry-2000`,
+      and `-retry-4000` before reaching this DLT. The value is the unchanged
       original string and Spring Kafka adds dead-letter headers.
     messages:
       IotDeadLetter:

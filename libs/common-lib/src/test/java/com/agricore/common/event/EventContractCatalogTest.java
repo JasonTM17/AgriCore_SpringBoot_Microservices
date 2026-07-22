@@ -209,7 +209,7 @@ class EventContractCatalogTest {
                 "notificationServiceSendsIotDeadLetters"
         );
         JsonNode deadLetterChannel = channels.path("agricore.harvest.events.DLT");
-        assertThat(deadLetterChannel.path("description").asText()).contains("No Kafka retry topics are implemented");
+        assertThat(deadLetterChannel.path("description").asText()).contains("bounded Kafka topics");
         assertThat(deadLetterChannel.path("messages").path("HarvestCompletedDeadLetter")
                 .path("contentType").asText()).isEqualTo("text/plain");
         assertThat(deadLetterChannel.path("messages").path("HarvestCompletedDeadLetter")
@@ -221,7 +221,7 @@ class EventContractCatalogTest {
 
     private static void assertDeadLetterChannel(JsonNode channels, String channelName, String messageName) {
         JsonNode channel = channels.path(channelName);
-        assertThat(channel.path("description").asText()).contains("No Kafka retry topics are implemented");
+        assertThat(channel.path("description").asText()).contains("Retryable records use");
         assertThat(channel.path("messages").path(messageName).path("contentType").asText())
                 .isEqualTo("text/plain");
         assertThat(channel.path("messages").path(messageName).path("payload").path("type").asText())

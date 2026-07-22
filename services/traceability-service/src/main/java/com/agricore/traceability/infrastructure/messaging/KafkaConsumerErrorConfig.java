@@ -11,9 +11,11 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.kafka.annotation.EnableKafkaRetryTopic;
 import org.springframework.util.backoff.ExponentialBackOff;
 
 @Configuration
+@EnableKafkaRetryTopic
 @ConditionalOnProperty(name = "agricore.kafka.consumer.enabled", havingValue = "true", matchIfMissing = true)
 public class KafkaConsumerErrorConfig {
 

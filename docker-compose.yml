@@ -48,6 +48,19 @@ x-app-healthcheck: &app-healthcheck
   start_period: 90s
 
 services:
+  kafka-topics-init:
+    image: apache/kafka:3.8.1
+    container_name: agricore-kafka-topics-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+    volumes:
+      - ./infrastructure/docker/kafka/create-topics.sh:/opt/agricore/create-topics.sh:ro
+    entrypoint: ["/bin/bash", "/opt/agricore/create-topics.sh"]
+    restart: "no"
+
   mailpit:
     image: axllent/mailpit:v1.30.0
     container_name: agricore-mailpit
@@ -189,6 +202,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      kafka-topics-init:
+        condition: service_completed_successfully
       identity-service:
         condition: service_healthy
     environment:
@@ -235,6 +250,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      kafka-topics-init:
+        condition: service_completed_successfully
       mailpit:
         condition: service_started
     environment:
@@ -306,6 +323,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      kafka-topics-init:
+        condition: service_completed_successfully
       identity-service:
         condition: service_healthy
     environment:

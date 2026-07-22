@@ -12,6 +12,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.listener.ListenerExecutionFailedException;
 import org.springframework.kafka.listener.MessageListenerContainer;
+import org.springframework.kafka.annotation.RetryableTopic;
 import org.springframework.kafka.support.SendResult;
 
 import java.time.Duration;
@@ -26,6 +27,19 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class KafkaConsumerErrorConfigTest {
+
+    @Test
+    void declaresBoundedNonBlockingRetryTopics() throws Exception {
+        RetryableTopic retryableTopic = NotificationEventListener.class
+                .getDeclaredMethod("onMessage", ConsumerRecord.class)
+                .getAnnotation(RetryableTopic.class);
+
+        assertThat(retryableTopic).isNotNull();
+        assertThat(retryableTopic.attempts()).isEqualTo("${AGRICORE_KAFKA_RETRY_ATTEMPTS:4}");
+        assertThat(retryableTopic.dltTopicSuffix()).isEqualTo(".DLT");
+        assertThat(retryableTopic.autoCreateTopics())
+                .isEqualTo("${AGRICORE_KAFKA_RETRY_AUTO_CREATE_TOPICS:false}");
+    }
 
     @Test
     @SuppressWarnings("unchecked")

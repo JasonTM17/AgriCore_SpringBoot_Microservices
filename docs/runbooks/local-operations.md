@@ -21,7 +21,7 @@ Never commit `.env`, generated private keys, or provider credentials.
 The observability Compose file joins the external `agricore_default` network. Create that network by starting the core infrastructure first, then start observability, then the applications:
 
 ```powershell
-docker compose up -d postgres redis kafka kafka-ui
+docker compose up -d postgres redis kafka kafka-ui kafka-topics-init
 docker compose -f docker-compose.observability.yml up -d
 docker compose up -d --build
 ```

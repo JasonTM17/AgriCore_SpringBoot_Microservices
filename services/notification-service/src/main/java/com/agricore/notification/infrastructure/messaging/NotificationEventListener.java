@@ -6,9 +6,14 @@ import com.agricore.notification.application.service.NotificationApplicationServ
 import com.agricore.notification.application.service.NotificationEventCommand;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.annotation.DltHandler;
+import org.springframework.kafka.annotation.RetryableTopic;
+import org.springframework.retry.annotation.Backoff;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.Set;
@@ -17,6 +22,8 @@ import java.util.UUID;
 @Component
 @ConditionalOnProperty(name = "agricore.kafka.consumer.enabled", havingValue = "true", matchIfMissing = true)
 public class NotificationEventListener {
+
+    private static final Logger log = LoggerFactory.getLogger(NotificationEventListener.class);
 
     private static final Set<String> SUPPORTED_EVENTS = Set.of(
             EventTypes.SALES_ORDER_CONFIRMED,
@@ -40,6 +47,17 @@ public class NotificationEventListener {
         this.eventSourcePolicy = eventSourcePolicy;
     }
 
+    @RetryableTopic(
+            attempts = "${AGRICORE_KAFKA_RETRY_ATTEMPTS:4}",
+            backoff = @Backoff(
+                    delayExpression = "${AGRICORE_KAFKA_RETRY_DELAY_MS:1000}",
+                    multiplierExpression = "${AGRICORE_KAFKA_RETRY_MULTIPLIER:2}",
+                    maxDelayExpression = "${AGRICORE_KAFKA_RETRY_MAX_DELAY_MS:8000}"
+            ),
+            timeout = "${AGRICORE_KAFKA_RETRY_TIMEOUT_MS:30000}",
+            dltTopicSuffix = ".DLT",
+            autoCreateTopics = "${AGRICORE_KAFKA_RETRY_AUTO_CREATE_TOPICS:false}"
+    )
     @KafkaListener(
             topics = {
                     "${agricore.kafka.topics.sales-events:agricore.sales.events}",
@@ -57,6 +75,12 @@ public class NotificationEventListener {
         }
         eventSourcePolicy.validate(record.topic(), envelope);
         notificationService.consume(toCommand(root, envelope));
+    }
+
+    @DltHandler
+    public void onDeadLetter(ConsumerRecord<?, ?> record, Exception exception) {
+        log.error("Notification event routed to DLT topic={} partition={} offset={} exceptionType={}",
+                record.topic(), record.partition(), record.offset(), exception.getClass().getSimpleName());
     }
 
     private NotificationEventCommand toCommand(
