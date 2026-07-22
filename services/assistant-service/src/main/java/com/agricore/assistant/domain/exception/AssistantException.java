@@ -97,4 +97,17 @@ public class AssistantException extends RuntimeException {
                 safeCode, "The configured AI provider is unavailable", 503
         );
     }
+
+    public static AssistantException toolContextUnavailable(String reasonCode) {
+        if ("TOOL_SCOPE_UNAVAILABLE".equals(reasonCode)) {
+            return new AssistantException(
+                    reasonCode, "Conversation context is not available to the caller", 404
+            );
+        }
+        return new AssistantException(
+                "TOOL_AUTHORIZATION_UNAVAILABLE",
+                "Authorized tool context is temporarily unavailable",
+                503
+        );
+    }
 }

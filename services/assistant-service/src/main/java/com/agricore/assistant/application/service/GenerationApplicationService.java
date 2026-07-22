@@ -1,13 +1,8 @@
 package com.agricore.assistant.application.service;
 
-import com.agricore.assistant.application.model.GenerationSubmissionCommand;
 import com.agricore.assistant.application.model.GenerationSubmissionResult;
-import com.agricore.assistant.application.model.ProviderCapabilities;
-import com.agricore.assistant.application.model.ToolEvidenceSnapshot;
 import com.agricore.assistant.application.port.AssistantAuditRepository;
 import com.agricore.assistant.application.port.AssistantRetentionPolicy;
-import com.agricore.assistant.application.port.ChatProvider;
-import com.agricore.assistant.application.port.ChatGenerationPolicy;
 import com.agricore.assistant.application.port.ConversationRepository;
 import com.agricore.assistant.application.port.GenerationExecutionRepository;
 import com.agricore.assistant.application.port.GenerationRepository;
@@ -20,12 +15,8 @@ import com.agricore.assistant.domain.model.AssistantGeneration;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.HexFormat;
 import java.util.UUID;
 
 @Service
@@ -36,9 +27,8 @@ public class GenerationApplicationService {
     private final ConversationRepository conversationRepository;
     private final AssistantAuditRepository auditRepository;
     private final AssistantRetentionPolicy retentionPolicy;
-    private final ChatProvider chatProvider;
-    private final ChatGenerationPolicy generationPolicy;
     private final GenerationWorkDispatcher workDispatcher;
+    private final GenerationSubmissionCoordinator submissionCoordinator;
     private final Clock clock;
 
     public GenerationApplicationService(
@@ -47,9 +37,8 @@ public class GenerationApplicationService {
             ConversationRepository conversationRepository,
             AssistantAuditRepository auditRepository,
             AssistantRetentionPolicy retentionPolicy,
-            ChatProvider chatProvider,
-            ChatGenerationPolicy generationPolicy,
             GenerationWorkDispatcher workDispatcher,
+            GenerationSubmissionCoordinator submissionCoordinator,
             Clock clock
     ) {
         this.generationRepository = generationRepository;
@@ -57,56 +46,18 @@ public class GenerationApplicationService {
         this.conversationRepository = conversationRepository;
         this.auditRepository = auditRepository;
         this.retentionPolicy = retentionPolicy;
-        this.chatProvider = chatProvider;
-        this.generationPolicy = generationPolicy;
         this.workDispatcher = workDispatcher;
+        this.submissionCoordinator = submissionCoordinator;
         this.clock = clock;
     }
 
-    @Transactional
     public GenerationSubmissionResult submit(
             AssistantActor actor,
             UUID conversationId,
             String prompt,
             String idempotencyKey
     ) {
-        validatePrompt(prompt, generationPolicy.maxInputCharacters());
-        validateIdempotencyKey(idempotencyKey);
-        AssistantConversation conversation = conversationRepository.findOwned(conversationId, actor.subject())
-                .orElseThrow(AssistantException::notFound);
-        String requestHash = requestHash(conversation.id(), prompt);
-        var existing = generationRepository.findIdempotent(
-                conversation.id(), actor.subject(), idempotencyKey, requestHash);
-        if (existing.isPresent()) {
-            return existing.get();
-        }
-        ProviderCapabilities capabilities = chatProvider.capabilities();
-        if (!capabilities.available()) {
-            throw AssistantException.providerUnavailable(capabilities.reasonCode());
-        }
-        Instant now = clock.instant();
-        GenerationSubmissionResult result = generationRepository.submit(new GenerationSubmissionCommand(
-                conversation.id(),
-                actor.subject(),
-                idempotencyKey,
-                requestHash,
-                prompt,
-                ToolEvidenceSnapshot.empty(),
-                capabilities.provider(),
-                generationPolicy.model(),
-                now,
-                null,
-                now.plus(retentionPolicy.generationEventRetention())
-        ));
-        if (!result.deduplicated()) {
-            auditRepository.save(AssistantAuditEvent.generationSuccess(
-                    actor.subject(), actor.subject(), conversation.farmId(), conversation.id(),
-                    result.generation().id(), "GENERATION_SUBMITTED", now,
-                    now.plus(retentionPolicy.auditEventRetention())
-            ));
-            workDispatcher.dispatchAfterCommit(result.generation().id());
-        }
-        return result;
+        return submissionCoordinator.submit(actor, conversationId, prompt, idempotencyKey);
     }
 
     @Transactional(readOnly = true)
@@ -146,26 +97,4 @@ public class GenerationApplicationService {
         return result.generation();
     }
 
-    private static String requestHash(UUID conversationId, String prompt) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] bytes = digest.digest((conversationId + "\n" + prompt)
-                    .getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(bytes);
-        } catch (NoSuchAlgorithmException ex) {
-            throw new IllegalStateException("SHA-256 is unavailable", ex);
-        }
-    }
-
-    private static void validatePrompt(String prompt, int maximumLength) {
-        if (prompt == null || prompt.isBlank() || prompt.strip().length() > maximumLength) {
-            throw new IllegalArgumentException("Invalid generation prompt");
-        }
-    }
-
-    private static void validateIdempotencyKey(String idempotencyKey) {
-        if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.strip().length() > 128) {
-            throw new IllegalArgumentException("Invalid idempotency key");
-        }
-    }
 }

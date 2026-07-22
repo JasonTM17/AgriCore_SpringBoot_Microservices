@@ -8,6 +8,8 @@ import java.time.Duration;
 @ConfigurationProperties(prefix = "agricore.assistant.provider")
 public class AssistantProviderProperties {
 
+    private static final int MIN_INPUT_CHARACTERS = 1_024;
+
     private ProviderType type = ProviderType.NONE;
     private String model = "";
     private String apiKey = "";
@@ -35,8 +37,8 @@ public class AssistantProviderProperties {
 
     public void setModel(String model) {
         String normalized = model == null ? "" : model.strip();
-        if (normalized.length() > 200) {
-            throw new IllegalArgumentException("model must be at most 200 characters");
+        if (normalized.length() > 128) {
+            throw new IllegalArgumentException("model must be at most 128 characters");
         }
         this.model = normalized;
     }
@@ -107,7 +109,12 @@ public class AssistantProviderProperties {
     }
 
     public void setMaxInputCharacters(int maxInputCharacters) {
-        this.maxInputCharacters = requireRange(maxInputCharacters, 256, 200_000, "maxInputCharacters");
+        this.maxInputCharacters = requireRange(
+                maxInputCharacters,
+                MIN_INPUT_CHARACTERS,
+                200_000,
+                "maxInputCharacters"
+        );
     }
 
     public int getMaxOutputTokens() {

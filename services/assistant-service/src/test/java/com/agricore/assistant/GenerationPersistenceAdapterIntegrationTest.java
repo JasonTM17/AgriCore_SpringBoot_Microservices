@@ -2,6 +2,7 @@ package com.agricore.assistant;
 
 import com.agricore.assistant.application.model.GenerationSubmissionCommand;
 import com.agricore.assistant.application.model.GenerationSubmissionResult;
+import com.agricore.assistant.application.model.ToolEvidenceCollection;
 import com.agricore.assistant.application.model.ToolEvidenceSnapshot;
 import com.agricore.assistant.application.model.ToolFact;
 import com.agricore.assistant.application.model.ToolSource;
@@ -183,7 +184,9 @@ class GenerationPersistenceAdapterIntegrationTest {
                 key,
                 hash,
                 "How is the crop?",
-                evidence,
+                evidence.isEmpty()
+                        ? ToolEvidenceCollection.skipped("TOOLS_DISABLED")
+                        : ToolEvidenceCollection.collected(evidence, 0),
                 "none",
                 null,
                 NOW,

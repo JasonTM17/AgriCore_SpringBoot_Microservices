@@ -71,6 +71,8 @@ class AssistantProviderPropertiesTest {
         assertBindingFails("agricore.assistant.provider.read-timeout", "PT6M");
         assertBindingFails("agricore.assistant.provider.max-generation-duration", "PT11M");
         assertBindingFails("agricore.assistant.provider.circuit-open-duration", "PT11M");
+        assertBindingFails("agricore.assistant.provider.model", "m".repeat(129));
+        assertBindingFails("agricore.assistant.provider.max-input-characters", "1023");
         assertBindingFails("agricore.assistant.provider.max-input-characters", "200001");
         assertBindingFails("agricore.assistant.provider.max-output-tokens", "8193");
         assertBindingFails("agricore.assistant.provider.circuit-failure-threshold", "101");

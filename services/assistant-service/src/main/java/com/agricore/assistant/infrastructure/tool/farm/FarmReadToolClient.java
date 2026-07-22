@@ -47,7 +47,13 @@ public final class FarmReadToolClient {
         Consumer<HttpHeaders> authorization = authorizationHeaders(correlationId);
         var farm = get(FARM_PATH, authorization, decoder::decodeFarm, farmId);
         var plots = get(PLOTS_PATH, authorization, decoder::decodePlots, farmId, maximumPlots);
-        return projector.project(farmId, farm, plots, maximumPlots);
+        try {
+            return projector.project(farmId, farm, plots, maximumPlots);
+        } catch (ToolCollectionException ex) {
+            throw ex;
+        } catch (IllegalArgumentException ex) {
+            throw ToolCollectionException.responseInvalid();
+        }
     }
 
     private <T> T get(
@@ -103,7 +109,10 @@ public final class FarmReadToolClient {
 
     private static void requireSuccess(HttpStatusCode status) {
         int value = status.value();
-        if (value == 401 || value == 403 || value == 404) {
+        if (value == 401) {
+            throw ToolCollectionException.authorizationUnavailable();
+        }
+        if (value == 403 || value == 404) {
             throw ToolCollectionException.scopeUnavailable();
         }
         if (value == 429) {

@@ -2,7 +2,7 @@ package com.agricore.assistant;
 
 import com.agricore.assistant.application.model.GenerationSubmissionCommand;
 import com.agricore.assistant.application.model.GenerationSubmissionResult;
-import com.agricore.assistant.application.model.ToolEvidenceSnapshot;
+import com.agricore.assistant.application.model.ToolEvidenceCollection;
 import com.agricore.assistant.application.port.GenerationExecutionRepository;
 import com.agricore.assistant.application.port.GenerationRepository;
 import com.agricore.assistant.domain.model.AssistantGenerationEvent;
@@ -64,7 +64,7 @@ abstract class GenerationStatePersistenceIntegrationTestSupport {
                 key,
                 HASH,
                 "How is the crop?",
-                ToolEvidenceSnapshot.empty(),
+                ToolEvidenceCollection.skipped("TOOLS_DISABLED"),
                 "openai",
                 "gpt-test",
                 submittedAt,

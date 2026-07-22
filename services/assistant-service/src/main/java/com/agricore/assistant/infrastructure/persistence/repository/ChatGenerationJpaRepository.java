@@ -78,6 +78,11 @@ public interface ChatGenerationJpaRepository extends JpaRepository<ChatGeneratio
             UUID conversationId
     );
 
+    Optional<ChatGenerationEntity> findFirstByConversationIdAndOwnerUserIdAndActiveConversationIdIsNotNull(
+            UUID conversationId,
+            UUID ownerUserId
+    );
+
     @Query("""
             SELECT generation.id
               FROM ChatGenerationEntity generation

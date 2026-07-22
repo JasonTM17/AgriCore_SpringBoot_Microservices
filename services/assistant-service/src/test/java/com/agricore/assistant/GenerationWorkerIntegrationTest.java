@@ -2,6 +2,7 @@ package com.agricore.assistant;
 
 import com.agricore.assistant.application.model.ChatChunk;
 import com.agricore.assistant.application.model.ChatGenerationRequest;
+import com.agricore.assistant.application.model.ChatTurnRole;
 import com.agricore.assistant.application.model.GenerationSubmissionResult;
 import com.agricore.assistant.application.model.ProviderCapabilities;
 import com.agricore.assistant.application.port.AssistantProviderException;
@@ -94,8 +95,13 @@ class GenerationWorkerIntegrationTest extends GenerationStatePersistenceIntegrat
         ArgumentCaptor<ChatGenerationRequest> request = ArgumentCaptor.forClass(ChatGenerationRequest.class);
         verify(chatProvider).stream(request.capture());
         assertThat(request.getValue().model()).isEqualTo("gpt-test");
-        assertThat(request.getValue().turns()).singleElement()
-                .satisfies(turn -> assertThat(turn.content()).isEqualTo("How is the crop?"));
+        assertThat(request.getValue().turns()).hasSize(2);
+        assertThat(request.getValue().turns().getFirst().role()).isEqualTo(ChatTurnRole.SYSTEM);
+        assertThat(request.getValue().turns().getFirst().content())
+                .contains("AgriCore read-only assistant")
+                .doesNotContain("UNTRUSTED_TOOL_DATA_JSONL_BEGIN");
+        assertThat(request.getValue().turns().getLast().role()).isEqualTo(ChatTurnRole.USER);
+        assertThat(request.getValue().turns().getLast().content()).isEqualTo("How is the crop?");
     }
 
     @Test

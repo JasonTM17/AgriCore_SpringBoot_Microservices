@@ -47,13 +47,14 @@ public record ToolFact(
         StringBuilder safe = new StringBuilder(unicode.length());
         unicode.codePoints().forEach(codePoint -> {
             int type = Character.getType(codePoint);
-            if (Character.isISOControl(codePoint) || type == Character.FORMAT) {
+            if (Character.isISOControl(codePoint) || type == Character.FORMAT
+                    || Character.isWhitespace(codePoint) || Character.isSpaceChar(codePoint)) {
                 safe.append(' ');
             } else {
                 safe.appendCodePoint(codePoint);
             }
         });
-        String normalized = safe.toString().strip().replaceAll("\\s+", " ");
+        String normalized = safe.toString().strip().replaceAll(" +", " ");
         if (normalized.isEmpty() || normalized.length() > MAX_VALUE_LENGTH) {
             throw new IllegalArgumentException("tool field value must be between 1 and 256 characters");
         }

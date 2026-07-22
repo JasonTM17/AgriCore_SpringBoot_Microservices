@@ -75,6 +75,11 @@ class FarmReadToolClientSecurityTest {
     void failsClosedForScopeDenialUnknownFieldsAndMissingAuthentication() {
         UUID farmId = UUID.randomUUID();
         setJwtAuthentication();
+        Fixture unauthorized = fixture(2);
+        unauthorized.server().expect(once(), requestTo(BASE_URL + "/api/v1/farms/" + farmId))
+                .andRespond(withStatus(HttpStatus.UNAUTHORIZED));
+        assertReason(() -> unauthorized.client().collect(farmId), "TOOL_AUTHORIZATION_UNAVAILABLE");
+
         Fixture denied = fixture(2);
         denied.server().expect(once(), requestTo(BASE_URL + "/api/v1/farms/" + farmId))
                 .andRespond(withStatus(HttpStatus.FORBIDDEN));

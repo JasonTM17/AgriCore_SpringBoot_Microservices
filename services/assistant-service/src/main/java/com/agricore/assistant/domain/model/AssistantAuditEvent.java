@@ -49,4 +49,55 @@ public record AssistantAuditEvent(
                 action, "SUCCESS", null, null, null, null, createdAt, retainUntil
         );
     }
+
+    public static AssistantAuditEvent toolDecision(
+            UUID actorSubject,
+            UUID farmId,
+            UUID conversationId,
+            UUID generationId,
+            String outcome,
+            String reasonCode,
+            String metadata,
+            Instant createdAt,
+            Instant retainUntil
+    ) {
+        return new AssistantAuditEvent(
+                UUID.randomUUID(), actorSubject, actorSubject, farmId, conversationId, generationId,
+                "TOOL_EVIDENCE_DECISION", outcome, reasonCode, null, null, metadata,
+                createdAt, retainUntil
+        );
+    }
+
+    public static AssistantAuditEvent toolAttempt(
+            UUID actorSubject,
+            UUID farmId,
+            UUID conversationId,
+            String outcome,
+            String reasonCode,
+            String metadata,
+            Instant createdAt,
+            Instant retainUntil
+    ) {
+        return new AssistantAuditEvent(
+                UUID.randomUUID(), actorSubject, actorSubject, farmId, conversationId, null,
+                "TOOL_EVIDENCE_ATTEMPT", outcome, reasonCode, null, null, metadata,
+                createdAt, retainUntil
+        );
+    }
+
+    public static AssistantAuditEvent submissionRejected(
+            UUID actorSubject,
+            UUID farmId,
+            UUID conversationId,
+            String outcome,
+            String reasonCode,
+            Instant createdAt,
+            Instant retainUntil
+    ) {
+        return new AssistantAuditEvent(
+                UUID.randomUUID(), actorSubject, actorSubject, farmId, conversationId, null,
+                "GENERATION_SUBMISSION_REJECTED", outcome, reasonCode, null, null, null,
+                createdAt, retainUntil
+        );
+    }
 }

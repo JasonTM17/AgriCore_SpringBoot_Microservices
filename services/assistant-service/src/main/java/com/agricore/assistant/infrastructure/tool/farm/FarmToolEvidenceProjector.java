@@ -14,6 +14,9 @@ import java.util.UUID;
 
 final class FarmToolEvidenceProjector {
 
+    private static final int MAX_DECIMAL_PRECISION = 18;
+    private static final int MAX_DECIMAL_SCALE = 6;
+
     ToolEvidenceSnapshot project(
             UUID requestedFarmId,
             FarmToolResponseDecoder.FarmDetails farm,
@@ -94,7 +97,10 @@ final class FarmToolEvidenceProjector {
     }
 
     private static void requireNonNegative(BigDecimal value) {
-        if (value != null && value.signum() < 0) {
+        if (value != null && (value.signum() < 0
+                || value.precision() > MAX_DECIMAL_PRECISION
+                || value.scale() < -MAX_DECIMAL_SCALE
+                || value.scale() > MAX_DECIMAL_SCALE)) {
             throw ToolCollectionException.responseInvalid();
         }
     }
@@ -106,6 +112,11 @@ final class FarmToolEvidenceProjector {
     }
 
     private static boolean isBlank(String value) {
-        return value == null || value.isBlank();
+        return value == null || value.codePoints().allMatch(codePoint ->
+                Character.isWhitespace(codePoint)
+                        || Character.isSpaceChar(codePoint)
+                        || Character.isISOControl(codePoint)
+                        || Character.getType(codePoint) == Character.FORMAT
+        );
     }
 }

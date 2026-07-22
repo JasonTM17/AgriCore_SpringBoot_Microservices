@@ -19,6 +19,8 @@ public interface GenerationRepository {
             String requestHash
     );
 
+    Optional<GenerationSubmissionResult> findActive(UUID conversationId, UUID ownerUserId);
+
     GenerationSubmissionResult submit(GenerationSubmissionCommand command);
 
     Optional<AssistantGeneration> findOwned(

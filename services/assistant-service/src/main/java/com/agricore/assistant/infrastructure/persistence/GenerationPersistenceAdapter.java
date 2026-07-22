@@ -63,12 +63,17 @@ public class GenerationPersistenceAdapter implements GenerationRepository {
                     if (!requestHash.equalsIgnoreCase(generation.getRequestHash())) {
                         throw AssistantException.idempotencyKeyReused();
                     }
-                    AssistantMessage userMessage = messageRepository
-                            .findByGenerationIdAndRole(generation.getId(), MessageRole.USER)
-                            .map(mapper::toDomain)
-                            .orElse(null);
-                    return new GenerationSubmissionResult(mapper.toDomain(generation), userMessage, true);
+                    return toSubmissionResult(generation);
                 });
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<GenerationSubmissionResult> findActive(UUID conversationId, UUID ownerUserId) {
+        return generationRepository
+                .findFirstByConversationIdAndOwnerUserIdAndActiveConversationIdIsNotNull(
+                        conversationId, ownerUserId)
+                .map(this::toSubmissionResult);
     }
 
     @Override
@@ -196,5 +201,13 @@ public class GenerationPersistenceAdapter implements GenerationRepository {
                 .stream()
                 .map(mapper::toDomain)
                 .toList();
+    }
+
+    private GenerationSubmissionResult toSubmissionResult(ChatGenerationEntity generation) {
+        AssistantMessage userMessage = messageRepository
+                .findByGenerationIdAndRole(generation.getId(), MessageRole.USER)
+                .map(mapper::toDomain)
+                .orElse(null);
+        return new GenerationSubmissionResult(mapper.toDomain(generation), userMessage, true);
     }
 }

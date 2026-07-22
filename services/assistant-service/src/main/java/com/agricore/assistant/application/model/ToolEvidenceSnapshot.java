@@ -22,6 +22,13 @@ public record ToolEvidenceSnapshot(List<ToolFact> facts) {
         if (facts.stream().anyMatch(fact -> !citationIds.add(fact.citationId()))) {
             throw new IllegalArgumentException("tool evidence citation ids must be unique");
         }
+        long distinctFieldNames = facts.stream()
+                .flatMap(fact -> fact.fields().keySet().stream())
+                .distinct()
+                .count();
+        if (distinctFieldNames > 32) {
+            throw new IllegalArgumentException("tool evidence must expose at most 32 distinct field names");
+        }
     }
 
     public static ToolEvidenceSnapshot empty() {
