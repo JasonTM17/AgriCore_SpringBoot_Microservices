@@ -21,3 +21,8 @@ agricore:
   kafka:
     consumer:
       enabled: false
+  outbox:
+    publisher:
+      enabled: false
+    cleanup:
+      enabled: false

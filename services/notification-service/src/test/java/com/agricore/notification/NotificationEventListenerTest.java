@@ -3,6 +3,7 @@ package com.agricore.notification;
 import com.agricore.notification.application.service.NotificationApplicationService;
 import com.agricore.notification.infrastructure.messaging.NotificationEventListener;
 import com.agricore.notification.infrastructure.persistence.NotificationJpaRepository;
+import com.agricore.notification.infrastructure.persistence.OutboxJpaRepository;
 import com.agricore.notification.infrastructure.persistence.ProcessedEventJpaRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,6 +28,8 @@ class NotificationEventListenerTest {
     @Autowired
     private ProcessedEventJpaRepository processedEventRepository;
     @Autowired
+    private OutboxJpaRepository outboxRepository;
+    @Autowired
     private ObjectMapper objectMapper;
 
     private NotificationEventListener listener;
@@ -35,6 +38,7 @@ class NotificationEventListenerTest {
     void setUp() {
         notificationRepository.deleteAll();
         processedEventRepository.deleteAll();
+        outboxRepository.deleteAll();
         listener = new NotificationEventListener(notificationService, objectMapper);
     }
 
@@ -68,6 +72,8 @@ class NotificationEventListenerTest {
         assertThat(notificationRepository.countBySourceEventId(eventId)).isEqualTo(1);
         assertThat(processedEventRepository.existsByEventIdAndConsumerName(eventId, "notification-service"))
                 .isTrue();
+        assertThat(outboxRepository.findAll()).extracting(event -> event.getEventType())
+                .containsExactlyInAnyOrder("NotificationRequested.v1", "NotificationSent.v1");
         assertThat(notificationRepository.findAll()).singleElement()
                 .satisfies(notification -> {
                     assertThat(notification.getRecipient()).isEqualTo("customer-100");

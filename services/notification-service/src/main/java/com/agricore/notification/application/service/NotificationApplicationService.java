@@ -24,13 +24,16 @@ public class NotificationApplicationService {
 
     private final NotificationJpaRepository repository;
     private final ProcessedEventJpaRepository processedEventRepository;
+    private final NotificationEventOutboxWriter eventOutboxWriter;
 
     public NotificationApplicationService(
             NotificationJpaRepository repository,
-            ProcessedEventJpaRepository processedEventRepository
+            ProcessedEventJpaRepository processedEventRepository,
+            NotificationEventOutboxWriter eventOutboxWriter
     ) {
         this.repository = repository;
         this.processedEventRepository = processedEventRepository;
+        this.eventOutboxWriter = eventOutboxWriter;
     }
 
     @Transactional
@@ -76,6 +79,8 @@ public class NotificationApplicationService {
         notification.setCreatedAt(now);
         notification.setSentAt(now);
         repository.save(notification);
+        eventOutboxWriter.notificationRequested(notification, command.eventType());
+        eventOutboxWriter.notificationSent(notification, command.eventType());
         processedEventRepository.save(ProcessedEventEntity.create(command.eventId(), consumerName));
         log.info("notification_event_processed eventId={} eventType={} channel={} recipient={}",
                 command.eventId(), command.eventType(), notification.getChannel(), notification.getRecipient());

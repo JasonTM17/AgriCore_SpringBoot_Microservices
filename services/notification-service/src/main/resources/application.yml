@@ -23,6 +23,15 @@ spring:
       enable-auto-commit: false
     listener:
       ack-mode: record
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+        max.block.ms: ${KAFKA_PRODUCER_MAX_BLOCK_MS:5000}
+        request.timeout.ms: ${KAFKA_PRODUCER_REQUEST_TIMEOUT_MS:5000}
+        delivery.timeout.ms: ${KAFKA_PRODUCER_DELIVERY_TIMEOUT_MS:10000}
 management:
   endpoints:
     web:
@@ -46,3 +55,13 @@ agricore:
       sales-events: agricore.sales.events
       traceability-events: agricore.traceability.events
       iot-events: agricore.iot.events
+  outbox:
+    publisher:
+      enabled: ${NOTIFICATION_OUTBOX_PUBLISHER_ENABLED:true}
+      poll-ms: 1000
+      send-timeout-ms: ${OUTBOX_PUBLISHER_SEND_TIMEOUT_MS:10000}
+    cleanup:
+      enabled: ${NOTIFICATION_OUTBOX_CLEANUP_ENABLED:true}
+      poll-ms: 3600000
+      retention: ${OUTBOX_RETENTION:P7D}
+      batch-size: 500
