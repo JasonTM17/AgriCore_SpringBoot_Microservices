@@ -199,6 +199,8 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
         '415':
           $ref: '#/components/responses/UnsupportedMediaType'
         '500':
@@ -414,6 +416,12 @@ components:
             $ref: '#/components/schemas/ApiError'
     ServiceUnavailable:
       description: AI provider, farm access verifier, or required dependency is unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    RateLimitExceeded:
+      description: The authenticated user or client IP exhausted the request/token budget window.
       content:
         application/json:
           schema:

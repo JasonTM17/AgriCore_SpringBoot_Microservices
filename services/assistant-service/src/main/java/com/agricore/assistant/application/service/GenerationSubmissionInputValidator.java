@@ -35,6 +35,13 @@ public class GenerationSubmissionInputValidator {
         }
     }
 
+    public int estimateInputTokens(String prompt, ToolEvidenceSnapshot evidence) {
+        int bytes = utf8Length(promptFormatter.systemPolicy())
+                + utf8Length(promptFormatter.renderEvidence(evidence))
+                + utf8Length(prompt == null ? "" : prompt.strip());
+        return Math.max(1, (bytes + 2) / 3);
+    }
+
     public String normalizeIdempotencyKey(String idempotencyKey) {
         if (idempotencyKey == null || idempotencyKey.isBlank()
                 || idempotencyKey.strip().length() > 128) {
@@ -52,5 +59,9 @@ public class GenerationSubmissionInputValidator {
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-256 is unavailable", exception);
         }
+    }
+
+    private static int utf8Length(String value) {
+        return value.getBytes(StandardCharsets.UTF_8).length;
     }
 }

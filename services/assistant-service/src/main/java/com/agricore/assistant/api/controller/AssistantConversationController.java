@@ -6,6 +6,7 @@ import com.agricore.assistant.api.response.ConversationResponse;
 import com.agricore.assistant.api.response.GenerationEventResponse;
 import com.agricore.assistant.api.response.GenerationResponse;
 import com.agricore.assistant.api.response.MessageResponse;
+import com.agricore.assistant.api.security.AssistantClientIpResolver;
 import com.agricore.assistant.api.security.CurrentAssistantActorResolver;
 import com.agricore.assistant.application.model.PageQuery;
 import com.agricore.assistant.application.model.PageResult;
@@ -16,6 +17,7 @@ import com.agricore.assistant.domain.model.AssistantConversation;
 import com.agricore.assistant.domain.model.AssistantMessage;
 import com.agricore.assistant.domain.model.ConversationStatus;
 import com.agricore.common.api.PageResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -33,8 +35,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.UUID;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/assistant/conversations")
@@ -45,17 +47,20 @@ public class AssistantConversationController {
     private final GenerationApplicationService generationService;
     private final GenerationEventReplayService replayService;
     private final CurrentAssistantActorResolver actorResolver;
+    private final AssistantClientIpResolver clientIpResolver;
 
     public AssistantConversationController(
             ConversationApplicationService service,
             GenerationApplicationService generationService,
             GenerationEventReplayService replayService,
-            CurrentAssistantActorResolver actorResolver
+            CurrentAssistantActorResolver actorResolver,
+            AssistantClientIpResolver clientIpResolver
     ) {
         this.service = service;
         this.generationService = generationService;
         this.replayService = replayService;
         this.actorResolver = actorResolver;
+        this.clientIpResolver = clientIpResolver;
     }
 
     @PostMapping
@@ -143,10 +148,12 @@ public class AssistantConversationController {
             @PathVariable UUID conversationId,
             @RequestHeader("Idempotency-Key") String idempotencyKey,
             @Valid @RequestBody CreateGenerationRequest request,
-            Authentication authentication
+        Authentication authentication,
+            HttpServletRequest httpRequest
     ) {
         var result = generationService.submit(
-                actorResolver.resolve(authentication), conversationId, request.prompt(), idempotencyKey);
+                actorResolver.resolve(authentication), conversationId, request.prompt(), idempotencyKey,
+                clientIpResolver.resolve(httpRequest));
         return ResponseEntity.status(result.deduplicated() ? HttpStatus.OK : HttpStatus.ACCEPTED)
                 .body(GenerationResponse.from(result));
     }

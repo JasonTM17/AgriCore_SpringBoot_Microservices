@@ -7,6 +7,7 @@ import com.agricore.assistant.application.model.ToolCollectionOutcome;
 import com.agricore.assistant.application.model.ToolEvidenceCollection;
 import com.agricore.assistant.application.model.ToolEvidenceSnapshot;
 import com.agricore.assistant.application.port.AssistantRetentionPolicy;
+import com.agricore.assistant.application.port.AssistantRequestBudget;
 import com.agricore.assistant.application.port.ChatGenerationPolicy;
 import com.agricore.assistant.application.port.ChatProvider;
 import com.agricore.assistant.application.port.ConversationRepository;
@@ -35,6 +36,7 @@ public class GenerationSubmissionCoordinator {
     private final GenerationSubmissionTransaction submissionTransaction;
     private final GenerationSubmissionAuditService submissionAuditService;
     private final GenerationSubmissionInputValidator inputValidator;
+    private final AssistantRequestBudget requestBudget;
     private final Clock clock;
 
     public GenerationSubmissionCoordinator(
@@ -47,6 +49,7 @@ public class GenerationSubmissionCoordinator {
             GenerationSubmissionTransaction submissionTransaction,
             GenerationSubmissionAuditService submissionAuditService,
             GenerationSubmissionInputValidator inputValidator,
+            AssistantRequestBudget requestBudget,
             Clock clock
     ) {
         this.generationRepository = generationRepository;
@@ -58,6 +61,7 @@ public class GenerationSubmissionCoordinator {
         this.submissionTransaction = submissionTransaction;
         this.submissionAuditService = submissionAuditService;
         this.inputValidator = inputValidator;
+        this.requestBudget = requestBudget;
         this.clock = clock;
     }
 
@@ -66,6 +70,16 @@ public class GenerationSubmissionCoordinator {
             UUID conversationId,
             String prompt,
             String idempotencyKey
+    ) {
+        return submit(actor, conversationId, prompt, idempotencyKey, "unknown");
+    }
+
+    public GenerationSubmissionResult submit(
+            AssistantActor actor,
+            UUID conversationId,
+            String prompt,
+            String idempotencyKey,
+            String clientIp
     ) {
         inputValidator.validatePrompt(prompt, ToolEvidenceSnapshot.empty());
         String normalizedKey = inputValidator.normalizeIdempotencyKey(idempotencyKey);
@@ -97,6 +111,9 @@ public class GenerationSubmissionCoordinator {
                     AssistantException.providerUnavailable(capabilities.reasonCode())
             );
         }
+        int baseInputTokens = inputValidator.estimateInputTokens(
+                prompt, ToolEvidenceSnapshot.empty());
+        reserveInitialBudget(actor, conversation, clientIp, baseInputTokens);
         ToolEvidenceCollection collection = toolEvidenceCollector.collect(conversation);
         Instant now = clock.instant();
         if (collection.outcome() == ToolCollectionOutcome.DENIED) {
@@ -105,9 +122,44 @@ public class GenerationSubmissionCoordinator {
             throw AssistantException.toolContextUnavailable(collection.reasonCode());
         }
         validateEvidenceBudget(actor, conversation, prompt, collection, now);
+        reserveEvidenceBudget(
+                actor, conversation, clientIp, prompt, collection, baseInputTokens, now);
         GenerationSubmissionCommand command = createCommand(
                 actor, conversation, normalizedKey, requestHash, prompt, collection, capabilities, now);
         return submitCommand(actor, conversation, collection, command, now);
+    }
+
+    private void reserveInitialBudget(
+            AssistantActor actor,
+            AssistantConversation conversation,
+            String clientIp,
+            int baseInputTokens
+    ) {
+        try {
+            requestBudget.reserve(actor, clientIp, baseInputTokens);
+        } catch (AssistantException exception) {
+            throw auditRejected(actor, conversation, exception);
+        }
+    }
+
+    private void reserveEvidenceBudget(
+            AssistantActor actor,
+            AssistantConversation conversation,
+            String clientIp,
+            String prompt,
+            ToolEvidenceCollection collection,
+            int baseInputTokens,
+            Instant now
+    ) {
+        int totalInputTokens = inputValidator.estimateInputTokens(prompt, collection.evidence());
+        try {
+            requestBudget.reserveAdditionalTokens(
+                    actor, clientIp, Math.max(0, totalInputTokens - baseInputTokens));
+        } catch (AssistantException exception) {
+            submissionAuditService.recordDiscardedToolAttempt(
+                    actor, conversation, collection, exception.getCode(), now);
+            throw auditRejected(actor, conversation, exception);
+        }
     }
 
     private GenerationSubmissionResult findIdempotent(

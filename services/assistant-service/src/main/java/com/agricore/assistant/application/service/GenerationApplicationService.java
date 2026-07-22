@@ -57,7 +57,17 @@ public class GenerationApplicationService {
             String prompt,
             String idempotencyKey
     ) {
-        return submissionCoordinator.submit(actor, conversationId, prompt, idempotencyKey);
+        return submit(actor, conversationId, prompt, idempotencyKey, "unknown");
+    }
+
+    public GenerationSubmissionResult submit(
+            AssistantActor actor,
+            UUID conversationId,
+            String prompt,
+            String idempotencyKey,
+            String clientIp
+    ) {
+        return submissionCoordinator.submit(actor, conversationId, prompt, idempotencyKey, clientIp);
     }
 
     @Transactional(readOnly = true)

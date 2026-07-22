@@ -87,6 +87,22 @@ public class AssistantException extends RuntimeException {
         );
     }
 
+    public static AssistantException requestBudgetExceeded() {
+        return new AssistantException(
+                "ASSISTANT_REQUEST_BUDGET_EXCEEDED",
+                "Assistant request budget has been exhausted",
+                429
+        );
+    }
+
+    public static AssistantException requestBudgetUnavailable() {
+        return new AssistantException(
+                "ASSISTANT_BUDGET_UNAVAILABLE",
+                "Assistant request budget is temporarily unavailable",
+                503
+        );
+    }
+
     public static AssistantException providerUnavailable(String reasonCode) {
         String safeCode = switch (reasonCode) {
             case "AI_PROVIDER_CONFIGURATION_MISSING", "AI_PROVIDER_ADAPTER_UNAVAILABLE",
