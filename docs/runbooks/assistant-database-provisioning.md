@@ -31,3 +31,5 @@ docker compose -f docker-compose.infrastructure.yml exec postgres \
 ```
 
 Expected output: `1`. Flyway applies the assistant schema when the service starts.
+
+For the full Compose start order and observability checks, see [local operations](./local-operations.md).

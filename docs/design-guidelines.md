@@ -137,4 +137,3 @@ Do not implement authoritative list/history views for harvest, inventory items, 
 - `docs/architecture/SYSTEM_ARCHITECTURE.md`
 - `docs/security/microservices-authz.md`
 - `contracts/openapi/*.yaml`
-- `plans/260718-0748-agricore-stitch-frontend/reports/scout-report.md`
