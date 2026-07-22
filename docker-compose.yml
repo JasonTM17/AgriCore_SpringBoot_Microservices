@@ -58,6 +58,7 @@ services:
       AGRICORE_REGISTRATION_ENABLED: "true"
       AGRICORE_RATE_LIMIT_FAIL_OPEN: "false"
       AGRICORE_TRUST_FORWARDED_HEADERS: "true"
+      AGRICORE_WEB_ALLOWED_ORIGINS: ${AGRICORE_WEB_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173}
     volumes:
       - ./infrastructure/jwt:/keys:ro
     ports:
