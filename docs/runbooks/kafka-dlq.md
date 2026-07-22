@@ -15,7 +15,13 @@ notification-service outbox -> agricore.notification.events
 
 consumer failure
   → in-process exponential retry
-  → agricore.harvest.events.DLT on recovery
+  → <original-topic>.DLT on recovery
+
+implemented DLTs
+  ├─ agricore.harvest.events.DLT
+  ├─ agricore.sales.events.DLT
+  ├─ agricore.traceability.events.DLT
+  └─ agricore.iot.events.DLT
 ```
 
 The harvest projections and notification consumers use the same bounded retry/DLT policy. There are no retry topics; producer outboxes for farm, crop-cycle, work, inventory, IoT, traceability, sales, and notification use polling delivery with retryable publish state.
@@ -31,7 +37,7 @@ Consumers use Spring Kafka `DefaultErrorHandler` with `ExponentialBackOff`:
 | Maximum elapsed time | 8 seconds |
 | Recovery destination | `<original-topic>.DLT`; same partition when that DLT partition exists |
 
-Both consumers classify contract-validation `IllegalArgumentException` as non-retryable and hand it directly to recovery. Transient processing failures use the bounded backoff. `DeadLetterPublishingRecoverer` publishes to the same partition when the DLT exposes that partition; otherwise its partition verification lets the Kafka producer choose an available partition.
+All consumers classify contract-validation `IllegalArgumentException` as non-retryable and hand it directly to recovery. Transient processing failures use the bounded backoff. `DeadLetterPublishingRecoverer` publishes to the same partition when the DLT exposes that partition; otherwise its partition verification lets the Kafka producer choose an available partition.
 
 `agricore_kafka_dlq_attempts_total{consumer="inventory-service|traceability-service|notification-service"}` increments when a record is handed to dead-letter recovery. It does not measure DLT topic depth and does not prove the DLT publish succeeded.
 
@@ -57,11 +63,11 @@ Publisher replicas use `FOR UPDATE SKIP LOCKED`. `KafkaTemplate.send()` is bound
 
 ## DLT response procedure
 
-1. Inspect `agricore.harvest.events.DLT` in Kafka UI or with Kafka tooling.
+1. Inspect the DLT matching the failed source topic in Kafka UI or with Kafka tooling: `agricore.harvest.events.DLT`, `agricore.sales.events.DLT`, `agricore.traceability.events.DLT`, or `agricore.iot.events.DLT`.
 2. Capture the JSON envelope, original topic/partition/offset headers, and exception headers added by Spring Kafka.
 3. Check `agricore_kafka_dlq_attempts_total` and consumer logs for the affected consumer. Do not infer topic depth from the counter.
 4. Correct the schema, data, or application cause.
-5. Replay the original envelope to `agricore.harvest.events` only after confirming the stable `eventId`; inventory and traceability are idempotent for that ID.
+5. Replay the original envelope to its original topic only after confirming the stable `eventId`; inventory, traceability, and notification consumers are idempotent for that ID.
 6. Retain or archive the DLT record according to the deployment's Kafka retention policy.
 
 ## Recommended thresholds — not provisioned

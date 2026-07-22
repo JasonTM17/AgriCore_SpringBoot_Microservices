@@ -178,6 +178,54 @@ channels:
         description: Unchanged record value rejected by an inventory or traceability consumer.
         payload:
           type: string
+  agricore.sales.events.DLT:
+    address: agricore.sales.events.DLT
+    description: |
+      Dead-letter destination used by notification-service for rejected sales
+      records. Contract failures are recovered immediately; retryable failures
+      are recovered after bounded in-process retries.
+      No Kafka retry topics are implemented. The value is the unchanged
+      original string and Spring Kafka adds dead-letter headers.
+    messages:
+      SalesOrderDeadLetter:
+        name: SalesOrderDeadLetter
+        title: Rejected sales order event record
+        contentType: text/plain
+        description: Unchanged sales event record rejected by notification-service.
+        payload:
+          type: string
+  agricore.traceability.events.DLT:
+    address: agricore.traceability.events.DLT
+    description: |
+      Dead-letter destination used by notification-service for rejected
+      traceability records. Contract failures are recovered immediately;
+      retryable failures are recovered after bounded in-process retries.
+      No Kafka retry topics are implemented. The value is the unchanged
+      original string and Spring Kafka adds dead-letter headers.
+    messages:
+      TraceabilityDeadLetter:
+        name: TraceabilityDeadLetter
+        title: Rejected traceability event record
+        contentType: text/plain
+        description: Unchanged traceability event record rejected by notification-service.
+        payload:
+          type: string
+  agricore.iot.events.DLT:
+    address: agricore.iot.events.DLT
+    description: |
+      Dead-letter destination used by notification-service for rejected IoT
+      records. Contract failures are recovered immediately; retryable failures
+      are recovered after bounded in-process retries.
+      No Kafka retry topics are implemented. The value is the unchanged
+      original string and Spring Kafka adds dead-letter headers.
+    messages:
+      IotDeadLetter:
+        name: IotDeadLetter
+        title: Rejected IoT event record
+        contentType: text/plain
+        description: Unchanged IoT event record rejected by notification-service.
+        payload:
+          type: string
 operations:
   farmServiceSendsFarmEvents:
     action: send
@@ -297,3 +345,21 @@ operations:
       $ref: '#/channels/agricore.harvest.events.DLT'
     messages:
       - $ref: '#/channels/agricore.harvest.events.DLT/messages/HarvestCompletedDeadLetter'
+  notificationServiceSendsSalesDeadLetters:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.sales.events.DLT'
+    messages:
+      - $ref: '#/channels/agricore.sales.events.DLT/messages/SalesOrderDeadLetter'
+  notificationServiceSendsTraceabilityDeadLetters:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.traceability.events.DLT'
+    messages:
+      - $ref: '#/channels/agricore.traceability.events.DLT/messages/TraceabilityDeadLetter'
+  notificationServiceSendsIotDeadLetters:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.iot.events.DLT'
+    messages:
+      - $ref: '#/channels/agricore.iot.events.DLT/messages/IotDeadLetter'

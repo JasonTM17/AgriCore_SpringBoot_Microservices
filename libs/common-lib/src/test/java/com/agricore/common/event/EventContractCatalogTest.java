@@ -176,7 +176,7 @@ class EventContractCatalogTest {
         assertThat(versionedMessageNames(channels))
                 .containsExactlyInAnyOrderElementsOf(CONTRACTS.stream().map(Contract::eventType).toList());
 
-        assertThat(actionCount(operations, "send")).isEqualTo(11);
+        assertThat(actionCount(operations, "send")).isEqualTo(14);
         assertThat(actionCount(operations, "receive")).isEqualTo(5);
         assertThat(fieldNames(operations)).contains(
                 "inventoryServiceReceivesHarvestCompleted",
@@ -185,7 +185,10 @@ class EventContractCatalogTest {
                 "notificationServiceReceivesTraceabilityEvents",
                 "notificationServiceReceivesIotEvents",
                 "inventoryServiceSendsHarvestDeadLetters",
-                "traceabilityServiceSendsHarvestDeadLetters"
+                "traceabilityServiceSendsHarvestDeadLetters",
+                "notificationServiceSendsSalesDeadLetters",
+                "notificationServiceSendsTraceabilityDeadLetters",
+                "notificationServiceSendsIotDeadLetters"
         );
         JsonNode deadLetterChannel = channels.path("agricore.harvest.events.DLT");
         assertThat(deadLetterChannel.path("description").asText()).contains("No Kafka retry topics are implemented");
@@ -193,6 +196,18 @@ class EventContractCatalogTest {
                 .path("contentType").asText()).isEqualTo("text/plain");
         assertThat(deadLetterChannel.path("messages").path("HarvestCompletedDeadLetter")
                 .path("payload").path("type").asText()).isEqualTo("string");
+        assertDeadLetterChannel(channels, "agricore.sales.events.DLT", "SalesOrderDeadLetter");
+        assertDeadLetterChannel(channels, "agricore.traceability.events.DLT", "TraceabilityDeadLetter");
+        assertDeadLetterChannel(channels, "agricore.iot.events.DLT", "IotDeadLetter");
+    }
+
+    private static void assertDeadLetterChannel(JsonNode channels, String channelName, String messageName) {
+        JsonNode channel = channels.path(channelName);
+        assertThat(channel.path("description").asText()).contains("No Kafka retry topics are implemented");
+        assertThat(channel.path("messages").path(messageName).path("contentType").asText())
+                .isEqualTo("text/plain");
+        assertThat(channel.path("messages").path(messageName).path("payload").path("type").asText())
+                .isEqualTo("string");
     }
 
     private static List<String> references(JsonNode root) {
