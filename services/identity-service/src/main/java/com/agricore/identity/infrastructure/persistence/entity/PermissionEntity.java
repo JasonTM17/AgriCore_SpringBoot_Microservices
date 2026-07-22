@@ -1,15 +1,16 @@
 package com.agricore.identity.infrastructure.persistence.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 
 import java.time.Instant;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.UUID;
 
 @Entity
-@Table(name = "roles")
-public class RoleEntity {
+@Table(name = "permissions")
+public class PermissionEntity {
 
     @Id
     private UUID id;
@@ -17,19 +18,14 @@ public class RoleEntity {
     @Column(nullable = false, unique = true, length = 64)
     private String code;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 100)
+    private String name;
+
+    @Column(length = 500)
     private String description;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
-
-    @ManyToMany
-    @JoinTable(
-            name = "role_permissions",
-            joinColumns = @JoinColumn(name = "role_id"),
-            inverseJoinColumns = @JoinColumn(name = "permission_id")
-    )
-    private Set<PermissionEntity> permissions = new HashSet<>();
 
     public UUID getId() {
         return id;
@@ -47,6 +43,14 @@ public class RoleEntity {
         this.code = code;
     }
 
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
     public String getDescription() {
         return description;
     }
@@ -61,13 +65,5 @@ public class RoleEntity {
 
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
-    }
-
-    public Set<PermissionEntity> getPermissions() {
-        return permissions;
-    }
-
-    public void setPermissions(Set<PermissionEntity> permissions) {
-        this.permissions = permissions == null ? new HashSet<>() : new HashSet<>(permissions);
     }
 }
