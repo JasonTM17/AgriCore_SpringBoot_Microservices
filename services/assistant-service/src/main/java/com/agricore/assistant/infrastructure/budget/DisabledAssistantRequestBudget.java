@@ -14,16 +14,7 @@ import org.springframework.stereotype.Component;
 public class DisabledAssistantRequestBudget implements AssistantRequestBudget {
 
     @Override
-    public void reserve(AssistantActor actor, String clientIp, int estimatedInputTokens) {
-        // Explicitly disabled only by local/test configuration.
-    }
-
-    @Override
-    public void reserveAdditionalTokens(
-            AssistantActor actor,
-            String clientIp,
-            int additionalInputTokens
-    ) {
+    public void reserve(AssistantActor actor, String clientIp, String reservationId, int desiredTotalTokens) {
         // Explicitly disabled only by local/test configuration.
     }
 }

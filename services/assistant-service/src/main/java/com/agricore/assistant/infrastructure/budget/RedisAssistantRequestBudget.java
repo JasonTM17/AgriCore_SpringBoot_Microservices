@@ -36,9 +36,13 @@ public class RedisAssistantRequestBudget implements AssistantRequestBudget {
     private static final String RESERVE_SCRIPT = """
             local maxRequests = tonumber(ARGV[1])
             local maxTokens = tonumber(ARGV[2])
-            local requestedTokens = tonumber(ARGV[3])
+            local desiredTokens = tonumber(ARGV[3])
             local ttl = tonumber(ARGV[4])
-            local requestedRequests = tonumber(ARGV[5])
+            local previousTokens = tonumber(redis.call('GET', KEYS[5]) or '-1')
+            local requestedRequests = previousTokens < 0 and 1 or 0
+            local requestedTokens = previousTokens < 0
+                    and desiredTokens
+                    or math.max(0, desiredTokens - previousTokens)
             local userRequests = tonumber(redis.call('GET', KEYS[1]) or '0')
             local ipRequests = tonumber(redis.call('GET', KEYS[2]) or '0')
             local userTokens = tonumber(redis.call('GET', KEYS[3]) or '0')
@@ -55,8 +59,15 @@ public class RedisAssistantRequestBudget implements AssistantRequestBudget {
                 incrementAndExpire(KEYS[1], requestedRequests)
                 incrementAndExpire(KEYS[2], requestedRequests)
             end
-            incrementAndExpire(KEYS[3], requestedTokens)
-            incrementAndExpire(KEYS[4], requestedTokens)
+            if requestedTokens > 0 then
+                incrementAndExpire(KEYS[3], requestedTokens)
+                incrementAndExpire(KEYS[4], requestedTokens)
+            end
+            if previousTokens < 0 then
+                redis.call('SET', KEYS[5], tostring(desiredTokens), 'EX', ttl)
+            elseif desiredTokens > previousTokens then
+                redis.call('SET', KEYS[5], tostring(desiredTokens), 'KEEPTTL')
+            end
             return 0
             """;
     private static final DefaultRedisScript<Long> SCRIPT =
@@ -74,32 +85,19 @@ public class RedisAssistantRequestBudget implements AssistantRequestBudget {
     }
 
     @Override
-    public void reserve(AssistantActor actor, String clientIp, int estimatedInputTokens) {
-        reserve(actor, clientIp, estimatedInputTokens, 1);
-    }
-
-    @Override
-    public void reserveAdditionalTokens(
+    public void reserve(
             AssistantActor actor,
             String clientIp,
-            int additionalInputTokens
-    ) {
-        if (additionalInputTokens <= 0) {
-            return;
-        }
-        reserve(actor, clientIp, additionalInputTokens, 0);
-    }
-
-    private void reserve(
-            AssistantActor actor,
-            String clientIp,
-            int estimatedInputTokens,
-            int requestedRequests
+            String reservationId,
+            int desiredTotalTokens
     ) {
         if (actor == null || actor.subject() == null) {
             throw AssistantException.invalidActorSubject();
         }
-        if (estimatedInputTokens < 1 || estimatedInputTokens > properties.getMaxTokens()) {
+        if (reservationId == null || reservationId.isBlank()) {
+            throw AssistantException.requestBudgetUnavailable();
+        }
+        if (desiredTotalTokens < 1 || desiredTotalTokens > properties.getMaxTokens()) {
             throw AssistantException.requestBudgetExceeded();
         }
         String userHash = hash(actor.subject().toString());
@@ -108,7 +106,8 @@ public class RedisAssistantRequestBudget implements AssistantRequestBudget {
                 key("user:req", userHash),
                 key("ip:req", ipHash),
                 key("user:token", userHash),
-                key("ip:token", ipHash)
+                key("ip:token", ipHash),
+                key("reservation", hash(reservationId.strip()))
         );
         Duration window = properties.getWindow();
         try {
@@ -117,9 +116,8 @@ public class RedisAssistantRequestBudget implements AssistantRequestBudget {
                     keys,
                     Integer.toString(properties.getMaxRequests()),
                     Integer.toString(properties.getMaxTokens()),
-                    Integer.toString(estimatedInputTokens),
-                    Long.toString(window.toSeconds()),
-                    Integer.toString(requestedRequests)
+                    Integer.toString(desiredTotalTokens),
+                    Long.toString(window.toSeconds())
             );
             if (result == null) {
                 throw AssistantException.requestBudgetUnavailable();

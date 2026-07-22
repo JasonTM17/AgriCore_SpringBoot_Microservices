@@ -4,7 +4,9 @@ import com.agricore.assistant.domain.model.AssistantActor;
 
 public interface AssistantRequestBudget {
 
-    void reserve(AssistantActor actor, String clientIp, int estimatedInputTokens);
-
-    void reserveAdditionalTokens(AssistantActor actor, String clientIp, int additionalInputTokens);
+    /**
+     * Atomically reserves the request and the desired total token ceiling for one idempotent attempt.
+     * Repeating the same reservation with a larger total only charges the token delta.
+     */
+    void reserve(AssistantActor actor, String clientIp, String reservationId, int desiredTotalTokens);
 }

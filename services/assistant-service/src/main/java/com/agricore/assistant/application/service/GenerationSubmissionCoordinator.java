@@ -113,7 +113,11 @@ public class GenerationSubmissionCoordinator {
         }
         int baseInputTokens = inputValidator.estimateInputTokens(
                 prompt, ToolEvidenceSnapshot.empty());
-        reserveInitialBudget(actor, conversation, clientIp, baseInputTokens);
+        String budgetReservationId = budgetReservationId(
+                actor, conversation, normalizedKey, requestHash);
+        int maxOutputTokens = generationPolicy.maxOutputTokens();
+        reserveInitialBudget(
+                actor, conversation, clientIp, budgetReservationId, baseInputTokens + maxOutputTokens);
         ToolEvidenceCollection collection = toolEvidenceCollector.collect(conversation);
         Instant now = clock.instant();
         if (collection.outcome() == ToolCollectionOutcome.DENIED) {
@@ -123,7 +127,7 @@ public class GenerationSubmissionCoordinator {
         }
         validateEvidenceBudget(actor, conversation, prompt, collection, now);
         reserveEvidenceBudget(
-                actor, conversation, clientIp, prompt, collection, baseInputTokens, now);
+                actor, conversation, clientIp, budgetReservationId, prompt, collection, maxOutputTokens, now);
         GenerationSubmissionCommand command = createCommand(
                 actor, conversation, normalizedKey, requestHash, prompt, collection, capabilities, now);
         return submitCommand(actor, conversation, collection, command, now);
@@ -133,10 +137,11 @@ public class GenerationSubmissionCoordinator {
             AssistantActor actor,
             AssistantConversation conversation,
             String clientIp,
+            String reservationId,
             int baseInputTokens
     ) {
         try {
-            requestBudget.reserve(actor, clientIp, baseInputTokens);
+            requestBudget.reserve(actor, clientIp, reservationId, baseInputTokens);
         } catch (AssistantException exception) {
             throw auditRejected(actor, conversation, exception);
         }
@@ -146,20 +151,30 @@ public class GenerationSubmissionCoordinator {
             AssistantActor actor,
             AssistantConversation conversation,
             String clientIp,
+            String reservationId,
             String prompt,
             ToolEvidenceCollection collection,
-            int baseInputTokens,
+            int maxOutputTokens,
             Instant now
     ) {
         int totalInputTokens = inputValidator.estimateInputTokens(prompt, collection.evidence());
         try {
-            requestBudget.reserveAdditionalTokens(
-                    actor, clientIp, Math.max(0, totalInputTokens - baseInputTokens));
+            requestBudget.reserve(
+                    actor, clientIp, reservationId, totalInputTokens + maxOutputTokens);
         } catch (AssistantException exception) {
             submissionAuditService.recordDiscardedToolAttempt(
                     actor, conversation, collection, exception.getCode(), now);
             throw auditRejected(actor, conversation, exception);
         }
+    }
+
+    private static String budgetReservationId(
+            AssistantActor actor,
+            AssistantConversation conversation,
+            String idempotencyKey,
+            String requestHash
+    ) {
+        return actor.subject() + ":" + conversation.id() + ":" + idempotencyKey + ":" + requestHash;
     }
 
     private GenerationSubmissionResult findIdempotent(

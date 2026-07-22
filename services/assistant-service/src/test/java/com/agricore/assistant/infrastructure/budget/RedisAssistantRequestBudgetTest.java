@@ -29,7 +29,7 @@ class RedisAssistantRequestBudgetTest {
         doReturn(0L).when(redis).execute(
                 anyRedisScript(), anyList(), any(Object[].class));
 
-        budget.reserve(actor, "127.0.0.1", 100);
+        budget.reserve(actor, "127.0.0.1", "request-1", 100);
     }
 
     @Test
@@ -37,7 +37,7 @@ class RedisAssistantRequestBudgetTest {
         doReturn(3L).when(redis).execute(
                 anyRedisScript(), anyList(), any(Object[].class));
 
-        assertThatThrownBy(() -> budget.reserve(actor, "127.0.0.1", 100))
+        assertThatThrownBy(() -> budget.reserve(actor, "127.0.0.1", "request-1", 100))
                 .isInstanceOf(AssistantException.class)
                 .hasFieldOrPropertyWithValue("code", "ASSISTANT_REQUEST_BUDGET_EXCEEDED");
     }
@@ -47,7 +47,7 @@ class RedisAssistantRequestBudgetTest {
         doThrow(new IllegalStateException("redis unavailable")).when(redis).execute(
                 anyRedisScript(), anyList(), any(Object[].class));
 
-        assertThatThrownBy(() -> budget.reserve(actor, "127.0.0.1", 100))
+        assertThatThrownBy(() -> budget.reserve(actor, "127.0.0.1", "request-1", 100))
                 .isInstanceOf(AssistantException.class)
                 .hasFieldOrPropertyWithValue("code", "ASSISTANT_BUDGET_UNAVAILABLE");
     }

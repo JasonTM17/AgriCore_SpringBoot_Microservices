@@ -17,6 +17,7 @@ import com.agricore.assistant.domain.model.AssistantGeneration;
 import com.agricore.assistant.domain.model.ConversationContextType;
 import com.agricore.assistant.domain.model.ConversationStatus;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -32,9 +33,9 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -126,14 +127,20 @@ class GenerationSubmissionCoordinatorTest {
                 .thenReturn(ToolEvidenceCollection.skipped("TOOLS_DISABLED"));
         when(retentionPolicy.generationEventRetention()).thenReturn(Duration.ofHours(1));
         when(generationPolicy.model()).thenReturn("test-model");
+        when(generationPolicy.maxOutputTokens()).thenReturn(256);
         when(submissionTransaction.submit(any())).thenReturn(expected);
 
         GenerationSubmissionResult result = service.submit(
                 actor, conversationId, "How is the crop?", "new-key", "203.0.113.10");
 
         assertThat(result).isSameAs(expected);
-        verify(requestBudget).reserve(eq(actor), eq("203.0.113.10"), anyInt());
-        verify(requestBudget).reserveAdditionalTokens(actor, "203.0.113.10", 0);
+        ArgumentCaptor<String> reservationIds = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<Integer> reservedTokens = ArgumentCaptor.forClass(Integer.class);
+        verify(requestBudget, times(2)).reserve(
+                eq(actor), eq("203.0.113.10"), reservationIds.capture(), reservedTokens.capture());
+        assertThat(reservationIds.getAllValues()).hasSize(2)
+                .containsOnly(reservationIds.getAllValues().getFirst());
+        assertThat(reservedTokens.getAllValues()).allMatch(tokens -> tokens >= 256);
         verify(submissionTransaction).submit(any());
     }
 

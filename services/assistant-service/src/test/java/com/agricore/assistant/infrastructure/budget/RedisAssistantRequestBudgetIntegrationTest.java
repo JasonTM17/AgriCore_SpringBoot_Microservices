@@ -67,10 +67,11 @@ class RedisAssistantRequestBudgetIntegrationTest {
         List<Future<Boolean>> results = new ArrayList<>();
         try {
             for (int index = 0; index < 20; index++) {
+                String reservationId = "request-" + index;
                 results.add(executor.submit(() -> {
                     start.await();
                     try {
-                        budget.reserve(actor, "198.51.100.4", 10);
+                        budget.reserve(actor, "198.51.100.4", reservationId, 10);
                         return true;
                     } catch (AssistantException exception) {
                         assertThat(exception.getCode())
@@ -97,9 +98,9 @@ class RedisAssistantRequestBudgetIntegrationTest {
         properties.setMaxRequests(100);
         properties.setMaxTokens(100);
 
-        budget.reserve(actor, "198.51.100.4", 60);
+        budget.reserve(actor, "198.51.100.4", "token-request", 60);
 
-        assertThatThrownBy(() -> budget.reserveAdditionalTokens(actor, "198.51.100.4", 50))
+        assertThatThrownBy(() -> budget.reserve(actor, "198.51.100.4", "token-request", 110))
                 .isInstanceOf(AssistantException.class)
                 .hasFieldOrPropertyWithValue("code", "ASSISTANT_REQUEST_BUDGET_EXCEEDED");
     }
@@ -109,11 +110,47 @@ class RedisAssistantRequestBudgetIntegrationTest {
         properties.setMaxRequests(1);
         properties.setMaxTokens(100);
 
-        budget.reserve(actor, "198.51.100.4", 10);
-        budget.reserveAdditionalTokens(actor, "198.51.100.4", 10);
+        budget.reserve(actor, "198.51.100.4", "same-request", 10);
+        budget.reserve(actor, "198.51.100.4", "same-request", 20);
 
-        assertThatThrownBy(() -> budget.reserve(actor, "198.51.100.4", 10))
+        assertThatThrownBy(() -> budget.reserve(actor, "198.51.100.4", "different-request", 10))
                 .isInstanceOf(AssistantException.class)
                 .hasFieldOrPropertyWithValue("code", "ASSISTANT_REQUEST_BUDGET_EXCEEDED");
+    }
+
+    @Test
+    void sameIdempotentReservationConsumesOneRequestSlotUnderConcurrency() throws Exception {
+        properties.setMaxRequests(1);
+        properties.setMaxTokens(100);
+        ExecutorService executor = Executors.newFixedThreadPool(12);
+        CountDownLatch start = new CountDownLatch(1);
+        List<Future<Boolean>> results = new ArrayList<>();
+        try {
+            for (int index = 0; index < 20; index++) {
+                results.add(executor.submit(() -> {
+                    start.await();
+                    try {
+                        budget.reserve(actor, "198.51.100.4", "same-concurrent-request", 20);
+                        return true;
+                    } catch (AssistantException exception) {
+                        return false;
+                    }
+                }));
+            }
+            start.countDown();
+            long allowed = 0;
+            for (Future<Boolean> result : results) {
+                if (result.get()) {
+                    allowed++;
+                }
+            }
+            assertThat(allowed).isEqualTo(20);
+            assertThatThrownBy(() -> budget.reserve(
+                    actor, "198.51.100.4", "another-request", 20))
+                    .isInstanceOf(AssistantException.class)
+                    .hasFieldOrPropertyWithValue("code", "ASSISTANT_REQUEST_BUDGET_EXCEEDED");
+        } finally {
+            executor.shutdownNow();
+        }
     }
 }
