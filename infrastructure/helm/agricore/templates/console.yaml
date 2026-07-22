@@ -1,4 +1,5 @@
 {{- if .Values.console.enabled }}
+{{- if or (empty .Values.global.imageTag) (eq (lower .Values.global.imageTag) "latest") }}{{ fail "global.imageTag must be a non-empty immutable release tag or commit SHA; latest is not allowed" }}{{ end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -9,6 +10,13 @@ metadata:
     app.kubernetes.io/component: frontend
 spec:
   replicas: {{ .Values.console.replicaCount | default 1 }}
+  minReadySeconds: 10
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: agricore-console
@@ -18,6 +26,8 @@ spec:
         app.kubernetes.io/name: agricore-console
         app.kubernetes.io/part-of: agricore
     spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
       securityContext:
         runAsNonRoot: true
         runAsUser: 101
@@ -47,6 +57,11 @@ spec:
             httpGet: { path: /healthz, port: http }
             initialDelaySeconds: 5
             periodSeconds: 10
+          startupProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 24
           resources:
             {{- toYaml .Values.console.resources | nindent 12 }}
       volumes:

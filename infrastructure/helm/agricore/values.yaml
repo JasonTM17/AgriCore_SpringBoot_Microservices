@@ -1,7 +1,25 @@
 global:
   imageRegistry: nguyenson1710
-  imageTag: latest
+  # CI/release jobs override this with the full commit SHA. Never use latest.
+  imageTag: "0.1.0"
   imagePullPolicy: IfNotPresent
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 75
+
+pdb:
+  enabled: false
+  maxUnavailable: 1
+
+networkPolicy:
+  enabled: true
+  # Keep egress open by default because PostgreSQL, Redis, Kafka, SMTP, MQTT,
+  # and OTLP backends are operator-provided. Set false and provide explicit
+  # rules in a production values overlay when dependency CIDRs are known.
+  restrictEgress: false
 
 # Each entry maps to Deployment+Service in templates/deployment.yaml
 identity:

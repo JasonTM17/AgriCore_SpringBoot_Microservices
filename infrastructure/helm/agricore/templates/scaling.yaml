@@ -1,0 +1,64 @@
+{{- $services := dict
+  "identity" .Values.identity
+  "farm" .Values.farm
+  "crop-catalog" .Values.cropCatalog
+  "crop-cycle" .Values.cropCycle
+  "work" .Values.work
+  "inventory" .Values.inventory
+  "harvest" .Values.harvest
+  "notification" .Values.notification
+  "iot" .Values.iot
+  "sales" .Values.sales
+  "traceability" .Values.traceability
+  "assistant" .Values.assistant
+  "gateway" .Values.gateway
+  "console" .Values.console
+-}}
+{{- range $name, $svc := $services }}
+{{- if and $svc $svc.enabled }}
+{{- if $.Values.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: agricore-{{ $name }}
+  labels:
+    app.kubernetes.io/name: agricore-{{ $name }}
+    app.kubernetes.io/part-of: agricore
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: agricore-{{ $name }}
+  minReplicas: {{ $.Values.autoscaling.minReplicas }}
+  maxReplicas: {{ $.Values.autoscaling.maxReplicas }}
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $.Values.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+{{- if and $.Values.pdb.enabled (gt (int ($svc.replicaCount | default 1)) 1) }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: agricore-{{ $name }}
+  labels:
+    app.kubernetes.io/name: agricore-{{ $name }}
+    app.kubernetes.io/part-of: agricore
+spec:
+  maxUnavailable: {{ $.Values.pdb.maxUnavailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: agricore-{{ $name }}
+{{- end }}
+{{- end }}
+{{- end }}

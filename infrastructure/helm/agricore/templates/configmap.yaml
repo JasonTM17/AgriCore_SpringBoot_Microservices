@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agricore-runtime-config
+  labels:
+    app.kubernetes.io/name: agricore-runtime-config
+    app.kubernetes.io/part-of: agricore
+data:
+  POSTGRES_HOST: {{ .Values.postgres.host | quote }}
+  POSTGRES_PORT: {{ .Values.postgres.port | quote }}
+  KAFKA_BOOTSTRAP_SERVERS: {{ .Values.kafka.bootstrapServers | quote }}
+  JWT_ISSUER: {{ .Values.jwtIssuer | quote }}
+  IDENTITY_JWKS_URI: {{ .Values.identityJwksUri | quote }}
+  AGRICORE_DEV_MODE: "false"
+  SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "5"
+  MANAGEMENT_METRICS_DISTRIBUTION_PERCENTILES_HISTOGRAM_HTTP_SERVER_REQUESTS: "true"

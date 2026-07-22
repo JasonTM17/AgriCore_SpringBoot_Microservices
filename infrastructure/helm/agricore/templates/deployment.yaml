@@ -19,6 +19,7 @@
 -}}
 {{- range $name, $svc := $services }}
 {{- if and $svc $svc.enabled }}
+{{- if or (empty $.Values.global.imageTag) (eq (lower $.Values.global.imageTag) "latest") }}{{ fail "global.imageTag must be a non-empty immutable release tag or commit SHA; latest is not allowed" }}{{ end }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -30,6 +31,13 @@ metadata:
     app.kubernetes.io/component: microservice
 spec:
   replicas: {{ $svc.replicaCount | default 1 }}
+  minReadySeconds: 10
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: agricore-{{ $name }}
@@ -39,6 +47,8 @@ spec:
         app.kubernetes.io/name: agricore-{{ $name }}
         app.kubernetes.io/part-of: agricore
     spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
@@ -51,11 +61,10 @@ spec:
           ports:
             - containerPort: {{ $svc.port }}
               name: http
+          envFrom:
+            - configMapRef:
+                name: agricore-runtime-config
           env:
-            - name: POSTGRES_HOST
-              value: {{ $.Values.postgres.host | quote }}
-            - name: POSTGRES_PORT
-              value: {{ $.Values.postgres.port | quote }}
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
@@ -66,18 +75,6 @@ spec:
                 secretKeyRef:
                   name: {{ $.Values.postgres.databaseSecretName | quote }}
                   key: password
-            - name: KAFKA_BOOTSTRAP_SERVERS
-              value: {{ $.Values.kafka.bootstrapServers | quote }}
-            - name: JWT_ISSUER
-              value: {{ $.Values.jwtIssuer | quote }}
-            - name: IDENTITY_JWKS_URI
-              value: {{ $.Values.identityJwksUri | quote }}
-            - name: AGRICORE_DEV_MODE
-              value: "false"
-            - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
-              value: "5"
-            - name: MANAGEMENT_METRICS_DISTRIBUTION_PERCENTILES_HISTOGRAM_HTTP_SERVER_REQUESTS
-              value: "true"
             {{- if $.Values.observability.structuredLogging }}
             - name: LOGGING_STRUCTURED_FORMAT_CONSOLE
               value: "ecs"
@@ -263,12 +260,20 @@ spec:
             - name: tmp
               mountPath: /tmp
           {{- end }}
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 30
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness
               port: http
             initialDelaySeconds: 45
             periodSeconds: 15
+            timeoutSeconds: 5
             failureThreshold: 5
           readinessProbe:
             httpGet:
@@ -276,6 +281,7 @@ spec:
               port: http
             initialDelaySeconds: 25
             periodSeconds: 10
+            timeoutSeconds: 5
             failureThreshold: 6
           resources:
             {{- toYaml ($svc.resources | default (dict "requests" (dict "cpu" "100m" "memory" "256Mi") "limits" (dict "cpu" "500m" "memory" "512Mi"))) | nindent 12 }}
