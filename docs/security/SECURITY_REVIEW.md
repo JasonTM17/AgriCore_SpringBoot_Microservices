@@ -52,9 +52,9 @@
 
 ## Evidence boundary
 
-All 13 Spring applications include the Micrometer OpenTelemetry bridge and OTLP exporter. Local Compose configures OTLP/HTTP trace export to Tempo, Prometheus scraping, Grafana provisioning, and ECS JSON stdout. This is repository and local Compose evidence only; the review does not claim that a production collector/backend is configured or that production trace delivery has been exercised.
+All 13 Spring applications include the Micrometer OpenTelemetry bridge and OTLP exporter. Local Compose configures OTLP/HTTP trace export to Tempo, Prometheus scraping, Grafana provisioning, ECS JSON stdout, and Alloy/Loki collection with bounded local retention. This is repository and local Compose evidence only; the review does not claim that a production collector/backend is configured or that production trace delivery has been exercised.
 
-This review does not prove runtime mTLS, Kafka ACL enforcement, centralized log collection, or a deployed production environment.
+This review does not prove runtime mTLS, Kafka ACL enforcement, production log tenancy/retention, or a deployed production environment. Alloy's read-only Docker socket remains a local host trust boundary.
 
 The Docker/Helm edge is same-origin by default: console `/` and `/api` share the browser origin, assistant-service is internal-only in Compose, and the Helm Ingress applies request-size and long-lived SSE timeout controls. A Docker Hub push is a release action, not evidence of a production deployment; credentials must remain in repository secrets.
 

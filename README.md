@@ -68,7 +68,7 @@ Copy-Item .env.example .env
 Start infrastructure first so Compose creates the `agricore_default` network, then observability, then the applications:
 
 ```powershell
-docker compose up -d postgres redis kafka kafka-ui kafka-topics-init mqtt
+docker compose up -d postgres redis kafka kafka-ui kafka-topics-init mqtt minio
 docker compose -f docker-compose.observability.yml up -d
 docker compose up -d --build
 ```
@@ -80,6 +80,8 @@ docker compose up -d --build
 | Kafka UI | `http://localhost:8088` |
 | Mailpit | `http://localhost:8025` |
 | MQTT broker | `tcp://localhost:1883` |
+| MinIO API | `http://localhost:9000` |
+| MinIO console | `http://localhost:9001` |
 | Grafana | `http://localhost:3001` |
 | Prometheus | `http://localhost:9090` |
 | Tempo | `http://localhost:3200` |
@@ -137,12 +139,12 @@ For an already-running stack:
         │
         └─ Micrometer tracing bridge ── OTLP/HTTP ── Tempo ─────┘
 
-Application logs ── ECS JSON ── container stdout
+Application logs ── ECS JSON ── container stdout ── Alloy ── Loki ── Grafana
 ```
 
-Local Compose exports traces to `http://tempo:4318/v1/traces` with sampling probability `1.0`. Prometheus scrapes all 13 Spring applications. Grafana provisions Prometheus and Tempo datasources plus seven read-only dashboards. Custom meters cover transactional outbox backlog, Kafka dead-letter recovery attempts, harvest processing latency, inventory outcomes, IoT ingestion and alerts, sales sagas, notification delivery, and assistant generations.
+Local Compose exports traces to `http://tempo:4318/v1/traces` with sampling probability `1.0`. Prometheus scrapes all 13 Spring applications. Grafana provisions Prometheus, Tempo, and Loki datasources plus seven read-only dashboards. Custom meters cover transactional outbox backlog, Kafka dead-letter recovery attempts, harvest processing latency, inventory outcomes, IoT ingestion and alerts, sales sagas, notification delivery, and assistant generations.
 
-Logs are structured ECS JSON on stdout; no centralized log backend is provisioned. See [local operations](docs/runbooks/local-operations.md) for verification commands and the exact metric catalog.
+Alloy discovers only this project's Docker containers, enriches their structured stdout, and forwards it to persistent local Loki storage. Loki keeps 72 hours of local logs, while Docker files are independently bounded to three 10 MiB files per container by default. MinIO provides persistent, loopback-bound local object storage; application media integration is documented separately as it is delivered. See [local operations](docs/runbooks/local-operations.md) for verification commands and the exact metric catalog.
 
 ## Authentication example
 
@@ -164,7 +166,7 @@ Default roles: `SYSTEM_ADMIN`, `FARM_MANAGER`, `AGRONOMIST`, `FIELD_WORKER`, `WA
 
 The chart at `infrastructure/helm/agricore` renders Deployments and Services for all 13 Spring applications and the console, plus an optional same-origin Ingress. It also includes an idempotent pre-install/pre-upgrade Job for the assistant database.
 
-The chart does not install PostgreSQL, Redis, Kafka, Tempo, Prometheus, or Grafana. Operators must provide those dependencies and create the database credential Secret named by `postgres.databaseSecretName`. Configure the notification chart's external SMTP host, TLS, and username/password Secret before enabling delivery; SMTP defaults are intentionally placeholders. OTLP trace export is disabled until `observability.otlpTracingEndpoint` is set; the chart's sampling default is `0.1`.
+The chart does not install PostgreSQL, Redis, Kafka, MinIO, Tempo, Prometheus, Loki, Alloy, or Grafana. Operators must provide those dependencies and create the database credential Secret named by `postgres.databaseSecretName`. Configure the notification chart's external SMTP host, TLS, and username/password Secret before enabling delivery; SMTP defaults are intentionally placeholders. OTLP trace export is disabled until `observability.otlpTracingEndpoint` is set; the chart's sampling default is `0.1`.
 
 ## CI, security, and publishing
 
@@ -186,7 +188,7 @@ libs/                       Shared API, security, and farm-access libraries
 contracts/                  OpenAPI and AsyncAPI contracts
 infrastructure/docker/      Database initialization and local assets
 infrastructure/helm/        Application Helm chart
-infrastructure/monitoring/  Tempo, Prometheus, and Grafana configuration
+infrastructure/monitoring/  Tempo, Prometheus, Loki, Alloy, and Grafana configuration
 docs/                       Architecture, ADRs, evidence, and runbooks
 scripts/                    Local setup, verification, and seed tools
 ```

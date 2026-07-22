@@ -15,7 +15,7 @@ AgriCore has 13 independently deployed Spring applications. Operators need consi
 4. Provision Grafana with non-editable Prometheus and Tempo datasources, Prometheus exemplar links to Tempo, and seven file-backed AgriCore dashboards.
 5. Emit Spring Boot ECS JSON to console stdout with service and environment metadata.
 6. Keep cluster trace export opt-in. Helm leaves `observability.otlpTracingEndpoint` empty by default and uses sampling probability `0.1` when an endpoint is configured.
-7. Do not provision a centralized log backend. ECS stdout remains available to a deployment-specific collector.
+7. Provision Alloy and Loki only in local Compose. Alloy discovers containers for this Compose project through the read-only Docker socket, excludes Alloy/Loki self-logs, enriches service labels, and forwards ECS stdout to Loki. Loki uses persistent local filesystem storage with 72-hour retention; Docker json-file logs are independently bounded. Cluster deployments must provide their own collector, backend, persistence, retention, and access controls.
 
 ## Consequences
 
@@ -23,19 +23,19 @@ AgriCore has 13 independently deployed Spring applications. Operators need consi
 
 - Application instrumentation is vendor-neutral and uses the Spring/Micrometer observation model.
 - Metrics and traces are navigable together through Grafana datasources and exemplars.
-- Local developers receive reproducible Tempo, Prometheus, Grafana, dashboards, and full trace sampling.
-- ECS JSON can be collected later without changing application log statements.
+- Local developers receive reproducible Tempo, Prometheus, Grafana, dashboards, full trace sampling, and searchable 72-hour logs.
+- ECS JSON can be collected by Alloy locally or another deployment-specific collector without changing application log statements.
 
 ### Negative
 
 - Trace export, histogram publication, and full local sampling add CPU, network, and storage overhead.
 - Direct application-to-Tempo export provides no collector-side batching, routing, tail sampling, or retry policy.
 - Local Tempo storage is container-local; its 48-hour retention setting is not a durability guarantee.
-- Logs must be inspected from stdout until an external log collector/backend is installed.
+- Local Loki storage is persistent but intentionally bounded to 72 hours; the read-only Docker socket remains a host-level trust boundary.
 
 ### Neutral
 
-- The Helm chart deploys application workloads, not Tempo, Prometheus, Grafana, or a log collector.
+- The Helm chart deploys application workloads, not Tempo, Prometheus, Loki, Alloy, Grafana, or a log collector.
 - Operators choose the production OTLP endpoint, sampling policy, backend persistence, retention, and access controls.
 - Grafana dashboards are provisioned read-only and are changed through repository JSON.
 
@@ -45,7 +45,8 @@ AgriCore has 13 independently deployed Spring applications. Operators need consi
 - **OpenTelemetry Collector between applications and Tempo:** deferred to keep local operation small. A collector is appropriate when production needs buffering, routing, enrichment, or tail sampling.
 - **Jaeger- or Zipkin-specific tracing:** rejected to avoid backend-specific application integration; OTLP/HTTP preserves backend portability.
 - **Metrics only:** rejected because cross-service gateway and domain workflows require trace-level correlation.
-- **Loki in the local stack:** deferred because structured stdout satisfies the current requirement without adding another storage and operations component.
+- **Promtail in the local stack:** rejected because Alloy is the current Grafana-supported collection path and provides Docker discovery, relabeling, and Loki forwarding with one bounded component.
+- **Loki everywhere:** rejected because cluster storage, retention, auth, and tenancy are operator-specific; the repository provisions only a local development profile.
 
 ## References
 
@@ -53,6 +54,8 @@ AgriCore has 13 independently deployed Spring applications. Operators need consi
 - [Observability Compose](../../docker-compose.observability.yml)
 - [Prometheus configuration](../../infrastructure/monitoring/prometheus.yml)
 - [Tempo configuration](../../infrastructure/monitoring/tempo.yaml)
+- [Loki configuration](../../infrastructure/monitoring/loki.yaml)
+- [Alloy configuration](../../infrastructure/monitoring/alloy/config.alloy)
 - [Grafana datasource provisioning](../../infrastructure/monitoring/grafana/provisioning/datasources/datasources.yml)
 - [Grafana dashboard provisioning](../../infrastructure/monitoring/grafana/provisioning/dashboards/dashboards.yml)
 - [Helm values](../../infrastructure/helm/agricore/values.yaml)

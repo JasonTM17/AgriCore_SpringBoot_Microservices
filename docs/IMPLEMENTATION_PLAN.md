@@ -16,9 +16,9 @@ The repository contains 13 Spring applications, a React/Vite console, OpenAPI an
 - React 19, Vite 8, TypeScript 5.9, pnpm 11.
 - Docker Compose for local operation; Kubernetes/Helm for application workloads.
 - JUnit 5, Mockito, AssertJ, Testcontainers, ArchUnit, Vitest, and Playwright.
-- Micrometer/OpenTelemetry over OTLP/HTTP to Tempo; Prometheus; Grafana; ECS JSON stdout.
+- Micrometer/OpenTelemetry over OTLP/HTTP to Tempo; Prometheus; Grafana; Alloy/Loki log collection; ECS JSON stdout; MinIO local object storage.
 
-Jaeger, Loki, centralized log aggregation, and MinIO are not part of the delivered stack.
+Jaeger is not part of the delivered stack. Production object storage and log retention remain operator-provided; local Compose provisions MinIO and a bounded Alloy/Loki stack for realistic development evidence.
 
 ## Application map
 
@@ -75,9 +75,10 @@ HTTP and QoS 1 MQTT sensor ingestion with stable reading-ID deduplication and al
 - Micrometer OpenTelemetry bridge and OTLP exporter in all 13 Spring applications.
 - Local OTLP/HTTP export to Tempo at `http://tempo:4318/v1/traces`, sampling probability `1.0`.
 - Prometheus scrape jobs for all 13 applications.
-- Prometheus and Tempo Grafana datasources with seven provisioned read-only dashboards.
-- ECS JSON stdout plus custom outbox, DLT recovery, harvest, inventory, IoT, sales, and assistant metrics.
-- Helm trace endpoint opt-in with sampling default `0.1`; observability backends remain operator-provided.
+- Prometheus, Tempo, and Loki Grafana datasources with seven provisioned read-only dashboards.
+- ECS JSON stdout collected by Alloy into Loki with 72-hour local retention and bounded Docker log files, plus custom outbox, DLT recovery, harvest, inventory, IoT, sales, and assistant metrics.
+- MinIO local object storage with loopback-only API and console bindings.
+- Helm trace endpoint opt-in with sampling default `0.1`; observability and object-storage backends remain operator-provided in clusters.
 
 ### M8 — Production hardening
 

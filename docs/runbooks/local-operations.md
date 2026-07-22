@@ -21,7 +21,7 @@ Never commit `.env`, generated private keys, or provider credentials.
 The observability Compose file joins the external `agricore_default` network. Create that network by starting the core infrastructure first, then start observability, then the applications:
 
 ```powershell
-docker compose up -d postgres redis kafka kafka-ui kafka-topics-init mqtt
+docker compose up -d postgres redis kafka kafka-ui kafka-topics-init mqtt minio
 docker compose -f docker-compose.observability.yml up -d
 docker compose up -d --build
 ```
@@ -33,13 +33,15 @@ docker compose up -d --build
 | Kafka UI | `http://localhost:8088` |
 | Mailpit captured email | `http://localhost:8025` |
 | MQTT broker | `tcp://localhost:1883` |
+| MinIO API | `http://localhost:9000` |
+| MinIO console | `http://localhost:9001` |
 | Grafana | `http://localhost:3001` |
 | Prometheus | `http://localhost:9090` |
 | Prometheus targets | `http://localhost:9090/targets` |
 | Tempo readiness/API | `http://localhost:3200/ready` |
 | Tempo OTLP/HTTP receiver | `http://localhost:4318/v1/traces` |
 
-The local Grafana credentials come from `docker-compose.observability.yml`: user `admin`, password `agricore_dev_change_me`. They are development-only.
+The local Grafana credentials come from `GRAFANA_ADMIN_USER` and `GRAFANA_ADMIN_PASSWORD` in `.env`: the template uses `admin` and a development-only placeholder. MinIO credentials come from `MINIO_ROOT_USER` and `MINIO_ROOT_PASSWORD`; replace them outside local development.
 
 ### MQTT telemetry smoke test
 
@@ -68,6 +70,7 @@ Invoke-RestMethod http://localhost:8080/actuator/health
 Invoke-RestMethod http://localhost:9090/-/ready
 Invoke-RestMethod http://localhost:3200/ready
 Invoke-RestMethod http://localhost:8025/readyz
+Invoke-RestMethod http://localhost:9000/minio/health/live
 ```
 
 Open Prometheus targets and confirm all 13 application jobs are `UP`. Twelve targets use host-published ports; assistant-service is scraped on the shared Compose network.
@@ -101,7 +104,7 @@ $result.traces
 
 Local Compose sends OTLP/HTTP traces to `http://tempo:4318/v1/traces` with sampling probability `1.0`. Helm defaults to sampling probability `0.1`, but the endpoint is empty and export is disabled until an operator sets `observability.otlpTracingEndpoint`.
 
-Tempo local retention is configured for 48 hours. Its container storage is not persistent, so container removal can discard traces before that limit.
+Tempo local retention is configured for 48 hours. Its container storage is not persistent, so container removal can discard traces before that limit. Loki data is persistent in the `agricore_loki_data` volume; MinIO data is persistent in `agricore_minio_data`.
 
 ## Verify ECS JSON logs
 
@@ -118,7 +121,19 @@ $entry.service.name
 $entry.service.environment
 ```
 
-After a traced request, entries emitted inside that request may also include `trace.id` and `span.id`. ECS logs remain on container stdout: no Loki or other centralized log aggregation backend is provisioned. A local `spring-boot:run` process emits ECS JSON only when the corresponding structured logging environment or properties are set.
+After a traced request, entries emitted inside that request may also include `trace.id` and `span.id`. Alloy discovers only this Compose project, enriches service labels, and forwards container stdout to Loki. Query recent logs through Loki's internal API or the Grafana Explore view:
+
+```powershell
+$query = [uri]::EscapeDataString('{service_name="agricore-minio"}')
+$user = if ($env:GRAFANA_ADMIN_USER) { $env:GRAFANA_ADMIN_USER } else { 'admin' }
+$password = if ($env:GRAFANA_ADMIN_PASSWORD) { $env:GRAFANA_ADMIN_PASSWORD } else { 'agricore_grafana_dev_change_me' }
+$basic = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("$user`:$password"))
+$logs = Invoke-RestMethod -Headers @{ Authorization = "Basic $basic" } "http://localhost:3001/api/datasources/proxy/uid/loki/loki/api/v1/query_range?query=$query&limit=20"
+if (-not $logs.data.result) { throw "No MinIO logs found in Loki" }
+$logs.data.result
+```
+
+Loki local retention is 72 hours and Docker's `json-file` logs are bounded to three 10 MiB files per container by default. The Docker socket is mounted read-only by Alloy for discovery; treat local Docker access as a host-level trust boundary. A local `spring-boot:run` process emits ECS JSON only when the corresponding structured logging environment or properties are set, and is not collected by Alloy unless it is containerized.
 
 ## Custom Prometheus metrics
 
@@ -193,4 +208,4 @@ docker compose -f docker-compose.observability.yml down
 docker compose down
 ```
 
-Named PostgreSQL data remains. Add `--volumes` only when intentionally deleting local data.
+Named PostgreSQL, MinIO, and Loki data remains. Add `--volumes` only when intentionally deleting local data.

@@ -111,17 +111,17 @@ All 13 Spring applications include `micrometer-tracing-bridge-otel`, `openteleme
 Spring observations → Micrometer OTel bridge → OTLP/HTTP → Tempo
 /actuator/prometheus ← Prometheus ← Grafana
 Tempo traces ────────────────────────────────↑
-ECS JSON logs → container stdout
+ECS JSON logs → container stdout → Alloy → Loki → Grafana
 ```
 
 ### Environment behavior
 
 | Environment | Trace endpoint | Sampling | Logging |
 |---|---|---:|---|
-| Local Compose | `http://tempo:4318/v1/traces` | `1.0` | ECS JSON, environment `local` by default |
+| Local Compose | `http://tempo:4318/v1/traces` | `1.0` | ECS JSON, Alloy collection into Loki, environment `local` by default |
 | Helm | Empty by default; export starts only when configured | `0.1` default when export is enabled | ECS JSON when `observability.structuredLogging=true` |
 
-Prometheus defines 13 scrape jobs: 12 host-published applications through `host.docker.internal`, plus the internal assistant service on the shared Compose network. Grafana provisions non-editable Prometheus and Tempo datasources, Prometheus exemplar links to Tempo, and seven read-only dashboards:
+Prometheus defines 13 scrape jobs: 12 host-published applications through `host.docker.internal`, plus the internal assistant service on the shared Compose network. Grafana provisions non-editable Prometheus, Tempo, and Loki datasources, Prometheus exemplar links to Tempo, and seven read-only dashboards:
 
 1. AgriCore Platform Overview
 2. AgriCore Service Health
@@ -147,25 +147,25 @@ Prometheus defines 13 scrape jobs: 12 host-published applications through `host.
 | `agricore_notification_deliveries_total` | Notification delivery outcomes by sent, failed, or duplicate |
 | `agricore_assistant_generations_total` | Completed, failed, and cancelled generations |
 
-There is no Loki or other centralized log backend. ECS stdout is collector-ready but remains container-local. Tempo uses non-persistent container storage with 48-hour configured retention in the local stack.
+Alloy discovers only containers carrying this repository's Compose project labels, drops its own and Loki's containers to avoid recursive ingestion, enriches service labels, and forwards ECS JSON/stdout to Loki. Loki uses local filesystem storage with 72-hour retention and rejects older samples. Docker's json-file logs are bounded to three 10 MiB files per container by default. The Docker socket is mounted read-only for discovery and is therefore a local host trust boundary. Tempo uses non-persistent container storage with 48-hour configured retention in the local stack.
 
 ## 9. Deployment scope
 
 | Environment | Repository mechanism | Scope |
 |---|---|---|
-| Local | `docker-compose.yml` plus `docker-compose.observability.yml` | Infrastructure, Mailpit, 13 applications, console, Tempo, Prometheus, Grafana |
+| Local | `docker-compose.yml` plus `docker-compose.observability.yml` | Infrastructure, Mailpit, MinIO, 13 applications, console, Tempo, Prometheus, Alloy, Loki, Grafana |
 | Cluster | `infrastructure/helm/agricore` | 13 application Deployments/Services, console, optional Ingress, assistant database Job |
 | CI | GitHub Actions | Build/test, frontend, secret, Compose, Helm, CodeQL, Trivy, and gated publishing workflows |
 
-The Helm chart expects external PostgreSQL, Redis, Kafka, and SMTP services plus pre-created database and SMTP credential Secrets. It does not install Tempo, Prometheus, Grafana, or a log backend. These repository mechanisms do not prove a production cluster is deployed.
+The Helm chart expects external PostgreSQL, Redis, Kafka, MinIO-compatible object storage, SMTP, and observability services plus pre-created database and SMTP credential Secrets. It does not install Tempo, Prometheus, Loki, Alloy, Grafana, or MinIO. These repository mechanisms do not prove a production cluster is deployed.
 
 ## 10. Non-goals
 
 - No Eureka or Consul.
 - No shared JPA entities across services.
 - No Debezium until polling outbox is insufficient.
-- No MinIO or other object-storage integration is implemented.
-- No centralized log aggregation is provisioned.
+- No application media/object-storage integration is implemented yet; MinIO is provisioned for the local platform boundary.
+- No production log aggregation deployment is claimed; local Compose provides bounded Alloy/Loki collection only.
 
 ## References
 
