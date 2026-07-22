@@ -58,42 +58,42 @@ public class NotificationEventListener {
             DomainEventEnvelopeReader.Envelope envelope
     ) {
         JsonNode payload = envelope.payload();
-        String correlationId = textOrNull(root.path("correlationId"));
+        String correlationId = textOrNull(root.path("correlationId"), 100);
         return switch (envelope.eventType()) {
             case EventTypes.SALES_ORDER_CONFIRMED -> new NotificationEventCommand(
                     envelope.eventId(), envelope.eventType(), "IN_APP",
-                    required(payload, "customerId"),
-                    "Sales order " + required(payload, "orderNumber") + " confirmed",
-                    "Sales order " + required(payload, "orderNumber") + " is confirmed and inventory is committed.",
+                    requiredUuid(payload, "customerId"),
+                    "Sales order " + required(payload, "orderNumber", 64) + " confirmed",
+                    "Sales order " + required(payload, "orderNumber", 64) + " is confirmed and inventory is committed.",
                     correlationId
             );
             case EventTypes.SALES_ORDER_CANCELLED -> new NotificationEventCommand(
                     envelope.eventId(), envelope.eventType(), "IN_APP",
-                    required(payload, "customerId"),
-                    "Sales order " + required(payload, "orderNumber") + " cancelled",
-                    "Sales order " + required(payload, "orderNumber") + " ended with status "
-                            + required(payload, "finalStatus") + ".",
+                    requiredUuid(payload, "customerId"),
+                    "Sales order " + required(payload, "orderNumber", 64) + " cancelled",
+                    "Sales order " + required(payload, "orderNumber", 64) + " ended with status "
+                            + required(payload, "finalStatus", 32) + ".",
                     correlationId
             );
             case EventTypes.TRACEABILITY_CODE_GENERATED -> new NotificationEventCommand(
                     envelope.eventId(), envelope.eventType(), "IN_APP", "operations",
                     "Traceability code generated",
-                    "Traceability code " + required(payload, "traceabilityCode")
-                            + " is available at " + required(payload, "publicUrl"),
+                    "Traceability code " + required(payload, "traceabilityCode", 128)
+                            + " is available at " + required(payload, "publicUrl", 2048),
                     correlationId
             );
             case EventTypes.SENSOR_THRESHOLD_EXCEEDED -> new NotificationEventCommand(
                     envelope.eventId(), envelope.eventType(), "IN_APP",
                     prefixed(payload, "plotId", "operations", "plot:"),
                     "Sensor threshold exceeded",
-                    "Metric " + required(payload, "metricType") + " exceeded its configured threshold.",
+                    "Metric " + required(payload, "metricType", 64) + " exceeded its configured threshold.",
                     correlationId
             );
             case EventTypes.DEVICE_OFFLINE_DETECTED -> new NotificationEventCommand(
                     envelope.eventId(), envelope.eventType(), "IN_APP",
                     prefixed(payload, "plotId", "operations", "plot:"),
                     "IoT device offline",
-                    "Device " + required(payload, "deviceCode") + " is offline.",
+                    "Device " + required(payload, "deviceCode", 64) + " is offline.",
                     correlationId
             );
             default -> throw new IllegalArgumentException("Unsupported notification event: " + envelope.eventType());
@@ -115,20 +115,42 @@ public class NotificationEventListener {
         }
     }
 
-    private static String required(JsonNode payload, String field) {
+    private static String required(JsonNode payload, String field, int maxLength) {
         JsonNode value = payload.path(field);
-        if (!value.isTextual() || value.textValue().isBlank()) {
+        if (!value.isTextual() || value.textValue().isBlank() || value.textValue().length() > maxLength) {
             throw new IllegalArgumentException("Notification event payload requires " + field);
         }
-        return value.textValue();
+        return value.textValue().trim();
+    }
+
+    private static String requiredUuid(JsonNode payload, String field) {
+        String value = required(payload, field, 36);
+        try {
+            return UUID.fromString(value).toString();
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("Notification event payload requires UUID " + field, exception);
+        }
     }
 
     private static String prefixed(JsonNode payload, String field, String fallback, String prefix) {
         JsonNode value = payload.path(field);
-        return value.isTextual() && !value.textValue().isBlank() ? prefix + value.textValue() : fallback;
+        if (!value.isTextual() || value.textValue().isBlank()) {
+            return fallback;
+        }
+        try {
+            return prefix + UUID.fromString(value.textValue().trim());
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("Notification event payload requires UUID " + field, exception);
+        }
     }
 
-    private static String textOrNull(JsonNode value) {
-        return value.isTextual() && !value.textValue().isBlank() ? value.textValue() : null;
+    private static String textOrNull(JsonNode value, int maxLength) {
+        if (!value.isTextual() || value.textValue().isBlank()) {
+            return null;
+        }
+        if (value.textValue().length() > maxLength) {
+            throw new IllegalArgumentException("Notification event correlationId is too long");
+        }
+        return value.textValue().trim();
     }
 }

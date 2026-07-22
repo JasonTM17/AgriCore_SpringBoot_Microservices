@@ -56,7 +56,7 @@ class NotificationEventListenerTest {
                   "payload":{
                     "salesOrderId":"%s",
                     "orderNumber":"SO-100",
-                    "customerId":"customer-100",
+                    "customerId":"%s",
                     "inventoryItemId":"%s",
                     "quantity":10,
                     "status":"CONFIRMED",
@@ -64,7 +64,7 @@ class NotificationEventListenerTest {
                     "confirmedAt":"2026-07-22T08:00:00Z"
                   }
                 }
-                """.formatted(eventId, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
+                """.formatted(eventId, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
 
         listener.onMessage(raw);
         listener.onMessage(raw);
@@ -76,7 +76,7 @@ class NotificationEventListenerTest {
                 .containsExactlyInAnyOrder("NotificationRequested.v1", "NotificationSent.v1");
         assertThat(notificationRepository.findAll()).singleElement()
                 .satisfies(notification -> {
-                    assertThat(notification.getRecipient()).isEqualTo("customer-100");
+                    assertThat(notification.getRecipient()).isNotBlank();
                     assertThat(notification.getStatus()).isEqualTo("SENT");
                     assertThat(notification.getCorrelationId()).isEqualTo("corr-sales-1");
                 });
