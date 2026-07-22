@@ -6,10 +6,13 @@ import com.agricore.work.api.request.AssignTaskRequest;
 import com.agricore.work.api.request.CompleteTaskRequest;
 import com.agricore.work.api.request.CreateWorkTaskRequest;
 import com.agricore.work.api.response.WorkTaskResponse;
+import com.agricore.work.api.response.MaterialUsageResponse;
 import com.agricore.work.domain.exception.WorkException;
 import com.agricore.work.domain.model.TaskStatus;
 import com.agricore.work.domain.model.TaskType;
+import com.agricore.work.infrastructure.persistence.MaterialUsageJpaRepository;
 import com.agricore.work.infrastructure.persistence.WorkTaskJpaRepository;
+import com.agricore.work.infrastructure.persistence.entity.MaterialUsageEntity;
 import com.agricore.work.infrastructure.persistence.entity.WorkTaskEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -17,7 +20,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class WorkApplicationService {
@@ -25,15 +31,21 @@ public class WorkApplicationService {
     private final WorkTaskJpaRepository taskRepository;
     private final WorkAccessGuard accessGuard;
     private final WorkEventOutboxWriter eventWriter;
+    private final MaterialUsageJpaRepository materialUsageRepository;
+    private final WorkTaskCompletionService completionService;
 
     public WorkApplicationService(
             WorkTaskJpaRepository taskRepository,
             WorkAccessGuard accessGuard,
-            WorkEventOutboxWriter eventWriter
+            WorkEventOutboxWriter eventWriter,
+            MaterialUsageJpaRepository materialUsageRepository,
+            WorkTaskCompletionService completionService
     ) {
         this.taskRepository = taskRepository;
         this.accessGuard = accessGuard;
         this.eventWriter = eventWriter;
+        this.materialUsageRepository = materialUsageRepository;
+        this.completionService = completionService;
     }
 
     @Transactional
@@ -84,28 +96,8 @@ public class WorkApplicationService {
         return toResponse(task);
     }
 
-    @Transactional
     public WorkTaskResponse complete(UUID taskId, CompleteTaskRequest request) {
-        WorkTaskEntity task = require(taskId);
-        if (task.getStatus() == TaskStatus.COMPLETED) {
-            return toResponse(task);
-        }
-        if (task.getStatus() == TaskStatus.CANCELLED) {
-            throw new WorkException("TASK_CANCELLED", "Cannot complete a cancelled task", 409);
-        }
-        Instant now = Instant.now();
-        if (task.getActualStart() == null) {
-            task.setActualStart(now);
-        }
-        task.setActualEnd(now);
-        task.setStatus(TaskStatus.COMPLETED);
-        if (request != null && request.notes() != null) {
-            task.setNotes(request.notes());
-        }
-        task.setUpdatedAt(now);
-        task = taskRepository.saveAndFlush(task);
-        eventWriter.workTask(EventTypes.WORK_TASK_COMPLETED, task);
-        return toResponse(task);
+        return toResponse(completionService.complete(taskId, request));
     }
 
     @Transactional(readOnly = true)
@@ -126,8 +118,18 @@ public class WorkApplicationService {
         } else {
             page = taskRepository.findAll(pageable);
         }
+        Map<UUID, List<MaterialUsageEntity>> usagesByTask = page.isEmpty()
+                ? Map.of()
+                : materialUsageRepository
+                        .findByWorkTaskIdInOrderByCreatedAtAsc(
+                                page.getContent().stream().map(WorkTaskEntity::getId).toList()
+                        )
+                        .stream()
+                        .collect(Collectors.groupingBy(MaterialUsageEntity::getWorkTaskId));
         return PageResponse.of(
-                page.getContent().stream().map(this::toResponse).toList(),
+                page.getContent().stream()
+                        .map(task -> toResponse(task, usagesByTask.getOrDefault(task.getId(), List.of())))
+                        .toList(),
                 page.getNumber(),
                 page.getSize(),
                 page.getTotalElements()
@@ -142,11 +144,29 @@ public class WorkApplicationService {
     }
 
     private WorkTaskResponse toResponse(WorkTaskEntity t) {
+        return toResponse(t, materialUsageRepository.findByWorkTaskIdOrderByCreatedAtAsc(t.getId()));
+    }
+
+    private WorkTaskResponse toResponse(WorkTaskEntity t, List<MaterialUsageEntity> usages) {
         return new WorkTaskResponse(
                 t.getId(), t.getCode(), t.getCropCycleId(), t.getPlotId(), t.getTaskType().name(),
                 t.getTitle(), t.getDescription(), t.getPriority(), t.getAssignedEmployeeId(),
                 t.getScheduledStart(), t.getScheduledEnd(), t.getActualStart(), t.getActualEnd(),
-                t.getStatus().name(), t.getNotes(), t.getCreatedAt(), t.getVersion()
+                t.getStatus().name(), t.getNotes(), t.getCreatedAt(), t.getVersion(),
+                usages.stream().map(this::toMaterialUsageResponse).toList()
+        );
+    }
+
+    private MaterialUsageResponse toMaterialUsageResponse(MaterialUsageEntity usage) {
+        return new MaterialUsageResponse(
+                usage.getId(),
+                usage.getInventoryItemId(),
+                usage.getQuantity(),
+                usage.getUnit(),
+                usage.getStatus().name(),
+                usage.getInventoryReferenceId(),
+                usage.getLastError(),
+                usage.getConsumedAt()
         );
     }
 }

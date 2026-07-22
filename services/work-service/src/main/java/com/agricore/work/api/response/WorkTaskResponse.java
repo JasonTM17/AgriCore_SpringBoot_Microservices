@@ -1,6 +1,7 @@
 package com.agricore.work.api.response;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public record WorkTaskResponse(
@@ -20,6 +21,7 @@ public record WorkTaskResponse(
         String status,
         String notes,
         Instant createdAt,
-        long version
+        long version,
+        List<MaterialUsageResponse> materials
 ) {
 }

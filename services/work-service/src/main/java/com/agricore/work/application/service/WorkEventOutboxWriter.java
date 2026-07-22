@@ -1,8 +1,10 @@
 package com.agricore.work.application.service;
 
+import com.agricore.common.event.EventTypes;
 import com.agricore.work.domain.exception.WorkException;
 import com.agricore.work.infrastructure.persistence.OutboxJpaRepository;
 import com.agricore.work.infrastructure.persistence.entity.OutboxEventEntity;
+import com.agricore.work.infrastructure.persistence.entity.MaterialUsageEntity;
 import com.agricore.work.infrastructure.persistence.entity.WorkTaskEntity;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -40,6 +42,22 @@ public class WorkEventOutboxWriter {
             payload.put("assignedEmployeeId", task.getAssignedEmployeeId().toString());
         }
         enqueue(eventType, "WorkTask", task.getId(), payload);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void materialConsumed(WorkTaskEntity task, MaterialUsageEntity usage) {
+        ObjectNode payload = objectMapper.createObjectNode();
+        payload.put("materialUsageId", usage.getId().toString());
+        payload.put("taskId", task.getId().toString());
+        payload.put("cropCycleId", task.getCropCycleId().toString());
+        payload.put("plotId", task.getPlotId().toString());
+        payload.put("inventoryItemId", usage.getInventoryItemId().toString());
+        payload.put("quantity", usage.getQuantity());
+        payload.put("unit", usage.getUnit());
+        payload.put("referenceType", "WorkTask");
+        payload.put("referenceId", usage.getInventoryReferenceId());
+        payload.put("consumedAt", usage.getConsumedAt().toString());
+        enqueue(EventTypes.MATERIAL_CONSUMED, "MaterialUsage", usage.getId(), payload);
     }
 
     private void enqueue(String eventType, String aggregateType, UUID aggregateId, ObjectNode payload) {

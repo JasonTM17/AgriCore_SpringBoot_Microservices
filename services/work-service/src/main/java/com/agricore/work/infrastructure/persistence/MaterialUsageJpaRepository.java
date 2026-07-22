@@ -16,7 +16,7 @@ public interface MaterialUsageJpaRepository extends JpaRepository<MaterialUsageE
 
     List<MaterialUsageEntity> findByWorkTaskIdOrderByCreatedAtAsc(UUID workTaskId);
 
-    List<MaterialUsageEntity> findByWorkTaskIdIn(Collection<UUID> workTaskIds);
+    List<MaterialUsageEntity> findByWorkTaskIdInOrderByCreatedAtAsc(Collection<UUID> workTaskIds);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT usage FROM MaterialUsageEntity usage WHERE usage.id = :id")
