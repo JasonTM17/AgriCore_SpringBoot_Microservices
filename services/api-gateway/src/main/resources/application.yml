@@ -4,13 +4,11 @@ server:
 spring:
   application:
     name: api-gateway
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          jwk-set-uri: ${IDENTITY_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
   cloud:
     gateway:
+      httpclient:
+        connect-timeout: ${GATEWAY_CONNECT_TIMEOUT_MS:5000}
+        response-timeout: ${GATEWAY_RESPONSE_TIMEOUT:30m}
       globalcors:
         cors-configurations:
           '[/**]':
@@ -23,6 +21,12 @@ spring:
           uri: ${IDENTITY_SERVICE_URL:http://localhost:8081}
           predicates:
             - Path=/api/v1/auth/**,/api/v1/users/**,/api/v1/admin/**,/.well-known/jwks.json
+        - id: assistant-service
+          uri: ${ASSISTANT_SERVICE_URL:http://localhost:8093}
+          predicates:
+            - Path=/api/v1/assistant/**
+          metadata:
+            response-timeout: ${ASSISTANT_RESPONSE_TIMEOUT:30m}
         - id: farm-service
           uri: ${FARM_SERVICE_URL:http://localhost:8082}
           predicates:
@@ -63,6 +67,11 @@ spring:
           uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8089}
           predicates:
             - Path=/api/v1/notifications/**
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${IDENTITY_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
 
 management:
   endpoints:

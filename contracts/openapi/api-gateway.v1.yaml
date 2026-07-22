@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgriCore API Gateway
-  version: 1.8.1
+  version: 1.9.0
   description: |
     Edge routes for the AgriCore microservices portfolio.
     The gateway validates JWT (RS256 via Identity JWKS) then proxies path prefixes
@@ -170,6 +170,24 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         '200': { description: OK }
+  /api/v1/assistant/capabilities:
+    $ref: './assistant-service.v1.yaml#/paths/~1api~1v1~1assistant~1capabilities'
+  /api/v1/assistant/conversations:
+    $ref: './assistant-service.v1.yaml#/paths/~1api~1v1~1assistant~1conversations'
+  /api/v1/assistant/conversations/{conversationId}:
+    $ref: './assistant-service.v1.yaml#/paths/~1api~1v1~1assistant~1conversations~1{conversationId}'
+  /api/v1/assistant/conversations/{conversationId}/archive:
+    $ref: './assistant-service.v1.yaml#/paths/~1api~1v1~1assistant~1conversations~1{conversationId}~1archive'
+  /api/v1/assistant/conversations/{conversationId}/messages:
+    $ref: './assistant-service.v1.yaml#/paths/~1api~1v1~1assistant~1conversations~1{conversationId}~1messages'
+  /api/v1/assistant/conversations/{conversationId}/generations:
+    $ref: './assistant-service.v1.yaml#/paths/~1api~1v1~1assistant~1conversations~1{conversationId}~1generations'
+  /api/v1/assistant/conversations/{conversationId}/generations/{generationId}:
+    $ref: './assistant-service.v1.yaml#/paths/~1api~1v1~1assistant~1conversations~1{conversationId}~1generations~1{generationId}'
+  /api/v1/assistant/conversations/{conversationId}/generations/{generationId}/cancel:
+    $ref: './assistant-service.v1.yaml#/paths/~1api~1v1~1assistant~1conversations~1{conversationId}~1generations~1{generationId}~1cancel'
+  /api/v1/assistant/conversations/{conversationId}/generations/{generationId}/events:
+    $ref: './assistant-service.v1.yaml#/paths/~1api~1v1~1assistant~1conversations~1{conversationId}~1generations~1{generationId}~1events'
   /actuator/health:
     get:
       summary: Gateway health

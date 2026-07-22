@@ -999,6 +999,192 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/assistant/capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read configured provider capabilities */
+        get: operations["getAssistantCapabilities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assistant/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List conversations owned by the caller */
+        get: operations["listAssistantConversations"];
+        put?: never;
+        /**
+         * Create an owned assistant conversation
+         * @description FARM context requires authoritative access to the supplied farmId.
+         */
+        post: operations["createAssistantConversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assistant/conversations/{conversationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        /** Get a conversation owned by the caller */
+        get: operations["getAssistantConversation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assistant/conversations/{conversationId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive an owned conversation
+         * @description Idempotent when the conversation is already archived.
+         */
+        post: operations["archiveAssistantConversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assistant/conversations/{conversationId}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        /** List persisted messages in an owned conversation */
+        get: operations["listAssistantMessages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assistant/conversations/{conversationId}/generations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Persist and enqueue an idempotent generation
+         * @description Atomically stores the user message and generation intent. A repeated key with the same request returns the existing generation; a repeated key with different content returns 409.
+         */
+        post: operations["submitAssistantGeneration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assistant/conversations/{conversationId}/generations/{generationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: components["parameters"]["ConversationId"];
+                generationId: components["parameters"]["GenerationId"];
+            };
+            cookie?: never;
+        };
+        /** Get safe generation metadata */
+        get: operations["getAssistantGeneration"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assistant/conversations/{conversationId}/generations/{generationId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: components["parameters"]["ConversationId"];
+                generationId: components["parameters"]["GenerationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request explicit generation cancellation
+         * @description QUEUED work becomes CANCELLED immediately. RUNNING work becomes CANCEL_REQUESTED until its worker persists the terminal cancellation. Repeated requests are safe.
+         */
+        post: operations["cancelAssistantGeneration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assistant/conversations/{conversationId}/generations/{generationId}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: components["parameters"]["ConversationId"];
+                generationId: components["parameters"]["GenerationId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Replay or stream durable generation events
+         * @description Use Accept: application/json for a bounded snapshot or Accept: text/event-stream for authenticated fetch-SSE. The SSE cursor is the greater of after and Last-Event-ID. Disconnect only detaches the client; it never cancels provider work. Terminal streams close after all durable events are sent. Heartbeats are SSE comments and do not advance cursor.
+         */
+        get: operations["replayAssistantGenerationEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/actuator/health": {
         parameters: {
             query?: never;
@@ -1530,6 +1716,124 @@ export interface components {
             alertStatus: string | null;
             message: string;
         };
+        AssistantCapabilitiesResponse: {
+            provider: string;
+            available: boolean;
+            streaming: boolean;
+            reasonCode: string | null;
+        };
+        /** @enum {string} */
+        ConversationStatus: "OPEN" | "ARCHIVED";
+        PageMetadata: {
+            /** Format: int32 */
+            page: number;
+            /** Format: int32 */
+            size: number;
+            /** Format: int64 */
+            totalElements: number;
+            /** Format: int32 */
+            totalPages: number;
+            first: boolean;
+            last: boolean;
+        };
+        /** @enum {string} */
+        ConversationContextType: "ENTERPRISE" | "FARM";
+        ConversationResponse: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            contextType: components["schemas"]["ConversationContextType"];
+            /** Format: uuid */
+            farmId: string | null;
+            status: components["schemas"]["ConversationStatus"];
+            roleSnapshot: string[];
+            /** Format: int64 */
+            nextMessageSequence: number;
+            /** Format: int64 */
+            version: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: date-time */
+            archivedAt: string | null;
+            /** Format: date-time */
+            purgeAfter: string | null;
+        };
+        ConversationPageResponse: components["schemas"]["PageMetadata"] & {
+            content: components["schemas"]["ConversationResponse"][];
+        };
+        CreateConversationRequest: {
+            title: string;
+            contextType: components["schemas"]["ConversationContextType"];
+            /** Format: uuid */
+            farmId?: string | null;
+        } & (unknown & unknown);
+        /** @enum {string} */
+        MessageRole: "USER" | "ASSISTANT";
+        MessageResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            conversationId: string;
+            /** Format: uuid */
+            generationId: string | null;
+            /** Format: int64 */
+            sequenceNo: number;
+            role: components["schemas"]["MessageRole"];
+            content: string;
+            /** Format: int64 */
+            tokenCount: number | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        MessagePageResponse: components["schemas"]["PageMetadata"] & {
+            content: components["schemas"]["MessageResponse"][];
+        };
+        CreateGenerationRequest: {
+            /** @description Runtime provider policy may enforce a lower maximum. */
+            prompt: string;
+        };
+        /** @enum {string} */
+        GenerationStatus: "QUEUED" | "RUNNING" | "CANCEL_REQUESTED" | "COMPLETED" | "FAILED" | "CANCELLED";
+        GenerationResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            conversationId: string;
+            status: components["schemas"]["GenerationStatus"];
+            provider: string;
+            model: string | null;
+            errorCode: string | null;
+            /** Format: uuid */
+            userMessageId: string | null;
+            /** Format: int64 */
+            nextEventSequence: number;
+            /** Format: date-time */
+            queuedAt: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: date-time */
+            completedAt: string | null;
+            deduplicated: boolean;
+        };
+        /** @enum {string} */
+        GenerationEventType: "STATUS" | "DELTA" | "COMPLETED" | "ERROR" | "CANCELLED";
+        GenerationEventResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            generationId: string;
+            /** Format: int64 */
+            sequenceNo: number;
+            eventType: components["schemas"]["GenerationEventType"];
+            /** @description Safe event-specific JSON encoded as a string. */
+            payload: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
     };
     responses: {
         /** @description Invalid path, query, or JSON request. */
@@ -1762,6 +2066,96 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
+        /** @description Unexpected safe server error without prompt, secret, or provider detail. */
+        "components-responses-InternalServerError": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Invalid path, query, header, JSON, context, title, prompt, or validation input. */
+        "assistant-service.v1_components-responses-BadRequest": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description The caller lacks authoritative access to the requested farm context. */
+        "assistant-service.v1_components-responses-Forbidden": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Resource does not exist or is not owned/visible to the caller. */
+        "assistant-service.v1_components-responses-NotFound": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description AI provider, farm access verifier, or required dependency is unavailable. */
+        "assistant-service.v1_components-responses-ServiceUnavailable": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Conversation is archived, another generation is active, or an idempotency key was reused with different request content. */
+        "assistant-service.v1_components-responses-Conflict": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description The authenticated user or client IP exhausted the request/token budget window. */
+        RateLimitExceeded: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Cursor is malformed, negative, or ahead of the durable stream. */
+        InvalidEventCursor: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description The requested cursor precedes retained durable generation events. */
+        EventReplayExpired: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description This service instance has reached its bounded concurrent SSE capacity. */
+        StreamCapacityExceeded: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
     };
     parameters: {
         /** @description Case-insensitive province substring. */
@@ -1788,6 +2182,15 @@ export interface components {
         CycleId: string;
         TaskId: string;
         HarvestId: string;
+        ConversationId: string;
+        IdempotencyKey: string;
+        GenerationId: string;
+        /** @description Last durable sequence already processed; -1 starts from sequence 0. */
+        AfterSequence: number;
+        /** @description JSON snapshot batch size; SSE uses the server-configured batch size. */
+        EventLimit: number;
+        /** @description Non-negative durable SSE sequence received by the client. */
+        LastEventId: string;
     };
     requestBodies: never;
     headers: never;
@@ -2855,6 +3258,316 @@ export interface operations {
             404: components["responses"]["iot-service.v1_components-responses-NotFound"];
             415: components["responses"]["UnsupportedMediaType"];
             503: components["responses"]["components-responses-ServiceUnavailable"];
+        };
+    };
+    getAssistantCapabilities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Provider availability without credentials or secret configuration values. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantCapabilitiesResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["components-responses-InternalServerError"];
+        };
+    };
+    listAssistantConversations: {
+        parameters: {
+            query?: {
+                /** @description Defaults to OPEN when omitted. */
+                status?: components["schemas"]["ConversationStatus"];
+                /** @description Zero-based page index. */
+                page?: components["parameters"]["parameters-Page"];
+                /** @description Number of records per page. */
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Owned conversations ordered by most recently updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationPageResponse"];
+                };
+            };
+            400: components["responses"]["assistant-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["components-responses-InternalServerError"];
+        };
+    };
+    createAssistantConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateConversationRequest"];
+            };
+        };
+        responses: {
+            /** @description Conversation created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationResponse"];
+                };
+            };
+            400: components["responses"]["assistant-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["assistant-service.v1_components-responses-Forbidden"];
+            404: components["responses"]["assistant-service.v1_components-responses-NotFound"];
+            415: components["responses"]["UnsupportedMediaType"];
+            500: components["responses"]["components-responses-InternalServerError"];
+            503: components["responses"]["assistant-service.v1_components-responses-ServiceUnavailable"];
+        };
+    };
+    getAssistantConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Conversation found. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationResponse"];
+                };
+            };
+            400: components["responses"]["assistant-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["assistant-service.v1_components-responses-NotFound"];
+            500: components["responses"]["components-responses-InternalServerError"];
+        };
+    };
+    archiveAssistantConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Archived conversation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationResponse"];
+                };
+            };
+            400: components["responses"]["assistant-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["assistant-service.v1_components-responses-NotFound"];
+            500: components["responses"]["components-responses-InternalServerError"];
+        };
+    };
+    listAssistantMessages: {
+        parameters: {
+            query?: {
+                /** @description Zero-based page index. */
+                page?: components["parameters"]["parameters-Page"];
+                /** @description Number of records per page. */
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path: {
+                conversationId: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Messages ordered by durable conversation sequence. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessagePageResponse"];
+                };
+            };
+            400: components["responses"]["assistant-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["assistant-service.v1_components-responses-NotFound"];
+            500: components["responses"]["components-responses-InternalServerError"];
+        };
+    };
+    submitAssistantGeneration: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                conversationId: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateGenerationRequest"];
+            };
+        };
+        responses: {
+            /** @description Existing generation returned for an idempotent retry. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationResponse"];
+                };
+            };
+            /** @description New generation persisted and accepted for asynchronous execution. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationResponse"];
+                };
+            };
+            400: components["responses"]["assistant-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["assistant-service.v1_components-responses-NotFound"];
+            409: components["responses"]["assistant-service.v1_components-responses-Conflict"];
+            415: components["responses"]["UnsupportedMediaType"];
+            429: components["responses"]["RateLimitExceeded"];
+            500: components["responses"]["components-responses-InternalServerError"];
+            503: components["responses"]["assistant-service.v1_components-responses-ServiceUnavailable"];
+        };
+    };
+    getAssistantGeneration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: components["parameters"]["ConversationId"];
+                generationId: components["parameters"]["GenerationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Owned generation found. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationResponse"];
+                };
+            };
+            400: components["responses"]["assistant-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["assistant-service.v1_components-responses-NotFound"];
+            500: components["responses"]["components-responses-InternalServerError"];
+        };
+    };
+    cancelAssistantGeneration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: components["parameters"]["ConversationId"];
+                generationId: components["parameters"]["GenerationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current generation state after the cancellation request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationResponse"];
+                };
+            };
+            400: components["responses"]["assistant-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["assistant-service.v1_components-responses-NotFound"];
+            500: components["responses"]["components-responses-InternalServerError"];
+        };
+    };
+    replayAssistantGenerationEvents: {
+        parameters: {
+            query?: {
+                /** @description Last durable sequence already processed; -1 starts from sequence 0. */
+                after?: components["parameters"]["AfterSequence"];
+                /** @description JSON snapshot batch size; SSE uses the server-configured batch size. */
+                limit?: components["parameters"]["EventLimit"];
+            };
+            header?: {
+                /** @description Non-negative durable SSE sequence received by the client. */
+                "Last-Event-ID"?: components["parameters"]["LastEventId"];
+            };
+            path: {
+                conversationId: components["parameters"]["ConversationId"];
+                generationId: components["parameters"]["GenerationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Durable replay snapshot or live replayable stream. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationEventResponse"][];
+                    "text/event-stream": string;
+                };
+            };
+            400: components["responses"]["InvalidEventCursor"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["assistant-service.v1_components-responses-NotFound"];
+            /** @description Accept must allow application/json or text/event-stream. */
+            406: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            410: components["responses"]["EventReplayExpired"];
+            500: components["responses"]["components-responses-InternalServerError"];
+            503: components["responses"]["StreamCapacityExceeded"];
         };
     };
 }

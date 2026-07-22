@@ -424,6 +424,15 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
+        /** @description The authenticated user or client IP exhausted the request/token budget window. */
+        RateLimitExceeded: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
         /** @description This service instance has reached its bounded concurrent SSE capacity. */
         StreamCapacityExceeded: {
             headers: {
@@ -661,6 +670,7 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             415: components["responses"]["UnsupportedMediaType"];
+            429: components["responses"]["RateLimitExceeded"];
             500: components["responses"]["InternalServerError"];
             503: components["responses"]["ServiceUnavailable"];
         };
