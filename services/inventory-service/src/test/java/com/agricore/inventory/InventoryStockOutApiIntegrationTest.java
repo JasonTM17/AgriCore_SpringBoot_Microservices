@@ -64,6 +64,26 @@ class InventoryStockOutApiIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/internal/api/v1/inventory/stock-out")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(post("/internal/api/v1/inventory/stock-out")
+                        .header(USER_HEADER, "worker")
+                        .header(ROLES_HEADER, "FIELD_WORKER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "inventoryItemId":"%s",
+                                  "quantity":1.000,
+                                  "referenceType":"WorkTask",
+                                  "referenceId":"TASK-API-INTERNAL"
+                                }
+                                """.formatted(itemId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.onHandQuantity").value(5.5));
     }
 
     @Test
