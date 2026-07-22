@@ -41,6 +41,8 @@
         <testcontainers.version>1.20.6</testcontainers.version>
         <archunit.version>1.4.0</archunit.version>
         <jjwt.version>0.12.6</jjwt.version>
+        <!-- Align Jackson modules on the patched line for CVE-2026-54512/54513. -->
+        <jackson-bom.version>2.21.4</jackson-bom.version>
         <postgresql.version>42.7.12</postgresql.version>
         <!-- Override Boot-managed 3.3.14 (CVE-2026-41731 insecure deserialization) -->
         <spring-kafka.version>3.3.16</spring-kafka.version>
@@ -48,6 +50,13 @@
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>com.fasterxml.jackson</groupId>
+                <artifactId>jackson-bom</artifactId>
+                <version>${jackson-bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
