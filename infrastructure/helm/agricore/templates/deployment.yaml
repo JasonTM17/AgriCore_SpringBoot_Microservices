@@ -108,6 +108,10 @@ spec:
               value: "false"
             - name: AGRICORE_TRUST_FORWARDED_HEADERS
               value: {{ $.Values.identity.trustForwardedHeaders | default true | quote }}
+            - name: AGRICORE_JWT_PRIVATE_KEY_PATH
+              value: /var/run/secrets/agricore/jwt/private-key.pem
+            - name: AGRICORE_JWT_PUBLIC_KEY_PATH
+              value: /var/run/secrets/agricore/jwt/public-key.pem
             {{- end }}
             {{- if eq $name "sales" }}
             - name: INVENTORY_SERVICE_URL
@@ -255,10 +259,17 @@ spec:
             readOnlyRootFilesystem: {{ $svc.readOnlyRootFilesystem | default false }}
             capabilities:
               drop: ["ALL"]
-          {{- if $svc.readOnlyRootFilesystem }}
+          {{- if or $svc.readOnlyRootFilesystem (eq $name "identity") }}
           volumeMounts:
+            {{- if eq $name "identity" }}
+            - name: identity-jwt
+              mountPath: /var/run/secrets/agricore/jwt
+              readOnly: true
+            {{- end }}
+            {{- if $svc.readOnlyRootFilesystem }}
             - name: tmp
               mountPath: /tmp
+            {{- end }}
           {{- end }}
           startupProbe:
             httpGet:
@@ -285,11 +296,23 @@ spec:
             failureThreshold: 6
           resources:
             {{- toYaml ($svc.resources | default (dict "requests" (dict "cpu" "100m" "memory" "256Mi") "limits" (dict "cpu" "500m" "memory" "512Mi"))) | nindent 12 }}
-      {{- if $svc.readOnlyRootFilesystem }}
+      {{- if or $svc.readOnlyRootFilesystem (eq $name "identity") }}
       volumes:
+        {{- if eq $name "identity" }}
+        - name: identity-jwt
+          secret:
+            secretName: {{ required "identity.jwtSigningSecretName is required" $.Values.identity.jwtSigningSecretName | quote }}
+            items:
+              - key: {{ $.Values.identity.jwtPrivateKeyKey | quote }}
+                path: private-key.pem
+              - key: {{ $.Values.identity.jwtPublicKeyKey | quote }}
+                path: public-key.pem
+        {{- end }}
+        {{- if $svc.readOnlyRootFilesystem }}
         - name: tmp
           emptyDir:
             sizeLimit: 64Mi
+        {{- end }}
       {{- end }}
 ---
 apiVersion: v1

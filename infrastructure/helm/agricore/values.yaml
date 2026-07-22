@@ -27,6 +27,9 @@ identity:
   replicaCount: 1
   image: nguyenson1710/agricore-identity
   port: 8081
+  jwtSigningSecretName: agricore-identity-jwt
+  jwtPrivateKeyKey: private-key.pem
+  jwtPublicKeyKey: public-key.pem
   # Production: public self-register off; create users via admin/invite
   registrationEnabled: false
   trustForwardedHeaders: true
