@@ -35,6 +35,12 @@ x-farm-access-env: &farm-access-env
   # Local Compose has no service-mesh TLS; keep plaintext opt-in explicit.
   FARM_SERVICE_ALLOW_INSECURE_HTTP: "true"
 
+x-inventory-access-env: &inventory-access-env
+  INVENTORY_SERVICE_URL: http://inventory-service:8086
+  INVENTORY_SERVICE_ALLOWED_HOSTS: inventory-service
+  # Local Compose has no service-mesh TLS; keep plaintext opt-in explicit.
+  INVENTORY_SERVICE_ALLOW_INSECURE_HTTP: "true"
+
 x-app-healthcheck: &app-healthcheck
   interval: 15s
   timeout: 5s
@@ -151,8 +157,10 @@ services:
         condition: service_healthy
       farm-service:
         condition: service_healthy
+      inventory-service:
+        condition: service_healthy
     environment:
-      <<: [*db-env, *security-env, *kafka-env, *farm-access-env, *observability-env]
+      <<: [*db-env, *security-env, *kafka-env, *farm-access-env, *inventory-access-env, *observability-env]
       WORK_PORT: 8085
     ports:
       - "8085:8085"
