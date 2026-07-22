@@ -50,14 +50,14 @@ The browser uses a same-origin edge: Nginx serves `/` and forwards `/api` and `/
 | Crop cycle | Cycles, stages, lifecycle | Publishes crop-cycle events through outbox |
 | Work | Tasks and assignments | Publishes work events through outbox |
 | Harvest | Harvest batches and completion repair | Publishes `HarvestCompleted.v1` through outbox |
-| Inventory | Stock, reservations, movements | Consumes `HarvestCompleted.v1`, idempotent with DLT recovery |
-| Traceability | Public QR timeline/read model | Consumes `HarvestCompleted.v1`, idempotent with DLT recovery |
-| IoT | Devices, readings, threshold alerts | No Kafka event path implemented |
-| Sales | Orders and inventory saga state | Synchronous reserve/confirm/release calls to inventory |
-| Notification | Delivery log | No Kafka event path implemented |
+| Inventory | Stock, reservations, movements | Consumes `HarvestCompleted.v1`, idempotent with DLT recovery; publishes stock events |
+| Traceability | Public QR timeline/read model | Consumes `HarvestCompleted.v1`, idempotent with DLT recovery; publishes QR lifecycle events |
+| IoT | Devices, readings, threshold alerts | Publishes reading, threshold, and offline events through outbox |
+| Sales | Orders and inventory saga state | Synchronous reserve/confirm/release calls to inventory; publishes order lifecycle events |
+| Notification | Delivery log and event dedupe | Consumes Sales, Traceability, and IoT events; publishes notification lifecycle events |
 | Assistant | Conversations, messages, generations, event replay, redacted tool evidence | No Kafka event path implemented |
 
-The only implemented consumer topology is `HarvestCompleted.v1` from harvest to inventory and traceability. Farm, crop-cycle, and work publish events, but no broader event mesh is claimed.
+Implemented consumer topology includes `HarvestCompleted.v1` from harvest to inventory and traceability, plus Sales order, Traceability QR, and IoT alert/offline events into notification-service. All consumers persist a stable event marker before acknowledging a side effect; contract-invalid records use bounded retry and `<topic>.DLT` recovery.
 
 ### Assistant boundary
 
@@ -135,7 +135,7 @@ Prometheus defines 13 scrape jobs: 12 host-published applications through `host.
 
 | Family | Meaning |
 |---|---|
-| `agricore_outbox_backlog` | Unpublished farm, crop-cycle, work, or harvest outbox rows |
+| `agricore_outbox_backlog` | Unpublished transactional outbox rows across event-producing services |
 | `agricore_kafka_dlq_attempts_total{consumer=...}` | Records handed to DLT recovery; not DLT depth or confirmed publish success |
 | `agricore_harvest_processing_seconds_*` | Harvest completion latency histogram and timer series by outcome |
 | `agricore_inventory_reservations_total` | Reservation outcomes |
@@ -144,6 +144,7 @@ Prometheus defines 13 scrape jobs: 12 host-published applications through `host.
 | `agricore_iot_alerts_total` | Created and suppressed alert outcomes |
 | `agricore_iot_open_alerts` | Current open alert count |
 | `agricore_sales_sagas_total` | Sales saga terminal outcomes |
+| `agricore_notification_deliveries_total` | Notification delivery outcomes by sent or duplicate |
 | `agricore_assistant_generations_total` | Completed, failed, and cancelled generations |
 
 There is no Loki or other centralized log backend. ECS stdout is collector-ready but remains container-local. Tempo uses non-persistent container storage with 48-hour configured retention in the local stack.

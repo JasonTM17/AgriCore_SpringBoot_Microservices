@@ -4,7 +4,7 @@ AgriCore is a Java 21 and Spring Boot microservices platform for farm operations
 
 ## Status
 
-Pre-release implementation: the repository contains 13 Spring applications, the React console, local Compose stacks, a Helm application chart, automated quality and security gates, and a gated Docker Hub publishing workflow. Event-contract and producer coverage is still being completed before the release gate; this status does not claim a production installation.
+Pre-release implementation: the repository contains 13 Spring applications, the React console, local Compose stacks, a Helm application chart, automated quality and security gates, and a gated Docker Hub publishing workflow. The implemented event mesh currently covers 29 versioned Kafka events with transactional outboxes, idempotent consumers, bounded DLT recovery, and contract checks; this status does not claim a production installation.
 
 | Application | Port | Image |
 |---|---:|---|
@@ -38,8 +38,10 @@ Sales ── synchronous inventory reservation saga
 ```
 
 - Database per service with PostgreSQL and Flyway.
-- Transactional outbox publishers in farm, crop-cycle, work, and harvest.
-- Idempotent `HarvestCompleted.v1` consumers in inventory and traceability.
+- Kafka event mesh: Harvest feeds Inventory and Traceability; Sales, Traceability, and IoT feed Notification; every event producer uses a transactional outbox.
+- Transactional outbox publishers across farm, crop-cycle, work, harvest, inventory, IoT, traceability, sales, and notification.
+- Idempotent `HarvestCompleted.v1` consumers in inventory and traceability, plus notification consumers for sales, traceability, and IoT events.
+- Versioned JSON Schema and AsyncAPI contracts for 29 implemented domain events.
 - RS256 JWTs, JWKS validation, role checks, and farm membership authorization.
 - Persisted assistant with authenticated replayable SSE, read-only farm tools, and Redis-backed budgets.
 
@@ -132,7 +134,7 @@ For an already-running stack:
 Application logs ── ECS JSON ── container stdout
 ```
 
-Local Compose exports traces to `http://tempo:4318/v1/traces` with sampling probability `1.0`. Prometheus scrapes all 13 Spring applications. Grafana provisions Prometheus and Tempo datasources plus seven read-only dashboards. Custom meters cover transactional outbox backlog, Kafka dead-letter recovery attempts, harvest processing latency, inventory outcomes, IoT ingestion and alerts, sales sagas, and assistant generations.
+Local Compose exports traces to `http://tempo:4318/v1/traces` with sampling probability `1.0`. Prometheus scrapes all 13 Spring applications. Grafana provisions Prometheus and Tempo datasources plus seven read-only dashboards. Custom meters cover transactional outbox backlog, Kafka dead-letter recovery attempts, harvest processing latency, inventory outcomes, IoT ingestion and alerts, sales sagas, notification delivery, and assistant generations.
 
 Logs are structured ECS JSON on stdout; no centralized log backend is provisioned. See [local operations](docs/runbooks/local-operations.md) for verification commands and the exact metric catalog.
 

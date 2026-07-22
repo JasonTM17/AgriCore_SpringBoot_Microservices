@@ -1,6 +1,6 @@
 # AgriCore Implementation Plan
 
-**Status:** In progress; assistant and observability delivered, event architecture hardening remains before release
+**Status:** In progress; assistant, observability, event producers, contracts, Sales saga events, and Notification consumption delivered; release verification remains
 **Created:** 2026-07-16
 **Last updated:** 2026-07-22
 
@@ -65,9 +65,9 @@ Harvest completion, stock-in projection, optimistic concurrency, idempotent cons
 
 Idempotent public QR read model without internal identifiers or personal data.
 
-### M6 — IoT, sales, and notification
+### M6 — IoT, sales, and notification (delivered)
 
-Sensor ingestion and alert cooldown, inventory-backed sales saga, and notification sink.
+Sensor ingestion and alert cooldown, inventory-backed sales saga with transactional order lifecycle events, and idempotent Notification consumption of Sales, Traceability, and IoT events.
 
 ### M7 — Gateway and observability
 
@@ -91,10 +91,9 @@ Application Helm chart, security review, runbooks, seed scripts, gateway happy p
 
 ## Remaining pre-release work
 
-- Publish a versioned payload schema and AsyncAPI message for every emitted Kafka event.
 - Reject malformed or wrong-version `HarvestCompleted.v1` envelopes to DLT instead of acknowledging them silently.
 - Bring farm, crop-cycle, and work publishers to the harvest publisher's locking, bounded-send, index, metric, and test standard.
-- Implement the remaining specified domain-event producers and notification consumption as atomic business-change, outbox, contract, and test slices.
+- Add a real external delivery adapter before advertising `NotificationFailed.v1`; the current notification sink is an internal, deterministic delivery log.
 
 ## Release acceptance criteria
 
@@ -103,7 +102,7 @@ Application Helm chart, security review, runbooks, seed scripts, gateway happy p
 - Compose configuration validates; Helm chart lints and renders.
 - Gitleaks, CodeQL, and Trivy workflows remain enforced.
 - Gateway JWT happy path and Kafka-backed harvest projection are reproducible through the verification scripts.
-- Every specified event producer has a transactional outbox path, versioned schema, AsyncAPI message, and focused contract test.
+- Every implemented event producer has a transactional outbox path, versioned schema, AsyncAPI message, and focused contract test.
 - Kafka consumers validate the exact event type/version and route invalid envelopes through the documented DLT policy.
 - Docker images publish only from an eligible verified default-branch revision.
 - Production operators supply secrets, infrastructure dependencies, ingress/TLS policy, Kafka authorization, and observability backends before deployment.

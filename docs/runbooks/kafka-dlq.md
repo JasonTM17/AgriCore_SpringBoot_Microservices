@@ -8,16 +8,21 @@ harvest-service outbox
       ├─ inventory-service consumer
       └─ traceability-service consumer
 
+sales-service outbox -> agricore.sales.events -> notification-service
+traceability-service outbox -> agricore.traceability.events -> notification-service
+iot-service outbox -> agricore.iot.events -> notification-service
+notification-service outbox -> agricore.notification.events
+
 consumer failure
   → in-process exponential retry
   → agricore.harvest.events.DLT on recovery
 ```
 
-Only the `HarvestCompleted.v1` path is implemented. There are no retry topics, and this DLT flow is not implemented for farm, crop-cycle, or work topics.
+The harvest projections and notification consumers use the same bounded retry/DLT policy. There are no retry topics; producer outboxes for farm, crop-cycle, work, inventory, IoT, traceability, sales, and notification use polling delivery with retryable publish state.
 
 ## Consumer error handling
 
-Both consumers use Spring Kafka `DefaultErrorHandler` with `ExponentialBackOff`:
+Consumers use Spring Kafka `DefaultErrorHandler` with `ExponentialBackOff`:
 
 | Setting | Value |
 |---|---:|
@@ -28,7 +33,7 @@ Both consumers use Spring Kafka `DefaultErrorHandler` with `ExponentialBackOff`:
 
 Both consumers classify contract-validation `IllegalArgumentException` as non-retryable and hand it directly to recovery. Transient processing failures use the bounded backoff. `DeadLetterPublishingRecoverer` publishes to the same partition when the DLT exposes that partition; otherwise its partition verification lets the Kafka producer choose an available partition.
 
-`agricore_kafka_dlq_attempts_total{consumer="inventory-service|traceability-service"}` increments when a record is handed to dead-letter recovery. It does not measure DLT topic depth and does not prove the DLT publish succeeded.
+`agricore_kafka_dlq_attempts_total{consumer="inventory-service|traceability-service|notification-service"}` increments when a record is handed to dead-letter recovery. It does not measure DLT topic depth and does not prove the DLT publish succeeded.
 
 ## Producer outbox path
 

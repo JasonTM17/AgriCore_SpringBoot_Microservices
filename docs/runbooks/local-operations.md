@@ -104,8 +104,8 @@ After a traced request, entries emitted inside that request may also include `tr
 
 | Metric family | Labels/notes |
 |---|---|
-| `agricore_outbox_backlog` | Gauge in farm, crop-cycle, work, and harvest |
-| `agricore_kafka_dlq_attempts_total` | `consumer=inventory-service|traceability-service`; DLT recovery attempts, not topic depth or confirmed success |
+| `agricore_outbox_backlog` | Gauge for unpublished transactional outbox rows across event-producing services |
+| `agricore_kafka_dlq_attempts_total` | `consumer=inventory-service|traceability-service|notification-service`; DLT recovery attempts, not topic depth or confirmed success |
 | `agricore_harvest_processing_seconds_*` | `outcome=success|failure`; timer/histogram series |
 | `agricore_inventory_reservations_total` | `outcome=success|insufficient_stock` |
 | `agricore_inventory_harvest_events_total` | `outcome=applied|duplicate` |
@@ -113,6 +113,7 @@ After a traced request, entries emitted inside that request may also include `tr
 | `agricore_iot_alerts_total` | `outcome=created|suppressed` |
 | `agricore_iot_open_alerts` | Current open alerts gauge |
 | `agricore_sales_sagas_total` | Terminal saga outcome |
+| `agricore_notification_deliveries_total` | `outcome=sent|duplicate`; notification delivery outcomes |
 | `agricore_assistant_generations_total` | `outcome=completed|failed|cancelled` |
 
 Example Prometheus API query:
