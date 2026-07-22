@@ -1,9 +1,7 @@
 package com.agricore.identity.infrastructure.persistence;
 
 import com.agricore.identity.infrastructure.persistence.entity.RefreshTokenEntity;
-import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -16,13 +14,8 @@ public interface RefreshTokenJpaRepository extends JpaRepository<RefreshTokenEnt
 
     Optional<RefreshTokenEntity> findByTokenHash(String tokenHash);
 
-    /**
-     * Pessimistic row lock so concurrent refresh of the same opaque token
-     * serializes: exactly one caller rotates; the other observes the revoked row.
-     */
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT r FROM RefreshTokenEntity r WHERE r.tokenHash = :tokenHash")
-    Optional<RefreshTokenEntity> findByTokenHashForUpdate(@Param("tokenHash") String tokenHash);
+    @Query("SELECT r.userId FROM RefreshTokenEntity r WHERE r.tokenHash = :tokenHash")
+    Optional<UUID> findUserIdByTokenHash(@Param("tokenHash") String tokenHash);
 
     long countByFamilyIdAndRevokedAtIsNull(UUID familyId);
 

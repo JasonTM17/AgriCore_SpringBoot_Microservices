@@ -38,8 +38,8 @@ public class AuthApplicationService {
     private static final String EMAIL_UNIQUE_CONSTRAINT = "uk_users_email";
 
     /**
-     * Concurrent legitimate refresh of the same active token can lose the row lock
-     * and observe a just-rotated row. Inside this grace window we reject without
+     * Concurrent legitimate refresh of the same active token can wait for the user lock
+     * and then observe a just-rotated row. Inside this grace window we reject without
      * wiping the winner's replacement. Outside the window, reuse triggers family revoke.
      */
     private static final Duration CONCURRENT_ROTATION_GRACE = Duration.ofSeconds(5);
@@ -150,8 +150,13 @@ public class AuthApplicationService {
         }
 
         String hash = TokenHashing.sha256Hex(refreshToken);
-        // Row lock serializes concurrent rotation of the same opaque token.
-        RefreshTokenEntity existing = refreshTokenRepository.findByTokenHashForUpdate(hash)
+        UUID tokenUserId = refreshTokenRepository.findUserIdByTokenHash(hash)
+                .orElseThrow(() -> new IdentityException("INVALID_REFRESH_TOKEN", "Invalid refresh token", 401));
+        // Every refresh/logout for a user takes this lock before mutating any token family.
+        // A single lock order prevents different members of one family from racing or deadlocking.
+        UserEntity user = userRepository.findByIdForUpdate(tokenUserId)
+                .orElseThrow(() -> new IdentityException("USER_NOT_FOUND", "User not found", 401));
+        RefreshTokenEntity existing = refreshTokenRepository.findByTokenHash(hash)
                 .orElseThrow(() -> new IdentityException("INVALID_REFRESH_TOKEN", "Invalid refresh token", 401));
 
         Instant now = Instant.now();
@@ -165,9 +170,6 @@ public class AuthApplicationService {
             refreshTokenRepository.save(existing);
             throw new IdentityException("REFRESH_TOKEN_EXPIRED", "Refresh token expired", 401);
         }
-
-        UserEntity user = userRepository.findById(existing.getUserId())
-                .orElseThrow(() -> new IdentityException("USER_NOT_FOUND", "User not found", 401));
 
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new IdentityException("ACCOUNT_INACTIVE", "Account is not active", 403);
@@ -207,10 +209,13 @@ public class AuthApplicationService {
             return;
         }
         String hash = TokenHashing.sha256Hex(refreshToken);
-        refreshTokenRepository.findByTokenHash(hash).ifPresent(token -> {
-            Instant now = Instant.now();
-            token.setRevokedAt(now);
-            refreshTokenRepository.save(token);
+        refreshTokenRepository.findUserIdByTokenHash(hash).ifPresent(userId -> {
+            if (userRepository.findByIdForUpdate(userId).isEmpty()) {
+                return;
+            }
+            refreshTokenRepository.findByTokenHash(hash).ifPresent(token ->
+                    refreshTokenRepository.revokeFamily(token.getFamilyId(), Instant.now())
+            );
         });
     }
 

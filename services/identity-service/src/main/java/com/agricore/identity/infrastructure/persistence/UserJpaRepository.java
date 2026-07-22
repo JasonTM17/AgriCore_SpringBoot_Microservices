@@ -13,6 +13,10 @@ import java.util.UUID;
 public interface UserJpaRepository extends JpaRepository<UserEntity, UUID> {
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT u FROM UserEntity u WHERE u.id = :userId")
+    Optional<UserEntity> findByIdForUpdate(@Param("userId") UUID userId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT u FROM UserEntity u WHERE LOWER(u.email) = LOWER(:email)")
     Optional<UserEntity> findByEmailIgnoreCase(@Param("email") String email);
 
