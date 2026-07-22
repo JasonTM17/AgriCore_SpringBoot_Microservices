@@ -74,6 +74,20 @@ public interface ChatGenerationJpaRepository extends JpaRepository<ChatGeneratio
             UUID ownerUserId
     );
 
+    @Lock(LockModeType.PESSIMISTIC_READ)
+    @Query("""
+            SELECT generation
+              FROM ChatGenerationEntity generation
+             WHERE generation.id = :generationId
+               AND generation.conversationId = :conversationId
+               AND generation.ownerUserId = :ownerUserId
+            """)
+    Optional<ChatGenerationEntity> findOwnedForReplay(
+            @Param("generationId") UUID generationId,
+            @Param("conversationId") UUID conversationId,
+            @Param("ownerUserId") UUID ownerUserId
+    );
+
     Optional<ChatGenerationEntity> findFirstByConversationIdAndActiveConversationIdIsNotNull(
             UUID conversationId
     );

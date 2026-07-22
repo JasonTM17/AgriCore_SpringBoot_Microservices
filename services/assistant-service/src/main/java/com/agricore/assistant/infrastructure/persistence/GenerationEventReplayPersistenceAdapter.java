@@ -40,7 +40,7 @@ public class GenerationEventReplayPersistenceAdapter implements GenerationEventR
         if (afterSequence < -1 || limit < 1 || limit > 1000 || now == null) {
             throw new IllegalArgumentException("invalid event cursor, limit or clock");
         }
-        return generationRepository.findByIdAndConversationIdAndOwnerUserId(
+        return generationRepository.findOwnedForReplay(
                         generationId, conversationId, ownerUserId)
                 .map(generation -> GenerationEventReplayBatch.validated(
                         eventRepository.findAfter(
