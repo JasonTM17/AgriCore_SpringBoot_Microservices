@@ -107,6 +107,8 @@ paths:
     $ref: './crop-cycle-service.v1.yaml#/paths/~1api~1v1~1crop-cycles~1{cycleId}~1cancel'
   /api/v1/crop-cycles/{cycleId}/stage-history:
     $ref: './crop-cycle-service.v1.yaml#/paths/~1api~1v1~1crop-cycles~1{cycleId}~1stage-history'
+  /api/v1/crop-cycles/{cycleId}/observations:
+    $ref: './crop-cycle-service.v1.yaml#/paths/~1api~1v1~1crop-cycles~1{cycleId}~1observations'
   /api/v1/work-tasks:
     $ref: './work-service.v1.yaml#/paths/~1api~1v1~1work-tasks'
   /api/v1/work-tasks/{taskId}:

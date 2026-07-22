@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgriCore Crop Cycle Service API
-  version: 1.4.0
+  version: 1.5.0
   description: Verified crop-cycle planning and stage workflow contract.
 servers:
   - url: http://localhost:8084
@@ -233,6 +233,64 @@ paths:
           $ref: '#/components/responses/NotFound'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/crop-cycles/{cycleId}/observations:
+    parameters:
+      - $ref: '#/components/parameters/CycleId'
+    post:
+      tags: [Crop Cycles]
+      operationId: createCropCycleObservation
+      summary: Record an agronomic observation
+      description: Creates an append-only observation after verifying the caller's farm and plot access.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCropCycleObservationRequest'
+      responses:
+        '201':
+          description: Observation recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropCycleObservationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    get:
+      tags: [Crop Cycles]
+      operationId: listCropCycleObservations
+      summary: List agronomic observations
+      description: Returns observations by observed time, newest first, after farm and plot authorization.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Paginated observations.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropCycleObservationPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -307,6 +365,12 @@ components:
     CycleStatus:
       type: string
       enum: [DRAFT, ACTIVE, COMPLETED, CANCELLED]
+    ObservationCategory:
+      type: string
+      enum: [GENERAL, GROWTH, SOIL, IRRIGATION, WEATHER, NUTRITION, PEST, DISEASE, DAMAGE, HARVEST_READINESS]
+    ObservationSeverity:
+      type: string
+      enum: [INFO, ATTENTION, CRITICAL]
     CreateCropCycleRequest:
       type: object
       required: [code, farmId, plotId, cropId, plannedStartDate]
@@ -417,6 +481,49 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CropCycleStageHistoryResponse'
+        page: { type: integer, format: int32, minimum: 0 }
+        size: { type: integer, format: int32, minimum: 1, maximum: 100 }
+        totalElements: { type: integer, format: int64, minimum: 0 }
+        totalPages: { type: integer, format: int32, minimum: 0 }
+        first: { type: boolean }
+        last: { type: boolean }
+    CreateCropCycleObservationRequest:
+      type: object
+      additionalProperties: false
+      required: [category, severity, title, details, observedAt]
+      properties:
+        category:
+          $ref: '#/components/schemas/ObservationCategory'
+        severity:
+          $ref: '#/components/schemas/ObservationSeverity'
+        title: { type: string, minLength: 1, maxLength: 120 }
+        details: { type: string, minLength: 1, maxLength: 2000 }
+        observedAt: { type: string, format: date-time }
+    CropCycleObservationResponse:
+      type: object
+      additionalProperties: false
+      required: [id, cropCycleId, category, severity, title, details, observedAt, recordedBy, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        cropCycleId: { type: string, format: uuid }
+        category:
+          $ref: '#/components/schemas/ObservationCategory'
+        severity:
+          $ref: '#/components/schemas/ObservationSeverity'
+        title: { type: string, minLength: 1, maxLength: 120 }
+        details: { type: string, minLength: 1, maxLength: 2000 }
+        observedAt: { type: string, format: date-time }
+        recordedBy: { type: string, minLength: 1, maxLength: 255 }
+        createdAt: { type: string, format: date-time }
+    CropCycleObservationPageResponse:
+      type: object
+      additionalProperties: false
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/CropCycleObservationResponse'
         page: { type: integer, format: int32, minimum: 0 }
         size: { type: integer, format: int32, minimum: 1, maximum: 100 }
         totalElements: { type: integer, format: int64, minimum: 0 }

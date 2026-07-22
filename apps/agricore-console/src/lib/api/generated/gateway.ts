@@ -606,6 +606,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/crop-cycles/{cycleId}/observations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cycleId: components["parameters"]["CycleId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List agronomic observations
+         * @description Returns observations by observed time, newest first, after farm and plot authorization.
+         */
+        get: operations["listCropCycleObservations"];
+        put?: never;
+        /**
+         * Record an agronomic observation
+         * @description Creates an append-only observation after verifying the caller's farm and plot access.
+         */
+        post: operations["createCropCycleObservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/work-tasks": {
         parameters: {
             query?: never;
@@ -1585,6 +1611,46 @@ export interface components {
             totalPages: number;
             first: boolean;
             last: boolean;
+        };
+        /** @enum {string} */
+        ObservationCategory: "GENERAL" | "GROWTH" | "SOIL" | "IRRIGATION" | "WEATHER" | "NUTRITION" | "PEST" | "DISEASE" | "DAMAGE" | "HARVEST_READINESS";
+        /** @enum {string} */
+        ObservationSeverity: "INFO" | "ATTENTION" | "CRITICAL";
+        CropCycleObservationResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            cropCycleId: string;
+            category: components["schemas"]["ObservationCategory"];
+            severity: components["schemas"]["ObservationSeverity"];
+            title: string;
+            details: string;
+            /** Format: date-time */
+            observedAt: string;
+            recordedBy: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        CropCycleObservationPageResponse: {
+            content: components["schemas"]["CropCycleObservationResponse"][];
+            /** Format: int32 */
+            page: number;
+            /** Format: int32 */
+            size: number;
+            /** Format: int64 */
+            totalElements: number;
+            /** Format: int32 */
+            totalPages: number;
+            first: boolean;
+            last: boolean;
+        };
+        CreateCropCycleObservationRequest: {
+            category: components["schemas"]["ObservationCategory"];
+            severity: components["schemas"]["ObservationSeverity"];
+            title: string;
+            details: string;
+            /** Format: date-time */
+            observedAt: string;
         };
         /** @enum {string} */
         TaskType: "LAND_PREPARATION" | "SOWING" | "IRRIGATION" | "FERTILIZING" | "PESTICIDE" | "PRUNING" | "INSPECTION" | "PEST_CONTROL" | "HARVEST" | "MAINTENANCE";
@@ -2975,6 +3041,70 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["components-responses-NotFound"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    listCropCycleObservations: {
+        parameters: {
+            query?: {
+                /** @description Zero-based page index. */
+                page?: components["parameters"]["parameters-Page"];
+                /** @description Number of records per page. */
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path: {
+                cycleId: components["parameters"]["CycleId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated observations. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CropCycleObservationPageResponse"];
+                };
+            };
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["components-responses-NotFound"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    createCropCycleObservation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cycleId: components["parameters"]["CycleId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCropCycleObservationRequest"];
+            };
+        };
+        responses: {
+            /** @description Observation recorded. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CropCycleObservationResponse"];
+                };
+            };
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["components-responses-NotFound"];
+            415: components["responses"]["UnsupportedMediaType"];
             503: components["responses"]["ServiceUnavailable"];
         };
     };

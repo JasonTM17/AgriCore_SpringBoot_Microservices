@@ -19,8 +19,6 @@ import java.util.UUID;
 @Service
 public class CropCycleStageHistoryService {
 
-    private static final int MAX_ACTOR_LENGTH = 255;
-
     private final CropCycleStageHistoryJpaRepository historyRepository;
     private final CropCycleJpaRepository cycleRepository;
     private final CropCycleAccessGuard accessGuard;
@@ -43,7 +41,7 @@ public class CropCycleStageHistoryService {
         history.setStage(cycle.getStage().name());
         history.setStatus(cycle.getStatus().name());
         history.setNotes(notes);
-        history.setChangedBy(requireActor(changedBy));
+        history.setChangedBy(AuthenticatedActor.requireValid(changedBy));
         history.setChangedAt(Instant.now());
         history.setCycleVersion(cycle.getVersion());
         historyRepository.save(history);
@@ -77,15 +75,4 @@ public class CropCycleStageHistoryService {
         );
     }
 
-    private String requireActor(String actor) {
-        String normalized = actor == null ? "" : actor.trim();
-        if (normalized.isEmpty() || normalized.length() > MAX_ACTOR_LENGTH) {
-            throw new CropCycleException(
-                    "INVALID_AUTHENTICATED_ACTOR",
-                    "Authenticated actor subject is invalid",
-                    401
-            );
-        }
-        return normalized;
-    }
 }

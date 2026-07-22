@@ -3,9 +3,12 @@ package com.agricore.cropcycle.api.controller;
 import com.agricore.common.api.PageResponse;
 import com.agricore.cropcycle.api.request.ChangeStageRequest;
 import com.agricore.cropcycle.api.request.CreateCropCycleRequest;
+import com.agricore.cropcycle.api.request.CreateCropCycleObservationRequest;
+import com.agricore.cropcycle.api.response.CropCycleObservationResponse;
 import com.agricore.cropcycle.api.response.CropCycleResponse;
 import com.agricore.cropcycle.api.response.CropCycleStageHistoryResponse;
 import com.agricore.cropcycle.application.service.CropCycleApplicationService;
+import com.agricore.cropcycle.application.service.CropCycleObservationService;
 import com.agricore.cropcycle.application.service.CropCycleStageHistoryService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -28,13 +31,16 @@ public class CropCycleController {
 
     private final CropCycleApplicationService service;
     private final CropCycleStageHistoryService stageHistoryService;
+    private final CropCycleObservationService observationService;
 
     public CropCycleController(
             CropCycleApplicationService service,
-            CropCycleStageHistoryService stageHistoryService
+            CropCycleStageHistoryService stageHistoryService,
+            CropCycleObservationService observationService
     ) {
         this.service = service;
         this.stageHistoryService = stageHistoryService;
+        this.observationService = observationService;
     }
 
     @PostMapping
@@ -103,5 +109,32 @@ public class CropCycleController {
                 Sort.Order.desc("id")
         );
         return stageHistoryService.list(cycleId, PageRequest.of(page, size, sort));
+    }
+
+    @PostMapping("/{cycleId}/observations")
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST','FIELD_WORKER')")
+    public ResponseEntity<CropCycleObservationResponse> createObservation(
+            @PathVariable UUID cycleId,
+            @Valid @RequestBody CreateCropCycleObservationRequest request,
+            Principal principal
+    ) {
+        CropCycleObservationResponse observation =
+                observationService.create(cycleId, request, principal.getName());
+        return ResponseEntity.status(HttpStatus.CREATED).body(observation);
+    }
+
+    @GetMapping("/{cycleId}/observations")
+    @PreAuthorize("isAuthenticated()")
+    public PageResponse<CropCycleObservationResponse> listObservations(
+            @PathVariable UUID cycleId,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
+    ) {
+        Sort sort = Sort.by(
+                Sort.Order.desc("observedAt"),
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("id")
+        );
+        return observationService.list(cycleId, PageRequest.of(page, size, sort));
     }
 }
