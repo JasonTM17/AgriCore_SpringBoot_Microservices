@@ -3,10 +3,13 @@ package com.agricore.inventory.api.controller;
 import com.agricore.inventory.api.request.StockOutRequest;
 import com.agricore.inventory.api.response.InventoryItemResponse;
 import com.agricore.inventory.application.service.InventoryApplicationService;
+import com.agricore.inventory.infrastructure.security.InventoryInternalServiceTokenValidator;
 import jakarta.validation.Valid;
-import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -15,14 +18,24 @@ import org.springframework.web.bind.annotation.RestController;
 public class InventoryInternalController {
 
     private final InventoryApplicationService inventoryService;
+    private final InventoryInternalServiceTokenValidator serviceTokenValidator;
 
-    public InventoryInternalController(InventoryApplicationService inventoryService) {
+    public InventoryInternalController(
+            InventoryApplicationService inventoryService,
+            InventoryInternalServiceTokenValidator serviceTokenValidator
+    ) {
         this.inventoryService = inventoryService;
+        this.serviceTokenValidator = serviceTokenValidator;
     }
 
     @PostMapping("/stock-out")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST','FIELD_WORKER')")
-    public InventoryItemResponse stockOut(@Valid @RequestBody StockOutRequest request) {
+    public InventoryItemResponse stockOut(
+            @RequestHeader(value = "X-Internal-Service-Token", required = false) String serviceToken,
+            @Valid @RequestBody StockOutRequest request
+    ) {
+        if (!serviceTokenValidator.matches(serviceToken)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Internal service authentication required");
+        }
         return inventoryService.stockOut(request);
     }
 }

@@ -24,6 +24,7 @@ public class InventoryStockClientProperties {
     ));
     private boolean allowInsecureHttp;
     private int maxResponseBytes = 8_192;
+    private String internalServiceToken = "";
 
     public String getBaseUrl() { return baseUrl; }
     public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
@@ -39,6 +40,10 @@ public class InventoryStockClientProperties {
     public void setAllowInsecureHttp(boolean allowInsecureHttp) { this.allowInsecureHttp = allowInsecureHttp; }
     public int getMaxResponseBytes() { return maxResponseBytes; }
     public void setMaxResponseBytes(int maxResponseBytes) { this.maxResponseBytes = maxResponseBytes; }
+    public String getInternalServiceToken() { return internalServiceToken; }
+    public void setInternalServiceToken(String internalServiceToken) {
+        this.internalServiceToken = internalServiceToken == null ? "" : internalServiceToken.trim();
+    }
 
     URI validatedBaseUri() {
         URI uri;

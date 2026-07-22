@@ -41,6 +41,7 @@ agricore:
     allow-insecure-http: ${FARM_SERVICE_ALLOW_INSECURE_HTTP:false}
   inventory-access:
     base-url: ${INVENTORY_SERVICE_URL:http://localhost:8086}
+    internal-service-token: ${INVENTORY_INTERNAL_SERVICE_TOKEN:}
     allowed-hosts: ${INVENTORY_SERVICE_ALLOWED_HOSTS:localhost,127.0.0.1,::1,inventory-service}
     allow-insecure-http: ${INVENTORY_SERVICE_ALLOW_INSECURE_HTTP:false}
     connect-timeout: ${INVENTORY_SERVICE_CONNECT_TIMEOUT:2s}

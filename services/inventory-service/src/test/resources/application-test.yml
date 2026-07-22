@@ -17,6 +17,9 @@ spring:
       - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
 
 agricore:
+  inventory:
+    internal:
+      service-token: test-inventory-work-service-token-012345678901234567890123
   security:
     dev-mode: true
     issuer: https://agricore.test/identity

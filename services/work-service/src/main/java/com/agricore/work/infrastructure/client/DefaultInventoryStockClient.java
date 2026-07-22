@@ -22,6 +22,7 @@ final class DefaultInventoryStockClient implements InventoryStockClient {
     private static final String STOCK_OUT_PATH = "/internal/api/v1/inventory/stock-out";
 
     private final RestClient restClient;
+    private final InventoryStockClientProperties properties;
     private final InventoryStockResponseDecoder responseDecoder;
     private final boolean securityDevMode;
 
@@ -31,6 +32,7 @@ final class DefaultInventoryStockClient implements InventoryStockClient {
             boolean securityDevMode,
             com.fasterxml.jackson.databind.ObjectMapper objectMapper
     ) {
+        this.properties = properties;
         this.restClient = builder.baseUrl(properties.validatedBaseUri().toString()).build();
         this.responseDecoder = new InventoryStockResponseDecoder(
                 objectMapper,
@@ -96,6 +98,13 @@ final class DefaultInventoryStockClient implements InventoryStockClient {
     private Consumer<HttpHeaders> authHeaders() {
         Authentication authentication = currentAuthentication();
         return headers -> {
+            String serviceToken = properties.getInternalServiceToken();
+            if (serviceToken.isBlank()) {
+                throw InventoryStockClientException.unavailable(
+                        new IllegalStateException("Inventory service token is not configured")
+                );
+            }
+            headers.set("X-Internal-Service-Token", serviceToken);
             if (authentication instanceof JwtAuthenticationToken jwtAuthentication) {
                 headers.setBearerAuth(jwtAuthentication.getToken().getTokenValue());
                 return;

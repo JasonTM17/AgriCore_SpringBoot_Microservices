@@ -43,6 +43,7 @@ class DefaultInventoryStockClientTest {
         TestClient fixture = client(false);
         fixture.server().expect(once(), requestTo(BASE_URL + "/internal/api/v1/inventory/stock-out"))
                 .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer signed-access-token"))
+                .andExpect(header("X-Internal-Service-Token", "test-inventory-work-service-token-012345678901234567890123"))
                 .andExpect(jsonPath("$.inventoryItemId").value(itemId.toString()))
                 .andExpect(jsonPath("$.referenceType").value("WorkTask"))
                 .andRespond(withSuccess(response(itemId), MediaType.APPLICATION_JSON));
@@ -64,6 +65,7 @@ class DefaultInventoryStockClientTest {
         fixture.server().expect(once(), requestTo(BASE_URL + "/internal/api/v1/inventory/stock-out"))
                 .andExpect(header("X-Dev-User", "worker-a"))
                 .andExpect(header("X-Dev-Roles", "AGRONOMIST,FIELD_WORKER"))
+                .andExpect(header("X-Internal-Service-Token", "test-inventory-work-service-token-012345678901234567890123"))
                 .andRespond(withSuccess(response(itemId), MediaType.APPLICATION_JSON));
 
         fixture.client().stockOut(itemId, BigDecimal.ONE, "material-ref");
@@ -116,6 +118,7 @@ class DefaultInventoryStockClientTest {
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         InventoryStockClientProperties properties = new InventoryStockClientProperties();
         properties.setBaseUrl(BASE_URL);
+        properties.setInternalServiceToken("test-inventory-work-service-token-012345678901234567890123");
         return new TestClient(
                 new DefaultInventoryStockClient(builder, properties, devMode, new ObjectMapper()),
                 server

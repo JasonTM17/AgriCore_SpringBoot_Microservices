@@ -23,6 +23,8 @@ class InventoryStockOutApiIntegrationTest {
 
     private static final String USER_HEADER = "X-Dev-User";
     private static final String ROLES_HEADER = "X-Dev-Roles";
+    private static final String INTERNAL_TOKEN_HEADER = "X-Internal-Service-Token";
+    private static final String INTERNAL_TOKEN = "test-inventory-work-service-token-012345678901234567890123";
 
     @Autowired
     private MockMvc mockMvc;
@@ -73,6 +75,7 @@ class InventoryStockOutApiIntegrationTest {
         mockMvc.perform(post("/internal/api/v1/inventory/stock-out")
                         .header(USER_HEADER, "worker")
                         .header(ROLES_HEADER, "FIELD_WORKER")
+                        .header(INTERNAL_TOKEN_HEADER, INTERNAL_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -84,6 +87,13 @@ class InventoryStockOutApiIntegrationTest {
                                 """.formatted(itemId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.onHandQuantity").value(5.5));
+
+        mockMvc.perform(post("/internal/api/v1/inventory/stock-out")
+                        .header(USER_HEADER, "worker")
+                        .header(ROLES_HEADER, "FIELD_WORKER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isForbidden());
     }
 
     @Test
