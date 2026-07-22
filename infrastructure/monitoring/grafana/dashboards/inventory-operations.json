@@ -1,0 +1,18 @@
+{
+  "annotations": {"list": []},
+  "editable": false,
+  "panels": [
+    {"type": "stat", "title": "Reservation failures", "id": 1, "gridPos": {"h": 6, "w": 8, "x": 0, "y": 0}, "targets": [{"expr": "sum(increase(agricore_inventory_reservation_failures_total[1h]))", "legendFormat": "failures / hour"}]},
+    {"type": "timeseries", "title": "Reservation outcomes", "id": 2, "gridPos": {"h": 8, "w": 16, "x": 8, "y": 0}, "targets": [{"expr": "sum by (outcome) (rate(agricore_inventory_reservations_total[5m]))", "legendFormat": "{{outcome}}"}]},
+    {"type": "timeseries", "title": "Harvest consumer processing", "id": 3, "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8}, "targets": [{"expr": "sum by (outcome) (rate(agricore_inventory_harvest_events_total[5m]))", "legendFormat": "{{outcome}}"}]}
+  ],
+  "refresh": "15s",
+  "schemaVersion": 39,
+  "tags": ["agricore", "inventory"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "AgriCore Inventory Operations",
+  "uid": "agricore-inventory-operations",
+  "version": 1
+}

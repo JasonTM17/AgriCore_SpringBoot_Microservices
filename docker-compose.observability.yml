@@ -20,10 +20,15 @@ services:
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: agricore_dev_change_me
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./infrastructure/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infrastructure/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
       - "3001:3000"
     depends_on:
       - prometheus
+      - tempo
 
   tempo:
     image: grafana/tempo:2.6.0
