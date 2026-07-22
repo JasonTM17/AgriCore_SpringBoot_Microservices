@@ -1,6 +1,6 @@
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 import { browserSecurityPolicyPlugin } from "./config/browser-security-policy";
 
@@ -27,6 +27,7 @@ export default defineConfig(({ command }) => ({
     port: 4173,
   },
   test: {
+    exclude: [...configDefaults.exclude, "e2e/**"],
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],

@@ -53,6 +53,18 @@ jobs:
         run: pnpm test
       - name: Build frontend
         run: pnpm build
+      - name: Install Playwright Chromium
+        run: pnpm --filter @agricore/console exec playwright install --with-deps chromium
+      - name: Test critical browser journeys
+        run: pnpm e2e
+      - name: Upload Playwright evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-evidence
+          path: |
+            apps/agricore-console/playwright-report/**
+            apps/agricore-console/test-results/**
 
   secret-scan:
     runs-on: ubuntu-latest
