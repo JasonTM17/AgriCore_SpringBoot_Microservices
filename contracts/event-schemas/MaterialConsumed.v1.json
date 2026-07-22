@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agricore.local/schemas/MaterialConsumed.v1.json",
+  "title": "MaterialConsumed.v1",
+  "allOf": [
+    { "$ref": "DomainEventEnvelope.v1.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "MaterialConsumed.v1" },
+        "eventVersion": { "const": 1 },
+        "producer": { "const": "work-service" },
+        "payload": {
+          "type": "object",
+          "required": [
+            "materialUsageId", "taskId", "cropCycleId", "plotId", "inventoryItemId",
+            "quantity", "unit", "referenceType", "referenceId", "consumedAt"
+          ],
+          "properties": {
+            "materialUsageId": { "type": "string", "format": "uuid" },
+            "taskId": { "type": "string", "format": "uuid" },
+            "cropCycleId": { "type": "string", "format": "uuid" },
+            "plotId": { "type": "string", "format": "uuid" },
+            "inventoryItemId": { "type": "string", "format": "uuid" },
+            "quantity": { "type": "number", "minimum": 0.001, "multipleOf": 0.001 },
+            "unit": { "type": "string", "minLength": 1, "maxLength": 16 },
+            "referenceType": { "const": "WorkTask" },
+            "referenceId": { "type": "string", "minLength": 1, "maxLength": 100 },
+            "consumedAt": { "type": "string", "format": "date-time" }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}

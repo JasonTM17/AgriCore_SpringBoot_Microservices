@@ -4,8 +4,8 @@ info:
   version: 0.1.0
   description: |
     Kafka contracts for the events currently emitted by AgriCore transactional
-    outbox producers. The implemented scope is 11 events on the farm,
-    crop-cycle, work, and harvest topics. Other constants in EventTypes are not
+    outbox producers. The implemented scope is 17 events on the farm,
+    crop-cycle, work, inventory, and harvest topics. Other constants in EventTypes are not
     implemented event flows and are intentionally not documented as messages.
 defaultContentType: application/json
 channels:
@@ -61,6 +61,34 @@ channels:
         name: WorkTaskCompleted.v1
         payload:
           $ref: ../event-schemas/WorkTaskCompleted.v1.json
+      MaterialConsumed:
+        name: MaterialConsumed.v1
+        payload:
+          $ref: ../event-schemas/MaterialConsumed.v1.json
+  agricore.inventory.events:
+    address: agricore.inventory.events
+    description: Stock lifecycle events emitted by inventory-service.
+    messages:
+      InventoryReserved:
+        name: InventoryReserved.v1
+        payload:
+          $ref: ../event-schemas/InventoryReserved.v1.json
+      InventoryReservationFailed:
+        name: InventoryReservationFailed.v1
+        payload:
+          $ref: ../event-schemas/InventoryReservationFailed.v1.json
+      InventoryReleased:
+        name: InventoryReleased.v1
+        payload:
+          $ref: ../event-schemas/InventoryReleased.v1.json
+      StockAdded:
+        name: StockAdded.v1
+        payload:
+          $ref: ../event-schemas/StockAdded.v1.json
+      StockDeducted:
+        name: StockDeducted.v1
+        payload:
+          $ref: ../event-schemas/StockDeducted.v1.json
   agricore.harvest.events:
     address: agricore.harvest.events
     description: HarvestCompleted events emitted by harvest-service.
@@ -112,6 +140,17 @@ operations:
       - $ref: '#/channels/agricore.work.events/messages/WorkTaskCreated'
       - $ref: '#/channels/agricore.work.events/messages/WorkTaskAssigned'
       - $ref: '#/channels/agricore.work.events/messages/WorkTaskCompleted'
+      - $ref: '#/channels/agricore.work.events/messages/MaterialConsumed'
+  inventoryServiceSendsInventoryEvents:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.inventory.events'
+    messages:
+      - $ref: '#/channels/agricore.inventory.events/messages/InventoryReserved'
+      - $ref: '#/channels/agricore.inventory.events/messages/InventoryReservationFailed'
+      - $ref: '#/channels/agricore.inventory.events/messages/InventoryReleased'
+      - $ref: '#/channels/agricore.inventory.events/messages/StockAdded'
+      - $ref: '#/channels/agricore.inventory.events/messages/StockDeducted'
   harvestServiceSendsHarvestEvents:
     action: send
     channel:

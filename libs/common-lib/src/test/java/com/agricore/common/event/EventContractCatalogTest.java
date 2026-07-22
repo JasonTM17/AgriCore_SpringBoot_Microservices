@@ -43,6 +43,25 @@ class EventContractCatalogTest {
                     set("taskId", "code", "cropCycleId", "plotId", "taskType", "status", "assignedEmployeeId")),
             new Contract(EventTypes.WORK_TASK_COMPLETED, "work-service", "agricore.work.events",
                     set("taskId", "code", "cropCycleId", "plotId", "taskType", "status"), set("assignedEmployeeId")),
+            contract(EventTypes.MATERIAL_CONSUMED, "work-service", "agricore.work.events",
+                    set("materialUsageId", "taskId", "cropCycleId", "plotId", "inventoryItemId", "quantity",
+                            "unit", "referenceType", "referenceId", "consumedAt")),
+            contract(EventTypes.INVENTORY_RESERVED, "inventory-service", "agricore.inventory.events",
+                    set("inventoryItemId", "warehouseId", "sku", "itemType", "unit", "reservationId", "quantity",
+                            "referenceType", "referenceId", "reservedQuantity", "availableQuantity")),
+            contract(EventTypes.INVENTORY_RESERVATION_FAILED, "inventory-service", "agricore.inventory.events",
+                    set("inventoryItemId", "warehouseId", "sku", "itemType", "unit", "requestedQuantity",
+                            "availableQuantity", "referenceType", "referenceId", "reasonCode")),
+            contract(EventTypes.INVENTORY_RELEASED, "inventory-service", "agricore.inventory.events",
+                    set("inventoryItemId", "warehouseId", "sku", "itemType", "unit", "reservationId", "quantity",
+                            "referenceType", "referenceId", "reservedQuantity", "availableQuantity")),
+            contract(EventTypes.STOCK_ADDED, "inventory-service", "agricore.inventory.events",
+                    set("inventoryItemId", "warehouseId", "sku", "itemType", "unit", "movementId", "quantity",
+                            "referenceType", "referenceId", "onHandQuantity", "availableQuantity")),
+            new Contract(EventTypes.STOCK_DEDUCTED, "inventory-service", "agricore.inventory.events",
+                    set("inventoryItemId", "warehouseId", "sku", "itemType", "unit", "movementId", "quantity",
+                            "referenceType", "referenceId", "onHandQuantity", "availableQuantity"),
+                    set("reservationId")),
             new Contract(EventTypes.HARVEST_COMPLETED, "harvest-service", "agricore.harvest.events",
                     set("harvestId", "harvestBatchId", "cropCycleId", "plotId", "warehouseId", "productCode",
                             "grossWeightKg", "netWeightKg", "qualityGrade", "harvestDate", "productName"),
@@ -120,7 +139,7 @@ class EventContractCatalogTest {
         assertThat(versionedMessageNames(channels))
                 .containsExactlyInAnyOrderElementsOf(CONTRACTS.stream().map(Contract::eventType).toList());
 
-        assertThat(actionCount(operations, "send")).isEqualTo(6);
+        assertThat(actionCount(operations, "send")).isEqualTo(7);
         assertThat(actionCount(operations, "receive")).isEqualTo(2);
         assertThat(fieldNames(operations)).contains(
                 "inventoryServiceReceivesHarvestCompleted",

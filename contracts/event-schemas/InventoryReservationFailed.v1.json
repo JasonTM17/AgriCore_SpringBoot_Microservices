@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agricore.local/schemas/InventoryReservationFailed.v1.json",
+  "title": "InventoryReservationFailed.v1",
+  "allOf": [
+    { "$ref": "DomainEventEnvelope.v1.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "InventoryReservationFailed.v1" },
+        "eventVersion": { "const": 1 },
+        "producer": { "const": "inventory-service" },
+        "payload": {
+          "type": "object",
+          "required": [
+            "inventoryItemId", "warehouseId", "sku", "itemType", "unit", "requestedQuantity",
+            "availableQuantity", "referenceType", "referenceId", "reasonCode"
+          ],
+          "properties": {
+            "inventoryItemId": { "type": "string", "format": "uuid" },
+            "warehouseId": { "type": "string", "format": "uuid" },
+            "sku": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "itemType": { "type": "string", "minLength": 1, "maxLength": 32 },
+            "unit": { "type": "string", "minLength": 1, "maxLength": 16 },
+            "requestedQuantity": { "type": "number", "minimum": 0.001, "multipleOf": 0.001 },
+            "availableQuantity": { "type": "number", "minimum": 0 },
+            "referenceType": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "referenceId": { "type": "string", "minLength": 1, "maxLength": 100 },
+            "reasonCode": { "const": "INSUFFICIENT_STOCK" }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}
