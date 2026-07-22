@@ -19,3 +19,8 @@ agricore:
     jwk-set-uri: http://localhost:8081/.well-known/jwks.json
   inventory:
     base-url: http://localhost:18086
+  outbox:
+    publisher:
+      enabled: false
+    cleanup:
+      enabled: false
