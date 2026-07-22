@@ -51,6 +51,12 @@ The successful response contains authoritative `farmId` and nullable `plotId`. T
 
 Role checks run before these resource checks. Passing a role check does not bypass farm membership.
 
+### Work material stock boundary
+
+Task completion reuses the authoritative `farmId` returned when farm-service resolves the task's stored plot. Work sends that farm ID, the inventory item ID, the caller credential, and its internal service credential to `POST /internal/api/v1/inventory/stock-out`. Inventory locks the item, resolves its warehouse, and deducts stock only when the warehouse has the same `farmId`.
+
+Missing items, warehouses without a farm assignment, and cross-farm item IDs all return the same `404 ITEM_NOT_FOUND` response. The check runs before idempotency lookup or quantity mutation, so an unauthorized caller cannot learn whether a referenced item exists and cannot change its stock.
+
 ## Failure and masking semantics
 
 | Status | Meaning |

@@ -199,6 +199,30 @@ pnpm build
 
 For an existing PostgreSQL volume, follow [assistant database provisioning](./assistant-database-provisioning.md). For cluster installs, create the external database Secret before `helm upgrade --install`.
 
+### Inventory warehouse farm-scope upgrade
+
+Inventory migration `V4__add_warehouse_farm_scope.sql` adds `warehouses.farm_id`. It intentionally does not guess a farm for existing warehouses. New warehouse requests require `farmId`; an existing warehouse with a null farm assignment is unavailable to Work material consumption until an operator maps it to the correct farm.
+
+Audit the inventory database after migration:
+
+```sql
+SELECT id, code, name
+FROM warehouses
+WHERE farm_id IS NULL
+ORDER BY code;
+```
+
+For each row, verify the farm in farm-service before applying an explicit mapping:
+
+```sql
+UPDATE warehouses
+SET farm_id = '<verified-farm-uuid>'
+WHERE id = '<warehouse-uuid>'
+  AND farm_id IS NULL;
+```
+
+Do not bulk-assign a default farm. Re-run the audit and require zero rows before enabling Work material stock-out for migrated warehouses.
+
 ## Stop the stack
 
 Stop observability before the main project so its containers release the external network:
