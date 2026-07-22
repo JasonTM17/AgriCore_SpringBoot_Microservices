@@ -273,12 +273,49 @@ services:
     environment:
       <<: [*db-env, *security-env, *kafka-env]
       TRACEABILITY_PORT: 8092
-      TRACEABILITY_PUBLIC_BASE_URL: http://localhost:8080/public/api/v1/traceability
+      TRACEABILITY_PUBLIC_BASE_URL: http://localhost:3000/public/api/v1/traceability
     ports:
       - "8092:8092"
     healthcheck:
       <<: *app-healthcheck
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8092/actuator/health | grep -q UP || exit 1"]
+
+  assistant-service:
+    build:
+      context: .
+      dockerfile: services/assistant-service/Dockerfile
+    container_name: agricore-assistant
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      identity-service:
+        condition: service_healthy
+      farm-service:
+        condition: service_healthy
+    environment:
+      <<: [*db-env, *security-env]
+      ASSISTANT_PORT: 8093
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      ASSISTANT_PROVIDER: ${ASSISTANT_PROVIDER:-none}
+      ASSISTANT_PROVIDER_MODEL: ${ASSISTANT_PROVIDER_MODEL:-}
+      ASSISTANT_PROVIDER_API_KEY: ${ASSISTANT_PROVIDER_API_KEY:-}
+      ASSISTANT_PROVIDER_BASE_URL: ${ASSISTANT_PROVIDER_BASE_URL:-}
+      ASSISTANT_TOOLS_ENABLED: ${ASSISTANT_TOOLS_ENABLED:-true}
+      ASSISTANT_FARM_TOOL_BASE_URL: http://farm-service:8082
+      ASSISTANT_TOOL_ALLOWED_HOSTS: farm-service
+      ASSISTANT_TOOL_ALLOW_INSECURE_HTTP: "true"
+      ASSISTANT_BUDGET_TRUST_FORWARDED_HEADERS: "true"
+    expose:
+      - "8093"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8093/actuator/health | grep -q UP || exit 1"]
 
   api-gateway:
     build:
@@ -308,6 +345,8 @@ services:
         condition: service_healthy
       traceability-service:
         condition: service_healthy
+      assistant-service:
+        condition: service_healthy
     environment:
       GATEWAY_PORT: 8080
       IDENTITY_SERVICE_URL: http://identity-service:8081
@@ -321,6 +360,7 @@ services:
       IOT_SERVICE_URL: http://iot-service:8090
       SALES_SERVICE_URL: http://sales-service:8091
       TRACEABILITY_SERVICE_URL: http://traceability-service:8092
+      ASSISTANT_SERVICE_URL: http://assistant-service:8093
       JWT_ISSUER: https://agricore.local/identity
       IDENTITY_JWKS_URI: http://identity-service:8081/.well-known/jwks.json
     ports:
@@ -328,3 +368,23 @@ services:
     healthcheck:
       <<: *app-healthcheck
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/actuator/health | grep -q UP || exit 1"]
+
+  agricore-console:
+    build:
+      context: .
+      dockerfile: apps/agricore-console/Dockerfile
+    container_name: agricore-console
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    ports:
+      - "${CONSOLE_PORT:-3000}:8080"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+    healthcheck:
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz | grep -q ok || exit 1"]
