@@ -638,7 +638,7 @@ export interface paths {
         put?: never;
         /**
          * Complete a work task
-         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or FIELD_WORKER with access to the task plot. The request body is optional.
+         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or FIELD_WORKER with access to the task plot. The request body is optional. Material retries must repeat the same item and quantity set; successful deductions are not repeated.
          */
         post: operations["completeWorkTask"];
         delete?: never;
@@ -1513,6 +1513,20 @@ export interface components {
         TaskType: "LAND_PREPARATION" | "SOWING" | "IRRIGATION" | "FERTILIZING" | "PESTICIDE" | "PRUNING" | "INSPECTION" | "PEST_CONTROL" | "HARVEST" | "MAINTENANCE";
         /** @enum {string} */
         TaskStatus: "CREATED" | "ASSIGNED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "OVERDUE";
+        MaterialUsageResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            inventoryItemId: string;
+            quantity: number;
+            unit: string | null;
+            /** @enum {string} */
+            status: "PENDING" | "CONSUMED" | "FAILED";
+            inventoryReferenceId: string;
+            lastError: string | null;
+            /** Format: date-time */
+            consumedAt: string | null;
+        };
         WorkTaskResponse: {
             /** Format: uuid */
             id: string;
@@ -1541,6 +1555,7 @@ export interface components {
             createdAt: string;
             /** Format: int64 */
             version: number;
+            materials: components["schemas"]["MaterialUsageResponse"][];
         };
         WorkTaskPageResponse: {
             content: components["schemas"]["WorkTaskResponse"][];
@@ -1574,8 +1589,15 @@ export interface components {
             /** Format: uuid */
             assignedEmployeeId: string;
         };
+        MaterialUsageRequest: {
+            /** Format: uuid */
+            inventoryItemId: string;
+            quantity: number;
+        };
         CompleteTaskRequest: {
             notes?: string | null;
+            /** @default [] */
+            materials: components["schemas"]["MaterialUsageRequest"][];
         };
         InventoryHarvestProjectionAcknowledgementResponse: {
             /** Format: uuid */
@@ -2001,7 +2023,16 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description Duplicate code, a forbidden terminal-state mutation, or a concurrent task update requiring reload. */
+        /** @description Authoritative farm access verification or material stock consumption is temporarily unavailable. */
+        "responses-ServiceUnavailable": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Duplicate code, changed material retry, forbidden terminal-state mutation, or a concurrent task update requiring reload. */
         "components-responses-Conflict": {
             headers: {
                 [name: string]: unknown;
@@ -2047,7 +2078,7 @@ export interface components {
             };
         };
         /** @description Farm authorization or completion-event locking is temporarily unavailable; retry later. */
-        "responses-ServiceUnavailable": {
+        "components-responses-ServiceUnavailable": {
             headers: {
                 [name: string]: unknown;
             };
@@ -2083,7 +2114,7 @@ export interface components {
             };
         };
         /** @description Farm authorization is temporarily unavailable. */
-        "components-responses-ServiceUnavailable": {
+        "iot-service.v1_components-responses-ServiceUnavailable": {
             headers: {
                 [name: string]: unknown;
             };
@@ -2805,7 +2836,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["responses-Forbidden"];
             404: components["responses"]["work-service.v1_components-responses-NotFound"];
-            503: components["responses"]["ServiceUnavailable"];
+            503: components["responses"]["responses-ServiceUnavailable"];
         };
     };
     createWorkTask: {
@@ -2837,7 +2868,7 @@ export interface operations {
             409: components["responses"]["components-responses-Conflict"];
             415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["responses-InternalServerError"];
-            503: components["responses"]["ServiceUnavailable"];
+            503: components["responses"]["responses-ServiceUnavailable"];
         };
     };
     getWorkTask: {
@@ -2864,7 +2895,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["responses-Forbidden"];
             404: components["responses"]["work-service.v1_components-responses-NotFound"];
-            503: components["responses"]["ServiceUnavailable"];
+            503: components["responses"]["responses-ServiceUnavailable"];
         };
     };
     assignWorkTask: {
@@ -2898,7 +2929,7 @@ export interface operations {
             409: components["responses"]["components-responses-Conflict"];
             415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["responses-InternalServerError"];
-            503: components["responses"]["ServiceUnavailable"];
+            503: components["responses"]["responses-ServiceUnavailable"];
         };
     };
     completeWorkTask: {
@@ -2932,7 +2963,7 @@ export interface operations {
             409: components["responses"]["components-responses-Conflict"];
             415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["responses-InternalServerError"];
-            503: components["responses"]["ServiceUnavailable"];
+            503: components["responses"]["responses-ServiceUnavailable"];
         };
     };
     getInventoryHarvestProjectionAcknowledgement: {
@@ -3007,7 +3038,7 @@ export interface operations {
             409: components["responses"]["harvest-service.v1_components-responses-Conflict"];
             415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["responses-InternalServerError"];
-            503: components["responses"]["responses-ServiceUnavailable"];
+            503: components["responses"]["components-responses-ServiceUnavailable"];
         };
     };
     getHarvest: {
@@ -3034,7 +3065,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["components-responses-Forbidden"];
             404: components["responses"]["harvest-service.v1_components-responses-NotFound"];
-            503: components["responses"]["responses-ServiceUnavailable"];
+            503: components["responses"]["components-responses-ServiceUnavailable"];
         };
     };
     getHarvestCompletionEventStatus: {
@@ -3062,7 +3093,7 @@ export interface operations {
             403: components["responses"]["components-responses-Forbidden"];
             404: components["responses"]["harvest-service.v1_components-responses-NotFound"];
             409: components["responses"]["harvest-service.v1_components-responses-Conflict"];
-            503: components["responses"]["responses-ServiceUnavailable"];
+            503: components["responses"]["components-responses-ServiceUnavailable"];
         };
     };
     republishHarvestCompletionEvent: {
@@ -3090,7 +3121,7 @@ export interface operations {
             403: components["responses"]["components-responses-Forbidden"];
             404: components["responses"]["harvest-service.v1_components-responses-NotFound"];
             409: components["responses"]["harvest-service.v1_components-responses-Conflict"];
-            503: components["responses"]["responses-ServiceUnavailable"];
+            503: components["responses"]["components-responses-ServiceUnavailable"];
         };
     };
     createTraceabilityBatch: {
@@ -3282,7 +3313,7 @@ export interface operations {
             404: components["responses"]["iot-service.v1_components-responses-NotFound"];
             409: components["responses"]["iot-service.v1_components-responses-Conflict"];
             415: components["responses"]["UnsupportedMediaType"];
-            503: components["responses"]["components-responses-ServiceUnavailable"];
+            503: components["responses"]["iot-service.v1_components-responses-ServiceUnavailable"];
         };
     };
     ingestIotReading: {
@@ -3312,7 +3343,7 @@ export interface operations {
             403: components["responses"]["components-responses-Forbidden"];
             404: components["responses"]["iot-service.v1_components-responses-NotFound"];
             415: components["responses"]["UnsupportedMediaType"];
-            503: components["responses"]["components-responses-ServiceUnavailable"];
+            503: components["responses"]["iot-service.v1_components-responses-ServiceUnavailable"];
         };
     };
     getAssistantCapabilities: {
