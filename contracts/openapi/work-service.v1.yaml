@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgriCore Work Service API
-  version: 1.2.0
+  version: 1.3.0
   description: Verified field-work task creation, assignment, completion, and query contract.
 servers:
   - url: http://localhost:8085
@@ -149,7 +149,10 @@ paths:
       tags: [Work Tasks]
       operationId: completeWorkTask
       summary: Complete a work task
-      description: Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or FIELD_WORKER with access to the task plot. The request body is optional.
+      description: >-
+        Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or FIELD_WORKER with access to the task plot.
+        The request body is optional. Material retries must repeat the same item and quantity set; successful
+        deductions are not repeated.
       requestBody:
         required: false
         content:
@@ -223,7 +226,7 @@ components:
           schema:
             $ref: '#/components/schemas/ApiError'
     Conflict:
-      description: Duplicate code, a forbidden terminal-state mutation, or a concurrent task update requiring reload.
+      description: Duplicate code, changed material retry, forbidden terminal-state mutation, or a concurrent task update requiring reload.
       content:
         application/json:
           schema:
@@ -241,7 +244,7 @@ components:
           schema:
             $ref: '#/components/schemas/ApiError'
     ServiceUnavailable:
-      description: Authoritative farm access verification is temporarily unavailable.
+      description: Authoritative farm access verification or material stock consumption is temporarily unavailable.
       content:
         application/json:
           schema:
@@ -274,8 +277,22 @@ components:
         assignedEmployeeId: { type: string, format: uuid }
     CompleteTaskRequest:
       type: object
+      additionalProperties: false
       properties:
         notes: { type: [string, 'null'], maxLength: 2000 }
+        materials:
+          type: array
+          maxItems: 50
+          default: []
+          items:
+            $ref: '#/components/schemas/MaterialUsageRequest'
+    MaterialUsageRequest:
+      type: object
+      additionalProperties: false
+      required: [inventoryItemId, quantity]
+      properties:
+        inventoryItemId: { type: string, format: uuid }
+        quantity: { type: number, minimum: 0.001, multipleOf: 0.001 }
     WorkTaskResponse:
       type: object
       additionalProperties: false
@@ -297,6 +314,7 @@ components:
         - notes
         - createdAt
         - version
+        - materials
       properties:
         id: { type: string, format: uuid }
         code: { type: string, maxLength: 64 }
@@ -317,6 +335,31 @@ components:
         notes: { type: [string, 'null'] }
         createdAt: { type: string, format: date-time }
         version: { type: integer, format: int64, minimum: 0 }
+        materials:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaterialUsageResponse'
+    MaterialUsageResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - inventoryItemId
+        - quantity
+        - unit
+        - status
+        - inventoryReferenceId
+        - lastError
+        - consumedAt
+      properties:
+        id: { type: string, format: uuid }
+        inventoryItemId: { type: string, format: uuid }
+        quantity: { type: number }
+        unit: { type: [string, 'null'], maxLength: 16 }
+        status: { type: string, enum: [PENDING, CONSUMED, FAILED] }
+        inventoryReferenceId: { type: string, maxLength: 100 }
+        lastError: { type: [string, 'null'], maxLength: 1000 }
+        consumedAt: { type: [string, 'null'], format: date-time }
     WorkTaskPageResponse:
       type: object
       additionalProperties: false
