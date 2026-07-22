@@ -2,9 +2,9 @@
   "annotations": {"list": []},
   "editable": false,
   "panels": [
-    {"type": "timeseries", "title": "Producer error rate", "id": 1, "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}, "targets": [{"expr": "sum by (job) (rate(kafka_producer_record_error_total{job=~\".*\"}[5m]))", "legendFormat": "{{job}}"}]},
+    {"type": "timeseries", "title": "Producer error rate", "id": 1, "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}, "targets": [{"expr": "sum by (job) (kafka_producer_record_error_rate)", "legendFormat": "{{job}}"}]},
     {"type": "timeseries", "title": "Consumer lag max", "id": 2, "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}, "targets": [{"expr": "max by (job, topic) (kafka_consumer_fetch_manager_records_lag_max)", "legendFormat": "{{job}} / {{topic}}"}]},
-    {"type": "stat", "title": "DLQ messages", "id": 3, "gridPos": {"h": 6, "w": 8, "x": 0, "y": 8}, "targets": [{"expr": "sum(agricore_kafka_dlq_messages_total)", "legendFormat": "DLQ"}]},
+    {"type": "stat", "title": "DLQ recovery attempts", "id": 3, "gridPos": {"h": 6, "w": 8, "x": 0, "y": 8}, "targets": [{"expr": "sum(agricore_kafka_dlq_attempts_total)", "legendFormat": "attempts"}]},
     {"type": "timeseries", "title": "Kafka listener throughput", "id": 4, "gridPos": {"h": 8, "w": 16, "x": 8, "y": 8}, "targets": [{"expr": "sum by (job) (rate(spring_kafka_listener_seconds_count[5m]))", "legendFormat": "{{job}}"}]}
   ],
   "refresh": "15s",

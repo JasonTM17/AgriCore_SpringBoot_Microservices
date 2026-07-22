@@ -1,5 +1,7 @@
 package com.agricore.inventory.infrastructure.messaging;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,10 +23,18 @@ public class KafkaConsumerErrorConfig {
     private static final Logger log = LoggerFactory.getLogger(KafkaConsumerErrorConfig.class);
 
     @Bean
-    DefaultErrorHandler kafkaErrorHandler(KafkaTemplate<String, String> kafkaTemplate) {
+    DefaultErrorHandler kafkaErrorHandler(
+            KafkaTemplate<String, String> kafkaTemplate,
+            MeterRegistry meterRegistry
+    ) {
+        Counter dlqAttempts = Counter.builder("agricore.kafka.dlq.attempts")
+                .description("Kafka records handed to dead-letter recovery")
+                .tag("consumer", "inventory-service")
+                .register(meterRegistry);
         DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
                 kafkaTemplate,
                 (record, ex) -> {
+                    dlqAttempts.increment();
                     String dlt = record.topic() + ".DLT";
                     log.error("Sending record to DLT topic={} partition={} offset={} cause={}",
                             dlt, record.partition(), record.offset(), ex.getMessage());

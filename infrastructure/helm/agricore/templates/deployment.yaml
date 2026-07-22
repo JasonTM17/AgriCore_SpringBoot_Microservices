@@ -76,6 +76,8 @@ spec:
               value: "false"
             - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
               value: "5"
+            - name: MANAGEMENT_METRICS_DISTRIBUTION_PERCENTILES_HISTOGRAM_HTTP_SERVER_REQUESTS
+              value: "true"
             {{- if $.Values.observability.structuredLogging }}
             - name: LOGGING_STRUCTURED_FORMAT_CONSOLE
               value: "ecs"

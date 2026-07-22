@@ -12,4 +12,6 @@ public interface OutboxJpaRepository extends JpaRepository<OutboxEventEntity, UU
 
     @Query("SELECT o FROM OutboxEventEntity o WHERE o.publishedAt IS NULL ORDER BY o.createdAt ASC")
     List<OutboxEventEntity> findUnpublished(Pageable pageable);
+
+    long countByPublishedAtIsNull();
 }

@@ -15,6 +15,8 @@ public interface OutboxJpaRepository extends JpaRepository<OutboxEventEntity, UU
     @Query("SELECT o.id FROM OutboxEventEntity o WHERE o.publishedAt IS NULL ORDER BY o.createdAt ASC")
     List<UUID> findUnpublishedEventIds(Pageable pageable);
 
+    long countByPublishedAtIsNull();
+
     @Query(value = "SELECT * FROM outbox_events WHERE id = :eventId FOR UPDATE NOWAIT", nativeQuery = true)
     Optional<OutboxEventEntity> findByIdForUpdate(@Param("eventId") UUID eventId);
 
