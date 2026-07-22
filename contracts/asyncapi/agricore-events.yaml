@@ -4,8 +4,8 @@ info:
   version: 0.1.0
   description: |
     Kafka contracts for the events currently emitted by AgriCore transactional
-    outbox producers. The implemented scope is 19 events on the farm,
-    crop-cycle, work, inventory, and harvest topics. Other constants in EventTypes are not
+    outbox producers. The implemented scope is 22 events on the farm,
+    crop-cycle, work, inventory, harvest, and IoT topics. Other constants in EventTypes are not
     implemented event flows and are intentionally not documented as messages.
 defaultContentType: application/json
 channels:
@@ -105,6 +105,22 @@ channels:
         name: HarvestCompleted.v1
         payload:
           $ref: ../event-schemas/HarvestCompleted.v1.json
+  agricore.iot.events:
+    address: agricore.iot.events
+    description: Sensor telemetry, threshold, and device availability events emitted by iot-service.
+    messages:
+      SensorReadingReceived:
+        name: SensorReadingReceived.v1
+        payload:
+          $ref: ../event-schemas/SensorReadingReceived.v1.json
+      SensorThresholdExceeded:
+        name: SensorThresholdExceeded.v1
+        payload:
+          $ref: ../event-schemas/SensorThresholdExceeded.v1.json
+      DeviceOfflineDetected:
+        name: DeviceOfflineDetected.v1
+        payload:
+          $ref: ../event-schemas/DeviceOfflineDetected.v1.json
   agricore.harvest.events.DLT:
     address: agricore.harvest.events.DLT
     description: |
@@ -167,6 +183,14 @@ operations:
       - $ref: '#/channels/agricore.harvest.events/messages/HarvestBatchCreated'
       - $ref: '#/channels/agricore.harvest.events/messages/HarvestStarted'
       - $ref: '#/channels/agricore.harvest.events/messages/HarvestCompleted'
+  iotServiceSendsIotEvents:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.iot.events'
+    messages:
+      - $ref: '#/channels/agricore.iot.events/messages/SensorReadingReceived'
+      - $ref: '#/channels/agricore.iot.events/messages/SensorThresholdExceeded'
+      - $ref: '#/channels/agricore.iot.events/messages/DeviceOfflineDetected'
   inventoryServiceReceivesHarvestCompleted:
     action: receive
     channel:

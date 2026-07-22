@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agricore.local/schemas/SensorReadingReceived.v1.json",
+  "title": "SensorReadingReceived.v1",
+  "allOf": [
+    { "$ref": "DomainEventEnvelope.v1.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "SensorReadingReceived.v1" },
+        "eventVersion": { "const": 1 },
+        "producer": { "const": "iot-service" },
+        "payload": {
+          "type": "object",
+          "required": [
+            "readingId",
+            "deviceId",
+            "deviceCode",
+            "plotId",
+            "metricType",
+            "metricValue",
+            "unit",
+            "recordedAt"
+          ],
+          "properties": {
+            "readingId": { "type": "string", "format": "uuid" },
+            "deviceId": { "type": "string", "format": "uuid" },
+            "deviceCode": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "plotId": { "type": "string", "format": "uuid" },
+            "metricType": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "metricValue": { "type": "number" },
+            "unit": { "type": "string", "minLength": 1, "maxLength": 16 },
+            "recordedAt": { "type": "string", "format": "date-time" }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}

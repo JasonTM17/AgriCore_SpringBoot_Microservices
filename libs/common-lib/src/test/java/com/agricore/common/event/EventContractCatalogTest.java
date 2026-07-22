@@ -71,7 +71,17 @@ class EventContractCatalogTest {
             new Contract(EventTypes.HARVEST_COMPLETED, "harvest-service", "agricore.harvest.events",
                     set("harvestId", "harvestBatchId", "cropCycleId", "plotId", "warehouseId", "productCode",
                             "grossWeightKg", "netWeightKg", "qualityGrade", "harvestDate", "productName"),
-                    set("farmName", "plotCode", "careSummary"))
+                    set("farmName", "plotCode", "careSummary")),
+            contract(EventTypes.SENSOR_READING_RECEIVED, "iot-service", "agricore.iot.events",
+                    set("readingId", "deviceId", "deviceCode", "plotId", "metricType", "metricValue", "unit",
+                            "recordedAt")),
+            new Contract(EventTypes.SENSOR_THRESHOLD_EXCEEDED, "iot-service", "agricore.iot.events",
+                    set("readingId", "deviceId", "deviceCode", "plotId", "metricType", "metricValue", "unit",
+                            "recordedAt", "alertId", "severity", "ruleVersion", "message", "detectedAt"),
+                    set("minValue", "maxValue")),
+            contract(EventTypes.DEVICE_OFFLINE_DETECTED, "iot-service", "agricore.iot.events",
+                    set("deviceId", "deviceCode", "plotId", "deviceName", "lastActivityAt", "detectedAt",
+                            "offlineAfterSeconds"))
     );
 
     @Test
@@ -145,7 +155,7 @@ class EventContractCatalogTest {
         assertThat(versionedMessageNames(channels))
                 .containsExactlyInAnyOrderElementsOf(CONTRACTS.stream().map(Contract::eventType).toList());
 
-        assertThat(actionCount(operations, "send")).isEqualTo(7);
+        assertThat(actionCount(operations, "send")).isEqualTo(8);
         assertThat(actionCount(operations, "receive")).isEqualTo(2);
         assertThat(fieldNames(operations)).contains(
                 "inventoryServiceReceivesHarvestCompleted",
