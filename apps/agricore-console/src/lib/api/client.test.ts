@@ -197,6 +197,68 @@ describe("ApiClient", () => {
     expect(stored).toBe("fresh");
   });
 
+  it("does not restore a refresh result after logout", async () => {
+    let stored: string | null = "stale";
+    let resolveRefresh: ((response: Response) => void) | undefined;
+    const fetchImpl: FetchFn = vi.fn((input: RequestInfo | URL) => {
+      const url = requestUrl(input);
+      if (url.endsWith("/api/v1/auth/web/refresh")) {
+        return new Promise<Response>((resolve) => {
+          resolveRefresh = resolve;
+        });
+      }
+      if (url.endsWith("/api/v1/auth/web/logout")) {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    const client = new ApiClient({
+      getAccessToken: () => stored,
+      setAccessToken: (token) => {
+        stored = token;
+      },
+      fetchImpl,
+    });
+
+    const refresh = client.webRefresh();
+    await client.webLogout();
+    resolveRefresh?.(authTokensResponse("refreshed-after-logout"));
+
+    await expect(refresh).rejects.toThrow("superseded");
+    expect(stored).toBeNull();
+  });
+
+  it("does not let an older refresh overwrite a newer login", async () => {
+    let stored: string | null = "stale";
+    let resolveRefresh: ((response: Response) => void) | undefined;
+    const fetchImpl: FetchFn = vi.fn((input: RequestInfo | URL) => {
+      const url = requestUrl(input);
+      if (url.endsWith("/api/v1/auth/web/refresh")) {
+        return new Promise<Response>((resolve) => {
+          resolveRefresh = resolve;
+        });
+      }
+      if (url.endsWith("/api/v1/auth/web/login")) {
+        return Promise.resolve(authTokensResponse("new-login"));
+      }
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    const client = new ApiClient({
+      getAccessToken: () => stored,
+      setAccessToken: (token) => {
+        stored = token;
+      },
+      fetchImpl,
+    });
+
+    const refresh = client.webRefresh();
+    await client.webLogin({ email: "a@agricore.test", password: "Secret123!" });
+    resolveRefresh?.(authTokensResponse("old-refresh"));
+
+    await expect(refresh).rejects.toThrow("superseded");
+    expect(stored).toBe("new-login");
+  });
+
   it("maps API error bodies", async () => {
     const fetchImpl: FetchFn = () =>
       Promise.resolve(
@@ -222,3 +284,20 @@ describe("ApiClient", () => {
     );
   });
 });
+
+function authTokensResponse(accessToken: string): Response {
+  return jsonResponse(200, {
+    accessToken,
+    tokenType: "Bearer",
+    expiresIn: 900,
+    user: {
+      id: "11111111-1111-1111-1111-111111111111",
+      email: "a@agricore.test",
+      fullName: "A",
+      status: "ACTIVE",
+      roles: ["FIELD_WORKER"],
+      lastLoginAt: null,
+      createdAt: "2026-07-18T00:00:00Z",
+    },
+  });
+}
