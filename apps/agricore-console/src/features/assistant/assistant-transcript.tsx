@@ -4,6 +4,7 @@ import { Button } from "../../components/ui/button";
 import type { AssistantMessagePageResponse, AssistantMessageResponse } from "../../lib/api/types";
 import type { AssistantGenerationProjection } from "./assistant-generation-projection";
 import { AssistantErrorNotice } from "./assistant-error-notice";
+import { AssistantCitationList } from "./assistant-citation-list";
 import { formatAssistantConversationTime } from "./assistant-formatters";
 
 function MessageBubble({ message }: { message: AssistantMessageResponse }) {
@@ -17,6 +18,7 @@ function MessageBubble({ message }: { message: AssistantMessageResponse }) {
         {assistant ? "Trợ lý AgriCore" : "Bạn"}
       </p>
       <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6">{message.content}</p>
+      {assistant ? <AssistantCitationList content={message.content} /> : null}
       <time
         className={`mt-2 block text-[0.7rem] ${assistant ? "text-muted" : "text-white/70"}`}
         dateTime={message.createdAt}
@@ -106,6 +108,7 @@ export function AssistantTranscript({
         <article className="mt-3 mr-auto max-w-[88%] rounded-card border border-info/30 bg-surface px-4 py-3" aria-label="Phản hồi đang tạo">
           <p className="text-xs font-semibold text-info">Trợ lý AgriCore · đang trả lời</p>
           <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-ink">{projection.draft}</p>
+          <AssistantCitationList content={projection.draft} />
         </article>
       ) : null}
       <div ref={tailRef} />
