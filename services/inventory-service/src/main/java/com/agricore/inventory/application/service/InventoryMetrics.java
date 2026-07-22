@@ -3,6 +3,8 @@ package com.agricore.inventory.application.service;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Component
 public class InventoryMetrics {
@@ -20,6 +22,16 @@ public class InventoryMetrics {
     }
 
     public void recordReservationSuccess() {
+        if (TransactionSynchronizationManager.isActualTransactionActive()
+                && TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    reservationSuccesses.increment();
+                }
+            });
+            return;
+        }
         reservationSuccesses.increment();
     }
 

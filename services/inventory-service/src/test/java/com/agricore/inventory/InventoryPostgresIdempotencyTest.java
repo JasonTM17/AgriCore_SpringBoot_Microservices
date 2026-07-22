@@ -5,12 +5,16 @@ import com.agricore.inventory.api.request.HarvestCompletedCommand;
 import com.agricore.inventory.api.request.ReserveStockRequest;
 import com.agricore.inventory.api.response.InventoryItemResponse;
 import com.agricore.inventory.application.service.InventoryApplicationService;
+import com.agricore.inventory.domain.exception.InventoryException;
+import com.agricore.inventory.infrastructure.persistence.InventoryReservationJpaRepository;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -23,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -135,6 +140,12 @@ class InventoryPostgresIdempotencyTest {
     @Autowired
     private InventoryApplicationService inventoryService;
 
+    @Autowired
+    private InventoryReservationJpaRepository reservationRepository;
+
+    @Autowired
+    private MeterRegistry meterRegistry;
+
     @Test
     void harvestCompleted_twice_addsStockOnce_onPostgres() {
         var warehouse = inventoryService.createWarehouse(
@@ -205,5 +216,91 @@ class InventoryPostgresIdempotencyTest {
         assertThat(after.availableQuantity()).isEqualByComparingTo("0.000");
         assertThat(after.onHandQuantity().subtract(after.reservedQuantity()).signum())
                 .isGreaterThanOrEqualTo(0);
+    }
+
+    @Test
+    void concurrentSameReferenceForDifferentItemsCommitsOneReservationAndOneMetric() throws Exception {
+        var warehouse = inventoryService.createWarehouse(
+                new CreateWarehouseRequest("WH-REF-RACE-" + System.nanoTime(), "Reference Race WH"));
+        InventoryItemResponse firstItem = stockedItem(warehouse.id(), "REF-RACE-A");
+        InventoryItemResponse secondItem = stockedItem(warehouse.id(), "REF-RACE-B");
+        String referenceId = UUID.randomUUID().toString();
+        CountDownLatch start = new CountDownLatch(1);
+        AtomicInteger successes = new AtomicInteger();
+        AtomicInteger conflicts = new AtomicInteger();
+        double successMetricBefore = reservationSuccessMetric();
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+
+        Callable<Void> first = reserveWithReference(
+                firstItem.id(), referenceId, start, successes, conflicts);
+        Callable<Void> second = reserveWithReference(
+                secondItem.id(), referenceId, start, successes, conflicts);
+
+        try {
+            Future<Void> firstResult = pool.submit(first);
+            Future<Void> secondResult = pool.submit(second);
+            start.countDown();
+            firstResult.get();
+            secondResult.get();
+        } finally {
+            pool.shutdownNow();
+        }
+
+        assertThat(successes.get()).isEqualTo(1);
+        assertThat(conflicts.get()).isEqualTo(1);
+        assertThat(reservationRepository.findByReferenceTypeAndReferenceId("SalesOrder", referenceId))
+                .isPresent();
+        BigDecimal totalReserved = inventoryService.getItem(firstItem.id()).reservedQuantity()
+                .add(inventoryService.getItem(secondItem.id()).reservedQuantity());
+        assertThat(totalReserved).isEqualByComparingTo("5.000");
+        assertThat(reservationSuccessMetric() - successMetricBefore).isEqualTo(1.0d);
+    }
+
+    private InventoryItemResponse stockedItem(UUID warehouseId, String productCode) {
+        return inventoryService.processHarvestCompleted(new HarvestCompletedCommand(
+                UUID.randomUUID().toString(),
+                UUID.randomUUID(),
+                warehouseId,
+                productCode,
+                new BigDecimal("20.000"),
+                "GRADE_A"
+        ));
+    }
+
+    private Callable<Void> reserveWithReference(
+            UUID itemId,
+            String referenceId,
+            CountDownLatch start,
+            AtomicInteger successes,
+            AtomicInteger conflicts
+    ) {
+        return () -> {
+            start.await();
+            try {
+                inventoryService.reserve(new ReserveStockRequest(
+                        itemId,
+                        new BigDecimal("5.000"),
+                        "SalesOrder",
+                        referenceId
+                ));
+                successes.incrementAndGet();
+            } catch (RuntimeException exception) {
+                boolean referenceConflict = exception instanceof DataIntegrityViolationException
+                        || exception instanceof InventoryException inventoryException
+                        && "RESERVATION_REFERENCE_CONFLICT".equals(inventoryException.getCode());
+                if (!referenceConflict) {
+                    throw exception;
+                }
+                conflicts.incrementAndGet();
+            }
+            return null;
+        };
+    }
+
+    private double reservationSuccessMetric() {
+        return meterRegistry.get("agricore.inventory.reservations")
+                .tag("outcome", "success")
+                .counter()
+                .count();
     }
 }

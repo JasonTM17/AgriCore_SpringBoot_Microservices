@@ -182,7 +182,22 @@ public class InventoryApplicationService {
 
     @Transactional
     public ReservationResponse reserve(ReserveStockRequest request) {
-        InventoryItemEntity item = requireItem(request.inventoryItemId());
+        String referenceType = request.referenceType().trim();
+        String referenceId = request.referenceId().trim();
+        InventoryReservationEntity existing = reservationRepository
+                .findByReferenceTypeAndReferenceId(referenceType, referenceId)
+                .orElse(null);
+        if (existing != null) {
+            return validateReplay(existing, request);
+        }
+
+        InventoryItemEntity item = requireItemForUpdate(request.inventoryItemId());
+        existing = reservationRepository
+                .findByReferenceTypeAndReferenceId(referenceType, referenceId)
+                .orElse(null);
+        if (existing != null) {
+            return validateReplay(existing, request);
+        }
         if (item.availableQuantity().compareTo(request.quantity()) < 0) {
             metrics.recordReservationFailure();
             eventWriter.inventoryReservationFailed(item, request);
@@ -198,20 +213,30 @@ public class InventoryApplicationService {
         reservation.setInventoryItemId(item.getId());
         reservation.setQuantity(request.quantity());
         reservation.setStatus("ACTIVE");
-        reservation.setReferenceType(request.referenceType().trim());
-        reservation.setReferenceId(request.referenceId().trim());
+        reservation.setReferenceType(referenceType);
+        reservation.setReferenceId(referenceId);
         reservation.setCreatedAt(now);
         reservation.setUpdatedAt(now);
-        reservationRepository.save(reservation);
+        // Flush the unique business reference before recording non-transactional success metrics.
+        reservationRepository.saveAndFlush(reservation);
 
         writeMovement(item.getId(), MovementType.RESERVE, request.quantity(),
                 reservation.getReferenceType(), reservation.getReferenceId(), "Reserve");
         eventWriter.inventoryReserved(item, reservation);
         metrics.recordReservationSuccess();
-        return new ReservationResponse(
-                reservation.getId(), item.getId(), reservation.getQuantity(),
-                reservation.getStatus(), reservation.getReferenceType(), reservation.getReferenceId()
-        );
+        return toReservationResponse(reservation);
+    }
+
+    @Transactional(readOnly = true)
+    public ReservationResponse getReservationByReference(String referenceType, String referenceId) {
+        InventoryReservationEntity reservation = reservationRepository
+                .findByReferenceTypeAndReferenceId(referenceType.trim(), referenceId.trim())
+                .orElseThrow(() -> new InventoryException(
+                        "RESERVATION_NOT_FOUND",
+                        "Reservation not found",
+                        404
+                ));
+        return toReservationResponse(reservation);
     }
 
     @Transactional
@@ -318,6 +343,33 @@ public class InventoryApplicationService {
     private InventoryItemEntity requireItemForUpdate(UUID id) {
         return itemRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new InventoryException("ITEM_NOT_FOUND", "Inventory item not found", 404));
+    }
+
+    private ReservationResponse validateReplay(
+            InventoryReservationEntity existing,
+            ReserveStockRequest request
+    ) {
+        boolean sameRequest = existing.getInventoryItemId().equals(request.inventoryItemId())
+                && existing.getQuantity().compareTo(request.quantity()) == 0;
+        if (!sameRequest) {
+            throw new InventoryException(
+                    "RESERVATION_REFERENCE_CONFLICT",
+                    "Reservation reference is already associated with a different request",
+                    409
+            );
+        }
+        return toReservationResponse(existing);
+    }
+
+    private static ReservationResponse toReservationResponse(InventoryReservationEntity reservation) {
+        return new ReservationResponse(
+                reservation.getId(),
+                reservation.getInventoryItemId(),
+                reservation.getQuantity(),
+                reservation.getStatus(),
+                reservation.getReferenceType(),
+                reservation.getReferenceId()
+        );
     }
 
     private StockMovementEntity writeMovement(

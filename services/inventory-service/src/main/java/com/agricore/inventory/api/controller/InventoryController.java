@@ -8,15 +8,19 @@ import com.agricore.inventory.api.response.WarehouseResponse;
 import com.agricore.inventory.application.service.HarvestProjectionAcknowledgementQueryService;
 import com.agricore.inventory.application.service.InventoryApplicationService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/inventory")
+@Validated
 public class InventoryController {
 
     private final InventoryApplicationService service;
@@ -58,6 +62,15 @@ public class InventoryController {
     @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','WAREHOUSE_MANAGER','SALES_STAFF')")
     public ResponseEntity<ReservationResponse> reserve(@Valid @RequestBody ReserveStockRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.reserve(request));
+    }
+
+    @GetMapping("/reservations/by-reference")
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','WAREHOUSE_MANAGER','SALES_STAFF')")
+    public ReservationResponse getReservationByReference(
+            @RequestParam @NotBlank @Size(max = 64) String referenceType,
+            @RequestParam @NotBlank @Size(max = 100) String referenceId
+    ) {
+        return service.getReservationByReference(referenceType, referenceId);
     }
 
     @PostMapping("/reservations/{reservationId}/release")

@@ -26,7 +26,11 @@ paths:
           description: Created
   /api/v1/inventory/reservations:
     post:
-      summary: Reserve stock (optimistic concurrency)
+      summary: Reserve stock idempotently by business reference
+      description: >-
+        Repeating the same referenceType/referenceId with the same item and quantity returns the
+        authoritative reservation without increasing the hold. Reusing a reference for a different
+        request returns 409.
       security:
         - bearerAuth: []
       requestBody:
@@ -45,7 +49,32 @@ paths:
         '201':
           description: Reserved
         '409':
-          description: Insufficient stock
+          description: Insufficient stock or reference conflict
+  /api/v1/inventory/reservations/by-reference:
+    get:
+      summary: Resolve the authoritative reservation for a business reference
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: referenceType
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 64 }
+        - in: query
+          name: referenceId
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 100 }
+      responses:
+        '200':
+          description: Current reservation state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationResponse'
+        '400':
+          description: Invalid or missing business reference
+        '404':
+          description: Reservation not found
   /api/v1/inventory/reservations/{id}/release:
     post:
       summary: Release reservation
@@ -139,6 +168,17 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    ReservationResponse:
+      type: object
+      additionalProperties: false
+      required: [id, inventoryItemId, quantity, status, referenceType, referenceId]
+      properties:
+        id: { type: string, format: uuid }
+        inventoryItemId: { type: string, format: uuid }
+        quantity: { type: number }
+        status: { type: string, enum: [ACTIVE, RELEASED, FULFILLED] }
+        referenceType: { type: string }
+        referenceId: { type: string }
     ReservationReleaseResponse:
       type: object
       additionalProperties: false
