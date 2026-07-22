@@ -26,6 +26,7 @@ public class InventoryApplicationService {
     private final ProcessedEventJpaRepository processedEventRepository;
     private final InventoryReservationJpaRepository reservationRepository;
     private final InventoryMetrics metrics;
+    private final InventoryEventOutboxWriter eventWriter;
 
     public InventoryApplicationService(
             WarehouseJpaRepository warehouseRepository,
@@ -33,7 +34,8 @@ public class InventoryApplicationService {
             StockMovementJpaRepository movementRepository,
             ProcessedEventJpaRepository processedEventRepository,
             InventoryReservationJpaRepository reservationRepository,
-            InventoryMetrics metrics
+            InventoryMetrics metrics,
+            InventoryEventOutboxWriter eventWriter
     ) {
         this.warehouseRepository = warehouseRepository;
         this.itemRepository = itemRepository;
@@ -41,6 +43,7 @@ public class InventoryApplicationService {
         this.processedEventRepository = processedEventRepository;
         this.reservationRepository = reservationRepository;
         this.metrics = metrics;
+        this.eventWriter = eventWriter;
     }
 
     @Transactional
@@ -92,8 +95,45 @@ public class InventoryApplicationService {
         item.setOnHandQuantity(item.getOnHandQuantity().add(request.quantity()));
         item.setUpdatedAt(Instant.now());
         itemRepository.save(item);
-        writeMovement(item.getId(), MovementType.STOCK_IN, request.quantity(),
+        StockMovementEntity movement = writeMovement(item.getId(), MovementType.STOCK_IN, request.quantity(),
                 request.referenceType(), request.referenceId(), request.note());
+        eventWriter.stockAdded(item, movement);
+        return toItemResponse(item);
+    }
+
+    @Transactional
+    public InventoryItemResponse stockOut(StockOutRequest request) {
+        InventoryItemEntity item = requireItemForUpdate(request.inventoryItemId());
+        String referenceType = request.referenceType().trim();
+        String referenceId = request.referenceId().trim();
+        var existingMovement = movementRepository.findFirstByInventoryItemIdAndMovementTypeAndReferenceTypeAndReferenceId(
+                item.getId(), MovementType.STOCK_OUT, referenceType, referenceId
+        );
+        if (existingMovement.isPresent()) {
+            if (existingMovement.get().getQuantity().compareTo(request.quantity()) != 0) {
+                throw new InventoryException(
+                        "IDEMPOTENCY_KEY_REUSED",
+                        "Stock-out reference was already used with a different quantity",
+                        409
+                );
+            }
+            return toItemResponse(item);
+        }
+        if (request.quantity().signum() <= 0) {
+            throw new InventoryException("INVALID_QTY", "Quantity must be positive", 400);
+        }
+        if (item.availableQuantity().compareTo(request.quantity()) < 0) {
+            throw new InventoryException("INSUFFICIENT_STOCK", "Not enough available stock", 409);
+        }
+
+        item.setOnHandQuantity(item.getOnHandQuantity().subtract(request.quantity()));
+        item.setUpdatedAt(Instant.now());
+        itemRepository.save(item);
+        StockMovementEntity movement = writeMovement(
+                item.getId(), MovementType.STOCK_OUT, request.quantity(),
+                referenceType, referenceId, request.note()
+        );
+        eventWriter.stockDeducted(item, movement, null);
         return toItemResponse(item);
     }
 
@@ -125,7 +165,7 @@ public class InventoryApplicationService {
         item.setUpdatedAt(Instant.now());
         itemRepository.save(item);
 
-        writeMovement(
+        StockMovementEntity movement = writeMovement(
                 item.getId(),
                 MovementType.STOCK_IN,
                 command.netWeightKg(),
@@ -133,6 +173,7 @@ public class InventoryApplicationService {
                 command.harvestBatchId().toString(),
                 "HarvestCompleted " + command.eventId()
         );
+        eventWriter.stockAdded(item, movement);
 
         processedEventRepository.save(ProcessedEventEntity.of(command.eventId(), HARVEST_CONSUMER));
         metrics.recordAppliedHarvestEvent();
@@ -144,6 +185,7 @@ public class InventoryApplicationService {
         InventoryItemEntity item = requireItem(request.inventoryItemId());
         if (item.availableQuantity().compareTo(request.quantity()) < 0) {
             metrics.recordReservationFailure();
+            eventWriter.inventoryReservationFailed(item, request);
             throw new InventoryException("INSUFFICIENT_STOCK", "Not enough available stock", 409);
         }
         item.setReservedQuantity(item.getReservedQuantity().add(request.quantity()));
@@ -156,14 +198,15 @@ public class InventoryApplicationService {
         reservation.setInventoryItemId(item.getId());
         reservation.setQuantity(request.quantity());
         reservation.setStatus("ACTIVE");
-        reservation.setReferenceType(request.referenceType());
-        reservation.setReferenceId(request.referenceId());
+        reservation.setReferenceType(request.referenceType().trim());
+        reservation.setReferenceId(request.referenceId().trim());
         reservation.setCreatedAt(now);
         reservation.setUpdatedAt(now);
         reservationRepository.save(reservation);
 
         writeMovement(item.getId(), MovementType.RESERVE, request.quantity(),
-                request.referenceType(), request.referenceId(), "Reserve");
+                reservation.getReferenceType(), reservation.getReferenceId(), "Reserve");
+        eventWriter.inventoryReserved(item, reservation);
         metrics.recordReservationSuccess();
         return new ReservationResponse(
                 reservation.getId(), item.getId(), reservation.getQuantity(),
@@ -193,6 +236,7 @@ public class InventoryApplicationService {
         reservationRepository.save(reservation);
         writeMovement(item.getId(), MovementType.RELEASE, reservation.getQuantity(),
                 reservation.getReferenceType(), reservation.getReferenceId(), "Release");
+        eventWriter.inventoryReleased(item, reservation);
         return new ReservationResponse(
                 reservation.getId(), item.getId(), reservation.getQuantity(),
                 reservation.getStatus(), reservation.getReferenceType(), reservation.getReferenceId()
@@ -236,8 +280,9 @@ public class InventoryApplicationService {
         reservationRepository.save(reservation);
         writeMovement(item.getId(), MovementType.CONFIRM, reservation.getQuantity(),
                 reservation.getReferenceType(), reservation.getReferenceId(), "Confirm reservation");
-        writeMovement(item.getId(), MovementType.STOCK_OUT, reservation.getQuantity(),
+        StockMovementEntity stockOutMovement = writeMovement(item.getId(), MovementType.STOCK_OUT, reservation.getQuantity(),
                 reservation.getReferenceType(), reservation.getReferenceId(), "Sales fulfillment");
+        eventWriter.stockDeducted(item, stockOutMovement, reservation.getId());
         return new ReservationResponse(
                 reservation.getId(), item.getId(), reservation.getQuantity(),
                 reservation.getStatus(), reservation.getReferenceType(), reservation.getReferenceId()
@@ -270,7 +315,12 @@ public class InventoryApplicationService {
                 .orElseThrow(() -> new InventoryException("ITEM_NOT_FOUND", "Inventory item not found", 404));
     }
 
-    private void writeMovement(
+    private InventoryItemEntity requireItemForUpdate(UUID id) {
+        return itemRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new InventoryException("ITEM_NOT_FOUND", "Inventory item not found", 404));
+    }
+
+    private StockMovementEntity writeMovement(
             UUID itemId,
             MovementType type,
             BigDecimal qty,
@@ -287,7 +337,7 @@ public class InventoryApplicationService {
         m.setReferenceId(refId);
         m.setNote(note);
         m.setCreatedAt(Instant.now());
-        movementRepository.save(m);
+        return movementRepository.save(m);
     }
 
     private InventoryItemResponse toItemResponse(InventoryItemEntity item) {

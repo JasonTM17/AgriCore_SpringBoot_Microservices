@@ -48,6 +48,12 @@ public class InventoryController {
         return service.stockIn(request);
     }
 
+    @PostMapping("/stock-out")
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','WAREHOUSE_MANAGER')")
+    public InventoryItemResponse stockOut(@Valid @RequestBody StockOutRequest request) {
+        return service.stockOut(request);
+    }
+
     @PostMapping("/reservations")
     @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','WAREHOUSE_MANAGER','SALES_STAFF')")
     public ResponseEntity<ReservationResponse> reserve(@Valid @RequestBody ReserveStockRequest request) {
