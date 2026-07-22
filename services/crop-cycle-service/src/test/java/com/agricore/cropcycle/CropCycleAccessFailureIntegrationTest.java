@@ -27,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -123,11 +124,19 @@ class CropCycleAccessFailureIntegrationTest {
                 .when(farmAccessClient).requireFarmPlot(farmId, plotId);
 
         assertApiError(
-                mockMvc.perform(post("/api/v1/crop-cycles/{cycleId}/stage", cycleId)
+                mockMvc.perform(patch("/api/v1/crop-cycles/{cycleId}/stage", cycleId)
                         .header("X-Dev-User", "agronomist")
                         .header("X-Dev-Roles", "AGRONOMIST")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"stage\":\"LAND_PREPARATION\"}")),
+                HttpStatus.FORBIDDEN,
+                "FARM_ACCESS_DENIED"
+        );
+
+        assertApiError(
+                mockMvc.perform(post("/api/v1/crop-cycles/{cycleId}/cancel", cycleId)
+                        .header("X-Dev-User", "agronomist")
+                        .header("X-Dev-Roles", "AGRONOMIST")),
                 HttpStatus.FORBIDDEN,
                 "FARM_ACCESS_DENIED"
         );

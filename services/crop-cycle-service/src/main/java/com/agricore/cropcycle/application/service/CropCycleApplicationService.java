@@ -174,6 +174,11 @@ public class CropCycleApplicationService {
         return toResponse(cycle);
     }
 
+    @Transactional
+    public CropCycleResponse cancel(UUID id) {
+        return changeStage(id, new ChangeStageRequest(CycleStage.CANCELLED.name(), null));
+    }
+
     private CropCycleEntity require(UUID id) {
         CropCycleEntity cycle = cycleRepository.findById(id)
                 .orElseThrow(() -> new CropCycleException("CYCLE_NOT_FOUND", "Crop cycle not found", 404));

@@ -49,7 +49,7 @@ describe("Crop cycle detail request ordering", () => {
         detailReads += 1;
         return detailReads === 1 ? jsonResponse(cycleA) : staleResponse;
       }
-      if (url.pathname === stagePath && init?.method === "POST") {
+      if (url.pathname === stagePath && init?.method === "PATCH") {
         return pendingStageResponse;
       }
       return baseFetch(input);
@@ -63,7 +63,7 @@ describe("Crop cycle detail request ordering", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Cập nhật giai đoạn" }));
     await waitFor(() => expect(fetchMock.mock.calls.some(([input, init]) =>
-      requestUrl(input).pathname === stagePath && init?.method === "POST",
+      requestUrl(input).pathname === stagePath && init?.method === "PATCH",
     )).toBe(true));
 
     onlineManager.setOnline(false);

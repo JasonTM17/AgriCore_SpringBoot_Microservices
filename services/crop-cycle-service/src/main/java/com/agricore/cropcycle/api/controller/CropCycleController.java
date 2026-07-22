@@ -52,12 +52,28 @@ public class CropCycleController {
         return service.get(cycleId);
     }
 
-    @PostMapping("/{cycleId}/stage")
+    @PatchMapping("/{cycleId}/stage")
     @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST')")
     public CropCycleResponse changeStage(
             @PathVariable UUID cycleId,
             @Valid @RequestBody ChangeStageRequest request
     ) {
         return service.changeStage(cycleId, request);
+    }
+
+    @Deprecated(forRemoval = false)
+    @PostMapping("/{cycleId}/stage")
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST')")
+    public CropCycleResponse changeStageLegacy(
+            @PathVariable UUID cycleId,
+            @Valid @RequestBody ChangeStageRequest request
+    ) {
+        return service.changeStage(cycleId, request);
+    }
+
+    @PostMapping("/{cycleId}/cancel")
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST')")
+    public CropCycleResponse cancel(@PathVariable UUID cycleId) {
+        return service.cancel(cycleId);
     }
 }

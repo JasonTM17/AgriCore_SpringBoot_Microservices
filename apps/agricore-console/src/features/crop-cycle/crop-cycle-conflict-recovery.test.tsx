@@ -46,7 +46,7 @@ describe("Crop cycle conflict recovery", () => {
         detailReads += 1;
         return detailReads === 1 ? jsonResponse(cycleA) : pendingReload;
       }
-      if (url.pathname === stagePath && init?.method === "POST") {
+      if (url.pathname === stagePath && init?.method === "PATCH") {
         stageWrites += 1;
         return stageWrites === 1 ? jsonResponse(conflictBody, 409) : jsonResponse(committed);
       }
@@ -94,7 +94,7 @@ describe("Crop cycle conflict recovery", () => {
         if (detailReads === 1) return jsonResponse(cycleA);
         return jsonResponse({ status: 503, code: "FARM_ACCESS_UNAVAILABLE", message: "unavailable" }, 503);
       }
-      if (url.pathname === stagePath && init?.method === "POST") {
+      if (url.pathname === stagePath && init?.method === "PATCH") {
         stageWrites += 1;
         return jsonResponse(conflictBody, 409);
       }

@@ -59,7 +59,7 @@ export function changeCropCycleStage(
   return api.request<CropCycleResponse>(
     `/api/v1/crop-cycles/${encodeURIComponent(cycleId)}/stage`,
     {
-      method: "POST",
+      method: "PATCH",
       body: request,
       ...(signal ? { signal } : {}),
     },

@@ -61,7 +61,7 @@ describe("Crop cycle detail page", () => {
     const updated = { ...cycleA, stage: "HARVESTING", version: 1 } as const;
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = requestUrl(input);
-      if (url.pathname === stagePath() && init?.method === "POST") return jsonResponse(updated);
+      if (url.pathname === stagePath() && init?.method === "PATCH") return jsonResponse(updated);
       if (url.pathname === detailPath()) return jsonResponse(cycleA);
       return baseFetch(input);
     });
@@ -74,7 +74,7 @@ describe("Crop cycle detail page", () => {
 
     await waitFor(() => expect(screen.getByText("Đang thu hoạch")).toBeInTheDocument());
     const stageCalls = fetchMock.mock.calls.filter(([input, init]) =>
-      requestUrl(input).pathname === stagePath() && init?.method === "POST",
+      requestUrl(input).pathname === stagePath() && init?.method === "PATCH",
     );
     expect(stageCalls).toHaveLength(1);
     expect(stageCalls[0]?.[1]?.body).toBe(JSON.stringify({ stage: "HARVESTING", notes: null }));
@@ -98,7 +98,7 @@ describe("Crop cycle detail page", () => {
 
     expect(confirmMock).toHaveBeenCalledOnce();
     expect(fetchMock.mock.calls.some(([input, init]) =>
-      requestUrl(input).pathname === stagePath() && init?.method === "POST",
+      requestUrl(input).pathname === stagePath() && init?.method === "PATCH",
     )).toBe(false);
   });
 

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgriCore Crop Cycle Service API
-  version: 1.2.0
+  version: 1.3.0
   description: Verified crop-cycle planning and stage workflow contract.
 servers:
   - url: http://localhost:8084
@@ -107,7 +107,7 @@ paths:
   /api/v1/crop-cycles/{cycleId}/stage:
     parameters:
       - $ref: '#/components/parameters/CycleId'
-    post:
+    patch:
       tags: [Crop Cycles]
       operationId: changeCropCycleStage
       summary: Change a crop-cycle stage
@@ -137,6 +137,70 @@ paths:
           $ref: '#/components/responses/Conflict'
         '415':
           $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    post:
+      tags: [Crop Cycles]
+      operationId: changeCropCycleStageLegacy
+      summary: Change a crop-cycle stage using the legacy method
+      description: Deprecated compatibility alias for PATCH on the same path.
+      deprecated: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeStageRequest'
+      responses:
+        '200':
+          description: Stage updated, or the requested stage was already current.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropCycleResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/crop-cycles/{cycleId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/CycleId'
+    post:
+      tags: [Crop Cycles]
+      operationId: cancelCropCycle
+      summary: Cancel a crop cycle
+      description: Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST with farm access. Repeating a successful cancellation is idempotent.
+      responses:
+        '200':
+          description: Cycle cancelled, or returned unchanged when already cancelled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropCycleResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalServerError'
         '503':

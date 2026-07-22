@@ -43,7 +43,7 @@ describe("crop-cycle API", () => {
     expect(requestSignal).toBeInstanceOf(AbortSignal);
   });
 
-  it("posts the typed stage request once with an encoded cycle ID and signal", async () => {
+  it("patches the typed stage request once with an encoded cycle ID and signal", async () => {
     let requestSignal: AbortSignal | undefined;
     const fetchImpl: FetchFn = vi.fn(
       (_input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
@@ -59,7 +59,7 @@ describe("crop-cycle API", () => {
     expect(fetchImpl).toHaveBeenCalledOnce();
     const [input, init] = vi.mocked(fetchImpl).mock.calls[0] ?? [];
     expect(input).toBe("/api/v1/crop-cycles/cycle%2Fid/stage");
-    expect(init?.method).toBe("POST");
+    expect(init?.method).toBe("PATCH");
     expect(init?.body).toBe(JSON.stringify(request));
     expect(requestSignal).toBeInstanceOf(AbortSignal);
   });

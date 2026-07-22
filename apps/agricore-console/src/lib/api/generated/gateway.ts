@@ -547,10 +547,37 @@ export interface paths {
         get?: never;
         put?: never;
         /**
+         * Change a crop-cycle stage using the legacy method
+         * @deprecated
+         * @description Deprecated compatibility alias for PATCH on the same path.
+         */
+        post: operations["changeCropCycleStageLegacy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
          * Change a crop-cycle stage
          * @description Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST with farm access and a legal transition.
          */
-        post: operations["changeCropCycleStage"];
+        patch: operations["changeCropCycleStage"];
+        trace?: never;
+    };
+    "/api/v1/crop-cycles/{cycleId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cycleId: components["parameters"]["CycleId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a crop cycle
+         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST with farm access. Repeating a successful cancellation is idempotent.
+         */
+        post: operations["cancelCropCycle"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2772,6 +2799,40 @@ export interface operations {
             503: components["responses"]["ServiceUnavailable"];
         };
     };
+    changeCropCycleStageLegacy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cycleId: components["parameters"]["CycleId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeStageRequest"];
+            };
+        };
+        responses: {
+            /** @description Stage updated, or the requested stage was already current. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CropCycleResponse"];
+                };
+            };
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["components-responses-NotFound"];
+            409: components["responses"]["responses-Conflict"];
+            415: components["responses"]["UnsupportedMediaType"];
+            500: components["responses"]["responses-InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
     changeCropCycleStage: {
         parameters: {
             query?: never;
@@ -2802,6 +2863,35 @@ export interface operations {
             404: components["responses"]["components-responses-NotFound"];
             409: components["responses"]["responses-Conflict"];
             415: components["responses"]["UnsupportedMediaType"];
+            500: components["responses"]["responses-InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    cancelCropCycle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cycleId: components["parameters"]["CycleId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cycle cancelled, or returned unchanged when already cancelled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CropCycleResponse"];
+                };
+            };
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["components-responses-NotFound"];
+            409: components["responses"]["responses-Conflict"];
             500: components["responses"]["responses-InternalServerError"];
             503: components["responses"]["ServiceUnavailable"];
         };
