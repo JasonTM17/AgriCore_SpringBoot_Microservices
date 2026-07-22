@@ -20,6 +20,8 @@ Portfolio-grade **Java 21 / Spring Boot microservices** platform for enterprise 
 | iot-service | 8090 | `nguyenson1710/agricore-iot` |
 | sales-service | 8091 | `nguyenson1710/agricore-sales` |
 | traceability-service | 8092 | `nguyenson1710/agricore-traceability` |
+| assistant-service | 8093 (internal) | `nguyenson1710/agricore-assistant` |
+| agricore-console | 3000 (host) | `nguyenson1710/agricore-console` |
 
 Tags: `latest`, short git SHA, full commit SHA. Images publish only after successful default-branch `ci`.
 
@@ -127,6 +129,21 @@ Standalone e2e (stack already up):
 .\scripts\e2e-happy-path.ps1 -EvidenceDir C:\path\to\evidence
 ```
 
+## Console and assistant
+
+The production-shaped local entrypoint is `http://localhost:3000`; Nginx serves the console and forwards `/api` and `/public/api` to the gateway. The assistant service is not published directly; use the console or gateway at `http://localhost:8080`.
+
+The assistant is safe to start without a provider:
+
+```powershell
+Copy-Item .env.example .env
+docker compose up --build
+```
+
+`ASSISTANT_PROVIDER=none` returns a clear limited/unavailable outcome until a compatible provider is configured. Set `ASSISTANT_PROVIDER`, `ASSISTANT_PROVIDER_MODEL`, `ASSISTANT_PROVIDER_BASE_URL`, and `ASSISTANT_PROVIDER_API_KEY` only in a local `.env`, a secret manager, or a Kubernetes Secret; never commit the key. Tool access is read-only and allowlisted to farm-service, and Redis request/token budgets fail closed when Redis is unavailable.
+
+For an existing Postgres volume, provision the assistant database once before starting the service: [assistant database runbook](docs/runbooks/assistant-database-provisioning.md). The Helm chart runs an idempotent pre-install/pre-upgrade Job, but the configured database credential Secret must already exist.
+
 ## Auth examples
 
 ```bash
@@ -172,6 +189,10 @@ plans/             CK implementation plans
 - Account lockout after failed logins
 - Login rate limit via Redis
 - **Never commit** `.env`, private keys, or production secrets
+
+## Docker Hub packages
+
+`.github/workflows/docker-publish.yml` publishes the service matrix, gateway, assistant, and console images only after the default-branch `ci` workflow succeeds. Configure repository secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`; do not put credentials in `.env`, Compose, Helm values, or Git. Tags include `latest`, the short SHA, and the full commit SHA. A local push must use the same Docker Hub credentials and the exact commit tag after all gates pass.
 
 ## CI
 

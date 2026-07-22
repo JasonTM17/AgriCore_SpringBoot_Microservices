@@ -1,18 +1,20 @@
 # AgriCore Implementation Plan
 
-**Status:** In progress  
+**Status:** Delivered on feature branch; release/publish gates remain environment-dependent
 **Created:** 2026-07-16  
-**CK Plan:** `plans/260716-2028-agricore-platform/`
+**CK Plan:** `plans/260718-1232-agricore-web-assistant/`
 
 ## Repository Scout Summary
 
 | Item | Finding |
 |------|---------|
-| Git | Not initialized |
-| Application code | None |
-| README | Missing |
-| Existing assets | `AGENTS.md`, `CLAUDE.md`, CK skills, plan templates only |
+| Git | Initialized; focused conventional commits on `feature/agricore-web-assistant-ck` |
+| Application code | Java 21/Spring Boot services plus React/Vite console and assistant service |
+| README | Present; documents console, assistant, Compose, Helm, and Docker Hub workflow |
+| Existing assets | OpenAPI/AsyncAPI contracts, Docker Compose, Helm, CI, security and runbooks |
 | Risk of overwrite | None — pure greenfield |
+
+The original scout rows above describe the pre-implementation snapshot; the repository is now initialized and contains the services, console, assistant, contracts, deployment manifests, and CI gates listed below.
 
 ## Technology Stack (locked)
 
@@ -40,6 +42,7 @@
 | notification-service | 8089 | agricore_notification | Email/in-app/webhook fan-out |
 | iot-service | 8090 | agricore_iot | Sensors, TS readings, alerts |
 | sales-service | 8091 | agricore_sales | Orders, saga orchestration |
+| assistant-service | 8093 | agricore_assistant | Persisted authenticated assistant generations and bounded read-only farm context |
 
 ## Milestones
 
@@ -69,6 +72,12 @@ Spring Cloud Gateway; Actuator/Prometheus; OTel; CI workflows.
 
 ### M8 — Production Hardening
 Helm charts, security review, runbooks, seed scripts, e2e happy path.
+
+### M9 — Console and assistant delivery
+
+- React/Vite console with same-origin Nginx edge, authenticated assistant chat, citations, refusal/limited outcomes, and generated API clients.
+- Assistant service with PostgreSQL persistence, authenticated replayable SSE, idempotency, redacted read-only tool evidence, provider-absence behavior, deterministic output screening, and Redis request/token budgets.
+- Gateway, Compose, Helm, observability, Docker build/publish matrix, security scans, documentation, and small conventional commits.
 
 ## Commit Strategy
 

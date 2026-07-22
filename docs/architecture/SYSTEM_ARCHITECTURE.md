@@ -1,6 +1,6 @@
 # AgriCore System Architecture
 
-**Last updated:** 2026-07-19
+**Last updated:** 2026-07-22
 
 **Status:** Active (implementation matrix honest — see §4)
 
@@ -36,6 +36,8 @@ AgriCore manages the full agricultural production chain for an enterprise: farms
          [Postgres x N] [Redis] [MinIO]
 ```
 
+The browser uses a same-origin edge: `/` serves the console and `/api` is forwarded to the gateway. The assistant service is an internal gateway target, not a public listener.
+
 ## 4. Service Boundaries
 
 **Legend:** Implemented in code today vs planned/schema-only.
@@ -55,6 +57,14 @@ AgriCore manages the full agricultural production chain for an enterprise: farms
 | notification | delivery log | — | — | REST sink; Kafka NotificationRequested planned |
 
 Empty “planned” rows are intentional honesty for portfolio reviewers — do not claim full event mesh.
+
+### Assistant service boundary
+
+- Owns conversations, messages, generations, event sequence, retention timestamps, and redacted tool evidence in `agricore_assistant`.
+- Exposes authenticated generation metadata and fetch-SSE replay through the gateway; submission is idempotent and durable.
+- Uses `ASSISTANT_PROVIDER=none` by default. A provider is enabled only with provider type, model, base URL, and API key supplied by environment variables or a Kubernetes Secret.
+- The only current tool is an authenticated, allowlisted farm read. It forwards the caller JWT, limits response bytes/rows, and fails closed on unavailable or invalid downstream responses. Autonomous writes, RAG ingestion, and arbitrary URLs are out of scope.
+- Redis-backed request/token budgets fail closed when the budget store is unavailable; policy and citation failures are surfaced as safe 4xx outcomes without provider or credential details.
 
 ## 5. Communication Patterns
 
@@ -110,6 +120,8 @@ Service configurations expose Actuator health and Prometheus endpoints. The repo
 | CI | GitHub Actions |
 
 These rows describe repository mechanisms, not evidence that a production cluster is currently deployed.
+
+Local Compose exposes the console at `http://localhost:3000` and the gateway at `http://localhost:8080`. Helm can install the console, assistant, gateway, and an idempotent pre-install/pre-upgrade assistant database Job; the database credential Secret must exist before the release. Docker publishing is performed by `.github/workflows/docker-publish.yml` after the default-branch CI gate and uses `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN` repository secrets.
 
 ## 10. Non-Goals (YAGNI)
 
