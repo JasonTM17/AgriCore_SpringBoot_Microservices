@@ -15,6 +15,7 @@ public record HarvestBatchResponse(
         BigDecimal netWeightKg,
         String qualityGrade,
         String status,
+        Instant startedAt,
         Instant harvestedAt,
         String notes,
         UUID lastOutboxEventId,

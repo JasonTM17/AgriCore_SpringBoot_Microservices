@@ -71,6 +71,7 @@ public class HarvestApplicationService {
         batch.setNetWeightKg(request.netWeightKg());
         batch.setQualityGrade(request.qualityGrade().trim().toUpperCase());
         batch.setStatus(HarvestStatus.COMPLETED);
+        batch.setStartedAt(now);
         batch.setHarvestedAt(now);
         batch.setNotes(request.notes());
         UUID eventId = UUID.randomUUID();
@@ -140,7 +141,7 @@ public class HarvestApplicationService {
         return new HarvestBatchResponse(
                 b.getId(), b.getCode(), b.getCropCycleId(), b.getPlotId(), b.getWarehouseId(),
                 b.getProductCode(), b.getGrossWeightKg(), b.getNetWeightKg(), b.getQualityGrade(),
-                b.getStatus().name(), b.getHarvestedAt(), b.getNotes(), b.getLastOutboxEventId(),
+                b.getStatus().name(), b.getStartedAt(), b.getHarvestedAt(), b.getNotes(), b.getLastOutboxEventId(),
                 b.getCreatedAt(), b.getVersion()
         );
     }
