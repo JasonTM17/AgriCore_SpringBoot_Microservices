@@ -24,9 +24,9 @@ Both consumers use Spring Kafka `DefaultErrorHandler` with `ExponentialBackOff`:
 | Initial interval | 500 ms |
 | Multiplier | 2.0 |
 | Maximum elapsed time | 8 seconds |
-| Recovery destination | `<original-topic>.DLT`, same partition |
+| Recovery destination | `<original-topic>.DLT`; same partition when that DLT partition exists |
 
-Inventory config classifies `IllegalArgumentException` as non-retryable. Traceability has no additional non-retryable exception classification. After retries are exhausted, `DeadLetterPublishingRecoverer` publishes the record to the DLT.
+Both consumers classify contract-validation `IllegalArgumentException` as non-retryable and hand it directly to recovery. Transient processing failures use the bounded backoff. `DeadLetterPublishingRecoverer` publishes to the same partition when the DLT exposes that partition; otherwise its partition verification lets the Kafka producer choose an available partition.
 
 `agricore_kafka_dlq_attempts_total{consumer="inventory-service|traceability-service"}` increments when a record is handed to dead-letter recovery. It does not measure DLT topic depth and does not prove the DLT publish succeeded.
 
