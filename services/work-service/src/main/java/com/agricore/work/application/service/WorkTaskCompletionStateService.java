@@ -50,6 +50,13 @@ public class WorkTaskCompletionStateService {
         if (task.getStatus() == TaskStatus.CANCELLED) {
             throw new WorkException("TASK_CANCELLED", "Cannot complete a cancelled task", 409);
         }
+        if (task.getStatus() != TaskStatus.IN_PROGRESS) {
+            throw new WorkException(
+                    "TASK_NOT_IN_PROGRESS",
+                    "Task must be in progress before completion",
+                    409
+            );
+        }
 
         MaterialUsageRequestMatcher.validateNoDuplicateItems(requestedMaterials);
         List<MaterialUsageEntity> existing = materialUsageRepository
@@ -59,7 +66,6 @@ public class WorkTaskCompletionStateService {
         } else {
             MaterialUsageRequestMatcher.validateRetryMatches(existing, requestedMaterials);
         }
-        markTaskInProgressWhenUsingMaterials(task, existing);
         return new CompletionPreparation(
                 task,
                 farmId,
@@ -117,6 +123,16 @@ public class WorkTaskCompletionStateService {
         if (task.getStatus() == TaskStatus.COMPLETED) {
             return task;
         }
+        if (task.getStatus() == TaskStatus.CANCELLED) {
+            throw new WorkException("TASK_CANCELLED", "Cannot complete a cancelled task", 409);
+        }
+        if (task.getStatus() != TaskStatus.IN_PROGRESS) {
+            throw new WorkException(
+                    "TASK_NOT_IN_PROGRESS",
+                    "Task must be in progress before completion",
+                    409
+            );
+        }
         boolean hasUnconsumedMaterial = materialUsageRepository
                 .findByWorkTaskIdOrderByCreatedAtAsc(taskId)
                 .stream()
@@ -130,9 +146,6 @@ public class WorkTaskCompletionStateService {
         }
 
         Instant now = Instant.now();
-        if (task.getActualStart() == null) {
-            task.setActualStart(now);
-        }
         task.setActualEnd(now);
         task.setStatus(TaskStatus.COMPLETED);
         if (notes != null) {
@@ -163,22 +176,6 @@ public class WorkTaskCompletionStateService {
             return usage;
         }).toList();
         return materialUsageRepository.saveAll(usages);
-    }
-
-    private void markTaskInProgressWhenUsingMaterials(
-            WorkTaskEntity task,
-            List<MaterialUsageEntity> materialUsages
-    ) {
-        if (materialUsages.isEmpty() || task.getStatus() == TaskStatus.IN_PROGRESS) {
-            return;
-        }
-        Instant now = Instant.now();
-        if (task.getActualStart() == null) {
-            task.setActualStart(now);
-        }
-        task.setStatus(TaskStatus.IN_PROGRESS);
-        task.setUpdatedAt(now);
-        taskRepository.saveAndFlush(task);
     }
 
     private WorkTaskEntity requireForUpdate(UUID taskId) {

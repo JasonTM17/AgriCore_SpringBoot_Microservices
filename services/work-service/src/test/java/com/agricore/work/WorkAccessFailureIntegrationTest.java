@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -106,6 +107,27 @@ class WorkAccessFailureIntegrationTest {
                         .header("X-Dev-Roles", "FIELD_WORKER")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"notes\":\"should not persist\"}")),
+                HttpStatus.FORBIDDEN,
+                "FARM_ACCESS_DENIED"
+        );
+
+        assertThat(taskRepository.findById(taskId).orElseThrow().getStatus()).isEqualTo(TaskStatus.CREATED);
+        assertThat(outboxRepository.count()).isEqualTo(outboxBefore);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"start", "cancel"})
+    void lifecycleMutation_whenFarmAccessIsDenied_preservesTask(String action) throws Exception {
+        UUID plotId = UUID.randomUUID();
+        UUID taskId = createAccepted(action.toUpperCase() + "-" + System.nanoTime(), plotId);
+        long outboxBefore = outboxRepository.count();
+        doThrow(farmError(HttpStatus.FORBIDDEN, "FARM_ACCESS_DENIED"))
+                .when(farmAccessClient).requirePlot(plotId);
+
+        assertApiError(
+                mockMvc.perform(post("/api/v1/work-tasks/{taskId}/{action}", taskId, action)
+                        .header("X-Dev-User", "manager")
+                        .header("X-Dev-Roles", "FARM_MANAGER")),
                 HttpStatus.FORBIDDEN,
                 "FARM_ACCESS_DENIED"
         );

@@ -139,6 +139,10 @@ class WorkMaterialCompletionIntegrationTest {
         assertThat(usagesAfterFailure).filteredOn(usage -> secondItem.equals(usage.getInventoryItemId()))
                 .singleElement().extracting(usage -> usage.getStatus().name()).isEqualTo("FAILED");
 
+        mockMvc.perform(authenticated(post("/api/v1/work-tasks/{taskId}/cancel", taskId)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("TASK_MATERIAL_PROCESSING"));
+
         mockMvc.perform(authenticated(post("/api/v1/work-tasks/{taskId}/complete", taskId))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
@@ -225,7 +229,16 @@ class WorkMaterialCompletionIntegrationTest {
                                 """.formatted(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID())))
                 .andExpect(status().isCreated())
                 .andReturn();
-        return objectMapper.readTree(result.getResponse().getContentAsString()).path("id").asText();
+        String taskId = objectMapper.readTree(result.getResponse().getContentAsString()).path("id").asText();
+        mockMvc.perform(authenticated(post("/api/v1/work-tasks/{taskId}/assign", taskId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"assignedEmployeeId":"%s"}
+                                """.formatted(UUID.randomUUID())))
+                .andExpect(status().isOk());
+        mockMvc.perform(authenticated(post("/api/v1/work-tasks/{taskId}/start", taskId)))
+                .andExpect(status().isOk());
+        return taskId;
     }
 
     private static String completionBody(UUID inventoryItemId, String quantity) {

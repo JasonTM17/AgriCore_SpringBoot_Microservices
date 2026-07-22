@@ -3,6 +3,7 @@ package com.agricore.work.application.service;
 import com.agricore.common.api.PageResponse;
 import com.agricore.common.event.EventTypes;
 import com.agricore.work.api.request.AssignTaskRequest;
+import com.agricore.work.api.request.CancelTaskRequest;
 import com.agricore.work.api.request.CompleteTaskRequest;
 import com.agricore.work.api.request.CreateWorkTaskRequest;
 import com.agricore.work.api.response.WorkTaskResponse;
@@ -32,6 +33,7 @@ public class WorkApplicationService {
     private final WorkAccessGuard accessGuard;
     private final WorkEventOutboxWriter eventWriter;
     private final MaterialUsageJpaRepository materialUsageRepository;
+    private final WorkTaskLifecycleService lifecycleService;
     private final WorkTaskCompletionService completionService;
 
     public WorkApplicationService(
@@ -39,12 +41,14 @@ public class WorkApplicationService {
             WorkAccessGuard accessGuard,
             WorkEventOutboxWriter eventWriter,
             MaterialUsageJpaRepository materialUsageRepository,
+            WorkTaskLifecycleService lifecycleService,
             WorkTaskCompletionService completionService
     ) {
         this.taskRepository = taskRepository;
         this.accessGuard = accessGuard;
         this.eventWriter = eventWriter;
         this.materialUsageRepository = materialUsageRepository;
+        this.lifecycleService = lifecycleService;
         this.completionService = completionService;
     }
 
@@ -82,18 +86,16 @@ public class WorkApplicationService {
         return toResponse(task);
     }
 
-    @Transactional
     public WorkTaskResponse assign(UUID taskId, AssignTaskRequest request) {
-        WorkTaskEntity task = require(taskId);
-        if (task.getStatus() == TaskStatus.COMPLETED || task.getStatus() == TaskStatus.CANCELLED) {
-            throw new WorkException("TASK_TERMINAL", "Cannot assign a terminal task", 409);
-        }
-        task.setAssignedEmployeeId(request.assignedEmployeeId());
-        task.setStatus(TaskStatus.ASSIGNED);
-        task.setUpdatedAt(Instant.now());
-        task = taskRepository.saveAndFlush(task);
-        eventWriter.workTask(EventTypes.WORK_TASK_ASSIGNED, task);
-        return toResponse(task);
+        return toResponse(lifecycleService.assign(taskId, request.assignedEmployeeId()));
+    }
+
+    public WorkTaskResponse start(UUID taskId) {
+        return toResponse(lifecycleService.start(taskId));
+    }
+
+    public WorkTaskResponse cancel(UUID taskId, CancelTaskRequest request) {
+        return toResponse(lifecycleService.cancel(taskId, request.notes()));
     }
 
     public WorkTaskResponse complete(UUID taskId, CompleteTaskRequest request) {

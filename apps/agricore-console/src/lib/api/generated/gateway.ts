@@ -729,9 +729,31 @@ export interface paths {
         put?: never;
         /**
          * Assign a work task
-         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST with access to the task plot.
+         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST with access to the task plot. Assignment is allowed from CREATED, ASSIGNED, or OVERDUE. Repeating the same assignment is idempotent.
          */
         post: operations["assignWorkTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-tasks/{taskId}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start an assigned work task
+         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or FIELD_WORKER with access to the task plot. Transitions ASSIGNED or OVERDUE to IN_PROGRESS and records actualStart. Repeating the start is idempotent.
+         */
+        post: operations["startWorkTask"];
         delete?: never;
         options?: never;
         head?: never;
@@ -751,9 +773,31 @@ export interface paths {
         put?: never;
         /**
          * Complete a work task
-         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or FIELD_WORKER with access to the task plot. The request body is optional. Material retries must repeat the same item and quantity set; successful deductions are not repeated.
+         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or FIELD_WORKER with access to the task plot. The task must be IN_PROGRESS. The request body is optional. Material retries must repeat the same item and quantity set; successful deductions are not repeated.
          */
         post: operations["completeWorkTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-tasks/{taskId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a work task
+         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST with access to the task plot. Cancellation is idempotent and records actualEnd when work had started. A completed task or a task with material processing cannot be cancelled.
+         */
+        post: operations["cancelWorkTask"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1805,6 +1849,9 @@ export interface components {
             /** @description Omit or send an empty array when the task consumes no inventory materials. */
             materials?: components["schemas"]["MaterialUsageRequest"][];
         };
+        CancelTaskRequest: {
+            notes?: string | null;
+        };
         InventoryHarvestProjectionAcknowledgementResponse: {
             /** Format: uuid */
             eventId: string;
@@ -2245,7 +2292,7 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description Duplicate code, changed material retry, forbidden terminal-state mutation, or a concurrent task update requiring reload. */
+        /** @description Duplicate code, invalid lifecycle transition, unsafe cancellation, changed material retry, or a concurrent task update requiring reload. */
         "components-responses-Conflict": {
             headers: {
                 [name: string]: unknown;
@@ -3362,6 +3409,34 @@ export interface operations {
             503: components["responses"]["responses-ServiceUnavailable"];
         };
     };
+    startWorkTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Task started or returned unchanged when already in progress. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkTaskResponse"];
+                };
+            };
+            400: components["responses"]["work-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["work-service.v1_components-responses-NotFound"];
+            409: components["responses"]["components-responses-Conflict"];
+            503: components["responses"]["responses-ServiceUnavailable"];
+        };
+    };
     completeWorkTask: {
         parameters: {
             query?: never;
@@ -3393,6 +3468,39 @@ export interface operations {
             409: components["responses"]["components-responses-Conflict"];
             415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["responses-InternalServerError"];
+            503: components["responses"]["responses-ServiceUnavailable"];
+        };
+    };
+    cancelWorkTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CancelTaskRequest"];
+            };
+        };
+        responses: {
+            /** @description Task cancelled or returned unchanged when already cancelled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkTaskResponse"];
+                };
+            };
+            400: components["responses"]["work-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["work-service.v1_components-responses-NotFound"];
+            409: components["responses"]["components-responses-Conflict"];
+            415: components["responses"]["UnsupportedMediaType"];
             503: components["responses"]["responses-ServiceUnavailable"];
         };
     };

@@ -111,6 +111,18 @@ class WorkErrorBoundaryIntegrationTest {
         verifyNoInteractions(farmAccessClient);
     }
 
+    @Test
+    void cancellationNotesBeyondDomainLimit_areRejectedBeforeTaskLookup() throws Exception {
+        assertApiError(
+                mockMvc.perform(authenticated(post("/api/v1/work-tasks/{taskId}/cancel", UUID.randomUUID()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"notes\":\"" + "N".repeat(2001) + "\"}")),
+                HttpStatus.BAD_REQUEST,
+                "VALIDATION_FAILED"
+        );
+        verifyNoInteractions(farmAccessClient);
+    }
+
     private static void assertApiError(ResultActions result, HttpStatus expectedStatus, String expectedCode)
             throws Exception {
         result.andExpect(status().is(expectedStatus.value()))

@@ -68,6 +68,12 @@ class WorkTaskVersionIntegrationTest {
         long assignedVersion = readBody(assigned).required("version").asLong();
         long assignedReloadVersion = getVersion(taskId);
 
+        MvcResult started = mockMvc.perform(authenticated(post("/api/v1/work-tasks/" + taskId + "/start")))
+                .andExpect(status().isOk())
+                .andReturn();
+        long startedVersion = readBody(started).required("version").asLong();
+        long startedReloadVersion = getVersion(taskId);
+
         MvcResult completed = mockMvc.perform(authenticated(post("/api/v1/work-tasks/" + taskId + "/complete"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -80,7 +86,9 @@ class WorkTaskVersionIntegrationTest {
 
         assertThat(assignedVersion).isEqualTo(createdVersion + 1);
         assertThat(assignedReloadVersion).isEqualTo(assignedVersion);
-        assertThat(completedVersion).isEqualTo(assignedVersion + 1);
+        assertThat(startedVersion).isEqualTo(assignedVersion + 1);
+        assertThat(startedReloadVersion).isEqualTo(startedVersion);
+        assertThat(completedVersion).isEqualTo(startedVersion + 1);
         assertThat(completedReloadVersion).isEqualTo(completedVersion);
     }
 

@@ -2,6 +2,7 @@ package com.agricore.work.api.controller;
 
 import com.agricore.common.api.PageResponse;
 import com.agricore.work.api.request.AssignTaskRequest;
+import com.agricore.work.api.request.CancelTaskRequest;
 import com.agricore.work.api.request.CompleteTaskRequest;
 import com.agricore.work.api.request.CreateWorkTaskRequest;
 import com.agricore.work.api.response.WorkTaskResponse;
@@ -59,6 +60,12 @@ public class WorkTaskController {
         return service.assign(taskId, request);
     }
 
+    @PostMapping("/{taskId}/start")
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST','FIELD_WORKER')")
+    public WorkTaskResponse start(@PathVariable UUID taskId) {
+        return service.start(taskId);
+    }
+
     @PostMapping("/{taskId}/complete")
     @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST','FIELD_WORKER')")
     public WorkTaskResponse complete(
@@ -66,5 +73,14 @@ public class WorkTaskController {
             @Valid @RequestBody(required = false) CompleteTaskRequest request
     ) {
         return service.complete(taskId, request == null ? new CompleteTaskRequest(null) : request);
+    }
+
+    @PostMapping("/{taskId}/cancel")
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST')")
+    public WorkTaskResponse cancel(
+            @PathVariable UUID taskId,
+            @Valid @RequestBody(required = false) CancelTaskRequest request
+    ) {
+        return service.cancel(taskId, request == null ? new CancelTaskRequest(null) : request);
     }
 }

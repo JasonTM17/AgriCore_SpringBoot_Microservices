@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: AgriCore Work Service API
-  version: 1.3.0
-  description: Verified field-work task creation, assignment, completion, and query contract.
+  version: 1.4.0
+  description: Verified field-work task creation, assignment, explicit lifecycle, completion, cancellation, and query contract.
 servers:
   - url: http://localhost:8085
     description: Direct local service endpoint
@@ -112,7 +112,9 @@ paths:
       tags: [Work Tasks]
       operationId: assignWorkTask
       summary: Assign a work task
-      description: Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST with access to the task plot.
+      description: >-
+        Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST with access to the task plot. Assignment is allowed
+        from CREATED, ASSIGNED, or OVERDUE. Repeating the same assignment is idempotent.
       requestBody:
         required: true
         content:
@@ -142,6 +144,35 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/work-tasks/{taskId}/start:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    post:
+      tags: [Work Tasks]
+      operationId: startWorkTask
+      summary: Start an assigned work task
+      description: >-
+        Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or FIELD_WORKER with access to the task plot.
+        Transitions ASSIGNED or OVERDUE to IN_PROGRESS and records actualStart. Repeating the start is idempotent.
+      responses:
+        '200':
+          description: Task started or returned unchanged when already in progress.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkTaskResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/work-tasks/{taskId}/complete:
     parameters:
       - $ref: '#/components/parameters/TaskId'
@@ -151,8 +182,8 @@ paths:
       summary: Complete a work task
       description: >-
         Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or FIELD_WORKER with access to the task plot.
-        The request body is optional. Material retries must repeat the same item and quantity set; successful
-        deductions are not repeated.
+        The task must be IN_PROGRESS. The request body is optional. Material retries must repeat the same item
+        and quantity set; successful deductions are not repeated.
       requestBody:
         required: false
         content:
@@ -180,6 +211,44 @@ paths:
           $ref: '#/components/responses/UnsupportedMediaType'
         '500':
           $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/work-tasks/{taskId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    post:
+      tags: [Work Tasks]
+      operationId: cancelWorkTask
+      summary: Cancel a work task
+      description: >-
+        Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST with access to the task plot. Cancellation is
+        idempotent and records actualEnd when work had started. A completed task or a task with material
+        processing cannot be cancelled.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelTaskRequest'
+      responses:
+        '200':
+          description: Task cancelled or returned unchanged when already cancelled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkTaskResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
 components:
@@ -226,7 +295,7 @@ components:
           schema:
             $ref: '#/components/schemas/ApiError'
     Conflict:
-      description: Duplicate code, changed material retry, forbidden terminal-state mutation, or a concurrent task update requiring reload.
+      description: Duplicate code, invalid lifecycle transition, unsafe cancellation, changed material retry, or a concurrent task update requiring reload.
       content:
         application/json:
           schema:
@@ -275,6 +344,11 @@ components:
       required: [assignedEmployeeId]
       properties:
         assignedEmployeeId: { type: string, format: uuid }
+    CancelTaskRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        notes: { type: [string, 'null'], maxLength: 2000 }
     CompleteTaskRequest:
       type: object
       additionalProperties: false

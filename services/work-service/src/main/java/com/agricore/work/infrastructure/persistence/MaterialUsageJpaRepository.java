@@ -14,6 +14,8 @@ import java.util.UUID;
 
 public interface MaterialUsageJpaRepository extends JpaRepository<MaterialUsageEntity, UUID> {
 
+    boolean existsByWorkTaskId(UUID workTaskId);
+
     List<MaterialUsageEntity> findByWorkTaskIdOrderByCreatedAtAsc(UUID workTaskId);
 
     List<MaterialUsageEntity> findByWorkTaskIdInOrderByCreatedAtAsc(Collection<UUID> workTaskIds);

@@ -119,8 +119,12 @@ paths:
     $ref: './work-service.v1.yaml#/paths/~1api~1v1~1work-tasks~1{taskId}'
   /api/v1/work-tasks/{taskId}/assign:
     $ref: './work-service.v1.yaml#/paths/~1api~1v1~1work-tasks~1{taskId}~1assign'
+  /api/v1/work-tasks/{taskId}/start:
+    $ref: './work-service.v1.yaml#/paths/~1api~1v1~1work-tasks~1{taskId}~1start'
   /api/v1/work-tasks/{taskId}/complete:
     $ref: './work-service.v1.yaml#/paths/~1api~1v1~1work-tasks~1{taskId}~1complete'
+  /api/v1/work-tasks/{taskId}/cancel:
+    $ref: './work-service.v1.yaml#/paths/~1api~1v1~1work-tasks~1{taskId}~1cancel'
   /api/v1/inventory/{proxy+}:
     parameters:
       - name: proxy+

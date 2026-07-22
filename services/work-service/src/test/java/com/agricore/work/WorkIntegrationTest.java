@@ -49,25 +49,8 @@ class WorkIntegrationTest {
     }
 
     @Test
-    void createAssignComplete_flow() throws Exception {
-        String code = "WT-" + System.nanoTime();
-        MvcResult created = mockMvc.perform(post("/api/v1/work-tasks")
-                        .header("X-Dev-User", "mgr")
-                        .header("X-Dev-Roles", "FARM_MANAGER")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "code":"%s",
-                                  "cropCycleId":"%s",
-                                  "plotId":"%s",
-                                  "taskType":"IRRIGATION",
-                                  "title":"Morning irrigation",
-                                  "priority":"HIGH"
-                                }
-                                """.formatted(code, UUID.randomUUID(), UUID.randomUUID())))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.status").value("CREATED"))
-                .andReturn();
+    void createAssignStartComplete_flow() throws Exception {
+        MvcResult created = createTask();
 
         String taskId = objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asText();
         OutboxEventEntity taskCreated = outboxRepository.findAll().stream()
@@ -88,6 +71,13 @@ class WorkIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ASSIGNED"));
 
+        mockMvc.perform(post("/api/v1/work-tasks/" + taskId + "/start")
+                        .header("X-Dev-User", "worker")
+                        .header("X-Dev-Roles", "FIELD_WORKER"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$.actualStart").isNotEmpty());
+
         mockMvc.perform(post("/api/v1/work-tasks/" + taskId + "/complete")
                         .header("X-Dev-User", "worker")
                         .header("X-Dev-Roles", "FIELD_WORKER")
@@ -96,6 +86,108 @@ class WorkIntegrationTest {
                                 {"notes":"Done"}
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("COMPLETED"));
+                .andExpect(jsonPath("$.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.actualEnd").isNotEmpty());
+    }
+
+    @Test
+    void lifecycleRejectsSkippedTransitionsAndKeepsStartAndCancelIdempotent() throws Exception {
+        MvcResult created = createTask();
+        String taskId = objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asText();
+
+        mockMvc.perform(post("/api/v1/work-tasks/{taskId}/start", taskId)
+                        .header("X-Dev-User", "worker")
+                        .header("X-Dev-Roles", "FIELD_WORKER"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INVALID_TASK_TRANSITION"));
+
+        mockMvc.perform(post("/api/v1/work-tasks/{taskId}/complete", taskId)
+                        .header("X-Dev-User", "worker")
+                        .header("X-Dev-Roles", "FIELD_WORKER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("TASK_NOT_IN_PROGRESS"));
+
+        mockMvc.perform(post("/api/v1/work-tasks/{taskId}/assign", taskId)
+                        .header("X-Dev-User", "mgr")
+                        .header("X-Dev-Roles", "FARM_MANAGER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"assignedEmployeeId":"%s"}
+                                """.formatted(UUID.randomUUID())))
+                .andExpect(status().isOk());
+
+        MvcResult started = mockMvc.perform(post("/api/v1/work-tasks/{taskId}/start", taskId)
+                        .header("X-Dev-User", "worker")
+                        .header("X-Dev-Roles", "FIELD_WORKER"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
+                .andReturn();
+        JsonNode startedBody = objectMapper.readTree(started.getResponse().getContentAsString());
+
+        mockMvc.perform(post("/api/v1/work-tasks/{taskId}/start", taskId)
+                        .header("X-Dev-User", "worker")
+                        .header("X-Dev-Roles", "FIELD_WORKER"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$.version").value(startedBody.path("version").asLong()));
+
+        mockMvc.perform(post("/api/v1/work-tasks/{taskId}/assign", taskId)
+                        .header("X-Dev-User", "mgr")
+                        .header("X-Dev-Roles", "FARM_MANAGER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"assignedEmployeeId":"%s"}
+                                """.formatted(UUID.randomUUID())))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INVALID_TASK_TRANSITION"));
+
+        MvcResult cancelled = mockMvc.perform(post("/api/v1/work-tasks/{taskId}/cancel", taskId)
+                        .header("X-Dev-User", "mgr")
+                        .header("X-Dev-Roles", "FARM_MANAGER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"notes\":\"Weather made field work unsafe\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.notes").value("Weather made field work unsafe"))
+                .andExpect(jsonPath("$.actualEnd").isNotEmpty())
+                .andReturn();
+        long cancelledVersion = objectMapper.readTree(cancelled.getResponse().getContentAsString())
+                .path("version").asLong();
+
+        mockMvc.perform(post("/api/v1/work-tasks/{taskId}/cancel", taskId)
+                        .header("X-Dev-User", "mgr")
+                        .header("X-Dev-Roles", "FARM_MANAGER"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.version").value(cancelledVersion));
+
+        mockMvc.perform(post("/api/v1/work-tasks/{taskId}/complete", taskId)
+                        .header("X-Dev-User", "worker")
+                        .header("X-Dev-Roles", "FIELD_WORKER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("TASK_CANCELLED"));
+    }
+
+    private MvcResult createTask() throws Exception {
+        return mockMvc.perform(post("/api/v1/work-tasks")
+                        .header("X-Dev-User", "mgr")
+                        .header("X-Dev-Roles", "FARM_MANAGER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "code":"WT-%d",
+                                  "cropCycleId":"%s",
+                                  "plotId":"%s",
+                                  "taskType":"IRRIGATION",
+                                  "title":"Morning irrigation",
+                                  "priority":"HIGH"
+                                }
+                                """.formatted(System.nanoTime(), UUID.randomUUID(), UUID.randomUUID())))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("CREATED"))
+                .andReturn();
     }
 }
