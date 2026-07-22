@@ -25,15 +25,18 @@ public class NotificationApplicationService {
     private final NotificationJpaRepository repository;
     private final ProcessedEventJpaRepository processedEventRepository;
     private final NotificationEventOutboxWriter eventOutboxWriter;
+    private final NotificationMetrics metrics;
 
     public NotificationApplicationService(
             NotificationJpaRepository repository,
             ProcessedEventJpaRepository processedEventRepository,
-            NotificationEventOutboxWriter eventOutboxWriter
+            NotificationEventOutboxWriter eventOutboxWriter,
+            NotificationMetrics metrics
     ) {
         this.repository = repository;
         this.processedEventRepository = processedEventRepository;
         this.eventOutboxWriter = eventOutboxWriter;
+        this.metrics = metrics;
     }
 
     @Transactional
@@ -63,6 +66,7 @@ public class NotificationApplicationService {
         final String consumerName = "notification-service";
         if (processedEventRepository.existsByEventIdAndConsumerName(command.eventId(), consumerName)) {
             log.debug("Skipping duplicate notification event {} type={}", command.eventId(), command.eventType());
+            metrics.recordDuplicate();
             return false;
         }
 
@@ -84,6 +88,7 @@ public class NotificationApplicationService {
         processedEventRepository.save(ProcessedEventEntity.create(command.eventId(), consumerName));
         log.info("notification_event_processed eventId={} eventType={} channel={} recipient={}",
                 command.eventId(), command.eventType(), notification.getChannel(), notification.getRecipient());
+        metrics.recordDelivered();
         return true;
     }
 }
