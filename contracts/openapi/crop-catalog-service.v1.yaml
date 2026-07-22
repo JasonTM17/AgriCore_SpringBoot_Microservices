@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgriCore Crop Catalog Service API
-  version: 1.1.0
+  version: 1.2.0
   description: Verified read-only crop catalog contract.
 servers:
   - url: http://localhost:8083
@@ -10,6 +10,7 @@ security:
   - bearerAuth: []
 tags:
   - name: Crops
+  - name: Crop Varieties
 paths:
   /api/v1/crops:
     get:
@@ -38,6 +39,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CropPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
   /api/v1/crops/{cropId}:
@@ -83,6 +86,53 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/v1/crops/{cropId}/varieties:
+    parameters:
+      - $ref: '#/components/parameters/CropId'
+    get:
+      tags: [Crop Varieties]
+      operationId: listCropVarieties
+      summary: List varieties for one crop
+      parameters:
+        - in: query
+          name: q
+          required: false
+          description: Case-insensitive variety name or code search.
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Crop-scoped varieties ordered by name and identifier.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropVarietyPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/crop-varieties/{varietyId}:
+    parameters:
+      - $ref: '#/components/parameters/VarietyId'
+    get:
+      tags: [Crop Varieties]
+      operationId: getCropVariety
+      summary: Get a crop variety by identifier
+      responses:
+        '200':
+          description: Crop variety found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropVarietyResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
 components:
   securitySchemes:
     bearerAuth:
@@ -93,6 +143,13 @@ components:
     CropId:
       in: path
       name: cropId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    VarietyId:
+      in: path
+      name: varietyId
       required: true
       schema:
         type: string
@@ -109,7 +166,7 @@ components:
     Size:
       in: query
       name: size
-      description: Number of records per page; the controller caps it at 100.
+      description: Number of records per page; values outside 1 through 100 are rejected.
       schema:
         type: integer
         format: int32
@@ -117,10 +174,12 @@ components:
         maximum: 100
         default: 20
   responses:
+    BadRequest:
+      description: Invalid pagination or request parameter.
     Unauthorized:
       description: Authentication is required or the bearer token is invalid.
     NotFound:
-      description: Crop not found.
+      description: Crop or crop variety not found.
   schemas:
     CropResponse:
       type: object
@@ -170,6 +229,33 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CropResponse'
+        page: { type: integer, format: int32, minimum: 0 }
+        size: { type: integer, format: int32, minimum: 1, maximum: 100 }
+        totalElements: { type: integer, format: int64, minimum: 0 }
+        totalPages: { type: integer, format: int32, minimum: 0 }
+        first: { type: boolean }
+        last: { type: boolean }
+    CropVarietyResponse:
+      type: object
+      additionalProperties: false
+      required: [id, cropId, code, name, origin, notes, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        cropId: { type: string, format: uuid }
+        code: { type: string, minLength: 1, maxLength: 64 }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        origin: { type: [string, 'null'], maxLength: 200 }
+        notes: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+    CropVarietyPageResponse:
+      type: object
+      additionalProperties: false
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/CropVarietyResponse'
         page: { type: integer, format: int32, minimum: 0 }
         size: { type: integer, format: int32, minimum: 1, maximum: 100 }
         totalElements: { type: integer, format: int64, minimum: 0 }

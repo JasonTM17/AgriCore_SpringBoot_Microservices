@@ -3,15 +3,19 @@ package com.agricore.cropcatalog.api.controller;
 import com.agricore.common.api.PageResponse;
 import com.agricore.cropcatalog.api.response.CropResponse;
 import com.agricore.cropcatalog.application.service.CropCatalogService;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/crops")
+@Validated
 public class CropController {
 
     private final CropCatalogService cropCatalogService;
@@ -25,10 +29,11 @@ public class CropController {
     public PageResponse<CropResponse> list(
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String q,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
     ) {
-        return cropCatalogService.list(category, q, PageRequest.of(page, Math.min(size, 100), Sort.by("name")));
+        Sort sort = Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id"));
+        return cropCatalogService.list(category, q, PageRequest.of(page, size, sort));
     }
 
     @GetMapping("/{cropId}")

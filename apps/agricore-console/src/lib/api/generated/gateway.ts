@@ -469,6 +469,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/crops/{cropId}/varieties": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cropId: components["parameters"]["CropId"];
+            };
+            cookie?: never;
+        };
+        /** List varieties for one crop */
+        get: operations["listCropVarieties"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/crops/by-code/{code}": {
         parameters: {
             query?: never;
@@ -481,6 +500,25 @@ export interface paths {
         };
         /** Get a crop by code */
         get: operations["getCropByCode"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/crop-varieties/{varietyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                varietyId: components["parameters"]["VarietyId"];
+            };
+            cookie?: never;
+        };
+        /** Get a crop variety by identifier */
+        get: operations["getCropVariety"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1517,6 +1555,31 @@ export interface components {
             first: boolean;
             last: boolean;
         };
+        CropVarietyResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            cropId: string;
+            code: string;
+            name: string;
+            origin: string | null;
+            notes: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        CropVarietyPageResponse: {
+            content: components["schemas"]["CropVarietyResponse"][];
+            /** Format: int32 */
+            page: number;
+            /** Format: int32 */
+            size: number;
+            /** Format: int64 */
+            totalElements: number;
+            /** Format: int32 */
+            totalPages: number;
+            first: boolean;
+            last: boolean;
+        };
         /** @enum {string} */
         CycleStage: "PLANNED" | "LAND_PREPARATION" | "SOWING" | "GROWING" | "FERTILIZING" | "PEST_CONTROL" | "HARVESTING" | "COMPLETED" | "CANCELLED";
         /** @enum {string} */
@@ -2087,7 +2150,14 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description Crop not found. */
+        /** @description Invalid pagination or request parameter. */
+        "responses-BadRequest": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content?: never;
+        };
+        /** @description Crop or crop variety not found. */
         "responses-NotFound": {
             headers: {
                 [name: string]: unknown;
@@ -2095,7 +2165,7 @@ export interface components {
             content?: never;
         };
         /** @description Invalid path, query, JSON, dates, stage, validation input, or missing required farm scope. */
-        "responses-BadRequest": {
+        "components-responses-BadRequest": {
             headers: {
                 [name: string]: unknown;
             };
@@ -2140,7 +2210,7 @@ export interface components {
             };
         };
         /** @description Invalid path, query, JSON, task type, validation input, or missing required plot scope. */
-        "components-responses-BadRequest": {
+        "work-service.v1_components-responses-BadRequest": {
             headers: {
                 [name: string]: unknown;
             };
@@ -2375,9 +2445,10 @@ export interface components {
         PlotId: string;
         /** @description Zero-based page index. */
         "parameters-Page": number;
-        /** @description Number of records per page; the controller caps it at 100. */
+        /** @description Number of records per page; values outside 1 through 100 are rejected. */
         "parameters-Size": number;
         CropId: string;
+        VarietyId: string;
         CycleId: string;
         TaskId: string;
         HarvestId: string;
@@ -2754,7 +2825,7 @@ export interface operations {
                 q?: string;
                 /** @description Zero-based page index. */
                 page?: components["parameters"]["parameters-Page"];
-                /** @description Number of records per page; the controller caps it at 100. */
+                /** @description Number of records per page; values outside 1 through 100 are rejected. */
                 size?: components["parameters"]["parameters-Size"];
             };
             header?: never;
@@ -2772,6 +2843,7 @@ export interface operations {
                     "application/json": components["schemas"]["CropPageResponse"];
                 };
             };
+            400: components["responses"]["responses-BadRequest"];
             401: components["responses"]["Unauthorized"];
         };
     };
@@ -2799,6 +2871,38 @@ export interface operations {
             404: components["responses"]["responses-NotFound"];
         };
     };
+    listCropVarieties: {
+        parameters: {
+            query?: {
+                /** @description Case-insensitive variety name or code search. */
+                q?: string;
+                /** @description Zero-based page index. */
+                page?: components["parameters"]["parameters-Page"];
+                /** @description Number of records per page; values outside 1 through 100 are rejected. */
+                size?: components["parameters"]["parameters-Size"];
+            };
+            header?: never;
+            path: {
+                cropId: components["parameters"]["CropId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Crop-scoped varieties ordered by name and identifier. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CropVarietyPageResponse"];
+                };
+            };
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["responses-NotFound"];
+        };
+    };
     getCropByCode: {
         parameters: {
             query?: never;
@@ -2818,6 +2922,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CropResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["responses-NotFound"];
+        };
+    };
+    getCropVariety: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                varietyId: components["parameters"]["VarietyId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Crop variety found. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CropVarietyResponse"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -2849,7 +2977,7 @@ export interface operations {
                     "application/json": components["schemas"]["CropCyclePageResponse"];
                 };
             };
-            400: components["responses"]["responses-BadRequest"];
+            400: components["responses"]["components-responses-BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["components-responses-NotFound"];
@@ -2878,7 +3006,7 @@ export interface operations {
                     "application/json": components["schemas"]["CropCycleResponse"];
                 };
             };
-            400: components["responses"]["responses-BadRequest"];
+            400: components["responses"]["components-responses-BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["components-responses-NotFound"];
@@ -2908,7 +3036,7 @@ export interface operations {
                     "application/json": components["schemas"]["CropCycleResponse"];
                 };
             };
-            400: components["responses"]["responses-BadRequest"];
+            400: components["responses"]["components-responses-BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["components-responses-NotFound"];
@@ -2939,7 +3067,7 @@ export interface operations {
                     "application/json": components["schemas"]["CropCycleResponse"];
                 };
             };
-            400: components["responses"]["responses-BadRequest"];
+            400: components["responses"]["components-responses-BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["components-responses-NotFound"];
@@ -2973,7 +3101,7 @@ export interface operations {
                     "application/json": components["schemas"]["CropCycleResponse"];
                 };
             };
-            400: components["responses"]["responses-BadRequest"];
+            400: components["responses"]["components-responses-BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["components-responses-NotFound"];
@@ -3003,7 +3131,7 @@ export interface operations {
                     "application/json": components["schemas"]["CropCycleResponse"];
                 };
             };
-            400: components["responses"]["responses-BadRequest"];
+            400: components["responses"]["components-responses-BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["components-responses-NotFound"];
@@ -3037,7 +3165,7 @@ export interface operations {
                     "application/json": components["schemas"]["CropCycleStageHistoryPageResponse"];
                 };
             };
-            400: components["responses"]["responses-BadRequest"];
+            400: components["responses"]["components-responses-BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["components-responses-NotFound"];
@@ -3069,7 +3197,7 @@ export interface operations {
                     "application/json": components["schemas"]["CropCycleObservationPageResponse"];
                 };
             };
-            400: components["responses"]["responses-BadRequest"];
+            400: components["responses"]["components-responses-BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["components-responses-NotFound"];
@@ -3100,7 +3228,7 @@ export interface operations {
                     "application/json": components["schemas"]["CropCycleObservationResponse"];
                 };
             };
-            400: components["responses"]["responses-BadRequest"];
+            400: components["responses"]["components-responses-BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["components-responses-NotFound"];
@@ -3134,7 +3262,7 @@ export interface operations {
                     "application/json": components["schemas"]["WorkTaskPageResponse"];
                 };
             };
-            400: components["responses"]["components-responses-BadRequest"];
+            400: components["responses"]["work-service.v1_components-responses-BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["responses-Forbidden"];
             404: components["responses"]["work-service.v1_components-responses-NotFound"];
@@ -3163,7 +3291,7 @@ export interface operations {
                     "application/json": components["schemas"]["WorkTaskResponse"];
                 };
             };
-            400: components["responses"]["components-responses-BadRequest"];
+            400: components["responses"]["work-service.v1_components-responses-BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["responses-Forbidden"];
             404: components["responses"]["work-service.v1_components-responses-NotFound"];
@@ -3193,7 +3321,7 @@ export interface operations {
                     "application/json": components["schemas"]["WorkTaskResponse"];
                 };
             };
-            400: components["responses"]["components-responses-BadRequest"];
+            400: components["responses"]["work-service.v1_components-responses-BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["responses-Forbidden"];
             404: components["responses"]["work-service.v1_components-responses-NotFound"];
@@ -3224,7 +3352,7 @@ export interface operations {
                     "application/json": components["schemas"]["WorkTaskResponse"];
                 };
             };
-            400: components["responses"]["components-responses-BadRequest"];
+            400: components["responses"]["work-service.v1_components-responses-BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["responses-Forbidden"];
             404: components["responses"]["work-service.v1_components-responses-NotFound"];
@@ -3258,7 +3386,7 @@ export interface operations {
                     "application/json": components["schemas"]["WorkTaskResponse"];
                 };
             };
-            400: components["responses"]["components-responses-BadRequest"];
+            400: components["responses"]["work-service.v1_components-responses-BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["responses-Forbidden"];
             404: components["responses"]["work-service.v1_components-responses-NotFound"];

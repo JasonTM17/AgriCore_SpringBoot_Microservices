@@ -7,6 +7,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.UUID;
+
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -48,5 +50,60 @@ class CropCatalogIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.content[0].code").value("COFFEE_ROBUSTA"));
+    }
+
+    @Test
+    void listVarieties_isCropScopedSearchableAndDeterministic() throws Exception {
+        mockMvc.perform(get("/api/v1/crops/{cropId}/varieties",
+                        "22222222-2222-2222-2222-222222222004")
+                        .queryParam("q", "st")
+                        .header("X-Dev-User", "agronomist")
+                        .header("X-Dev-Roles", "AGRONOMIST"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].id")
+                        .value("33333333-3333-3333-3333-333333333003"))
+                .andExpect(jsonPath("$.content[0].cropId")
+                        .value("22222222-2222-2222-2222-222222222004"))
+                .andExpect(jsonPath("$.content[0].code").value("ST25"))
+                .andExpect(jsonPath("$.content[0].origin").value("Soc Trang"));
+    }
+
+    @Test
+    void getVariety_returnsSeededDetail() throws Exception {
+        mockMvc.perform(get("/api/v1/crop-varieties/{varietyId}",
+                        "33333333-3333-3333-3333-333333333001")
+                        .header("X-Dev-User", "agronomist")
+                        .header("X-Dev-Roles", "AGRONOMIST"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("TR4"))
+                .andExpect(jsonPath("$.name").value("TR4 Robusta"))
+                .andExpect(jsonPath("$.notes").value("High yield clone"));
+    }
+
+    @Test
+    void varietyList_rejectsMissingCropAndInvalidPagination() throws Exception {
+        mockMvc.perform(get("/api/v1/crops/{cropId}/varieties", UUID.randomUUID())
+                        .header("X-Dev-User", "agronomist")
+                        .header("X-Dev-Roles", "AGRONOMIST"))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(get("/api/v1/crops/{cropId}/varieties",
+                        "22222222-2222-2222-2222-222222222001")
+                        .queryParam("size", "0")
+                        .header("X-Dev-User", "agronomist")
+                        .header("X-Dev-Roles", "AGRONOMIST"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.path").value(
+                        "/api/v1/crops/22222222-2222-2222-2222-222222222001/varieties"));
+
+        mockMvc.perform(get("/api/v1/crops")
+                        .queryParam("page", "-1")
+                        .header("X-Dev-User", "agronomist")
+                        .header("X-Dev-Roles", "AGRONOMIST"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.path").value("/api/v1/crops"));
     }
 }
