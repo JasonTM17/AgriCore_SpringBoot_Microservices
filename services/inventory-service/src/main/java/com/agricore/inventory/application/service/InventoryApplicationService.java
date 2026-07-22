@@ -25,19 +25,22 @@ public class InventoryApplicationService {
     private final StockMovementJpaRepository movementRepository;
     private final ProcessedEventJpaRepository processedEventRepository;
     private final InventoryReservationJpaRepository reservationRepository;
+    private final InventoryMetrics metrics;
 
     public InventoryApplicationService(
             WarehouseJpaRepository warehouseRepository,
             InventoryItemJpaRepository itemRepository,
             StockMovementJpaRepository movementRepository,
             ProcessedEventJpaRepository processedEventRepository,
-            InventoryReservationJpaRepository reservationRepository
+            InventoryReservationJpaRepository reservationRepository,
+            InventoryMetrics metrics
     ) {
         this.warehouseRepository = warehouseRepository;
         this.itemRepository = itemRepository;
         this.movementRepository = movementRepository;
         this.processedEventRepository = processedEventRepository;
         this.reservationRepository = reservationRepository;
+        this.metrics = metrics;
     }
 
     @Transactional
@@ -101,6 +104,7 @@ public class InventoryApplicationService {
     @Transactional
     public InventoryItemResponse processHarvestCompleted(HarvestCompletedCommand command) {
         if (processedEventRepository.existsByEventIdAndConsumerName(command.eventId(), HARVEST_CONSUMER)) {
+            metrics.recordDuplicateHarvestEvent();
             InventoryItemEntity existing = itemRepository
                     .findByWarehouseIdAndSkuIgnoreCase(command.warehouseId(), command.productCode())
                     .orElseThrow(() -> new InventoryException("ITEM_NOT_FOUND",
@@ -131,6 +135,7 @@ public class InventoryApplicationService {
         );
 
         processedEventRepository.save(ProcessedEventEntity.of(command.eventId(), HARVEST_CONSUMER));
+        metrics.recordAppliedHarvestEvent();
         return toItemResponse(item);
     }
 
@@ -138,6 +143,7 @@ public class InventoryApplicationService {
     public ReservationResponse reserve(ReserveStockRequest request) {
         InventoryItemEntity item = requireItem(request.inventoryItemId());
         if (item.availableQuantity().compareTo(request.quantity()) < 0) {
+            metrics.recordReservationFailure();
             throw new InventoryException("INSUFFICIENT_STOCK", "Not enough available stock", 409);
         }
         item.setReservedQuantity(item.getReservedQuantity().add(request.quantity()));
@@ -158,6 +164,7 @@ public class InventoryApplicationService {
 
         writeMovement(item.getId(), MovementType.RESERVE, request.quantity(),
                 request.referenceType(), request.referenceId(), "Reserve");
+        metrics.recordReservationSuccess();
         return new ReservationResponse(
                 reservation.getId(), item.getId(), reservation.getQuantity(),
                 reservation.getStatus(), reservation.getReferenceType(), reservation.getReferenceId()

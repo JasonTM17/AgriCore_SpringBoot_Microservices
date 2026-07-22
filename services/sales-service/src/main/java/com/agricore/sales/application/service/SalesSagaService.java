@@ -31,17 +31,20 @@ public class SalesSagaService {
     private final SalesOrderJpaRepository orderRepository;
     private final OrderSagaJpaRepository sagaRepository;
     private final InventoryClient inventoryClient;
+    private final SalesMetrics metrics;
 
     public SalesSagaService(
             CustomerJpaRepository customerRepository,
             SalesOrderJpaRepository orderRepository,
             OrderSagaJpaRepository sagaRepository,
-            InventoryClient inventoryClient
+            InventoryClient inventoryClient,
+            SalesMetrics metrics
     ) {
         this.customerRepository = customerRepository;
         this.orderRepository = orderRepository;
         this.sagaRepository = sagaRepository;
         this.inventoryClient = inventoryClient;
+        this.metrics = metrics;
     }
 
     @Transactional
@@ -142,6 +145,7 @@ public class SalesSagaService {
             saga = sagaRepository.saveAndFlush(saga);
         }
 
+        metrics.recordSagaOutcome(saga.getStatus());
         return toResponse(order, saga);
     }
 

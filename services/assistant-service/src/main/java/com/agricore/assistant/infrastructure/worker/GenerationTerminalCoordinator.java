@@ -24,19 +24,22 @@ public class GenerationTerminalCoordinator {
     private final AssistantGenerationWorkerProperties properties;
     private final Clock clock;
     private final Scheduler scheduler;
+    private final AssistantGenerationMetrics metrics;
 
     public GenerationTerminalCoordinator(
             GenerationExecutionRepository repository,
             AssistantRetentionPolicy retentionPolicy,
             AssistantGenerationWorkerProperties properties,
             Clock clock,
-            Scheduler assistantGenerationScheduler
+            Scheduler assistantGenerationScheduler,
+            AssistantGenerationMetrics metrics
     ) {
         this.repository = repository;
         this.retentionPolicy = retentionPolicy;
         this.properties = properties;
         this.clock = clock;
         this.scheduler = assistantGenerationScheduler;
+        this.metrics = metrics;
     }
 
     public Mono<Void> complete(
@@ -49,9 +52,13 @@ public class GenerationTerminalCoordinator {
             var completion = state.completion(
                     now, now.plus(retentionPolicy.generationEventRetention()));
             return repositoryCall(() -> repository.complete(generationId, leaseToken, completion))
-                    .flatMap(result -> result.isPresent()
-                            ? Mono.empty()
-                            : resolveRejectedTransition(generationId, leaseToken));
+                    .flatMap(result -> {
+                        if (result.isPresent()) {
+                            metrics.recordCompleted();
+                            return Mono.empty();
+                        }
+                        return resolveRejectedTransition(generationId, leaseToken);
+                    });
         });
     }
 
@@ -81,9 +88,13 @@ public class GenerationTerminalCoordinator {
                 errorCode,
                 now,
                 now.plus(retentionPolicy.generationEventRetention())
-        )).flatMap(result -> result.isPresent()
-                ? Mono.empty()
-                : resolveRejectedTransition(generationId, leaseToken));
+        )).flatMap(result -> {
+            if (result.isPresent()) {
+                metrics.recordFailed();
+                return Mono.empty();
+            }
+            return resolveRejectedTransition(generationId, leaseToken);
+        });
     }
 
     private Mono<Void> resolveRejectedTransition(UUID generationId, UUID leaseToken) {
@@ -107,7 +118,11 @@ public class GenerationTerminalCoordinator {
                 leaseToken,
                 now,
                 now.plus(retentionPolicy.generationEventRetention())
-        )).then();
+        )).doOnNext(result -> {
+            if (result.isPresent()) {
+                metrics.recordCancelled();
+            }
+        }).then();
     }
 
     private <T> Mono<T> repositoryCall(Callable<T> action) {

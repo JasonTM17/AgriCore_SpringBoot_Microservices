@@ -24,6 +24,7 @@ public class IotApplicationService {
     private final ThresholdRuleJpaRepository ruleRepository;
     private final SensorAlertJpaRepository alertRepository;
     private final IotAccessGuard accessGuard;
+    private final IotMetrics metrics;
     private final long cooldownMinutes;
 
     public IotApplicationService(
@@ -32,6 +33,7 @@ public class IotApplicationService {
             ThresholdRuleJpaRepository ruleRepository,
             SensorAlertJpaRepository alertRepository,
             IotAccessGuard accessGuard,
+            IotMetrics metrics,
             @Value("${agricore.alert.cooldown-minutes:15}") long cooldownMinutes
     ) {
         this.deviceRepository = deviceRepository;
@@ -39,6 +41,7 @@ public class IotApplicationService {
         this.ruleRepository = ruleRepository;
         this.alertRepository = alertRepository;
         this.accessGuard = accessGuard;
+        this.metrics = metrics;
         this.cooldownMinutes = cooldownMinutes;
     }
 
@@ -82,6 +85,7 @@ public class IotApplicationService {
         reading.setRecordedAt(recordedAt);
         reading.setCreatedAt(now);
         readingRepository.save(reading);
+        metrics.recordReading();
 
         List<ThresholdRuleEntity> rules = ruleRepository.findByMetricTypeAndActiveTrue(reading.getMetricType());
         for (ThresholdRuleEntity rule : rules) {
@@ -100,6 +104,7 @@ public class IotApplicationService {
                     existing.setLastSeenAt(now);
                     existing.setMetricValue(reading.getMetricValue());
                     alertRepository.save(existing);
+                    metrics.recordSuppressedAlert();
                     return new IngestResultResponse(reading.getId(), false, existing.getId(), "OPEN",
                             "Alert suppressed by cooldown window");
                 }
@@ -120,6 +125,7 @@ public class IotApplicationService {
             alert.setCreatedAt(now);
             alert.setLastSeenAt(now);
             alertRepository.save(alert);
+            metrics.recordCreatedAlert();
             return new IngestResultResponse(reading.getId(), true, alert.getId(), "OPEN", alert.getMessage());
         }
 

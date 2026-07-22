@@ -24,17 +24,20 @@ public class HarvestApplicationService {
     private final OutboxJpaRepository outboxRepository;
     private final ObjectMapper objectMapper;
     private final HarvestAccessGuard accessGuard;
+    private final HarvestMetrics metrics;
 
     public HarvestApplicationService(
             HarvestBatchJpaRepository harvestRepository,
             OutboxJpaRepository outboxRepository,
             ObjectMapper objectMapper,
-            HarvestAccessGuard accessGuard
+            HarvestAccessGuard accessGuard,
+            HarvestMetrics metrics
     ) {
         this.harvestRepository = harvestRepository;
         this.outboxRepository = outboxRepository;
         this.objectMapper = objectMapper;
         this.accessGuard = accessGuard;
+        this.metrics = metrics;
     }
 
     /**
@@ -43,6 +46,10 @@ public class HarvestApplicationService {
      */
     @Transactional
     public HarvestBatchResponse completeHarvest(CompleteHarvestRequest request) {
+        return metrics.recordProcessing(() -> completeHarvestObserved(request));
+    }
+
+    private HarvestBatchResponse completeHarvestObserved(CompleteHarvestRequest request) {
         accessGuard.requirePlot(request.plotId());
         String code = request.code().trim().toUpperCase();
         if (harvestRepository.existsByCodeIgnoreCase(code)) {
