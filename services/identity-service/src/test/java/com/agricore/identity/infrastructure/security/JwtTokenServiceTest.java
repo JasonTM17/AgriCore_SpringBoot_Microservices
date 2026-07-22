@@ -1,14 +1,22 @@
 package com.agricore.identity.infrastructure.security;
 
 import com.agricore.identity.infrastructure.configuration.SecurityProperties;
+import com.agricore.identity.infrastructure.persistence.PermissionJpaRepository;
+import com.agricore.identity.infrastructure.persistence.entity.UserEntity;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.Date;
+import java.util.List;
+import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class JwtTokenServiceTest {
 
@@ -17,7 +25,11 @@ class JwtTokenServiceTest {
         SecurityProperties properties = securityProperties();
         RsaKeyProvider keyProvider = new RsaKeyProvider(properties);
         keyProvider.init();
-        JwtTokenService tokenService = new JwtTokenService(keyProvider, properties);
+        JwtTokenService tokenService = new JwtTokenService(
+                keyProvider,
+                properties,
+                mock(PermissionJpaRepository.class)
+        );
         Instant now = Instant.now();
 
         String token = Jwts.builder()
@@ -38,7 +50,11 @@ class JwtTokenServiceTest {
         SecurityProperties properties = securityProperties();
         RsaKeyProvider keyProvider = new RsaKeyProvider(properties);
         keyProvider.init();
-        JwtTokenService tokenService = new JwtTokenService(keyProvider, properties);
+        JwtTokenService tokenService = new JwtTokenService(
+                keyProvider,
+                properties,
+                mock(PermissionJpaRepository.class)
+        );
         Instant now = Instant.now();
 
         String token = Jwts.builder()
@@ -51,6 +67,28 @@ class JwtTokenServiceTest {
 
         assertThatThrownBy(() -> tokenService.parse(token))
                 .isInstanceOf(JwtException.class);
+    }
+
+    @Test
+    void createAccessToken_includesSortedRolePermissionSnapshot() throws Exception {
+        SecurityProperties properties = securityProperties();
+        RsaKeyProvider keyProvider = new RsaKeyProvider(properties);
+        keyProvider.init();
+        PermissionJpaRepository permissionRepository = mock(PermissionJpaRepository.class);
+        JwtTokenService tokenService = new JwtTokenService(keyProvider, properties, permissionRepository);
+        UserEntity user = new UserEntity();
+        user.setId(UUID.fromString("00000000-0000-0000-0000-000000000001"));
+        user.setEmail("worker@agricore.test");
+        user.setFullName("Field Worker");
+        List<String> roles = List.of("FIELD_WORKER");
+        when(permissionRepository.findGrantedCodesByRoleCodes(roles))
+                .thenReturn(List.of("INVENTORY_VIEW", "WORK_EXECUTE"));
+
+        Claims claims = tokenService.parse(tokenService.createAccessToken(user, roles));
+
+        assertThat(claims.get("roles")).isEqualTo(List.of("FIELD_WORKER"));
+        assertThat(claims.get("permissions"))
+                .isEqualTo(List.of("INVENTORY_VIEW", "WORK_EXECUTE"));
     }
 
     private static SecurityProperties securityProperties() {

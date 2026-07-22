@@ -12,6 +12,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -53,5 +54,7 @@ class PermissionPersistenceIntegrationTest {
                 .containsExactly("WORK_EXECUTE");
         assertThat(permissionRepository.findByCodeIgnoreCase("work_execute"))
                 .isPresent();
+        assertThat(permissionRepository.findGrantedCodesByRoleCodes(List.of("FIELD_WORKER")))
+                .containsExactly("WORK_EXECUTE");
     }
 }

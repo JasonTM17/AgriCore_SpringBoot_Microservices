@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -15,8 +16,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Collection;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -38,9 +38,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String token = header.substring(7);
             try {
                 Claims claims = jwtTokenService.parse(token);
-                Collection<SimpleGrantedAuthority> authorities = extractRoles(claims).stream()
-                        .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
-                        .collect(Collectors.toList());
+                Collection<GrantedAuthority> authorities = Stream.concat(
+                                extractClaimAuthorities(claims, "roles", "ROLE_"),
+                                extractClaimAuthorities(claims, "permissions", "PERMISSION_")
+                        )
+                        .distinct()
+                        .toList();
                 var authentication = new UsernamePasswordAuthenticationToken(
                         claims.getSubject(),
                         null,
@@ -54,12 +57,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    @SuppressWarnings("unchecked")
-    private static List<String> extractRoles(Claims claims) {
-        Object roles = claims.get("roles");
-        if (roles instanceof List<?> list) {
-            return list.stream().map(Object::toString).toList();
+    private static Stream<GrantedAuthority> extractClaimAuthorities(
+            Claims claims,
+            String claimName,
+            String authorityPrefix
+    ) {
+        Object value = claims.get(claimName);
+        if (value instanceof Collection<?> collection) {
+            return collection.stream()
+                    .filter(String.class::isInstance)
+                    .map(String.class::cast)
+                    .filter(claim -> !claim.isBlank())
+                    .map(claim -> new SimpleGrantedAuthority(authorityPrefix + claim));
         }
-        return List.of();
+        return Stream.empty();
     }
 }

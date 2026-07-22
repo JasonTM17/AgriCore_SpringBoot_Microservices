@@ -1,6 +1,7 @@
 package com.agricore.identity.infrastructure.security;
 
 import com.agricore.identity.infrastructure.configuration.SecurityProperties;
+import com.agricore.identity.infrastructure.persistence.PermissionJpaRepository;
 import com.agricore.identity.infrastructure.persistence.entity.UserEntity;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -16,15 +17,24 @@ public class JwtTokenService {
 
     private final RsaKeyProvider keyProvider;
     private final SecurityProperties properties;
+    private final PermissionJpaRepository permissionRepository;
 
-    public JwtTokenService(RsaKeyProvider keyProvider, SecurityProperties properties) {
+    public JwtTokenService(
+            RsaKeyProvider keyProvider,
+            SecurityProperties properties,
+            PermissionJpaRepository permissionRepository
+    ) {
         this.keyProvider = keyProvider;
         this.properties = properties;
+        this.permissionRepository = permissionRepository;
     }
 
     public String createAccessToken(UserEntity user, List<String> roles) {
         Instant now = Instant.now();
         Instant exp = now.plusSeconds(properties.accessTokenTtlSeconds());
+        List<String> permissions = roles.isEmpty()
+                ? List.of()
+                : permissionRepository.findGrantedCodesByRoleCodes(roles);
 
         return Jwts.builder()
                 .header().keyId(keyProvider.keyId()).and()
@@ -37,6 +47,7 @@ public class JwtTokenService {
                 .claim("email", user.getEmail())
                 .claim("name", user.getFullName())
                 .claim("roles", roles)
+                .claim("permissions", permissions)
                 .signWith(keyProvider.privateKey(), Jwts.SIG.RS256)
                 .compact();
     }
