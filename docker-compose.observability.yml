@@ -1,5 +1,10 @@
 name: agricore-obs
 
+networks:
+  default:
+    name: agricore_default
+    external: true
+
 services:
   prometheus:
     image: prom/prometheus:v2.54.1

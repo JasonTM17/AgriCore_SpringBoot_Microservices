@@ -50,7 +50,7 @@ jobs:
       - name: Typecheck frontend
         run: pnpm typecheck
       - name: Test frontend
-        run: pnpm test -- --run
+        run: pnpm test
       - name: Build frontend
         run: pnpm build
 
@@ -72,3 +72,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate docker compose (microservices stack)
         run: docker compose -f docker-compose.yml config --quiet
+      - name: Lint and render Helm chart
+        run: |
+          docker run --rm -v "$PWD:/workspace" -w /workspace alpine/helm:3.17.3 lint infrastructure/helm/agricore
+          docker run --rm -v "$PWD:/workspace" -w /workspace alpine/helm:3.17.3 template agricore infrastructure/helm/agricore --set ingress.enabled=true --set global.imageTag=${GITHUB_SHA} >/dev/null
