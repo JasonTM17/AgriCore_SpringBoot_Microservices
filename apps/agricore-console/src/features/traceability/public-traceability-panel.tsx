@@ -49,6 +49,28 @@ export function PublicTraceabilityPanel({ data }: { data: PublicTraceabilityResp
         <p className="mt-2 font-mono text-sm font-semibold text-forest-700">{data.traceabilityCode}</p>
       </header>
 
+      <section
+        className="grid items-center gap-5 rounded-card border border-forest-100 bg-forest-50 p-5 sm:grid-cols-[minmax(0,1fr)_10rem] sm:p-7"
+        aria-labelledby="qr-heading"
+      >
+        <div>
+          <h2 id="qr-heading" className="text-xl font-semibold text-forest-900">Mã QR truy xuất</h2>
+          <p className="mt-2 max-w-prose text-sm leading-6 text-forest-900">
+            Quét mã để mở lại hồ sơ nguồn gốc công khai đã được xác thực cho lô sản phẩm này.
+          </p>
+        </div>
+        <figure className="mx-auto w-40 rounded-control border border-forest-100 bg-white p-2 text-center sm:mx-0">
+          <img
+            src={data.qrImageUrl}
+            alt={`Mã QR truy xuất ${data.traceabilityCode}`}
+            width={144}
+            height={144}
+            className="aspect-square w-full"
+          />
+          <figcaption className="mt-2 text-xs font-medium text-muted">Quét để mở hồ sơ</figcaption>
+        </figure>
+      </section>
+
       <section className="rounded-card border border-border bg-surface p-5 sm:p-7" aria-labelledby="origin-heading">
         <h2 id="origin-heading" className="text-xl font-semibold text-ink">Thông tin nguồn gốc</h2>
         <dl className="mt-4 grid gap-3 sm:grid-cols-2">

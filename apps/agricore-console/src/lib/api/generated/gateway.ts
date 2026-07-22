@@ -856,6 +856,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/public/api/v1/traceability/{traceabilityCode}/qr": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                traceabilityCode: string;
+            };
+            cookie?: never;
+        };
+        /** Render a traceability URL as a QR image */
+        get: operations["getPublicTraceabilityQrCode"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/iot/devices": {
         parameters: {
             query?: never;
@@ -1670,6 +1689,7 @@ export interface components {
             netWeightKg: number | null;
             careSummary: string | null;
             qrUrl: string;
+            qrImageUrl: string;
             batchLabel: string;
         };
         TraceabilityHarvestProjectionAcknowledgementResponse: {
@@ -3188,6 +3208,36 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublicTraceabilityResponse"];
+                };
+            };
+            /** @description Traceability code not found or projection not yet available. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getPublicTraceabilityQrCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                traceabilityCode: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Scannable PNG containing the canonical public traceability URL. */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": string;
                 };
             };
             /** @description Traceability code not found or projection not yet available. */

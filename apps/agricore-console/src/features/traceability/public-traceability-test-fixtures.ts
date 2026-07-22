@@ -14,6 +14,7 @@ export const publicTraceability = {
   netWeightKg: 3300,
   careSummary: "Bón phân hữu cơ và tưới nhỏ giọt.",
   qrUrl: `https://agricore.test/public/traceability/${traceabilityCode}`,
+  qrImageUrl: `https://agricore.test/public/traceability/${traceabilityCode}/qr`,
   batchLabel: `BATCH-${traceabilityCode}`,
 } satisfies PublicTraceabilityResponse;
 

@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: AgriCore Traceability Service API
-  version: 1.2.1
-  description: Verified public-safe traceability lookup and privileged projection read/write contract.
+  version: 1.3.0
+  description: Verified public-safe traceability lookup, QR image, and privileged projection read/write contract.
 servers:
   - url: http://localhost:8092
     description: Direct local service endpoint
@@ -34,6 +34,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublicTraceabilityResponse'
+        '404':
+          description: Traceability code not found or projection not yet available.
+  /public/api/v1/traceability/{traceabilityCode}/qr:
+    parameters:
+      - in: path
+        name: traceabilityCode
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 64
+    get:
+      tags: [Public Traceability]
+      operationId: getPublicTraceabilityQrCode
+      summary: Render a traceability URL as a QR image
+      security: []
+      responses:
+        '200':
+          description: Scannable PNG containing the canonical public traceability URL.
+          headers:
+            Cache-Control:
+              schema: { type: string }
+          content:
+            image/png:
+              schema: { type: string, format: binary }
         '404':
           description: Traceability code not found or projection not yet available.
   /api/v1/traceability/batches:
@@ -138,6 +163,7 @@ components:
         - netWeightKg
         - careSummary
         - qrUrl
+        - qrImageUrl
         - batchLabel
       properties:
         traceabilityCode: { type: string, maxLength: 64 }
@@ -151,4 +177,5 @@ components:
         netWeightKg: { type: [number, 'null'] }
         careSummary: { type: [string, 'null'] }
         qrUrl: { type: string, maxLength: 500 }
+        qrImageUrl: { type: string, maxLength: 503 }
         batchLabel: { type: string }

@@ -138,6 +138,8 @@ paths:
     $ref: './traceability-service.v1.yaml#/paths/~1api~1v1~1traceability~1events~1harvest-completed~1{eventId}~1acknowledgement'
   /public/api/v1/traceability/{traceabilityCode}:
     $ref: './traceability-service.v1.yaml#/paths/~1public~1api~1v1~1traceability~1{traceabilityCode}'
+  /public/api/v1/traceability/{traceabilityCode}/qr:
+    $ref: './traceability-service.v1.yaml#/paths/~1public~1api~1v1~1traceability~1{traceabilityCode}~1qr'
   /api/v1/iot/devices:
     $ref: './iot-service.v1.yaml#/paths/~1api~1v1~1iot~1devices'
   /api/v1/iot/readings:

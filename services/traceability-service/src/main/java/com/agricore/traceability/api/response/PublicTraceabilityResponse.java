@@ -18,6 +18,7 @@ public record PublicTraceabilityResponse(
         BigDecimal netWeightKg,
         String careSummary,
         String qrUrl,
+        String qrImageUrl,
         String batchLabel
 ) {
 }

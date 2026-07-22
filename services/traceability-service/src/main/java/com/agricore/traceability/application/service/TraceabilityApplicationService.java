@@ -22,13 +22,16 @@ public class TraceabilityApplicationService {
 
     private final TraceabilityBatchJpaRepository batchRepository;
     private final TraceabilityProjectionWriter projectionWriter;
+    private final TraceabilityQrCodeService qrCodeService;
 
     public TraceabilityApplicationService(
             TraceabilityBatchJpaRepository batchRepository,
-            TraceabilityProjectionWriter projectionWriter
+            TraceabilityProjectionWriter projectionWriter,
+            TraceabilityQrCodeService qrCodeService
     ) {
         this.batchRepository = batchRepository;
         this.projectionWriter = projectionWriter;
+        this.qrCodeService = qrCodeService;
     }
 
     public PublicTraceabilityResponse createFromHarvest(@Valid CreateTraceabilityRequest request) {
@@ -47,8 +50,16 @@ public class TraceabilityApplicationService {
 
     @Transactional(readOnly = true)
     public PublicTraceabilityResponse getPublic(String code) {
+        return toPublic(findByCode(code));
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] getPublicQrCode(String code) {
+        return qrCodeService.generatePng(findByCode(code).getQrUrl());
+    }
+
+    private TraceabilityBatchEntity findByCode(String code) {
         return batchRepository.findByTraceabilityCode(code.trim().toUpperCase(Locale.ROOT))
-                .map(this::toPublic)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Traceability code not found"));
     }
 
@@ -65,6 +76,7 @@ public class TraceabilityApplicationService {
                 b.getNetWeightKg(),
                 b.getCareSummary(),
                 b.getQrUrl(),
+                b.getQrUrl() + "/qr",
                 "BATCH-" + b.getTraceabilityCode()
         );
     }

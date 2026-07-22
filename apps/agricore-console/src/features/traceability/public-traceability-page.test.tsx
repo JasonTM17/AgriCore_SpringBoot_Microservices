@@ -48,6 +48,8 @@ describe("public traceability page", () => {
 
     expect(await screen.findByRole("heading", { name: publicTraceability.productName })).toBeInTheDocument();
     expect(screen.getByText(publicTraceability.batchLabel)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: `Mã QR truy xuất ${traceabilityCode}` }))
+      .toHaveAttribute("src", publicTraceability.qrImageUrl);
     expect(screen.getByText("Nông trại Đắk Lắk")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Hành trình sản phẩm" })).toBeInTheDocument();
     expect(screen.getAllByText("15/03/2026")).toHaveLength(2);

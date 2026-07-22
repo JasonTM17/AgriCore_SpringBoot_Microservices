@@ -6,7 +6,9 @@ import com.agricore.traceability.application.service.TraceabilityApplicationServ
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -25,6 +27,19 @@ public class PublicTraceabilityController {
             @PathVariable @NotBlank @Size(max = 64) String traceabilityCode
     ) {
         return service.getPublic(traceabilityCode);
+    }
+
+    @GetMapping(
+            value = "/public/api/v1/traceability/{traceabilityCode}/qr",
+            produces = MediaType.IMAGE_PNG_VALUE
+    )
+    public ResponseEntity<byte[]> getPublicQrCode(
+            @PathVariable @NotBlank @Size(max = 64) String traceabilityCode
+    ) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=86400, immutable")
+                .contentType(MediaType.IMAGE_PNG)
+                .body(service.getPublicQrCode(traceabilityCode));
     }
 
     /**

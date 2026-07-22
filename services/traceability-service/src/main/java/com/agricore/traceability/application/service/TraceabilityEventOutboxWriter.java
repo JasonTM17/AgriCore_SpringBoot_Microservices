@@ -50,6 +50,7 @@ public class TraceabilityEventOutboxWriter {
         payload.put("traceabilityBatchId", batch.getId().toString());
         payload.put("traceabilityCode", batch.getTraceabilityCode());
         payload.put("publicUrl", batch.getQrUrl());
+        payload.put("qrImageUrl", batch.getQrUrl() + "/qr");
         payload.put("batchLabel", batchLabel(batch));
         payload.put("generatedAt", batch.getCreatedAt().toString());
         enqueue(EventTypes.TRACEABILITY_CODE_GENERATED, batch, payload);
