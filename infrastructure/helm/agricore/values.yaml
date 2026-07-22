@@ -79,6 +79,21 @@ iot:
   replicaCount: 1
   image: nguyenson1710/agricore-iot
   port: 8090
+  mqtt:
+    enabled: false
+    broker: ssl://mqtt.example.invalid:8883
+    allowInsecure: false
+    # Empty uses the Kubernetes pod name, keeping client IDs unique per replica.
+    clientId: ""
+    topic: agricore/telemetry/+/reading
+    qos: 1
+    maxReadingAge: P30D
+    maxFutureSkew: PT5M
+    auth:
+      enabled: true
+      credentialSecretName: agricore-iot-mqtt
+      usernameKey: username
+      passwordKey: password
 
 sales:
   enabled: true

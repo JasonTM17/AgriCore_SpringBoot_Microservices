@@ -69,5 +69,29 @@ services:
       KAFKA_CLUSTERS_0_NAME: agricore
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:19092
 
+  mqtt:
+    image: eclipse-mosquitto:2.0.20
+    container_name: agricore-mqtt
+    environment:
+      MQTT_SERVICE_USERNAME: ${MQTT_SERVICE_USERNAME:-agricore_iot}
+      MQTT_SERVICE_PASSWORD: ${MQTT_SERVICE_PASSWORD:-agricore_iot_dev_change_me}
+      MQTT_DEVICE_PASSWORD_SEED: ${MQTT_DEVICE_PASSWORD_SEED:-agricore_device_seed_dev_change_me}
+      MQTT_DEVICE_COUNT: ${MQTT_DEVICE_COUNT:-1}
+      MQTT_DEVICE_PREFIX: ${MQTT_DEVICE_PREFIX:-DEMO-SOIL}
+      MQTT_DEVICE_USERS: ${MQTT_DEVICE_USERS:-}
+    entrypoint: ["/bin/sh", "/opt/agricore/broker-entrypoint.sh"]
+    ports:
+      - "${MQTT_BIND:-127.0.0.1}:${MQTT_PORT:-1883}:1883"
+    volumes:
+      - ./infrastructure/docker/mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./infrastructure/docker/mqtt/broker-entrypoint.sh:/opt/agricore/broker-entrypoint.sh:ro
+      - agricore_mqtt_data:/mosquitto/data
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_pub -h 127.0.0.1 -p 1883 -u \"$$MQTT_SERVICE_USERNAME\" -P \"$$MQTT_SERVICE_PASSWORD\" -t agricore/health -n -q 0"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
 volumes:
   agricore_pg_data:
+  agricore_mqtt_data:

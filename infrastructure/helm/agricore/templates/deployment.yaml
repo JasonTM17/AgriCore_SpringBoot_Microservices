@@ -156,6 +156,45 @@ spec:
             - name: NOTIFICATION_DELIVERY_RECOVERY_BATCH_SIZE
               value: {{ $svc.delivery.recoveryBatchSize | default 50 | quote }}
             {{- end }}
+            {{- if and (eq $name "iot") $svc.mqtt.enabled }}
+            {{- if not $svc.mqtt.auth.enabled }}
+            {{- fail "iot.mqtt.auth.enabled must be true when MQTT ingestion is enabled" }}
+            {{- end }}
+            - name: IOT_MQTT_ENABLED
+              value: "true"
+            - name: IOT_MQTT_BROKER
+              value: {{ $svc.mqtt.broker | quote }}
+            - name: IOT_MQTT_ALLOW_INSECURE
+              value: {{ $svc.mqtt.allowInsecure | default false | quote }}
+            - name: IOT_MQTT_CLIENT_ID
+              {{- if $svc.mqtt.clientId }}
+              value: {{ $svc.mqtt.clientId | quote }}
+              {{- else }}
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+              {{- end }}
+            - name: IOT_MQTT_TOPIC
+              value: {{ $svc.mqtt.topic | quote }}
+            - name: IOT_MQTT_QOS
+              value: {{ $svc.mqtt.qos | default 1 | quote }}
+            - name: IOT_MQTT_MAX_READING_AGE
+              value: {{ $svc.mqtt.maxReadingAge | default "P30D" | quote }}
+            - name: IOT_MQTT_MAX_FUTURE_SKEW
+              value: {{ $svc.mqtt.maxFutureSkew | default "PT5M" | quote }}
+            {{- if $svc.mqtt.auth.enabled }}
+            - name: IOT_MQTT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $svc.mqtt.auth.credentialSecretName | quote }}
+                  key: {{ $svc.mqtt.auth.usernameKey | default "username" | quote }}
+            - name: IOT_MQTT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $svc.mqtt.auth.credentialSecretName | quote }}
+                  key: {{ $svc.mqtt.auth.passwordKey | default "password" | quote }}
+            {{- end }}
+            {{- end }}
             {{- if eq $name "assistant" }}
             - name: ASSISTANT_PORT
               value: {{ $svc.port | quote }}

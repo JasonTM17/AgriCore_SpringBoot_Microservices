@@ -21,7 +21,7 @@ Never commit `.env`, generated private keys, or provider credentials.
 The observability Compose file joins the external `agricore_default` network. Create that network by starting the core infrastructure first, then start observability, then the applications:
 
 ```powershell
-docker compose up -d postgres redis kafka kafka-ui kafka-topics-init
+docker compose up -d postgres redis kafka kafka-ui kafka-topics-init mqtt
 docker compose -f docker-compose.observability.yml up -d
 docker compose up -d --build
 ```
@@ -32,6 +32,7 @@ docker compose up -d --build
 | Gateway | `http://localhost:8080` |
 | Kafka UI | `http://localhost:8088` |
 | Mailpit captured email | `http://localhost:8025` |
+| MQTT broker | `tcp://localhost:1883` |
 | Grafana | `http://localhost:3001` |
 | Prometheus | `http://localhost:9090` |
 | Prometheus targets | `http://localhost:9090/targets` |
@@ -39,6 +40,23 @@ docker compose up -d --build
 | Tempo OTLP/HTTP receiver | `http://localhost:4318/v1/traces` |
 
 The local Grafana credentials come from `docker-compose.observability.yml`: user `admin`, password `agricore_dev_change_me`. They are development-only.
+
+### MQTT telemetry smoke test
+
+Register the mapped device code(s) through `POST /api/v1/iot/devices`, then publish deterministic QoS 1 readings:
+
+```powershell
+./scripts/sensor-simulator.ps1 -DeviceCount 1 -Iterations 1 -FrequencySeconds 0 -Seed 42
+```
+
+The topic is `agricore/telemetry/{deviceCode}/reading`. Payload `readingId` is required and provides durable deduplication. Local service credentials come from `MQTT_SERVICE_*`; unique simulator passwords are derived per device from the development-only `MQTT_DEVICE_PASSWORD_SEED`. The broker rejects anonymous clients and ACLs device users to their own topic. The local listener uses plaintext only because it is loopback-bound and `IOT_MQTT_ALLOW_INSECURE=true`. Production deployment must use externally provisioned per-device credentials, an authenticated TLS broker with per-device ACLs, and Kubernetes Secret references.
+
+The simulator supports device count, frequency, normal/anomaly ranges, anomaly probability, plot mapping, and deterministic seed. For POSIX:
+
+```sh
+MQTT_DEVICE_COUNT=3 MQTT_DEVICE_USERS='SIM-001,SIM-002,SIM-003' MQTT_ITERATIONS=10 MQTT_INTERVAL_SECONDS=2 MQTT_PLOT_MAP='SIM-001=PLOT-1,SIM-002=PLOT-2,SIM-003=PLOT-3' \
+  docker compose -f docker-compose.yml -f docker-compose.mqtt-simulator.yml --profile simulator run --rm iot-mqtt-simulator
+```
 
 ## Verify startup
 

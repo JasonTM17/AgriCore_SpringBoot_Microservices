@@ -282,9 +282,18 @@ services:
         condition: service_healthy
       farm-service:
         condition: service_healthy
+      mqtt:
+        condition: service_healthy
     environment:
       <<: [*db-env, *security-env, *farm-access-env, *observability-env]
       IOT_PORT: 8090
+      IOT_MQTT_ENABLED: "true"
+      IOT_MQTT_BROKER: tcp://mqtt:1883
+      IOT_MQTT_ALLOW_INSECURE: "true"
+      IOT_MQTT_CLIENT_ID: agricore-iot-service-local
+      IOT_MQTT_TOPIC: agricore/telemetry/+/reading
+      IOT_MQTT_USERNAME: ${MQTT_SERVICE_USERNAME:-agricore_iot}
+      IOT_MQTT_PASSWORD: ${MQTT_SERVICE_PASSWORD:-agricore_iot_dev_change_me}
     ports:
       - "8090:8090"
     healthcheck:

@@ -67,7 +67,7 @@ Idempotent public QR read model without internal identifiers or personal data.
 
 ### M6 — IoT, sales, and notification (delivered)
 
-Sensor ingestion and alert cooldown, inventory-backed sales saga with transactional order lifecycle events, and idempotent Notification consumption of Sales, Traceability, and IoT events. Notification email uses bounded SMTP delivery, while in-app notifications persist locally; both produce truthful lifecycle events.
+HTTP and QoS 1 MQTT sensor ingestion with stable reading-ID deduplication and alert cooldown, inventory-backed sales saga with transactional order lifecycle events, and idempotent Notification consumption of Sales, Traceability, and IoT events. Notification email uses bounded SMTP delivery, while in-app notifications persist locally; both produce truthful lifecycle events.
 
 ### M7 — Gateway and observability
 
