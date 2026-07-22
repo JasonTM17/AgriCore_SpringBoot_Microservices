@@ -47,6 +47,18 @@ x-inventory-access-env: &inventory-access-env
   # Local Compose has no service-mesh TLS; keep plaintext opt-in explicit.
   INVENTORY_SERVICE_ALLOW_INSECURE_HTTP: "true"
 
+x-object-storage-env: &object-storage-env
+  OBJECT_STORAGE_ENABLED: "true"
+  OBJECT_STORAGE_ENDPOINT: http://minio:9000
+  OBJECT_STORAGE_PUBLIC_ENDPOINT: ${OBJECT_STORAGE_PUBLIC_ENDPOINT:-http://localhost:9000}
+  OBJECT_STORAGE_ACCESS_KEY: ${MINIO_ROOT_USER:-agricore_minio}
+  OBJECT_STORAGE_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-agricore_minio_dev_change_me}
+  OBJECT_STORAGE_BUCKET: ${WORK_ATTACHMENT_BUCKET:-agricore-work-attachments}
+  OBJECT_STORAGE_ALLOWED_HOSTS: ${OBJECT_STORAGE_ALLOWED_HOSTS:-minio,localhost,127.0.0.1}
+  # Local Compose has no service-mesh TLS; keep plaintext opt-in explicit.
+  OBJECT_STORAGE_ALLOW_INSECURE_HTTP: "true"
+  OBJECT_STORAGE_DOWNLOAD_URL_TTL: ${OBJECT_STORAGE_DOWNLOAD_URL_TTL:-15m}
+
 x-app-healthcheck: &app-healthcheck
   interval: 15s
   timeout: 5s
@@ -196,8 +208,10 @@ services:
         condition: service_healthy
       inventory-service:
         condition: service_healthy
+      minio:
+        condition: service_healthy
     environment:
-      <<: [*db-env, *security-env, *kafka-env, *farm-access-env, *inventory-access-env, *observability-env]
+      <<: [*db-env, *security-env, *kafka-env, *farm-access-env, *inventory-access-env, *object-storage-env, *observability-env]
       WORK_PORT: 8085
     ports:
       - "8085:8085"

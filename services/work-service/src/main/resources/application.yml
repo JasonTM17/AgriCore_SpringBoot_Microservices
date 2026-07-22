@@ -47,6 +47,16 @@ agricore:
     connect-timeout: ${INVENTORY_SERVICE_CONNECT_TIMEOUT:2s}
     read-timeout: ${INVENTORY_SERVICE_READ_TIMEOUT:3s}
     max-response-bytes: ${INVENTORY_SERVICE_MAX_RESPONSE_BYTES:8192}
+  object-storage:
+    enabled: ${OBJECT_STORAGE_ENABLED:false}
+    endpoint: ${OBJECT_STORAGE_ENDPOINT:http://localhost:9000}
+    public-endpoint: ${OBJECT_STORAGE_PUBLIC_ENDPOINT:http://localhost:9000}
+    access-key: ${OBJECT_STORAGE_ACCESS_KEY:}
+    secret-key: ${OBJECT_STORAGE_SECRET_KEY:}
+    bucket: ${OBJECT_STORAGE_BUCKET:agricore-work-attachments}
+    allowed-hosts: ${OBJECT_STORAGE_ALLOWED_HOSTS:localhost,127.0.0.1,::1,minio}
+    allow-insecure-http: ${OBJECT_STORAGE_ALLOW_INSECURE_HTTP:false}
+    download-url-ttl: ${OBJECT_STORAGE_DOWNLOAD_URL_TTL:15m}
   outbox:
     publisher:
       enabled: true
