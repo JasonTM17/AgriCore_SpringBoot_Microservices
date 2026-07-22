@@ -154,13 +154,17 @@ channels:
     description: Notification delivery lifecycle events emitted by notification-service.
     messages:
       NotificationRequested:
-        name: NotificationRequested.v1
+        name: NotificationRequested.v2
         payload:
-          $ref: ../event-schemas/NotificationRequested.v1.json
+          $ref: ../event-schemas/NotificationRequested.v2.json
       NotificationSent:
-        name: NotificationSent.v1
+        name: NotificationSent.v2
         payload:
-          $ref: ../event-schemas/NotificationSent.v1.json
+          $ref: ../event-schemas/NotificationSent.v2.json
+      NotificationFailed:
+        name: NotificationFailed.v2
+        payload:
+          $ref: ../event-schemas/NotificationFailed.v2.json
   agricore.harvest.events.DLT:
     address: agricore.harvest.events.DLT
     description: |
@@ -301,6 +305,7 @@ operations:
     messages:
       - $ref: '#/channels/agricore.notification.events/messages/NotificationRequested'
       - $ref: '#/channels/agricore.notification.events/messages/NotificationSent'
+      - $ref: '#/channels/agricore.notification.events/messages/NotificationFailed'
   notificationServiceReceivesSalesOrderEvents:
     action: receive
     channel:

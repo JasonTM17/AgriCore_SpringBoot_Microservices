@@ -9,6 +9,7 @@ public record SendNotificationRequest(
         @NotBlank @Size(max = 320) String recipient,
         @NotBlank @Size(max = 300) String subject,
         @NotBlank @Size(max = 10000) String body,
-        @Size(max = 100) String correlationId
+        @Size(max = 100) String correlationId,
+        @Size(max = 100) String idempotencyKey
 ) {
 }

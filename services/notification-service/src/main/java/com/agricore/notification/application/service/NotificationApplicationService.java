@@ -2,93 +2,165 @@ package com.agricore.notification.application.service;
 
 import com.agricore.notification.api.request.SendNotificationRequest;
 import com.agricore.notification.api.response.NotificationResponse;
-import com.agricore.notification.infrastructure.persistence.NotificationJpaRepository;
-import com.agricore.notification.infrastructure.persistence.ProcessedEventJpaRepository;
+import com.agricore.notification.application.port.NotificationDeliveryPort;
+import com.agricore.notification.application.port.NotificationDeliveryRequest;
+import com.agricore.notification.application.port.NotificationDeliveryResult;
 import com.agricore.notification.infrastructure.persistence.entity.NotificationEntity;
-import com.agricore.notification.infrastructure.persistence.entity.ProcessedEventEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
-/**
- * Records and "sends" notifications (dev: log sink; production: email/webhook adapter).
- */
 @Service
 public class NotificationApplicationService {
 
     private static final Logger log = LoggerFactory.getLogger(NotificationApplicationService.class);
-
-    private final NotificationJpaRepository repository;
-    private final ProcessedEventJpaRepository processedEventRepository;
-    private final NotificationEventOutboxWriter eventOutboxWriter;
+    private final NotificationPersistenceService persistenceService;
+    private final NotificationDeliveryPort deliveryPort;
     private final NotificationMetrics metrics;
+    private final int maxAttempts;
+    private final Duration deliveryLease;
 
     public NotificationApplicationService(
-            NotificationJpaRepository repository,
-            ProcessedEventJpaRepository processedEventRepository,
-            NotificationEventOutboxWriter eventOutboxWriter,
-            NotificationMetrics metrics
+            NotificationPersistenceService persistenceService,
+            NotificationDeliveryPort deliveryPort,
+            NotificationMetrics metrics,
+            @Value("${agricore.notification.delivery.max-attempts:3}") int maxAttempts,
+            @Value("${agricore.notification.delivery.lease:PT30S}") Duration deliveryLease
     ) {
-        this.repository = repository;
-        this.processedEventRepository = processedEventRepository;
-        this.eventOutboxWriter = eventOutboxWriter;
+        if (maxAttempts < 1 || maxAttempts > 5) {
+            throw new IllegalArgumentException("Notification max attempts must be between 1 and 5");
+        }
+        if (deliveryLease.isNegative() || deliveryLease.isZero()) {
+            throw new IllegalArgumentException("Notification delivery lease must be positive");
+        }
+        this.persistenceService = persistenceService;
+        this.deliveryPort = deliveryPort;
         this.metrics = metrics;
+        this.maxAttempts = maxAttempts;
+        this.deliveryLease = deliveryLease;
     }
 
-    @Transactional
     public NotificationResponse send(SendNotificationRequest request) {
-        Instant now = Instant.now();
-        NotificationEntity n = new NotificationEntity();
-        n.setId(UUID.randomUUID());
-        n.setChannel(request.channel().trim().toUpperCase());
-        n.setRecipient(request.recipient().trim());
-        n.setSubject(request.subject().trim());
-        n.setBody(request.body());
-        n.setCorrelationId(request.correlationId());
-        n.setStatus("SENT");
-        n.setCreatedAt(now);
-        n.setSentAt(now);
-        repository.save(n);
-        log.info("notification_sent channel={} recipient={} subject={} correlationId={}",
-                n.getChannel(), n.getRecipient(), n.getSubject(), n.getCorrelationId());
-        return new NotificationResponse(
-                n.getId(), n.getChannel(), n.getRecipient(), n.getSubject(),
-                n.getStatus(), n.getCorrelationId(), n.getCreatedAt(), n.getSentAt()
-        );
+        NotificationDraft draft = NotificationMapper.fromDirectRequest(request);
+        NotificationEntity notification = createOrFind(draft);
+        NotificationMapper.assertSameIntent(notification, draft);
+        DeliveryExecution execution = deliver(notification.getId());
+        if (!execution.transitioned() && draft.idempotencyKey() != null) {
+            metrics.recordDuplicate();
+        }
+        return NotificationMapper.toResponse(execution.notification());
     }
 
-    @Transactional
     public boolean consume(NotificationEventCommand command) {
-        final String consumerName = "notification-service";
-        if (processedEventRepository.existsByEventIdAndConsumerName(command.eventId(), consumerName)) {
-            log.debug("Skipping duplicate notification event {} type={}", command.eventId(), command.eventType());
+        if (persistenceService.isProcessed(command.eventId())) {
             metrics.recordDuplicate();
             return false;
         }
-
-        Instant now = Instant.now();
-        NotificationEntity notification = new NotificationEntity();
-        notification.setId(UUID.randomUUID());
-        notification.setChannel(command.channel().trim().toUpperCase());
-        notification.setRecipient(command.recipient().trim());
-        notification.setSubject(command.subject().trim());
-        notification.setBody(command.body());
-        notification.setCorrelationId(command.correlationId());
-        notification.setSourceEventId(command.eventId());
-        notification.setStatus("SENT");
-        notification.setCreatedAt(now);
-        notification.setSentAt(now);
-        repository.save(notification);
-        eventOutboxWriter.notificationRequested(notification, command.eventType());
-        eventOutboxWriter.notificationSent(notification, command.eventType());
-        processedEventRepository.save(ProcessedEventEntity.create(command.eventId(), consumerName));
-        log.info("notification_event_processed eventId={} eventType={} channel={} recipient={}",
-                command.eventId(), command.eventType(), notification.getChannel(), notification.getRecipient());
-        metrics.recordDelivered();
+        NotificationDraft draft = NotificationMapper.fromEvent(command);
+        NotificationEntity notification = createOrFind(draft);
+        DeliveryExecution execution = deliver(notification.getId());
+        if (!execution.transitioned()) {
+            metrics.recordDuplicate();
+            return false;
+        }
         return true;
+    }
+
+    public void retryExisting(UUID notificationId) {
+        deliver(notificationId);
+    }
+
+    private NotificationEntity createOrFind(NotificationDraft draft) {
+        Optional<NotificationEntity> existing = findExisting(draft);
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+        try {
+            return persistenceService.createRequested(draft);
+        } catch (DataIntegrityViolationException exception) {
+            return findExisting(draft).orElseThrow(() -> exception);
+        }
+    }
+
+    private Optional<NotificationEntity> findExisting(NotificationDraft draft) {
+        if (draft.sourceEventId() != null) {
+            return persistenceService.findBySourceEventId(draft.sourceEventId());
+        }
+        if (draft.idempotencyKey() != null) {
+            return persistenceService.findByIdempotencyKey(draft.idempotencyKey());
+        }
+        return Optional.empty();
+    }
+
+    private DeliveryExecution deliver(UUID notificationId) {
+        Instant staleBefore = Instant.now().minus(deliveryLease);
+        Optional<NotificationPersistenceService.Claim> claimed = persistenceService.claimDelivery(notificationId, staleBefore);
+        if (claimed.isEmpty()) {
+            return new DeliveryExecution(persistenceService.findById(notificationId), false);
+        }
+
+        NotificationPersistenceService.Claim deliveryClaim = claimed.get();
+        NotificationEntity notification = deliveryClaim.notification();
+        NotificationDeliveryResult result;
+        if ("IN_APP".equals(notification.getChannel())) {
+            persistenceService.beginAttempt(notificationId, deliveryClaim.claimId(), maxAttempts);
+            result = NotificationDeliveryResult.sent();
+        } else {
+            result = NotificationDeliveryResult.failed(
+                    "RETRY_BUDGET_EXHAUSTED", "Notification delivery retry budget exhausted", false);
+            while (true) {
+                if (persistenceService.beginAttempt(notificationId, deliveryClaim.claimId(), maxAttempts).isEmpty()) {
+                    break;
+                }
+                result = safelyDeliver(notification, deliveryClaim.claimId());
+                if (result.delivered() || !result.retryable()) {
+                    break;
+                }
+            }
+        }
+
+        NotificationPersistenceService.Completion completion = persistenceService.completeDelivery(
+                notificationId, deliveryClaim.claimId(), Objects.requireNonNull(result));
+        NotificationEntity completed = completion.notification();
+        if (completion.transitioned()) {
+            if (result.delivered()) {
+                metrics.recordDelivered();
+            } else {
+                metrics.recordFailed();
+            }
+            log.info("notification_delivery_completed notificationId={} channel={} status={} attempts={} sourceEventType={}",
+                    completed.getId(), completed.getChannel(), completed.getStatus(),
+                    completed.getDeliveryAttempts(), completed.getSourceEventType());
+        }
+        return new DeliveryExecution(completed, completion.transitioned());
+    }
+
+    private NotificationDeliveryResult safelyDeliver(NotificationEntity notification, UUID claimId) {
+        try {
+            NotificationDeliveryResult result = deliveryPort.deliver(new NotificationDeliveryRequest(
+                    notification.getId(), claimId, notification.getChannel(), notification.getRecipient(),
+                    notification.getSubject(), notification.getBody()
+            ));
+            if (result == null) {
+                throw new IllegalStateException("Delivery adapter returned no result");
+            }
+            return result;
+        } catch (RuntimeException exception) {
+            log.warn("notification_adapter_error notificationId={} channel={} errorType={}",
+                    notification.getId(), notification.getChannel(), exception.getClass().getSimpleName());
+            return NotificationDeliveryResult.failed(
+                    "DELIVERY_ADAPTER_ERROR", "Notification delivery adapter failed", true);
+        }
+    }
+
+    private record DeliveryExecution(NotificationEntity notification, boolean transitioned) {
     }
 }

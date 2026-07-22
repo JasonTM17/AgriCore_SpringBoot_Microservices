@@ -13,6 +13,9 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
   mail:
     host: ${NOTIFICATION_SMTP_HOST:localhost}
     port: ${NOTIFICATION_SMTP_PORT:1025}
@@ -58,8 +61,14 @@ agricore:
   notification:
     delivery:
       provider: ${NOTIFICATION_DELIVERY_PROVIDER:smtp}
+      max-attempts: ${NOTIFICATION_DELIVERY_MAX_ATTEMPTS:3}
+      lease: ${NOTIFICATION_DELIVERY_LEASE:PT30S}
       smtp:
         from-address: ${NOTIFICATION_SMTP_FROM:no-reply@agricore.local}
+      recovery:
+        enabled: ${NOTIFICATION_DELIVERY_RECOVERY_ENABLED:true}
+        poll-ms: ${NOTIFICATION_DELIVERY_RECOVERY_POLL_MS:30000}
+        batch-size: ${NOTIFICATION_DELIVERY_RECOVERY_BATCH_SIZE:50}
   security:
     issuer: ${JWT_ISSUER:https://agricore.local/identity}
     jwk-set-uri: ${IDENTITY_JWKS_URI:http://localhost:8081/.well-known/jwks.json}

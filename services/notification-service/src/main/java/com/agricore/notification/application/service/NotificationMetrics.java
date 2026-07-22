@@ -8,12 +8,17 @@ import org.springframework.stereotype.Component;
 public class NotificationMetrics {
 
     private final Counter delivered;
+    private final Counter failed;
     private final Counter duplicates;
 
     public NotificationMetrics(MeterRegistry registry) {
         delivered = Counter.builder("agricore.notification.deliveries")
                 .description("Notification delivery outcomes")
                 .tag("outcome", "sent")
+                .register(registry);
+        failed = Counter.builder("agricore.notification.deliveries")
+                .description("Notification delivery outcomes")
+                .tag("outcome", "failed")
                 .register(registry);
         duplicates = Counter.builder("agricore.notification.deliveries")
                 .description("Notification delivery outcomes")
@@ -22,5 +27,6 @@ public class NotificationMetrics {
     }
 
     public void recordDelivered() { delivered.increment(); }
+    public void recordFailed() { failed.increment(); }
     public void recordDuplicate() { duplicates.increment(); }
 }

@@ -77,7 +77,7 @@ class NotificationEventListenerTest {
         assertThat(processedEventRepository.existsByEventIdAndConsumerName(eventId, "notification-service"))
                 .isTrue();
         assertThat(outboxRepository.findAll()).extracting(event -> event.getEventType())
-                .containsExactlyInAnyOrder("NotificationRequested.v1", "NotificationSent.v1");
+                .containsExactlyInAnyOrder("NotificationRequested.v2", "NotificationSent.v2");
         assertThat(notificationRepository.findAll()).singleElement()
                 .satisfies(notification -> {
                     assertThat(notification.getRecipient()).isNotBlank();

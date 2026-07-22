@@ -17,6 +17,10 @@ agricore:
   notification:
     delivery:
       provider: stub
+      max-attempts: 3
+      lease: PT30S
+      recovery:
+        enabled: false
   security:
     dev-mode: true
     issuer: https://agricore.test/identity

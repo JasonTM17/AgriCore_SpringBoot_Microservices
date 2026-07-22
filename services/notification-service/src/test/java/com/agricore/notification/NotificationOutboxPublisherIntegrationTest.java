@@ -88,7 +88,7 @@ class NotificationOutboxPublisherIntegrationTest {
                 eventId,
                 "Notification",
                 UUID.randomUUID().toString(),
-                "NotificationSent.v1",
+                "NotificationSent.v2",
                 "agricore.notification.events",
                 "{\"eventId\":\"" + eventId + "\"}"
         ));

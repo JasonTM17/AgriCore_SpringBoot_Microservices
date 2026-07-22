@@ -39,14 +39,31 @@ public class NotificationEventOutboxWriter {
         ObjectNode payload = commonPayload(notification, sourceEventType);
         payload.put("notificationId", notification.getId().toString());
         payload.put("status", notification.getStatus());
+        payload.put("deliveryAttempts", notification.getDeliveryAttempts());
         payload.put("sentAt", notification.getSentAt().toString());
         enqueue(EventTypes.NOTIFICATION_SENT, notification, notification.getSentAt(), payload);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void notificationFailed(NotificationEntity notification, String sourceEventType) {
+        ObjectNode payload = commonPayload(notification, sourceEventType);
+        payload.put("status", notification.getStatus());
+        payload.put("errorCode", notification.getErrorCode());
+        payload.put("errorMessage", notification.getErrorMessage());
+        payload.put("retryable", Boolean.TRUE.equals(notification.getFailureRetryable()));
+        payload.put("deliveryAttempts", notification.getDeliveryAttempts());
+        payload.put("failedAt", notification.getFailedAt().toString());
+        enqueue(EventTypes.NOTIFICATION_FAILED, notification, notification.getFailedAt(), payload);
     }
 
     private ObjectNode commonPayload(NotificationEntity notification, String sourceEventType) {
         ObjectNode payload = objectMapper.createObjectNode();
         payload.put("notificationId", notification.getId().toString());
-        payload.put("sourceEventId", notification.getSourceEventId().toString());
+        if (notification.getSourceEventId() == null) {
+            payload.putNull("sourceEventId");
+        } else {
+            payload.put("sourceEventId", notification.getSourceEventId().toString());
+        }
         payload.put("sourceEventType", sourceEventType);
         payload.put("channel", notification.getChannel());
         payload.put("recipient", notification.getRecipient());
@@ -65,7 +82,7 @@ public class NotificationEventOutboxWriter {
         ObjectNode envelope = objectMapper.createObjectNode();
         envelope.put("eventId", eventId.toString());
         envelope.put("eventType", eventType);
-        envelope.put("eventVersion", 1);
+        envelope.put("eventVersion", eventType.endsWith(".v2") ? 2 : 1);
         envelope.put("occurredAt", occurredAt.toString());
         if (notification.getCorrelationId() != null) {
             envelope.put("correlationId", notification.getCorrelationId());

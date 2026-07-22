@@ -102,13 +102,19 @@ class EventContractCatalogTest {
             contract(EventTypes.NOTIFICATION_REQUESTED, "notification-service", "agricore.notification.events",
                     set("notificationId", "sourceEventId", "sourceEventType", "channel", "recipient", "subject", "correlationId", "requestedAt")),
             contract(EventTypes.NOTIFICATION_SENT, "notification-service", "agricore.notification.events",
-                    set("notificationId", "sourceEventId", "sourceEventType", "channel", "recipient", "subject", "correlationId", "status", "sentAt"))
+                    set("notificationId", "sourceEventId", "sourceEventType", "channel", "recipient", "subject",
+                            "correlationId", "status", "deliveryAttempts", "sentAt")),
+            contract(EventTypes.NOTIFICATION_FAILED, "notification-service", "agricore.notification.events",
+                    set("notificationId", "sourceEventId", "sourceEventType", "channel", "recipient", "subject",
+                            "correlationId", "status", "errorCode", "errorMessage", "retryable",
+                            "deliveryAttempts", "failedAt"))
     );
 
     @Test
     void schemasExactlyDescribeTheEmittedEventCatalog() throws IOException {
         Path schemaDirectory = projectRoot().resolve("contracts/event-schemas");
-        Set<String> expectedFiles = new HashSet<>(Set.of("DomainEventEnvelope.v1.json"));
+        Set<String> expectedFiles = new HashSet<>(Set.of(
+                "DomainEventEnvelope.v1.json", "NotificationRequested.v1.json", "NotificationSent.v1.json"));
         CONTRACTS.forEach(contract -> expectedFiles.add(contract.schemaFile()));
 
         try (var files = Files.list(schemaDirectory)) {
@@ -134,7 +140,7 @@ class EventContractCatalogTest {
                     .isEqualTo("DomainEventEnvelope.v1.json");
             assertThat(fieldNames(specialization)).isSubsetOf(envelopeProperties);
             assertThat(specialization.path("eventType").path("const").asText()).isEqualTo(contract.eventType());
-            assertThat(specialization.path("eventVersion").path("const").asInt()).isEqualTo(1);
+            assertThat(specialization.path("eventVersion").path("const").asInt()).isEqualTo(contract.version());
             assertThat(specialization.path("producer").path("const").asText()).isEqualTo(contract.producer());
             assertThat(textValues(payload.path("required"))).containsExactlyInAnyOrderElementsOf(contract.required());
             assertThat(fieldNames(payload.path("properties")))
@@ -144,6 +150,18 @@ class EventContractCatalogTest {
                 assertThat(payload.path("properties").path("name").has("minLength")).isFalse();
             }
         }
+    }
+
+    @Test
+    void legacyNotificationV1SchemasRemainStrictlyBackwardCompatible() throws IOException {
+        Path schemaDirectory = projectRoot().resolve("contracts/event-schemas");
+        JsonNode requested = MAPPER.readTree(schemaDirectory.resolve("NotificationRequested.v1.json").toFile());
+        JsonNode sent = MAPPER.readTree(schemaDirectory.resolve("NotificationSent.v1.json").toFile());
+        assertThat(requested.at("/allOf/1/properties/payload/properties/sourceEventId/type").asText())
+                .isEqualTo("string");
+        assertThat(sent.at("/allOf/1/properties/payload/required").toString())
+                .doesNotContain("deliveryAttempts");
+        assertThat(sent.at("/allOf/1/properties/payload/properties").has("deliveryAttempts")).isFalse();
     }
 
     @Test
@@ -282,6 +300,10 @@ class EventContractCatalogTest {
 
         String messageKey() {
             return eventType.substring(0, eventType.indexOf('.'));
+        }
+
+        int version() {
+            return Integer.parseInt(eventType.substring(eventType.indexOf(".v") + 2));
         }
 
         Set<String> payloadFields() {

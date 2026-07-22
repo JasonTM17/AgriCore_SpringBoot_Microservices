@@ -4,14 +4,18 @@ import com.agricore.notification.application.port.NotificationDeliveryPort;
 import com.agricore.notification.application.port.NotificationDeliveryRequest;
 import com.agricore.notification.application.port.NotificationDeliveryResult;
 import jakarta.mail.MessagingException;
+import jakarta.mail.SendFailedException;
 import jakarta.mail.internet.AddressException;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
+import org.eclipse.angus.mail.smtp.SMTPAddressFailedException;
+import org.eclipse.angus.mail.smtp.SMTPSendFailedException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.mail.MailAuthenticationException;
 import org.springframework.mail.MailException;
 import org.springframework.mail.MailParseException;
+import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
@@ -53,6 +57,8 @@ public class SmtpNotificationDeliveryAdapter implements NotificationDeliveryPort
             helper.setTo(recipient);
             helper.setSubject(request.subject());
             helper.setText(request.body(), false);
+            message.setHeader("X-AgriCore-Notification-Id", request.notificationId().toString());
+            message.setHeader("X-AgriCore-Delivery-Claim", request.deliveryClaimId().toString());
             mailSender.send(message);
             return NotificationDeliveryResult.sent();
         } catch (AddressException exception) {
@@ -77,7 +83,7 @@ public class SmtpNotificationDeliveryAdapter implements NotificationDeliveryPort
             return NotificationDeliveryResult.failed(
                     "SMTP_DELIVERY_FAILED",
                     "SMTP delivery failed",
-                    true
+                    isRetryable(exception)
             );
         }
     }
@@ -90,5 +96,48 @@ public class SmtpNotificationDeliveryAdapter implements NotificationDeliveryPort
         } catch (AddressException exception) {
             throw new IllegalArgumentException("SMTP from address is invalid");
         }
+    }
+
+    private static boolean isRetryable(MailException exception) {
+        Boolean classification = classify(exception);
+        if (classification != null) {
+            return classification;
+        }
+        if (exception instanceof MailSendException sendException) {
+            for (Exception messageException : sendException.getMessageExceptions()) {
+                classification = classify(messageException);
+                if (classification != null) {
+                    return classification;
+                }
+            }
+        }
+        return true;
+    }
+
+    private static Boolean classify(Throwable throwable) {
+        for (Throwable current = throwable; current != null; current = current.getCause()) {
+            if (current instanceof SMTPAddressFailedException addressFailure) {
+                return retryableStatus(addressFailure.getReturnCode());
+            }
+            if (current instanceof SMTPSendFailedException sendFailure) {
+                return retryableStatus(sendFailure.getReturnCode());
+            }
+            if (current instanceof SendFailedException) {
+                return false;
+            }
+            if (current instanceof MessagingException messagingException
+                    && messagingException.getNextException() != null
+                    && messagingException.getNextException() != current) {
+                Boolean nested = classify(messagingException.getNextException());
+                if (nested != null) {
+                    return nested;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static boolean retryableStatus(int statusCode) {
+        return statusCode >= 400 && statusCode < 500;
     }
 }

@@ -4,12 +4,14 @@ import com.agricore.notification.application.port.NotificationDeliveryRequest;
 import com.agricore.notification.application.port.NotificationDeliveryResult;
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
+import org.eclipse.angus.mail.smtp.SMTPAddressFailedException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 
 import java.util.Properties;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -19,6 +21,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class SmtpNotificationDeliveryAdapterTest {
+
+    private static final UUID NOTIFICATION_ID = UUID.fromString("29fa6248-a7ea-4fba-a525-ae4798ef3ca0");
 
     private JavaMailSender mailSender;
     private SmtpNotificationDeliveryAdapter adapter;
@@ -33,21 +37,23 @@ class SmtpNotificationDeliveryAdapterTest {
     }
 
     @Test
-    void sendsEmailWithoutExposingRecipientOrBodyInResult() {
+    void sendsEmailWithoutExposingRecipientOrBodyInResult() throws Exception {
         NotificationDeliveryResult result = adapter.deliver(new NotificationDeliveryRequest(
-                "EMAIL", "manager@agricore.local", "Harvest ready", "Batch HB-1 is ready"
+                NOTIFICATION_ID, UUID.randomUUID(), "EMAIL", "manager@agricore.local", "Harvest ready", "Batch HB-1 is ready"
         ));
 
         assertThat(result.delivered()).isTrue();
         assertThat(result.errorCode()).isNull();
         assertThat(result.errorMessage()).isNull();
+        assertThat(message.getHeader("X-AgriCore-Notification-Id"))
+                .containsExactly(NOTIFICATION_ID.toString());
         verify(mailSender).send(message);
     }
 
     @Test
     void rejectsUnsupportedChannelBeforeCallingSmtp() {
         NotificationDeliveryResult result = adapter.deliver(new NotificationDeliveryRequest(
-                "SMS", "+84123456789", "Harvest ready", "Batch HB-1 is ready"
+                NOTIFICATION_ID, UUID.randomUUID(), "SMS", "+84123456789", "Harvest ready", "Batch HB-1 is ready"
         ));
 
         assertThat(result.delivered()).isFalse();
@@ -61,7 +67,7 @@ class SmtpNotificationDeliveryAdapterTest {
         doThrow(new MailSendException("recipient=manager@agricore.local")).when(mailSender).send(message);
 
         NotificationDeliveryResult result = adapter.deliver(new NotificationDeliveryRequest(
-                "EMAIL", "manager@agricore.local", "Harvest ready", "Batch HB-1 is ready"
+                NOTIFICATION_ID, UUID.randomUUID(), "EMAIL", "manager@agricore.local", "Harvest ready", "Batch HB-1 is ready"
         ));
 
         assertThat(result.delivered()).isFalse();
@@ -76,5 +82,21 @@ class SmtpNotificationDeliveryAdapterTest {
         assertThatThrownBy(() -> new SmtpNotificationDeliveryAdapter(mailSender, "invalid sender"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("SMTP from address is invalid");
+    }
+
+    @Test
+    void classifiesPermanentSmtpRejectionAsNonRetryable() throws Exception {
+        var rejection = new SMTPAddressFailedException(
+                new jakarta.mail.internet.InternetAddress("manager@agricore.local"),
+                "RCPT TO", 550, "User unknown");
+        doThrow(new MailSendException("send failed", rejection)).when(mailSender).send(message);
+
+        NotificationDeliveryResult result = adapter.deliver(new NotificationDeliveryRequest(
+                NOTIFICATION_ID, UUID.randomUUID(), "EMAIL", "manager@agricore.local", "Harvest ready", "Batch HB-1 is ready"
+        ));
+
+        assertThat(result.delivered()).isFalse();
+        assertThat(result.retryable()).isFalse();
+        assertThat(result.errorMessage()).doesNotContain("manager@agricore.local", "User unknown");
     }
 }
