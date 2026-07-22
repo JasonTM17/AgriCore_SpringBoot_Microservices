@@ -1720,6 +1720,11 @@ export interface components {
             lastSeenAt: string | null;
         };
         IngestReadingRequest: {
+            /**
+             * Format: uuid
+             * @description Optional stable reading identifier used for idempotent HTTP/MQTT ingestion.
+             */
+            readingId?: string | null;
             deviceCode: string;
             metricType: string;
             metricValue: number;

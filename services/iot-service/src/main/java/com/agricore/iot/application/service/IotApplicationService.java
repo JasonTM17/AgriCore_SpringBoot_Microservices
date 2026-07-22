@@ -60,6 +60,12 @@ public class IotApplicationService {
         return ingestionService.ingest(request, device.getId());
     }
 
+    public IngestResultResponse ingestFromMqtt(IngestReadingRequest request) {
+        DeviceEntity device = deviceRepository.findByDeviceCodeIgnoreCase(request.deviceCode().trim())
+                .orElseThrow(() -> new IotException("DEVICE_NOT_FOUND", "Unknown device", 404));
+        return ingestionService.ingest(request, device.getId());
+    }
+
     @Transactional(readOnly = true)
     public long openAlertCount(UUID deviceId) {
         return alertRepository.countByDeviceIdAndStatus(deviceId, "OPEN");

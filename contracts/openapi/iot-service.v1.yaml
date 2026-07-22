@@ -125,14 +125,18 @@ components:
       type: object
       required: [deviceCode, plotId, name]
       properties:
-        deviceCode: { type: string, minLength: 1, maxLength: 64 }
+        deviceCode: { type: string, minLength: 1, maxLength: 64, pattern: '^[A-Za-z0-9._-]+$' }
         plotId: { type: string, format: uuid }
         name: { type: string, minLength: 1, maxLength: 200 }
     IngestReadingRequest:
       type: object
       required: [deviceCode, metricType, metricValue, unit]
       properties:
-        deviceCode: { type: string, minLength: 1, maxLength: 64 }
+        readingId:
+          type: [string, 'null']
+          format: uuid
+          description: Optional stable reading identifier used for idempotent HTTP/MQTT ingestion.
+        deviceCode: { type: string, minLength: 1, maxLength: 64, pattern: '^[A-Za-z0-9._-]+$' }
         metricType: { type: string, minLength: 1, maxLength: 64 }
         metricValue:
           type: number

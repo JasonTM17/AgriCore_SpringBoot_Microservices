@@ -219,6 +219,22 @@ class EventContractCatalogTest {
         assertDeadLetterChannel(channels, "agricore.iot.events.DLT", "IotDeadLetter");
     }
 
+    @Test
+    void mqttAsyncApiMatchesTheTelemetryListenerContract() throws IOException {
+        JsonNode document = YAML_MAPPER.readTree(projectRoot()
+                .resolve("contracts/asyncapi/agricore-mqtt.yaml").toFile());
+        JsonNode message = document.at("/channels/telemetryReading/messages/SensorTelemetry");
+
+        assertThat(document.path("asyncapi").asText()).isEqualTo("3.0.0");
+        assertThat(document.at("/channels/telemetryReading/address").asText())
+                .isEqualTo("agricore/telemetry/{deviceCode}/reading");
+        assertThat(textValues(message.at("/payload/required")))
+                .containsExactlyInAnyOrder("readingId", "deviceCode", "metricType", "metricValue", "unit");
+        assertThat(message.at("/payload/additionalProperties").asBoolean()).isFalse();
+        assertThat(document.at("/operations/iotServiceReceivesTelemetry/bindings/mqtt/qos").asInt())
+                .isEqualTo(1);
+    }
+
     private static void assertDeadLetterChannel(JsonNode channels, String channelName, String messageName) {
         JsonNode channel = channels.path(channelName);
         assertThat(channel.path("description").asText()).contains("Retryable records use");

@@ -55,13 +55,21 @@ public class IotReadingIngestionService {
                 .filter(candidate -> candidate.getId().equals(authorizedDeviceId))
                 .orElseThrow(() -> new IotException("DEVICE_NOT_FOUND", "Unknown device", 404));
 
+        UUID readingId = request.readingId() == null ? UUID.randomUUID() : request.readingId();
+        var existingReading = readingRepository.findById(readingId);
+        if (existingReading.isPresent()) {
+            requireMatchingReadingIntent(existingReading.get(), request, device);
+            return new IngestResultResponse(readingId, false, null, null, "Duplicate reading ignored");
+        }
+
         Instant now = Instant.now();
-        Instant recordedAt = request.recordedAt() == null ? now : request.recordedAt();
+        Instant recordedAt = (request.recordedAt() == null ? now : request.recordedAt())
+                .truncatedTo(ChronoUnit.MICROS);
         device.setLastSeenAt(now);
         device.setStatus("ACTIVE");
         deviceRepository.save(device);
 
-        SensorReadingEntity reading = createReading(request, device, recordedAt, now);
+        SensorReadingEntity reading = createReading(request, device, recordedAt, now, readingId);
         readingRepository.save(reading);
         eventWriter.sensorReadingReceived(device, reading);
         metrics.recordReading();
@@ -76,14 +84,31 @@ public class IotReadingIngestionService {
         return new IngestResultResponse(reading.getId(), false, null, null, "Reading accepted");
     }
 
+    private static void requireMatchingReadingIntent(
+            SensorReadingEntity existing,
+            IngestReadingRequest request,
+            DeviceEntity device
+    ) {
+        boolean sameIntent = existing.getDeviceId().equals(device.getId())
+                && existing.getMetricType().equals(request.metricType().trim().toUpperCase())
+                && existing.getMetricValue().compareTo(request.metricValue()) == 0
+                && existing.getUnit().equals(request.unit().trim().toUpperCase())
+                && (request.recordedAt() == null || existing.getRecordedAt().equals(
+                request.recordedAt().truncatedTo(ChronoUnit.MICROS)));
+        if (!sameIntent) {
+            throw new IotException("READING_ID_CONFLICT", "Reading ID is already used by different telemetry", 409);
+        }
+    }
+
     private SensorReadingEntity createReading(
             IngestReadingRequest request,
             DeviceEntity device,
             Instant recordedAt,
-            Instant now
+            Instant now,
+            UUID readingId
     ) {
         SensorReadingEntity reading = new SensorReadingEntity();
-        reading.setId(UUID.randomUUID());
+        reading.setId(readingId);
         reading.setDeviceId(device.getId());
         reading.setMetricType(request.metricType().trim().toUpperCase());
         reading.setMetricValue(request.metricValue());

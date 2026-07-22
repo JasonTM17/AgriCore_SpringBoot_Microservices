@@ -1,0 +1,48 @@
+asyncapi: 3.0.0
+info:
+  title: AgriCore MQTT Telemetry API
+  version: 1.0.0
+  description: QoS 1 device telemetry consumed by iot-service with stable reading ID deduplication.
+servers:
+  local:
+    host: localhost:1883
+    protocol: mqtt
+channels:
+  telemetryReading:
+    address: agricore/telemetry/{deviceCode}/reading
+    parameters:
+      deviceCode:
+        description: Registered AgriCore device code; must match payload.deviceCode.
+    messages:
+      SensorTelemetry:
+        name: SensorTelemetry.v1
+        contentType: application/json
+        payload:
+          type: object
+          additionalProperties: false
+          required: [readingId, deviceCode, metricType, metricValue, unit]
+          properties:
+            readingId: { type: string, format: uuid }
+            deviceCode: { type: string, minLength: 1, maxLength: 64, pattern: '^[A-Za-z0-9._-]+$' }
+            metricType: { type: string, minLength: 1, maxLength: 64 }
+            metricValue:
+              type: number
+              minimum: -9999999999.9999
+              maximum: 9999999999.9999
+              multipleOf: 0.0001
+            unit: { type: string, minLength: 1, maxLength: 16 }
+            recordedAt:
+              type: [string, 'null']
+              format: date-time
+              description: Must be no older than 30 days and no more than 5 minutes in the future by default.
+operations:
+  iotServiceReceivesTelemetry:
+    action: receive
+    channel:
+      $ref: '#/channels/telemetryReading'
+    messages:
+      - $ref: '#/channels/telemetryReading/messages/SensorTelemetry'
+    bindings:
+      mqtt:
+        qos: 1
+        bindingVersion: 0.2.0
