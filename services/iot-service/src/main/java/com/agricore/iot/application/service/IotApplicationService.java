@@ -24,6 +24,7 @@ public class IotApplicationService {
     private final ThresholdRuleJpaRepository ruleRepository;
     private final SensorAlertJpaRepository alertRepository;
     private final IotAccessGuard accessGuard;
+    private final IotEventOutboxWriter eventWriter;
     private final IotMetrics metrics;
     private final long cooldownMinutes;
 
@@ -33,6 +34,7 @@ public class IotApplicationService {
             ThresholdRuleJpaRepository ruleRepository,
             SensorAlertJpaRepository alertRepository,
             IotAccessGuard accessGuard,
+            IotEventOutboxWriter eventWriter,
             IotMetrics metrics,
             @Value("${agricore.alert.cooldown-minutes:15}") long cooldownMinutes
     ) {
@@ -41,6 +43,7 @@ public class IotApplicationService {
         this.ruleRepository = ruleRepository;
         this.alertRepository = alertRepository;
         this.accessGuard = accessGuard;
+        this.eventWriter = eventWriter;
         this.metrics = metrics;
         this.cooldownMinutes = cooldownMinutes;
     }
@@ -85,6 +88,7 @@ public class IotApplicationService {
         reading.setRecordedAt(recordedAt);
         reading.setCreatedAt(now);
         readingRepository.save(reading);
+        eventWriter.sensorReadingReceived(device, reading);
         metrics.recordReading();
 
         List<ThresholdRuleEntity> rules = ruleRepository.findByMetricTypeAndActiveTrue(reading.getMetricType());
@@ -125,6 +129,7 @@ public class IotApplicationService {
             alert.setCreatedAt(now);
             alert.setLastSeenAt(now);
             alertRepository.save(alert);
+            eventWriter.sensorThresholdExceeded(device, reading, rule, alert);
             metrics.recordCreatedAlert();
             return new IngestResultResponse(reading.getId(), true, alert.getId(), "OPEN", alert.getMessage());
         }
