@@ -1,0 +1,98 @@
+package com.agricore.notification;
+
+import com.agricore.notification.application.service.NotificationApplicationService;
+import com.agricore.notification.infrastructure.messaging.NotificationEventListener;
+import com.agricore.notification.infrastructure.persistence.NotificationJpaRepository;
+import com.agricore.notification.infrastructure.persistence.ProcessedEventJpaRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+@SpringBootTest
+@ActiveProfiles("test")
+class NotificationEventListenerTest {
+
+    @Autowired
+    private NotificationApplicationService notificationService;
+    @Autowired
+    private NotificationJpaRepository notificationRepository;
+    @Autowired
+    private ProcessedEventJpaRepository processedEventRepository;
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    private NotificationEventListener listener;
+
+    @BeforeEach
+    void setUp() {
+        notificationRepository.deleteAll();
+        processedEventRepository.deleteAll();
+        listener = new NotificationEventListener(notificationService, objectMapper);
+    }
+
+    @Test
+    void duplicateSalesConfirmationCreatesOneNotificationAndOneProcessedMarker() {
+        UUID eventId = UUID.randomUUID();
+        String raw = """
+                {
+                  "eventId":"%s",
+                  "eventType":"SalesOrderConfirmed.v1",
+                  "eventVersion":1,
+                  "occurredAt":"2026-07-22T08:00:00Z",
+                  "correlationId":"corr-sales-1",
+                  "producer":"sales-service",
+                  "payload":{
+                    "salesOrderId":"%s",
+                    "orderNumber":"SO-100",
+                    "customerId":"customer-100",
+                    "inventoryItemId":"%s",
+                    "quantity":10,
+                    "status":"CONFIRMED",
+                    "reservationId":"%s",
+                    "confirmedAt":"2026-07-22T08:00:00Z"
+                  }
+                }
+                """.formatted(eventId, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
+
+        listener.onMessage(raw);
+        listener.onMessage(raw);
+
+        assertThat(notificationRepository.countBySourceEventId(eventId)).isEqualTo(1);
+        assertThat(processedEventRepository.existsByEventIdAndConsumerName(eventId, "notification-service"))
+                .isTrue();
+        assertThat(notificationRepository.findAll()).singleElement()
+                .satisfies(notification -> {
+                    assertThat(notification.getRecipient()).isEqualTo("customer-100");
+                    assertThat(notification.getStatus()).isEqualTo("SENT");
+                    assertThat(notification.getCorrelationId()).isEqualTo("corr-sales-1");
+                });
+    }
+
+    @Test
+    void malformedOrUnsupportedEventsAreRejectedForDeadLetterHandling() {
+        UUID eventId = UUID.randomUUID();
+        String raw = """
+                {
+                  "eventId":"%s",
+                  "eventType":"SalesOrderCreated.v1",
+                  "eventVersion":1,
+                  "occurredAt":"2026-07-22T08:00:00Z",
+                  "producer":"sales-service",
+                  "payload":{}
+                }
+                """.formatted(eventId);
+
+        assertThatThrownBy(() -> listener.onMessage(raw))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Unsupported notification event");
+        assertThat(notificationRepository.count()).isZero();
+    }
+}

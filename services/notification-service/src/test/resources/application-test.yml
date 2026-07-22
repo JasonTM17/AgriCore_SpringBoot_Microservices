@@ -18,3 +18,6 @@ agricore:
     dev-mode: true
     issuer: https://agricore.test/identity
     jwk-set-uri: http://localhost:8081/.well-known/jwks.json
+  kafka:
+    consumer:
+      enabled: false

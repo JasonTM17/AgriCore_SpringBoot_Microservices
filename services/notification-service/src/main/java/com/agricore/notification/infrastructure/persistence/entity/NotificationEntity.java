@@ -21,6 +21,8 @@ public class NotificationEntity {
     private String status;
     @Column(name = "correlation_id", length = 100)
     private String correlationId;
+    @Column(name = "source_event_id")
+    private UUID sourceEventId;
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
     @Column(name = "created_at", nullable = false)
@@ -42,6 +44,8 @@ public class NotificationEntity {
     public void setStatus(String status) { this.status = status; }
     public String getCorrelationId() { return correlationId; }
     public void setCorrelationId(String correlationId) { this.correlationId = correlationId; }
+    public UUID getSourceEventId() { return sourceEventId; }
+    public void setSourceEventId(UUID sourceEventId) { this.sourceEventId = sourceEventId; }
     public String getErrorMessage() { return errorMessage; }
     public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
     public Instant getCreatedAt() { return createdAt; }

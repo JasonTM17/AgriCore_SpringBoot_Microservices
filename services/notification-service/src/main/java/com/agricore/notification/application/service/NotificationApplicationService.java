@@ -3,7 +3,9 @@ package com.agricore.notification.application.service;
 import com.agricore.notification.api.request.SendNotificationRequest;
 import com.agricore.notification.api.response.NotificationResponse;
 import com.agricore.notification.infrastructure.persistence.NotificationJpaRepository;
+import com.agricore.notification.infrastructure.persistence.ProcessedEventJpaRepository;
 import com.agricore.notification.infrastructure.persistence.entity.NotificationEntity;
+import com.agricore.notification.infrastructure.persistence.entity.ProcessedEventEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -21,9 +23,14 @@ public class NotificationApplicationService {
     private static final Logger log = LoggerFactory.getLogger(NotificationApplicationService.class);
 
     private final NotificationJpaRepository repository;
+    private final ProcessedEventJpaRepository processedEventRepository;
 
-    public NotificationApplicationService(NotificationJpaRepository repository) {
+    public NotificationApplicationService(
+            NotificationJpaRepository repository,
+            ProcessedEventJpaRepository processedEventRepository
+    ) {
         this.repository = repository;
+        this.processedEventRepository = processedEventRepository;
     }
 
     @Transactional
@@ -46,5 +53,32 @@ public class NotificationApplicationService {
                 n.getId(), n.getChannel(), n.getRecipient(), n.getSubject(),
                 n.getStatus(), n.getCorrelationId(), n.getCreatedAt(), n.getSentAt()
         );
+    }
+
+    @Transactional
+    public boolean consume(NotificationEventCommand command) {
+        final String consumerName = "notification-service";
+        if (processedEventRepository.existsByEventIdAndConsumerName(command.eventId(), consumerName)) {
+            log.debug("Skipping duplicate notification event {} type={}", command.eventId(), command.eventType());
+            return false;
+        }
+
+        Instant now = Instant.now();
+        NotificationEntity notification = new NotificationEntity();
+        notification.setId(UUID.randomUUID());
+        notification.setChannel(command.channel().trim().toUpperCase());
+        notification.setRecipient(command.recipient().trim());
+        notification.setSubject(command.subject().trim());
+        notification.setBody(command.body());
+        notification.setCorrelationId(command.correlationId());
+        notification.setSourceEventId(command.eventId());
+        notification.setStatus("SENT");
+        notification.setCreatedAt(now);
+        notification.setSentAt(now);
+        repository.save(notification);
+        processedEventRepository.save(ProcessedEventEntity.create(command.eventId(), consumerName));
+        log.info("notification_event_processed eventId={} eventType={} channel={} recipient={}",
+                command.eventId(), command.eventType(), notification.getChannel(), notification.getRecipient());
+        return true;
     }
 }
