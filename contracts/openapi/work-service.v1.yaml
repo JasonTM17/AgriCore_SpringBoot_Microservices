@@ -283,7 +283,7 @@ components:
         materials:
           type: array
           maxItems: 50
-          default: []
+          description: Omit or send an empty array when the task consumes no inventory materials.
           items:
             $ref: '#/components/schemas/MaterialUsageRequest'
     MaterialUsageRequest:

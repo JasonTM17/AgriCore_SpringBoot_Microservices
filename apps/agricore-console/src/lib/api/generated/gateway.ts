@@ -1596,8 +1596,8 @@ export interface components {
         };
         CompleteTaskRequest: {
             notes?: string | null;
-            /** @default [] */
-            materials: components["schemas"]["MaterialUsageRequest"][];
+            /** @description Omit or send an empty array when the task consumes no inventory materials. */
+            materials?: components["schemas"]["MaterialUsageRequest"][];
         };
         InventoryHarvestProjectionAcknowledgementResponse: {
             /** Format: uuid */

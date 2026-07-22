@@ -19,4 +19,5 @@ export const taskA = {
   notes: null,
   createdAt: "2026-07-19T00:00:00Z",
   version: 1,
+  materials: [],
 } satisfies WorkTaskResponse;
