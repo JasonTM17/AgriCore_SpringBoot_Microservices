@@ -10,6 +10,11 @@ spring:
   flyway:
     enabled: true
 
+management:
+  health:
+    redis:
+      enabled: false
+
 agricore:
   assistant:
     worker:
@@ -17,6 +22,8 @@ agricore:
       recovery-enabled: false
     provider:
       type: none
+    budget:
+      enabled: false
   security:
     dev-mode: true
     issuer: https://agricore.test/identity

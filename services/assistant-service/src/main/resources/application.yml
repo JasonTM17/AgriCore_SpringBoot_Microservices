@@ -16,6 +16,10 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+  data:
+    redis:
+      repositories:
+        enabled: false
 management:
   endpoints:
     web:
@@ -72,6 +76,13 @@ agricore:
       read-timeout: ${ASSISTANT_TOOL_READ_TIMEOUT:PT3S}
       max-response-bytes: ${ASSISTANT_TOOL_MAX_RESPONSE_BYTES:32768}
       max-plots: ${ASSISTANT_TOOL_MAX_PLOTS:20}
+    budget:
+      enabled: ${ASSISTANT_BUDGET_ENABLED:true}
+      window: ${ASSISTANT_BUDGET_WINDOW:PT1M}
+      max-requests: ${ASSISTANT_BUDGET_MAX_REQUESTS:20}
+      max-tokens: ${ASSISTANT_BUDGET_MAX_TOKENS:20000}
+      trust-forwarded-headers: ${ASSISTANT_BUDGET_TRUST_FORWARDED_HEADERS:false}
+      key-prefix: ${ASSISTANT_BUDGET_KEY_PREFIX:rl:assistant}
   security:
     issuer: ${JWT_ISSUER:https://agricore.local/identity}
     jwk-set-uri: ${IDENTITY_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
