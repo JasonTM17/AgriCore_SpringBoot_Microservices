@@ -46,3 +46,4 @@ agricore:
     publisher:
       enabled: true
       poll-ms: 1000
+      send-timeout-ms: ${OUTBOX_PUBLISHER_SEND_TIMEOUT_MS:10000}

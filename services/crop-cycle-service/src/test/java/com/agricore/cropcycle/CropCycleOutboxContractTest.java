@@ -76,6 +76,7 @@ class CropCycleOutboxContractTest {
         assertThat(event.getTopic()).isEqualTo("agricore.crop-cycle.events");
 
         JsonNode envelope = objectMapper.readTree(event.getPayload());
+        assertThat(envelope.get("eventId").asText()).isEqualTo(event.getId().toString());
         assertThat(envelope.get("eventType").asText()).isEqualTo(EventTypes.CROP_CYCLE_CREATED);
         assertThat(envelope.get("eventVersion").asInt()).isEqualTo(1);
         assertThat(envelope.get("producer").asText()).isEqualTo("crop-cycle-service");
@@ -133,6 +134,7 @@ class CropCycleOutboxContractTest {
         OutboxEventEntity event = findLatestForCycle(cycleId);
         assertThat(event.getEventType()).isEqualTo(EventTypes.CROP_CYCLE_STAGE_CHANGED);
         JsonNode envelope = objectMapper.readTree(event.getPayload());
+        assertThat(envelope.get("eventId").asText()).isEqualTo(event.getId().toString());
         assertThat(envelope.get("eventType").asText()).isEqualTo(EventTypes.CROP_CYCLE_STAGE_CHANGED);
         assertThat(envelope.get("payload").get("previousStage").asText()).isEqualTo("PLANNED");
         assertThat(envelope.get("payload").get("stage").asText()).isEqualTo("LAND_PREPARATION");

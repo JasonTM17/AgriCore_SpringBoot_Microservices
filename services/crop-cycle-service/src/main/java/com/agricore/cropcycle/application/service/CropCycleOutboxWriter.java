@@ -32,6 +32,7 @@ public class CropCycleOutboxWriter {
 
     public void enqueue(String eventType, CropCycleEntity cycle, String previousStage) {
         try {
+            UUID eventId = UUID.randomUUID();
             ObjectNode payload = objectMapper.createObjectNode();
             payload.put("cropCycleId", cycle.getId().toString());
             payload.put("code", cycle.getCode());
@@ -45,7 +46,7 @@ public class CropCycleOutboxWriter {
             }
 
             ObjectNode envelope = objectMapper.createObjectNode();
-            envelope.put("eventId", UUID.randomUUID().toString());
+            envelope.put("eventId", eventId.toString());
             envelope.put("eventType", eventType);
             envelope.put("eventVersion", 1);
             envelope.put("occurredAt", Instant.now().toString());
@@ -53,6 +54,7 @@ public class CropCycleOutboxWriter {
             envelope.set("payload", payload);
 
             outboxRepository.save(OutboxEventEntity.create(
+                    eventId,
                     AGGREGATE_TYPE,
                     cycle.getId().toString(),
                     eventType,
