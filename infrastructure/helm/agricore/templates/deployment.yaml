@@ -14,6 +14,7 @@
   "iot" .Values.iot
   "sales" .Values.sales
   "traceability" .Values.traceability
+  "assistant" .Values.assistant
   "gateway" .Values.gateway
 -}}
 {{- range $name, $svc := $services }}
@@ -58,12 +59,12 @@ spec:
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
-                  name: agricore-db
+                  name: {{ $.Values.postgres.databaseSecretName | quote }}
                   key: username
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: agricore-db
+                  name: {{ $.Values.postgres.databaseSecretName | quote }}
                   key: password
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: {{ $.Values.kafka.bootstrapServers | quote }}
@@ -103,6 +104,36 @@ spec:
             - name: SALES_PORT
               value: {{ $svc.port | quote }}
             {{- end }}
+            {{- if eq $name "assistant" }}
+            - name: ASSISTANT_PORT
+              value: {{ $svc.port | quote }}
+            - name: REDIS_HOST
+              value: {{ $.Values.redis.host | default "redis" | quote }}
+            - name: REDIS_PORT
+              value: {{ $.Values.redis.port | default "6379" | quote }}
+            - name: ASSISTANT_PROVIDER
+              value: {{ $svc.provider | default "none" | quote }}
+            - name: ASSISTANT_PROVIDER_MODEL
+              value: {{ $svc.providerModel | default "" | quote }}
+            - name: ASSISTANT_PROVIDER_BASE_URL
+              value: {{ $svc.providerBaseUrl | default "" | quote }}
+            - name: ASSISTANT_PROVIDER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $svc.providerSecretName | quote }}
+                  key: {{ $svc.providerApiKeyKey | default "api-key" | quote }}
+                  optional: true
+            - name: ASSISTANT_TOOLS_ENABLED
+              value: {{ $svc.toolsEnabled | default false | quote }}
+            - name: ASSISTANT_FARM_TOOL_BASE_URL
+              value: {{ $svc.farmToolBaseUrl | quote }}
+            - name: ASSISTANT_TOOL_ALLOWED_HOSTS
+              value: {{ $svc.toolAllowedHosts | quote }}
+            - name: ASSISTANT_TOOL_ALLOW_INSECURE_HTTP
+              value: {{ $svc.toolAllowInsecureHttp | default false | quote }}
+            - name: ASSISTANT_BUDGET_TRUST_FORWARDED_HEADERS
+              value: {{ $svc.trustForwardedHeaders | default false | quote }}
+            {{- end }}
             {{- if eq $name "gateway" }}
             - name: IDENTITY_SERVICE_URL
               value: {{ $.Values.gateway.identityServiceUrl | default "http://agricore-identity:8081" | quote }}
@@ -126,14 +157,21 @@ spec:
               value: {{ $.Values.gateway.salesServiceUrl | default "http://agricore-sales:8091" | quote }}
             - name: TRACEABILITY_SERVICE_URL
               value: {{ $.Values.gateway.traceabilityServiceUrl | default "http://agricore-traceability:8092" | quote }}
+            - name: ASSISTANT_SERVICE_URL
+              value: {{ $.Values.gateway.assistantServiceUrl | default "http://agricore-assistant:8093" | quote }}
             - name: GATEWAY_PORT
               value: {{ $svc.port | quote }}
             {{- end }}
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
+            readOnlyRootFilesystem: {{ $svc.readOnlyRootFilesystem | default false }}
             capabilities:
               drop: ["ALL"]
+          {{- if $svc.readOnlyRootFilesystem }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          {{- end }}
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness
@@ -150,6 +188,12 @@ spec:
             failureThreshold: 6
           resources:
             {{- toYaml ($svc.resources | default (dict "requests" (dict "cpu" "100m" "memory" "256Mi") "limits" (dict "cpu" "500m" "memory" "512Mi"))) | nindent 12 }}
+      {{- if $svc.readOnlyRootFilesystem }}
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+      {{- end }}
 ---
 apiVersion: v1
 kind: Service

@@ -1,0 +1,71 @@
+{{- if .Values.console.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agricore-console
+  labels:
+    app.kubernetes.io/name: agricore-console
+    app.kubernetes.io/part-of: agricore
+    app.kubernetes.io/component: frontend
+spec:
+  replicas: {{ .Values.console.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: agricore-console
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: agricore-console
+        app.kubernetes.io/part-of: agricore
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: console
+          image: "{{ .Values.console.image }}:{{ .Values.global.imageTag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.console.port }}
+              name: http
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.console.resources | nindent 12 }}
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 16Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agricore-console
+  labels:
+    app.kubernetes.io/name: agricore-console
+    app.kubernetes.io/part-of: agricore
+spec:
+  selector:
+    app.kubernetes.io/name: agricore-console
+  ports:
+    - port: {{ .Values.console.port }}
+      targetPort: http
+      name: http
+{{- end }}
