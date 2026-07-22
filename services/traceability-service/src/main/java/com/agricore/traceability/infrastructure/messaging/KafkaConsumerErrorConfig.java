@@ -39,6 +39,8 @@ public class KafkaConsumerErrorConfig {
         );
         ExponentialBackOff backOff = new ExponentialBackOff(500L, 2.0);
         backOff.setMaxElapsedTime(8_000L);
-        return new DefaultErrorHandler(recoverer, backOff);
+        DefaultErrorHandler handler = new DefaultErrorHandler(recoverer, backOff);
+        handler.addNotRetryableExceptions(IllegalArgumentException.class);
+        return handler;
     }
 }
