@@ -21,6 +21,7 @@
 | S11 | High | Assistant tool/provider egress could become an arbitrary data or network boundary | Farm tool is read-only, host-allowlisted, caller-token forwarding, response/row bounded, and fail-closed; provider configuration is environment/Secret-only and output is bounded plus deterministically screened |
 | S12 | High | Durable generation replay could duplicate work or leak another user's conversation | Owner/farm scope checks, idempotency key and request hash, generation lease/versioning, ordered SSE replay, and redacted tool evidence are persisted in the assistant database |
 | S13 | Medium | Assistant traffic could bypass per-user limits | Redis-backed request/token budgets key by authenticated user and source IP, return explicit 429 errors, and fail closed when Redis is unavailable |
+| S14 | High | Permission catalog or role grants could be changed by a non-admin, duplicated, or partially replaced | Identity restricts all permission administration to `SYSTEM_ADMIN`; permission codes are database-unique; replacement locks the role and validates every requested code before changing grants |
 
 ## Open / deferred
 
@@ -30,6 +31,8 @@
 | O2 | Medium | Kafka ACLs not configured in compose | Define and verify production Kafka authentication/authorization before deployment; none is claimed here |
 | O3 | Low | File upload not present | N/A until attachments ship |
 | O4 | Medium | Provider egress TLS/Kafka ACLs remain deployment controls | Configure TLS/ACL policy in the target environment; local Compose intentionally uses an internal network and no provider by default |
+| O5 | Medium | Role-grant changes do not invalidate permission snapshots in already-issued access tokens | Updated grants appear only in a newly issued token, such as after login or refresh; the old token remains valid until expiry. Default access-token TTL is 900 seconds. Evaluate immediate revocation if incident-response requirements demand it. |
+| O6 | Medium | Permission authorities exist but no production endpoint enforces `PERMISSION_*` | Define and seed the catalog, add explicit `hasAuthority("PERMISSION_*")` policies with compatibility tests, then expose permission administration in the console. Until then, roles and farm membership remain the enforcement boundary. |
 
 ## Red-team checklist (sample)
 
@@ -42,6 +45,8 @@
 - [x] Caller JWT forwarding, destination allowlisting, strict response decoding, and fail-closed client behavior have focused tests
 - [ ] Live compose verification of invalid/expired JWT rejection at both gateway and a downstream service
 - [x] Assistant output, citation, sensitive-data, refusal, idempotency, replay, tool-allowlist, and budget failure paths have focused tests
+- [x] Permission creation and role-grant replacement require `SYSTEM_ADMIN`; duplicate codes and unknown-code atomic failure have focused tests
+- [ ] Fine-grained `PERMISSION_*` endpoint enforcement (no production permission guard exists yet)
 
 ## Evidence
 
@@ -49,6 +54,7 @@
 - Client propagation and hardening: `DefaultFarmAccessClientTest`, `DefaultFarmAccessClientSecurityTest`, `FarmAccessPropertiesTest`.
 - Downstream no-write and data-masking checks: `CropCycleAccessFailureIntegrationTest`, `CropCycleListAccessIntegrationTest`, `WorkAccessFailureIntegrationTest`, `WorkListAccessIntegrationTest`, `HarvestAccessFailureIntegrationTest`, `IotAccessFailureIntegrationTest`.
 - JWT issuer/audience policy: `GatewaySecurityConfig`, `DomainServiceSecurityConfig`, and `AgricoreJwtValidatorsTest`. Gateway runtime security has only a context-load test in this repository, so no end-to-end claim is made.
+- Permission persistence, administration, token claims, and authority conversion: `PermissionPersistenceIntegrationTest`, `AdminPermissionIntegrationTest`, `JwtTokenServiceTest`, `JwtAuthenticationFilterTest`, `JwtRolesConverterTest`, and the gateway `ApiGatewayApplicationTest` context load.
 
 ## Evidence boundary
 

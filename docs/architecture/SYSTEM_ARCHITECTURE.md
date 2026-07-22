@@ -44,7 +44,7 @@ The browser uses a same-origin edge: Nginx serves `/` and forwards `/api` and `/
 | Application | Owns or performs | Runtime events |
 |---|---|---|
 | API gateway | Routing, JWT validation, external boundary | None |
-| Identity | Users, roles, access and refresh tokens, JWKS | None; outbox table is unused |
+| Identity | Users, roles, permission catalog and role grants, access and refresh tokens, JWKS | None; outbox table is unused |
 | Farm | Farms, areas, plots, memberships | Publishes farm events through outbox |
 | Crop catalog | Crops, varieties, care specifications | None |
 | Crop cycle | Cycles, stages, lifecycle | Publishes crop-cycle events through outbox |
@@ -93,6 +93,9 @@ api → application → domain ← infrastructure
 ## 7. Security architecture
 
 - Gateway and servlet domain services validate RS256 JWTs against identity-service JWKS, issuer, and `agricore-api` audience.
+- Identity resolves the sorted distinct union of permissions granted through a user's roles when it issues an access token. The resulting `roles` and `permissions` claims are token-lifetime snapshots.
+- Identity, the API gateway, and servlet domain services map string role entries to `ROLE_*` and string permission entries to `PERMISSION_*`. Malformed or blank entries are ignored and authorities are deduplicated.
+- Permission catalog and role-grant APIs are restricted to `SYSTEM_ADMIN`. Role grant replacement uses a pessimistic role lock and validates all requested codes before changing the grant set.
 - Gateway routes preserve the caller bearer token. `libs/farm-access-client` forwards it from crop-cycle, work, harvest, and IoT to farm-service.
 - `farm_memberships` maps JWT subjects to farm scope. `ROLE_SYSTEM_ADMIN` is the explicit global override.
 - Plot resolution masks missing, inaccessible, and mismatched plots as `404`.
@@ -100,6 +103,15 @@ api → application → domain ← infrastructure
 - Dev identity headers are accepted only when `agricore.security.dev-mode=true`; Compose and Helm set dev mode off.
 - Passwords use BCrypt. Refresh tokens are opaque, hashed, rotated, and revocable.
 - Secrets come from environment variables or Kubernetes Secrets, not committed configuration.
+
+```text
+Identity permissions + role_permissions
+  -> access JWT roles[] + permissions[] snapshot
+  -> Identity / API Gateway / servlet service authority conversion
+  -> ROLE_* + PERMISSION_* in the Spring Security context
+```
+
+Current endpoint policies still use roles and farm membership; the repository has no production `hasAuthority("PERMISSION_*")` guard. Permission enforcement, a seeded catalog, and a console UI therefore remain future work. Grant changes appear only in newly issued access tokens, such as after login or refresh; existing tokens retain their previous snapshot until expiry. The default access-token TTL is 900 seconds.
 
 See [Microservices authorization model](../security/microservices-authz.md) for endpoint and failure semantics.
 

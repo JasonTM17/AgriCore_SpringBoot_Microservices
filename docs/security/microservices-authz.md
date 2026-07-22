@@ -7,6 +7,29 @@
 - `X-Dev-User` and `X-Dev-Roles` are accepted only when `agricore.security.dev-mode=true`. Compose and Helm defaults set dev mode to false.
 - Unsigned JWT payloads are never trusted.
 
+## Permission plumbing and enforcement boundary
+
+Identity owns the permission catalog and role-to-permission grants in its `permissions` and `role_permissions` tables. Permission codes are unique. Flyway V2 creates the schema but does not seed a catalog.
+
+The Identity OpenAPI 1.3.0 contract exposes these `SYSTEM_ADMIN`-only operations:
+
+| Operation | Verified behavior |
+|---|---|
+| `GET /api/v1/admin/permissions` | Returns a paged catalog ordered by code. |
+| `POST /api/v1/admin/permissions` | Creates a permission; duplicate codes return `409 PERMISSION_EXISTS`. |
+| `GET /api/v1/admin/roles/{roleCode}/permissions` | Returns the role's current grants ordered by code. |
+| `PUT /api/v1/admin/roles/{roleCode}/permissions` | Atomically replaces the complete grant set under a pessimistic role lock. Any unknown code returns `404 PERMISSION_NOT_FOUND` before mutation, so existing grants remain unchanged. |
+
+When Identity issues an access token, it queries the effective union of permission codes for all user roles and writes a sorted, distinct string array to the `permissions` claim. Authority conversion is consistent at all JWT consumers:
+
+- Identity maps `roles` to `ROLE_*` and `permissions` to `PERMISSION_*` in its servlet filter.
+- The API gateway and servlet domain services use `JwtRolesConverter` for the same mapping.
+- A claim must be a collection; only non-blank string entries are accepted, and duplicate authorities are removed.
+
+The claim is a snapshot, not a live permission lookup. Updated grants appear only in a newly issued access token, such as after login or refresh. Existing tokens keep their previous grants until expiry; the default access-token TTL is 900 seconds.
+
+This capability supplies administration, token issuance, and authority mapping only. Current production endpoint policies remain role-based and no production code uses `hasAuthority("PERMISSION_*")`; fine-grained permission enforcement is not active. A permission catalog seed and console UI are also not implemented.
+
 ## Farm ownership authority
 
 `farm_memberships` is the authoritative mapping from the authenticated JWT subject to farms the subject may access. It grants farm scope only; operation roles still come from JWT authorities.
@@ -91,4 +114,4 @@ This is caller-token authorization over configured HTTP(S). The repository does 
 
 - [System architecture](../architecture/SYSTEM_ARCHITECTURE.md)
 - [Security review](./SECURITY_REVIEW.md)
-- Service contracts under `contracts/openapi/`, especially `farm-service.v1.yaml`, `crop-cycle-service.v1.yaml`, `work-service.v1.yaml`, `harvest-service.v1.yaml`, `iot-service.v1.yaml`, and `api-gateway.v1.yaml`.
+- Service contracts under `contracts/openapi/`, especially `identity-service.v1.yaml`, `farm-service.v1.yaml`, `crop-cycle-service.v1.yaml`, `work-service.v1.yaml`, `harvest-service.v1.yaml`, `iot-service.v1.yaml`, and `api-gateway.v1.yaml`.

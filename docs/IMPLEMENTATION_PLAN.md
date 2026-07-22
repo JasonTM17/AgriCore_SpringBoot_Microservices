@@ -47,7 +47,7 @@ Monorepo POM, environment templates, Docker infrastructure, shared libraries, sc
 
 ### M1 — Identity
 
-Registration, login, refresh rotation, logout, RBAC, account lockout, rate limiting, and JWKS.
+Registration, login, refresh rotation, logout, RBAC, account lockout, rate limiting, and JWKS. Identity also owns a unique permission catalog and role grants, provides `SYSTEM_ADMIN` management APIs, adds the sorted effective permission snapshot to access JWTs, and maps role and permission claims consistently at Identity, the gateway, and servlet domain services.
 
 ### M2 — Farm and catalog
 
@@ -94,6 +94,8 @@ Application Helm chart, security review, runbooks, seed scripts, gateway happy p
 
 - Reject malformed or wrong-version `HarvestCompleted.v1` envelopes to DLT instead of acknowledging them silently.
 - Bring farm, crop-cycle, and work publishers to the harvest publisher's locking, bounded-send, index, metric, and test standard.
+- Define and seed the production permission catalog, then add explicit `hasAuthority("PERMISSION_*")` endpoint policies and compatibility tests. Current policies remain role-based.
+- Add console permission administration only after the enforced permission policy and catalog are defined.
 
 ## Release acceptance criteria
 

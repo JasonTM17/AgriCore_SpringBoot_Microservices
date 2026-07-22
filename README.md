@@ -42,7 +42,7 @@ Sales ── synchronous inventory reservation saga
 - Transactional outbox publishers across farm, crop-cycle, work, harvest, inventory, IoT, traceability, sales, and notification.
 - Idempotent `HarvestCompleted.v1` consumers in inventory and traceability, plus notification consumers for sales, traceability, and IoT events.
 - Versioned JSON Schema and AsyncAPI contracts for 29 implemented domain events.
-- RS256 JWTs, JWKS validation, role checks, and farm membership authorization.
+- RS256 JWTs, JWKS validation, role checks, permission-authority plumbing, and farm membership authorization.
 - Persisted assistant with authenticated replayable SSE, read-only farm tools, and Redis-backed budgets.
 
 See [System Architecture](docs/architecture/SYSTEM_ARCHITECTURE.md), [ADRs](docs/adr/), and [local operations](docs/runbooks/local-operations.md).
@@ -161,6 +161,19 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 JWKS: `GET /.well-known/jwks.json`
 
 Default roles: `SYSTEM_ADMIN`, `FARM_MANAGER`, `AGRONOMIST`, `FIELD_WORKER`, `WAREHOUSE_MANAGER`, `SALES_STAFF`, and `AUDITOR`. New users receive `FIELD_WORKER`; administrators manage roles through `PATCH /api/v1/admin/users/{id}/roles`.
+
+### Permission administration
+
+Identity owns the permission catalog and role grants. The Identity OpenAPI 1.3.0 contract documents these `SYSTEM_ADMIN`-only routes:
+
+| Route | Behavior |
+|---|---|
+| `GET /api/v1/admin/permissions` | List the permission catalog. |
+| `POST /api/v1/admin/permissions` | Create a uniquely coded permission. |
+| `GET /api/v1/admin/roles/{roleCode}/permissions` | Read a role's grants. |
+| `PUT /api/v1/admin/roles/{roleCode}/permissions` | Atomically replace a role's grants; unknown codes leave existing grants unchanged. |
+
+New access tokens include `permissions`, the sorted distinct union granted through the user's roles. Tokens are snapshots: a grant change appears only in a newly issued access token, such as after login or refresh; the old token keeps its previous claims until it expires (900 seconds by default). Identity, the gateway, and servlet domain services map valid claim entries to `ROLE_*` and `PERMISSION_*` authorities, but current endpoint policies remain role-based. No permission catalog seed, permission UI, or production `hasAuthority("PERMISSION_*")` guard exists yet. See the [authorization model](docs/security/microservices-authz.md) and [Identity contract](contracts/openapi/identity-service.v1.yaml).
 
 ## Helm deployment scope
 
