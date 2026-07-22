@@ -31,7 +31,7 @@ public class HarvestMetrics {
 
     private static Timer timer(MeterRegistry registry, String outcome) {
         return Timer.builder("agricore.harvest.processing")
-                .description("Harvest completion processing latency")
+                .description("Harvest lifecycle processing latency")
                 .tag("outcome", outcome)
                 .publishPercentileHistogram()
                 .register(registry);

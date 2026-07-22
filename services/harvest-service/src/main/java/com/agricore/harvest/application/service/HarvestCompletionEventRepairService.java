@@ -42,7 +42,7 @@ public class HarvestCompletionEventRepairService {
         if (eventId == null) {
             throw new HarvestException(
                     "OUTBOX_EVENT_UNAVAILABLE",
-                    "Legacy harvest has no stable completion event to republish",
+                    "Harvest has no completion event to republish",
                     409
             );
         }
