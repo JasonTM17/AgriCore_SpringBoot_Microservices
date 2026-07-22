@@ -40,6 +40,7 @@ public class OutboxEventEntity {
     private String lastError;
 
     public static OutboxEventEntity create(
+            UUID eventId,
             String aggregateType,
             String aggregateId,
             String eventType,
@@ -47,7 +48,7 @@ public class OutboxEventEntity {
             String payload
     ) {
         OutboxEventEntity e = new OutboxEventEntity();
-        e.id = UUID.randomUUID();
+        e.id = eventId;
         e.aggregateType = aggregateType;
         e.aggregateId = aggregateId;
         e.eventType = eventType;
@@ -70,6 +71,7 @@ public class OutboxEventEntity {
     public String getLastError() { return lastError; }
 
     public void markPublished() {
+        this.publishAttempts = this.publishAttempts + 1;
         this.publishedAt = Instant.now();
         this.lastError = null;
     }

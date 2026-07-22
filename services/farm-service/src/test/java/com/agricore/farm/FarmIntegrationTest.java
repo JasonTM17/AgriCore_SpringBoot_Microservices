@@ -1,5 +1,7 @@
 package com.agricore.farm;
 
+import com.agricore.farm.infrastructure.persistence.OutboxJpaRepository;
+import com.agricore.farm.infrastructure.persistence.entity.OutboxEventEntity;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -11,6 +13,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -27,6 +30,9 @@ class FarmIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private OutboxJpaRepository outboxRepository;
 
     @Test
     void createFarmAndPlot_flow() throws Exception {
@@ -54,6 +60,12 @@ class FarmIntegrationTest {
 
         JsonNode farm = objectMapper.readTree(farmResult.getResponse().getContentAsString());
         String farmId = farm.get("id").asText();
+        OutboxEventEntity farmCreated = outboxRepository.findAll().stream()
+                .filter(event -> event.getAggregateId().equals(farmId))
+                .findFirst()
+                .orElseThrow();
+        JsonNode farmCreatedEnvelope = objectMapper.readTree(farmCreated.getPayload());
+        assertThat(farmCreatedEnvelope.path("eventId").asText()).isEqualTo(farmCreated.getId().toString());
 
         mockMvc.perform(post("/api/v1/farms/" + farmId + "/plots")
                         .header("X-Dev-User", "manager-1")

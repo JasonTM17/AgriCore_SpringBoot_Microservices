@@ -227,14 +227,16 @@ public class FarmApplicationService {
 
     private void enqueueEvent(String aggregateType, String aggregateId, String eventType, String topic, ObjectNode payload) {
         try {
+            UUID eventId = UUID.randomUUID();
             ObjectNode envelope = objectMapper.createObjectNode();
-            envelope.put("eventId", UUID.randomUUID().toString());
+            envelope.put("eventId", eventId.toString());
             envelope.put("eventType", eventType);
             envelope.put("eventVersion", 1);
             envelope.put("occurredAt", Instant.now().toString());
             envelope.put("producer", "farm-service");
             envelope.set("payload", payload);
             outboxRepository.save(OutboxEventEntity.create(
+                    eventId,
                     aggregateType,
                     aggregateId,
                     eventType,
