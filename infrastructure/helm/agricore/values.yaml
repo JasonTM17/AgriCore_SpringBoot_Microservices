@@ -141,6 +141,13 @@ kafka:
   # Internal cluster bootstrap (match compose PLAINTEXT listener)
   bootstrapServers: kafka:19092
 
+observability:
+  environment: production
+  structuredLogging: true
+  # Leave empty when no collector is installed; set an OTLP/HTTP traces endpoint to enable export.
+  otlpTracingEndpoint: ""
+  samplingProbability: 0.1
+
 farmAccess:
   serviceUrl: http://agricore-farm:8082
   allowedHosts: agricore-farm
