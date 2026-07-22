@@ -2,6 +2,7 @@ package com.agricore.cropcycle;
 
 import com.agricore.cropcycle.domain.model.CycleStage;
 import com.agricore.cropcycle.infrastructure.persistence.CropCycleJpaRepository;
+import com.agricore.cropcycle.infrastructure.persistence.CropCycleStageHistoryJpaRepository;
 import com.agricore.cropcycle.infrastructure.persistence.OutboxJpaRepository;
 import com.agricore.farmaccess.FarmAccessClient;
 import com.agricore.farmaccess.FarmAccessException;
@@ -46,6 +47,8 @@ class CropCycleAccessFailureIntegrationTest {
     private CropCycleJpaRepository cycleRepository;
     @Autowired
     private OutboxJpaRepository outboxRepository;
+    @Autowired
+    private CropCycleStageHistoryJpaRepository historyRepository;
     @MockitoBean
     private FarmAccessClient farmAccessClient;
 
@@ -59,6 +62,7 @@ class CropCycleAccessFailureIntegrationTest {
         UUID plotId = UUID.randomUUID();
         long cyclesBefore = cycleRepository.count();
         long outboxBefore = outboxRepository.count();
+        long historyBefore = historyRepository.count();
         doThrow(farmError(status, code)).when(farmAccessClient).requireFarmPlot(farmId, plotId);
 
         assertApiError(
@@ -73,6 +77,7 @@ class CropCycleAccessFailureIntegrationTest {
 
         assertThat(cycleRepository.count()).isEqualTo(cyclesBefore);
         assertThat(outboxRepository.count()).isEqualTo(outboxBefore);
+        assertThat(historyRepository.count()).isEqualTo(historyBefore);
     }
 
     @Test
@@ -112,6 +117,14 @@ class CropCycleAccessFailureIntegrationTest {
         ).andReturn().getResponse().getContentAsString();
 
         assertThat(body).doesNotContain(cycleCode);
+
+        assertApiError(
+                mockMvc.perform(get("/api/v1/crop-cycles/{cycleId}/stage-history", cycleId)
+                        .header("X-Dev-User", "auditor")
+                        .header("X-Dev-Roles", "AUDITOR")),
+                HttpStatus.NOT_FOUND,
+                "FARM_RESOURCE_NOT_FOUND"
+        );
     }
 
     @Test
@@ -120,6 +133,7 @@ class CropCycleAccessFailureIntegrationTest {
         UUID plotId = UUID.randomUUID();
         UUID cycleId = createAccepted("STAGE-" + System.nanoTime(), farmId, plotId);
         long outboxBefore = outboxRepository.count();
+        long historyBefore = historyRepository.count();
         doThrow(farmError(HttpStatus.FORBIDDEN, "FARM_ACCESS_DENIED"))
                 .when(farmAccessClient).requireFarmPlot(farmId, plotId);
 
@@ -143,6 +157,7 @@ class CropCycleAccessFailureIntegrationTest {
 
         assertThat(cycleRepository.findById(cycleId).orElseThrow().getStage()).isEqualTo(CycleStage.PLANNED);
         assertThat(outboxRepository.count()).isEqualTo(outboxBefore);
+        assertThat(historyRepository.count()).isEqualTo(historyBefore);
     }
 
     private UUID createAccepted(String code, UUID farmId, UUID plotId) throws Exception {

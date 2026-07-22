@@ -36,6 +36,8 @@ class CropCycleApplicationServiceStageIdempotenceTest {
     private CropCycleOutboxWriter outboxWriter;
     @Mock
     private CropCycleAccessGuard accessGuard;
+    @Mock
+    private CropCycleStageHistoryService stageHistoryService;
     @InjectMocks
     private CropCycleApplicationService service;
 
@@ -47,7 +49,8 @@ class CropCycleApplicationServiceStageIdempotenceTest {
 
         CropCycleResponse response = service.changeStage(
                 cycle.getId(),
-                new ChangeStageRequest(stage.name(), null)
+                new ChangeStageRequest(stage.name(), null),
+                "agronomist"
         );
 
         assertThat(response.stage()).isEqualTo(stage.name());
@@ -57,6 +60,7 @@ class CropCycleApplicationServiceStageIdempotenceTest {
         verify(cycleRepository).findById(cycle.getId());
         verifyNoMoreInteractions(cycleRepository);
         verifyNoInteractions(outboxWriter);
+        verifyNoInteractions(stageHistoryService);
     }
 
     @ParameterizedTest
@@ -70,7 +74,8 @@ class CropCycleApplicationServiceStageIdempotenceTest {
 
         assertThatThrownBy(() -> service.changeStage(
                 cycle.getId(),
-                new ChangeStageRequest(requestedStage, null)
+                new ChangeStageRequest(requestedStage, null),
+                "agronomist"
         )).isInstanceOfSatisfying(CropCycleException.class, exception -> {
             assertThat(exception.getCode()).isEqualTo("CYCLE_TERMINAL");
             assertThat(exception.getHttpStatus()).isEqualTo(409);
@@ -80,6 +85,7 @@ class CropCycleApplicationServiceStageIdempotenceTest {
         verify(cycleRepository).findById(cycle.getId());
         verifyNoMoreInteractions(cycleRepository);
         verifyNoInteractions(outboxWriter);
+        verifyNoInteractions(stageHistoryService);
     }
 
     private CropCycleEntity terminalCycle(CycleStage stage) {

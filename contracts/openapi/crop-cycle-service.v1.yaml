@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgriCore Crop Cycle Service API
-  version: 1.3.0
+  version: 1.4.0
   description: Verified crop-cycle planning and stage workflow contract.
 servers:
   - url: http://localhost:8084
@@ -205,6 +205,34 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/crop-cycles/{cycleId}/stage-history:
+    parameters:
+      - $ref: '#/components/parameters/CycleId'
+    get:
+      tags: [Crop Cycles]
+      operationId: listCropCycleStageHistory
+      summary: List the immutable crop-cycle stage history
+      description: Returns highest cycle versions first after verifying the caller can access the cycle's farm and plot.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Paginated stage history.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropCycleStageHistoryPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
 components:
   securitySchemes:
     bearerAuth:
@@ -346,6 +374,49 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CropCycleResponse'
+        page: { type: integer, format: int32, minimum: 0 }
+        size: { type: integer, format: int32, minimum: 1, maximum: 100 }
+        totalElements: { type: integer, format: int64, minimum: 0 }
+        totalPages: { type: integer, format: int32, minimum: 0 }
+        first: { type: boolean }
+        last: { type: boolean }
+    CropCycleStageHistoryResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - cropCycleId
+        - previousStage
+        - stage
+        - status
+        - notes
+        - changedBy
+        - changedAt
+        - cycleVersion
+      properties:
+        id: { type: string, format: uuid }
+        cropCycleId: { type: string, format: uuid }
+        previousStage:
+          oneOf:
+            - $ref: '#/components/schemas/CycleStage'
+            - type: 'null'
+        stage:
+          $ref: '#/components/schemas/CycleStage'
+        status:
+          $ref: '#/components/schemas/CycleStatus'
+        notes: { type: [string, 'null'], maxLength: 2000 }
+        changedBy: { type: string, minLength: 1, maxLength: 255 }
+        changedAt: { type: string, format: date-time }
+        cycleVersion: { type: integer, format: int64, minimum: 0 }
+    CropCycleStageHistoryPageResponse:
+      type: object
+      additionalProperties: false
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/CropCycleStageHistoryResponse'
         page: { type: integer, format: int32, minimum: 0 }
         size: { type: integer, format: int32, minimum: 1, maximum: 100 }
         totalElements: { type: integer, format: int64, minimum: 0 }

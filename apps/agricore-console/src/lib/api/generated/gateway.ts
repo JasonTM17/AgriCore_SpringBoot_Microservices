@@ -584,6 +584,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/crop-cycles/{cycleId}/stage-history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cycleId: components["parameters"]["CycleId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List the immutable crop-cycle stage history
+         * @description Returns highest cycle versions first after verifying the caller can access the cycle's farm and plot.
+         */
+        get: operations["listCropCycleStageHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/work-tasks": {
         parameters: {
             query?: never;
@@ -1535,6 +1557,34 @@ export interface components {
         ChangeStageRequest: {
             stage: components["schemas"]["CycleStage"];
             notes?: string | null;
+        };
+        CropCycleStageHistoryResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            cropCycleId: string;
+            previousStage: components["schemas"]["CycleStage"] | null;
+            stage: components["schemas"]["CycleStage"];
+            status: components["schemas"]["CycleStatus"];
+            notes: string | null;
+            changedBy: string;
+            /** Format: date-time */
+            changedAt: string;
+            /** Format: int64 */
+            cycleVersion: number;
+        };
+        CropCycleStageHistoryPageResponse: {
+            content: components["schemas"]["CropCycleStageHistoryResponse"][];
+            /** Format: int32 */
+            page: number;
+            /** Format: int32 */
+            size: number;
+            /** Format: int64 */
+            totalElements: number;
+            /** Format: int32 */
+            totalPages: number;
+            first: boolean;
+            last: boolean;
         };
         /** @enum {string} */
         TaskType: "LAND_PREPARATION" | "SOWING" | "IRRIGATION" | "FERTILIZING" | "PESTICIDE" | "PRUNING" | "INSPECTION" | "PEST_CONTROL" | "HARVEST" | "MAINTENANCE";
@@ -2893,6 +2943,38 @@ export interface operations {
             404: components["responses"]["components-responses-NotFound"];
             409: components["responses"]["responses-Conflict"];
             500: components["responses"]["responses-InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    listCropCycleStageHistory: {
+        parameters: {
+            query?: {
+                /** @description Zero-based page index. */
+                page?: components["parameters"]["parameters-Page"];
+                /** @description Number of records per page. */
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path: {
+                cycleId: components["parameters"]["CycleId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated stage history. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CropCycleStageHistoryPageResponse"];
+                };
+            };
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["components-responses-NotFound"];
             503: components["responses"]["ServiceUnavailable"];
         };
     };

@@ -34,19 +34,22 @@ public class CropCycleApplicationService {
     private final CropCycleJpaRepository cycleRepository;
     private final CropCycleOutboxWriter outboxWriter;
     private final CropCycleAccessGuard accessGuard;
+    private final CropCycleStageHistoryService stageHistoryService;
 
     public CropCycleApplicationService(
             CropCycleJpaRepository cycleRepository,
             CropCycleOutboxWriter outboxWriter,
-            CropCycleAccessGuard accessGuard
+            CropCycleAccessGuard accessGuard,
+            CropCycleStageHistoryService stageHistoryService
     ) {
         this.cycleRepository = cycleRepository;
         this.outboxWriter = outboxWriter;
         this.accessGuard = accessGuard;
+        this.stageHistoryService = stageHistoryService;
     }
 
     @Transactional
-    public CropCycleResponse create(CreateCropCycleRequest request) {
+    public CropCycleResponse create(CreateCropCycleRequest request, String actor) {
         accessGuard.requireFarmPlot(request.farmId(), request.plotId());
         String code = request.code().trim().toUpperCase();
         if (cycleRepository.existsByCodeIgnoreCase(code)) {
@@ -88,8 +91,9 @@ public class CropCycleApplicationService {
         cycle.setNotes(request.notes());
         cycle.setCreatedAt(now);
         cycle.setUpdatedAt(now);
-        cycleRepository.save(cycle);
+        cycle = cycleRepository.saveAndFlush(cycle);
 
+        stageHistoryService.record(cycle, null, actor, request.notes());
         outboxWriter.enqueue(EventTypes.CROP_CYCLE_CREATED, cycle, null);
         return toResponse(cycle);
     }
@@ -121,7 +125,7 @@ public class CropCycleApplicationService {
     }
 
     @Transactional
-    public CropCycleResponse changeStage(UUID id, ChangeStageRequest request) {
+    public CropCycleResponse changeStage(UUID id, ChangeStageRequest request, String actor) {
         CropCycleEntity cycle = require(id);
         CycleStage previous = cycle.getStage();
         String requestedStage = request.stage().trim().toUpperCase(Locale.ROOT);
@@ -170,13 +174,14 @@ public class CropCycleApplicationService {
 
         cycle.setUpdatedAt(Instant.now());
         cycle = cycleRepository.saveAndFlush(cycle);
+        stageHistoryService.record(cycle, previous, actor, request.notes());
         outboxWriter.enqueue(eventType, cycle, previous.name());
         return toResponse(cycle);
     }
 
     @Transactional
-    public CropCycleResponse cancel(UUID id) {
-        return changeStage(id, new ChangeStageRequest(CycleStage.CANCELLED.name(), null));
+    public CropCycleResponse cancel(UUID id, String actor) {
+        return changeStage(id, new ChangeStageRequest(CycleStage.CANCELLED.name(), null), actor);
     }
 
     private CropCycleEntity require(UUID id) {
