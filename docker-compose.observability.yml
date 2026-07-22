@@ -5,38 +5,96 @@ networks:
     name: agricore_default
     external: true
 
+x-bounded-logging: &bounded-logging
+  driver: json-file
+  options:
+    max-size: ${DOCKER_LOG_MAX_SIZE:-10m}
+    max-file: ${DOCKER_LOG_MAX_FILES:-3}
+
 services:
   prometheus:
     image: prom/prometheus:v2.54.1
     container_name: agricore-prometheus
+    logging: *bounded-logging
     volumes:
       - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     ports:
-      - "9090:9090"
+      - "${OBSERVABILITY_BIND:-127.0.0.1}:${PROMETHEUS_PORT:-9090}:9090"
 
   grafana:
     image: grafana/grafana:11.2.0
     container_name: agricore-grafana
+    logging: *bounded-logging
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: agricore_dev_change_me
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-agricore_grafana_dev_change_me}
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
       - ./infrastructure/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./infrastructure/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
-      - "3001:3000"
+      - "${OBSERVABILITY_BIND:-127.0.0.1}:${GRAFANA_PORT:-3001}:3000"
     depends_on:
       - prometheus
       - tempo
+      - loki
 
   tempo:
     image: grafana/tempo:2.6.0
     container_name: agricore-tempo
+    logging: *bounded-logging
     command: ["-config.file=/etc/tempo.yaml"]
     volumes:
       - ./infrastructure/monitoring/tempo.yaml:/etc/tempo.yaml:ro
     ports:
-      - "4317:4317"
-      - "4318:4318"
-      - "3200:3200"
+      - "${OBSERVABILITY_BIND:-127.0.0.1}:${TEMPO_OTLP_GRPC_PORT:-4317}:4317"
+      - "${OBSERVABILITY_BIND:-127.0.0.1}:${TEMPO_OTLP_HTTP_PORT:-4318}:4318"
+      - "${OBSERVABILITY_BIND:-127.0.0.1}:${TEMPO_HTTP_PORT:-3200}:3200"
+
+  loki:
+    image: grafana/loki:3.7.0
+    container_name: agricore-loki
+    restart: unless-stopped
+    logging: *bounded-logging
+    command: ["--config.file=/etc/loki/loki.yaml"]
+    volumes:
+      - ./infrastructure/monitoring/loki.yaml:/etc/loki/loki.yaml:ro
+      - agricore_loki_data:/loki
+    healthcheck:
+      test: ["CMD", "/usr/bin/loki", "--config.file=/etc/loki/loki.yaml", "--verify-config=true"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    mem_limit: 512m
+    cpus: 0.50
+
+  alloy:
+    image: grafana/alloy:v1.18.0
+    container_name: agricore-alloy
+    restart: unless-stopped
+    logging: *bounded-logging
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    depends_on:
+      loki:
+        condition: service_healthy
+    volumes:
+      - ./infrastructure/monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - agricore_alloy_data:/var/lib/alloy/data
+    healthcheck:
+      test: ["CMD", "/bin/alloy", "validate", "/etc/alloy/config.alloy"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    mem_limit: 256m
+    cpus: 0.25
+
+volumes:
+  agricore_loki_data:
+  agricore_alloy_data:

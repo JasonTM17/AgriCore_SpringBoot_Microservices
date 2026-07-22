@@ -4,6 +4,12 @@ name: agricore
 include:
   - path: docker-compose.infrastructure.yml
 
+x-bounded-logging: &bounded-logging
+  driver: json-file
+  options:
+    max-size: ${DOCKER_LOG_MAX_SIZE:-10m}
+    max-file: ${DOCKER_LOG_MAX_FILES:-3}
+
 x-db-env: &db-env
   POSTGRES_HOST: postgres
   POSTGRES_PORT: 5432
@@ -51,6 +57,7 @@ services:
   kafka-topics-init:
     image: apache/kafka:3.8.1
     container_name: agricore-kafka-topics-init
+    logging: *bounded-logging
     depends_on:
       kafka:
         condition: service_healthy
@@ -64,6 +71,7 @@ services:
   mailpit:
     image: axllent/mailpit:v1.30.0
     container_name: agricore-mailpit
+    logging: *bounded-logging
     restart: unless-stopped
     environment:
       MP_MAX_MESSAGES: "5000"
@@ -77,6 +85,7 @@ services:
       context: .
       dockerfile: services/identity-service/Dockerfile
     container_name: agricore-identity
+    logging: *bounded-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -109,6 +118,7 @@ services:
       context: .
       dockerfile: services/farm-service/Dockerfile
     container_name: agricore-farm
+    logging: *bounded-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -130,6 +140,7 @@ services:
       context: .
       dockerfile: services/crop-catalog-service/Dockerfile
     container_name: agricore-crop-catalog
+    logging: *bounded-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -149,6 +160,7 @@ services:
       context: .
       dockerfile: services/crop-cycle-service/Dockerfile
     container_name: agricore-crop-cycle
+    logging: *bounded-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -172,6 +184,7 @@ services:
       context: .
       dockerfile: services/work-service/Dockerfile
     container_name: agricore-work
+    logging: *bounded-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -197,6 +210,7 @@ services:
       context: .
       dockerfile: services/inventory-service/Dockerfile
     container_name: agricore-inventory
+    logging: *bounded-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -220,6 +234,7 @@ services:
       context: .
       dockerfile: services/harvest-service/Dockerfile
     container_name: agricore-harvest
+    logging: *bounded-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -243,6 +258,7 @@ services:
       context: .
       dockerfile: services/notification-service/Dockerfile
     container_name: agricore-notification
+    logging: *bounded-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -275,6 +291,7 @@ services:
       context: .
       dockerfile: services/iot-service/Dockerfile
     container_name: agricore-iot
+    logging: *bounded-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -305,6 +322,7 @@ services:
       context: .
       dockerfile: services/sales-service/Dockerfile
     container_name: agricore-sales
+    logging: *bounded-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -327,6 +345,7 @@ services:
       context: .
       dockerfile: services/traceability-service/Dockerfile
     container_name: agricore-traceability
+    logging: *bounded-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -351,6 +370,7 @@ services:
       context: .
       dockerfile: services/assistant-service/Dockerfile
     container_name: agricore-assistant
+    logging: *bounded-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -388,6 +408,7 @@ services:
       context: .
       dockerfile: services/api-gateway/Dockerfile
     container_name: agricore-gateway
+    logging: *bounded-logging
     depends_on:
       identity-service:
         condition: service_healthy
@@ -441,6 +462,7 @@ services:
       context: .
       dockerfile: apps/agricore-console/Dockerfile
     container_name: agricore-console
+    logging: *bounded-logging
     depends_on:
       api-gateway:
         condition: service_healthy
