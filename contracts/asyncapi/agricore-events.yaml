@@ -4,8 +4,8 @@ info:
   version: 0.1.0
   description: |
     Kafka contracts for the events currently emitted by AgriCore transactional
-    outbox producers. The implemented scope is 27 events on the farm,
-    crop-cycle, work, inventory, harvest, IoT, traceability, and sales topics. Other constants in EventTypes are not
+    outbox producers. The implemented scope is 29 events on the farm,
+    crop-cycle, work, inventory, harvest, IoT, traceability, sales, and notification topics. Other constants in EventTypes are not
     implemented event flows and are intentionally not documented as messages.
 defaultContentType: application/json
 channels:
@@ -149,6 +149,18 @@ channels:
         name: SalesOrderCancelled.v1
         payload:
           $ref: ../event-schemas/SalesOrderCancelled.v1.json
+  agricore.notification.events:
+    address: agricore.notification.events
+    description: Notification delivery lifecycle events emitted by notification-service.
+    messages:
+      NotificationRequested:
+        name: NotificationRequested.v1
+        payload:
+          $ref: ../event-schemas/NotificationRequested.v1.json
+      NotificationSent:
+        name: NotificationSent.v1
+        payload:
+          $ref: ../event-schemas/NotificationSent.v1.json
   agricore.harvest.events.DLT:
     address: agricore.harvest.events.DLT
     description: |
@@ -234,6 +246,33 @@ operations:
       - $ref: '#/channels/agricore.sales.events/messages/SalesOrderCreated'
       - $ref: '#/channels/agricore.sales.events/messages/SalesOrderConfirmed'
       - $ref: '#/channels/agricore.sales.events/messages/SalesOrderCancelled'
+  notificationServiceSendsNotificationEvents:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.notification.events'
+    messages:
+      - $ref: '#/channels/agricore.notification.events/messages/NotificationRequested'
+      - $ref: '#/channels/agricore.notification.events/messages/NotificationSent'
+  notificationServiceReceivesSalesOrderEvents:
+    action: receive
+    channel:
+      $ref: '#/channels/agricore.sales.events'
+    messages:
+      - $ref: '#/channels/agricore.sales.events/messages/SalesOrderConfirmed'
+      - $ref: '#/channels/agricore.sales.events/messages/SalesOrderCancelled'
+  notificationServiceReceivesTraceabilityEvents:
+    action: receive
+    channel:
+      $ref: '#/channels/agricore.traceability.events'
+    messages:
+      - $ref: '#/channels/agricore.traceability.events/messages/TraceabilityCodeGenerated'
+  notificationServiceReceivesIotEvents:
+    action: receive
+    channel:
+      $ref: '#/channels/agricore.iot.events'
+    messages:
+      - $ref: '#/channels/agricore.iot.events/messages/SensorThresholdExceeded'
+      - $ref: '#/channels/agricore.iot.events/messages/DeviceOfflineDetected'
   inventoryServiceReceivesHarvestCompleted:
     action: receive
     channel:

@@ -98,7 +98,11 @@ class EventContractCatalogTest {
                     set("salesOrderId", "orderNumber", "customerId", "inventoryItemId", "quantity", "status", "reservationId", "confirmedAt")),
             new Contract(EventTypes.SALES_ORDER_CANCELLED, "sales-service", "agricore.sales.events",
                     set("salesOrderId", "orderNumber", "customerId", "inventoryItemId", "quantity", "status", "finalStatus", "reasonCode", "reason", "cancelledAt"),
-                    set("reservationId"))
+                    set("reservationId")),
+            contract(EventTypes.NOTIFICATION_REQUESTED, "notification-service", "agricore.notification.events",
+                    set("notificationId", "sourceEventId", "sourceEventType", "channel", "recipient", "subject", "correlationId", "requestedAt")),
+            contract(EventTypes.NOTIFICATION_SENT, "notification-service", "agricore.notification.events",
+                    set("notificationId", "sourceEventId", "sourceEventType", "channel", "recipient", "subject", "correlationId", "status", "sentAt"))
     );
 
     @Test
@@ -172,11 +176,14 @@ class EventContractCatalogTest {
         assertThat(versionedMessageNames(channels))
                 .containsExactlyInAnyOrderElementsOf(CONTRACTS.stream().map(Contract::eventType).toList());
 
-        assertThat(actionCount(operations, "send")).isEqualTo(10);
-        assertThat(actionCount(operations, "receive")).isEqualTo(2);
+        assertThat(actionCount(operations, "send")).isEqualTo(11);
+        assertThat(actionCount(operations, "receive")).isEqualTo(5);
         assertThat(fieldNames(operations)).contains(
                 "inventoryServiceReceivesHarvestCompleted",
                 "traceabilityServiceReceivesHarvestCompleted",
+                "notificationServiceReceivesSalesOrderEvents",
+                "notificationServiceReceivesTraceabilityEvents",
+                "notificationServiceReceivesIotEvents",
                 "inventoryServiceSendsHarvestDeadLetters",
                 "traceabilityServiceSendsHarvestDeadLetters"
         );
