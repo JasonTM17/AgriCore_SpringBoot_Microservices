@@ -84,16 +84,18 @@ class ChatGenerationContractTest {
         Instant completedAt = Instant.parse("2026-07-20T05:00:00Z");
         GenerationCompletion completion = new GenerationCompletion(
                 "  formatted answer\n", "unsafe reason", 12, 4,
-                completedAt, completedAt.plusSeconds(60));
+                completedAt.minusSeconds(1), completedAt, completedAt.plusSeconds(60));
 
         assertThat(completion.content()).isEqualTo("  formatted answer\n");
         assertThat(completion.finishReason()).isEqualTo("unknown");
         assertThatThrownBy(() -> new GenerationCompletion(
-                "answer", "stop", -1, 4, completedAt, completedAt.plusSeconds(60)))
+                "answer", "stop", -1, 4,
+                completedAt.minusSeconds(1), completedAt, completedAt.plusSeconds(60)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("inputTokens must not be negative");
         assertThatThrownBy(() -> new GenerationCompletion(
-                "answer", "stop", 1, 1, completedAt, completedAt))
+                "answer", "stop", 1, 1,
+                completedAt.plusSeconds(1), completedAt, completedAt.plusSeconds(60)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("completion timestamps are invalid");
     }

@@ -12,6 +12,7 @@ final class GenerationStreamState {
 
     private final StringBuilder response = new StringBuilder();
     private ChatChunk terminalChunk;
+    private Instant firstTokenAt;
 
     String accept(List<ChatChunk> chunks) {
         if (chunks == null || chunks.isEmpty()) {
@@ -32,20 +33,37 @@ final class GenerationStreamState {
     }
 
     GenerationCompletion completion(Instant completedAt, Instant eventExpiresAt) {
+        String completedContent = completedContent();
+        return new GenerationCompletion(
+                completedContent,
+                terminalChunk.finishReason(),
+                terminalChunk.inputTokens(),
+                terminalChunk.outputTokens(),
+                firstTokenAt,
+                completedAt,
+                eventExpiresAt
+        );
+    }
+
+    String completedContent() {
         if (terminalChunk == null) {
             throw GenerationProcessingException.failed("AI_PROVIDER_INCOMPLETE_RESPONSE");
         }
         if (response.isEmpty() || response.toString().isBlank()) {
             throw GenerationProcessingException.failed("AI_PROVIDER_EMPTY_RESPONSE");
         }
-        return new GenerationCompletion(
-                response.toString(),
-                terminalChunk.finishReason(),
-                terminalChunk.inputTokens(),
-                terminalChunk.outputTokens(),
-                completedAt,
-                eventExpiresAt
-        );
+        return response.toString();
+    }
+
+    String accumulatedContent() {
+        return response.toString();
+    }
+
+    void observeFirstTokenAt(Instant observedAt) {
+        if (firstTokenAt == null) {
+            firstTokenAt = java.util.Objects.requireNonNull(
+                    observedAt, "first token timestamp is required");
+        }
     }
 
     private void acceptTerminal(ChatChunk chunk) {

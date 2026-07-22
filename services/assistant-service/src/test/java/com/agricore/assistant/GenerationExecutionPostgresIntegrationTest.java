@@ -62,7 +62,8 @@ class GenerationExecutionPostgresIntegrationTest
                 .isEqualTo(DeltaAppendResult.APPENDED);
         assertThat(executionRepository.complete(
                 first.generation().id(), firstLease,
-                new GenerationCompletion("First answer", "stop", 8, 2, at(3), expiresAt(3))))
+                new GenerationCompletion("First answer", "stop", 8, 2,
+                        at(2), at(3), expiresAt(3))))
                 .isPresent();
 
         GenerationSubmissionResult second = submit(conversationId, owner, "second", at(4));
@@ -148,7 +149,8 @@ class GenerationExecutionPostgresIntegrationTest
 
         var completed = executionRepository.complete(
                 submitted.generation().id(), leaseToken,
-                new GenerationCompletion("The crop is healthy.", "STOP", 11, 4, at(5), expiresAt(5)))
+                new GenerationCompletion("The crop is healthy.", "STOP", 11, 4,
+                        at(2), at(5), expiresAt(5)))
                 .orElseThrow();
 
         assertThat(completed.status()).isEqualTo(GenerationStatus.COMPLETED);
@@ -179,7 +181,8 @@ class GenerationExecutionPostgresIntegrationTest
                 Long.class, conversationId)).isEqualTo(2L);
         assertThat(executionRepository.complete(
                 submitted.generation().id(), leaseToken,
-                new GenerationCompletion("duplicate", "stop", null, null, at(6), expiresAt(6))))
+                new GenerationCompletion("duplicate", "stop", null, null,
+                        at(2), at(6), expiresAt(6))))
                 .isEmpty();
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM conversation_messages WHERE generation_id = ? AND role = 'ASSISTANT'",
@@ -206,7 +209,8 @@ class GenerationExecutionPostgresIntegrationTest
 
         assertThatThrownBy(() -> executionRepository.complete(
                 submitted.generation().id(), leaseToken,
-                new GenerationCompletion("new answer", "stop", 2, 2, at(3), expiresAt(3))))
+                new GenerationCompletion("new answer", "stop", 2, 2,
+                        at(2), at(3), expiresAt(3))))
                 .isInstanceOf(DataIntegrityViolationException.class);
 
         assertThat(jdbc.queryForObject(

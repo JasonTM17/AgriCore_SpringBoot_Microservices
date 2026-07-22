@@ -1,6 +1,7 @@
 package com.agricore.assistant.infrastructure.persistence;
 
 import com.agricore.assistant.application.model.GenerationCompletion;
+import com.agricore.assistant.application.service.GenerationOutputAuditService;
 import com.agricore.assistant.domain.model.AssistantGeneration;
 import com.agricore.assistant.domain.model.GenerationEventType;
 import com.agricore.assistant.domain.model.GenerationStatus;
@@ -36,6 +37,7 @@ public class GenerationTerminalTransitionStore {
     private final GenerationPersistenceMapper mapper;
     private final GenerationEventFactory eventFactory;
     private final GenerationEventPayloadCodec payloadCodec;
+    private final GenerationOutputAuditService outputAuditService;
 
     public GenerationTerminalTransitionStore(
             ChatGenerationJpaRepository generationRepository,
@@ -44,7 +46,8 @@ public class GenerationTerminalTransitionStore {
             GenerationEventJpaRepository eventRepository,
             GenerationPersistenceMapper mapper,
             GenerationEventFactory eventFactory,
-            GenerationEventPayloadCodec payloadCodec
+            GenerationEventPayloadCodec payloadCodec,
+            GenerationOutputAuditService outputAuditService
     ) {
         this.generationRepository = generationRepository;
         this.conversationRepository = conversationRepository;
@@ -53,6 +56,7 @@ public class GenerationTerminalTransitionStore {
         this.mapper = mapper;
         this.eventFactory = eventFactory;
         this.payloadCodec = payloadCodec;
+        this.outputAuditService = outputAuditService;
     }
 
     @Transactional
@@ -92,6 +96,11 @@ public class GenerationTerminalTransitionStore {
         conversation.setNextMessageSequence(conversation.getNextMessageSequence() + 1);
         conversation.setUpdatedAt(completion.completedAt());
 
+        if (generation.getFirstTokenAt() == null) {
+            generation.setFirstTokenAt(completion.firstTokenAt());
+            generation.setFirstTokenLatencyMs(GenerationTransitionTime.elapsedMillis(
+                    generation.getStartedAt(), completion.firstTokenAt()));
+        }
         markTerminal(generation, GenerationStatus.COMPLETED, completion.completedAt(), null);
         generation.setInputTokens(toLong(completion.inputTokens()));
         generation.setOutputTokens(toLong(completion.outputTokens()));
@@ -126,6 +135,8 @@ public class GenerationTerminalTransitionStore {
         }
 
         markTerminal(generation, GenerationStatus.FAILED, failedAt, safeErrorCode);
+        outputAuditService.recordRefusalIfNeeded(
+                mapper.toDomain(generation), safeErrorCode, failedAt);
         eventRepository.save(eventFactory.create(
                 generation, GenerationEventType.ERROR, payloadCodec.error(safeErrorCode),
                 failedAt, eventExpiresAt));

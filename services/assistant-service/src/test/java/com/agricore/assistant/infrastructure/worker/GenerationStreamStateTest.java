@@ -22,6 +22,7 @@ class GenerationStreamStateTest {
                 ChatChunk.delta(" crop "),
                 ChatChunk.terminal("STOP", 10, 3)
         ))).isEqualTo(" healthy crop ");
+        state.observeFirstTokenAt(NOW.minusSeconds(1));
         var completion = state.completion(NOW, NOW.plusSeconds(30));
 
         assertThat(completion.content()).isEqualTo(" healthy crop ");

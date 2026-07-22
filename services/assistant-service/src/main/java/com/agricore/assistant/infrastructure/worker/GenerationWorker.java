@@ -2,9 +2,9 @@ package com.agricore.assistant.infrastructure.worker;
 
 import com.agricore.assistant.application.model.ChatChunk;
 import com.agricore.assistant.application.model.ChatGenerationRequest;
-import com.agricore.assistant.application.model.DeltaAppendResult;
 import com.agricore.assistant.application.model.GenerationExecutionContext;
 import com.agricore.assistant.application.model.GenerationLeaseStatus;
+import com.agricore.assistant.application.model.ToolEvidenceSnapshot;
 import com.agricore.assistant.application.port.AssistantRetentionPolicy;
 import com.agricore.assistant.application.port.ChatGenerationPolicy;
 import com.agricore.assistant.application.port.ChatProvider;
@@ -19,7 +19,6 @@ import reactor.core.scheduler.Scheduler;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -28,8 +27,6 @@ import java.util.concurrent.Callable;
 public class GenerationWorker {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GenerationWorker.class);
-    private static final int MAX_PERSISTED_DELTA_CHARACTERS = 8_000;
-
     private final GenerationExecutionRepository repository;
     private final ChatProvider chatProvider;
     private final ChatGenerationPolicy generationPolicy;
@@ -37,6 +34,7 @@ public class GenerationWorker {
     private final AssistantGenerationWorkerProperties properties;
     private final GenerationProviderGuard providerGuard;
     private final GenerationChatRequestFactory requestFactory;
+    private final GenerationOutputCoordinator outputCoordinator;
     private final GenerationTerminalCoordinator terminalCoordinator;
     private final Clock clock;
     private final Scheduler scheduler;
@@ -49,6 +47,7 @@ public class GenerationWorker {
             AssistantGenerationWorkerProperties properties,
             GenerationProviderGuard providerGuard,
             GenerationChatRequestFactory requestFactory,
+            GenerationOutputCoordinator outputCoordinator,
             GenerationTerminalCoordinator terminalCoordinator,
             Clock clock,
             Scheduler assistantGenerationScheduler
@@ -60,6 +59,7 @@ public class GenerationWorker {
         this.properties = properties;
         this.providerGuard = providerGuard;
         this.requestFactory = requestFactory;
+        this.outputCoordinator = outputCoordinator;
         this.terminalCoordinator = terminalCoordinator;
         this.clock = clock;
         this.scheduler = assistantGenerationScheduler;
@@ -102,7 +102,13 @@ public class GenerationWorker {
             providerGuard.verify(context);
             ChatGenerationRequest request = requestFactory.create(context);
             GenerationStreamState state = new GenerationStreamState();
-            Mono<Void> providerStream = providerStream(generationId, leaseToken, request, state);
+            Mono<Void> providerStream = providerStream(
+                    generationId,
+                    leaseToken,
+                    request,
+                    context.generation().toolEvidence(),
+                    state
+            );
             Mono<Void> heartbeat = heartbeat(generationId, leaseToken);
             Mono<Void> cancellation = cancellationSignal.then(Mono.error(
                     GenerationProcessingException.cancellationRequested()));
@@ -114,50 +120,17 @@ public class GenerationWorker {
             UUID generationId,
             UUID leaseToken,
             ChatGenerationRequest request,
+            ToolEvidenceSnapshot evidence,
             GenerationStreamState state
     ) {
         return Flux.defer(() -> chatProvider.stream(request))
                 .timeout(generationPolicy.maxGenerationDuration())
                 .bufferTimeout(properties.getDeltaBatchSize(), properties.getDeltaFlushInterval())
                 .takeUntil(batch -> batch.stream().anyMatch(ChatChunk::terminal))
-                .concatMap(batch -> persistBatch(generationId, leaseToken, state, batch))
-                .then(terminalCoordinator.complete(generationId, leaseToken, state));
-    }
-
-    private Mono<Void> persistBatch(
-            UUID generationId,
-            UUID leaseToken,
-            GenerationStreamState state,
-            List<ChatChunk> batch
-    ) {
-        return repositoryCall(() -> {
-            String delta = state.accept(batch);
-            persistDelta(generationId, leaseToken, delta);
-            return true;
-        }).then();
-    }
-
-    private void persistDelta(UUID generationId, UUID leaseToken, String delta) {
-        int start = 0;
-        while (start < delta.length()) {
-            int end = Math.min(start + MAX_PERSISTED_DELTA_CHARACTERS, delta.length());
-            if (end < delta.length()
-                    && Character.isHighSurrogate(delta.charAt(end - 1))
-                    && Character.isLowSurrogate(delta.charAt(end))) {
-                end--;
-            }
-            Instant now = clock.instant();
-            DeltaAppendResult result = repository.appendDelta(
-                    generationId,
-                    leaseToken,
-                    delta.substring(start, end),
-                    now,
-                    now.plus(properties.getLeaseDuration()),
-                    now.plus(retentionPolicy.generationEventRetention())
-            );
-            requireActive(result);
-            start = end;
-        }
+                .concatMap(batch -> outputCoordinator.processBatch(
+                        generationId, leaseToken, evidence, state, batch))
+                .then(Mono.defer(() -> outputCoordinator.finish(
+                        generationId, leaseToken, evidence, state)));
     }
 
     private Mono<Void> heartbeat(UUID generationId, UUID leaseToken) {
@@ -174,15 +147,6 @@ public class GenerationWorker {
                     return status;
                 }))
                 .then();
-    }
-
-    private void requireActive(DeltaAppendResult result) {
-        switch (result) {
-            case APPENDED -> {
-            }
-            case CANCEL_REQUESTED -> throw GenerationProcessingException.cancellationRequested();
-            case STALE -> throw GenerationProcessingException.leaseLost();
-        }
     }
 
     private void requireActive(GenerationLeaseStatus status) {

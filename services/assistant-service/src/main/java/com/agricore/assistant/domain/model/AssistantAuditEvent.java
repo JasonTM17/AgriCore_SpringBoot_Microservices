@@ -100,4 +100,21 @@ public record AssistantAuditEvent(
                 createdAt, retainUntil
         );
     }
+
+    public static AssistantAuditEvent outputDecision(
+            UUID actorSubject,
+            UUID farmId,
+            UUID conversationId,
+            UUID generationId,
+            String outcome,
+            String reasonCode,
+            Instant createdAt,
+            Instant retainUntil
+    ) {
+        return new AssistantAuditEvent(
+                UUID.randomUUID(), actorSubject, actorSubject, farmId, conversationId, generationId,
+                "GENERATION_OUTPUT_DECISION", outcome, reasonCode, null, null, null,
+                createdAt, retainUntil
+        );
+    }
 }

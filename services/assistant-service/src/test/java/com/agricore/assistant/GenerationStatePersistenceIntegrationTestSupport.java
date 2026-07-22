@@ -58,13 +58,29 @@ abstract class GenerationStatePersistenceIntegrationTestSupport {
             String key,
             Instant submittedAt
     ) {
+        return submit(
+                conversationId,
+                owner,
+                key,
+                submittedAt,
+                ToolEvidenceCollection.skipped("TOOLS_DISABLED")
+        );
+    }
+
+    GenerationSubmissionResult submit(
+            UUID conversationId,
+            UUID owner,
+            String key,
+            Instant submittedAt,
+            ToolEvidenceCollection toolEvidence
+    ) {
         return generationRepository.submit(new GenerationSubmissionCommand(
                 conversationId,
                 owner,
                 key,
                 HASH,
                 "How is the crop?",
-                ToolEvidenceCollection.skipped("TOOLS_DISABLED"),
+                toolEvidence,
                 "openai",
                 "gpt-test",
                 submittedAt,

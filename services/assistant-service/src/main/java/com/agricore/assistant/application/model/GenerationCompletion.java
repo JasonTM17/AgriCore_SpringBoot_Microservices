@@ -9,6 +9,7 @@ public record GenerationCompletion(
         String finishReason,
         Integer inputTokens,
         Integer outputTokens,
+        Instant firstTokenAt,
         Instant completedAt,
         Instant eventExpiresAt
 ) {
@@ -21,7 +22,8 @@ public record GenerationCompletion(
         finishReason = normalizeFinishReason(finishReason);
         requireNonNegative(inputTokens, "inputTokens");
         requireNonNegative(outputTokens, "outputTokens");
-        if (completedAt == null || eventExpiresAt == null || !eventExpiresAt.isAfter(completedAt)) {
+        if (firstTokenAt == null || completedAt == null || firstTokenAt.isAfter(completedAt)
+                || eventExpiresAt == null || !eventExpiresAt.isAfter(completedAt)) {
             throw new IllegalArgumentException("completion timestamps are invalid");
         }
     }

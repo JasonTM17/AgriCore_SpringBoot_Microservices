@@ -5,6 +5,10 @@ import com.agricore.assistant.application.model.ChatGenerationRequest;
 import com.agricore.assistant.application.model.ChatTurnRole;
 import com.agricore.assistant.application.model.GenerationSubmissionResult;
 import com.agricore.assistant.application.model.ProviderCapabilities;
+import com.agricore.assistant.application.model.ToolEvidenceCollection;
+import com.agricore.assistant.application.model.ToolEvidenceSnapshot;
+import com.agricore.assistant.application.model.ToolFact;
+import com.agricore.assistant.application.model.ToolSource;
 import com.agricore.assistant.application.port.AssistantProviderException;
 import com.agricore.assistant.application.port.ChatProvider;
 import com.agricore.assistant.domain.model.AssistantGenerationEvent;
@@ -23,6 +27,7 @@ import reactor.core.publisher.SignalType;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -128,6 +133,80 @@ class GenerationWorkerIntegrationTest extends GenerationStatePersistenceIntegrat
     }
 
     @Test
+    void releasesToolBackedOutputOnlyAfterAuthorizedCitationValidation() {
+        UUID owner = UUID.randomUUID();
+        UUID conversationId = insertConversation(owner);
+        GenerationSubmissionResult submitted = submit(
+                conversationId,
+                owner,
+                "worker-safe-citation",
+                NOW,
+                collectedFarmEvidence()
+        );
+        when(chatProvider.stream(any())).thenReturn(Flux.just(
+                ChatChunk.delta("Trang trại đang hoạt động "),
+                ChatChunk.delta("[FARM-1]."),
+                ChatChunk.terminal("STOP", 15, 6)
+        ));
+
+        worker.execute(submitted.generation().id()).block(Duration.ofSeconds(5));
+
+        var completed = generationRepository.findOwned(
+                submitted.generation().id(), conversationId, owner).orElseThrow();
+        assertThat(completed.status()).isEqualTo(GenerationStatus.COMPLETED);
+        String replayed = events(submitted, owner).stream()
+                .filter(event -> event.eventType() == GenerationEventType.DELTA)
+                .map(event -> readDelta(event.payload()))
+                .collect(Collectors.joining());
+        assertThat(replayed).isEqualTo("Trang trại đang hoạt động [FARM-1].");
+    }
+
+    @Test
+    void refusesUnauthorizedToolCitationWithoutPersistingProviderOutput() {
+        UUID owner = UUID.randomUUID();
+        UUID conversationId = insertConversation(owner);
+        GenerationSubmissionResult submitted = submit(
+                conversationId,
+                owner,
+                "worker-unsafe-citation",
+                NOW,
+                collectedFarmEvidence()
+        );
+        when(chatProvider.stream(any())).thenReturn(Flux.just(
+                ChatChunk.delta("Lô đất khác đang hoạt động [PLOT-9]."),
+                ChatChunk.terminal("STOP", 15, 6)
+        ));
+
+        worker.execute(submitted.generation().id()).block(Duration.ofSeconds(5));
+
+        var failed = generationRepository.findOwned(
+                submitted.generation().id(), conversationId, owner).orElseThrow();
+        assertThat(failed.status()).isEqualTo(GenerationStatus.FAILED);
+        assertThat(failed.errorCode()).isEqualTo("AI_OUTPUT_CITATION_UNAUTHORIZED");
+        assertThat(events(submitted, owner)).extracting(AssistantGenerationEvent::eventType)
+                .containsExactly(
+                        GenerationEventType.STATUS,
+                        GenerationEventType.STATUS,
+                        GenerationEventType.ERROR
+                );
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM conversation_messages WHERE generation_id = ? AND role = 'ASSISTANT'",
+                Integer.class,
+                submitted.generation().id()
+        )).isZero();
+        Map<String, Object> audit = jdbc.queryForMap(
+                """
+                        SELECT outcome, reason_code
+                        FROM assistant_audit_events
+                        WHERE generation_id = ? AND action = 'GENERATION_OUTPUT_DECISION'
+                        """,
+                submitted.generation().id()
+        );
+        assertThat(audit.get("outcome")).isEqualTo("DENIED");
+        assertThat(audit.get("reason_code")).isEqualTo("AI_OUTPUT_CITATION_UNAUTHORIZED");
+    }
+
+    @Test
     void heartbeatDetectsCrossNodeCancellationAndCancelsASilentProvider() throws Exception {
         UUID owner = UUID.randomUUID();
         UUID conversationId = insertConversation(owner);
@@ -164,5 +243,14 @@ class GenerationWorkerIntegrationTest extends GenerationStatePersistenceIntegrat
         } catch (Exception error) {
             throw new AssertionError("delta payload must be valid JSON", error);
         }
+    }
+
+    private ToolEvidenceCollection collectedFarmEvidence() {
+        return ToolEvidenceCollection.collected(
+                new ToolEvidenceSnapshot(List.of(
+                        new ToolFact("FARM-1", ToolSource.FARM, Map.of("status", "ACTIVE"))
+                )),
+                5
+        );
     }
 }
