@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-22
 
-**Scope:** Implemented services in the current monorepo; runtime deployment controls were not assessed
+**Scope:** Repository code, tests, configuration, and local Compose posture; production runtime deployment controls were not assessed
 
 ## Findings addressed
 
@@ -52,7 +52,9 @@
 
 ## Evidence boundary
 
-This review found repository configuration, code, and tests. It does not prove runtime mTLS, application OpenTelemetry export, Kafka ACL enforcement, or a deployed production environment.
+All 13 Spring applications include the Micrometer OpenTelemetry bridge and OTLP exporter. Local Compose configures OTLP/HTTP trace export to Tempo, Prometheus scraping, Grafana provisioning, and ECS JSON stdout. This is repository and local Compose evidence only; the review does not claim that a production collector/backend is configured or that production trace delivery has been exercised.
+
+This review does not prove runtime mTLS, Kafka ACL enforcement, centralized log collection, or a deployed production environment.
 
 The Docker/Helm edge is same-origin by default: console `/` and `/api` share the browser origin, assistant-service is internal-only in Compose, and the Helm Ingress applies request-size and long-lived SSE timeout controls. A Docker Hub push is a release action, not evidence of a production deployment; credentials must remain in repository secrets.
 

@@ -1,63 +1,69 @@
-# Runbook: Kafka Retry & Dead Letter Topics
+# Runbook: Kafka Retry and Dead-Letter Topics
 
-## Topology
+## Implemented topology
 
 ```text
-agricore.harvest.events
-  → consumer inventory-service
-  → on transient failure: retry (app-level / outbox republish)
-  → after max attempts: agricore.harvest.events.DLQ
+harvest-service outbox
+  → agricore.harvest.events (`HarvestCompleted.v1`)
+      ├─ inventory-service consumer
+      └─ traceability-service consumer
+
+consumer failure
+  → in-process exponential retry
+  → agricore.harvest.events.DLT on recovery
 ```
 
-Suggested topics (create in production):
+Only the `HarvestCompleted.v1` path is implemented. There are no retry topics, and this DLT flow is not implemented for farm, crop-cycle, or work topics.
 
-| Topic | Purpose |
-|-------|---------|
-| `agricore.harvest.events` | Main harvest domain events |
-| `agricore.harvest.events.retry-1` | First retry (delay 30s) |
-| `agricore.harvest.events.retry-2` | Second retry (delay 2m) |
-| `agricore.harvest.events.retry-3` | Third retry (delay 10m) |
-| `agricore.harvest.events.DLQ` | Dead letter after max retries |
+## Consumer error handling
 
-Same pattern for `agricore.farm.events`, `agricore.crop-cycle.events`, `agricore.work.events`.
+Both consumers use Spring Kafka `DefaultErrorHandler` with `ExponentialBackOff`:
 
-## Outbox path (current implementation)
+| Setting | Value |
+|---|---:|
+| Initial interval | 500 ms |
+| Multiplier | 2.0 |
+| Maximum elapsed time | 8 seconds |
+| Recovery destination | `<original-topic>.DLT`, same partition |
 
-Harvest service writes to `outbox_events` then `OutboxPublisher` polls and publishes.
-Failed publishes increment `publish_attempts` and set `last_error` (no infinite silent fail).
+Inventory config classifies `IllegalArgumentException` as non-retryable. Traceability has no additional non-retryable exception classification. After retries are exhausted, `DeadLetterPublishingRecoverer` publishes the record to the DLT.
 
-Operators can inspect producer state through
-`GET /api/v1/harvests/{harvestId}/completion-event`. After fixing the root cause, an
-authorized operator can call
-`POST /api/v1/harvests/{harvestId}/completion-event/republish`. The endpoint returns
-`202`, requeues the original persisted row and envelope, and never creates another
-harvest or event ID. Repeated requests are a no-op while that event is already pending.
-Before requeueing, harvest service verifies the stored topic, envelope metadata and
-projection-critical payload against the harvest record; corrupt rows return `409` and
-remain published. A concurrent repair lock returns retryable `503` instead of waiting.
+`agricore_kafka_dlq_attempts_total{consumer="inventory-service|traceability-service"}` increments when a record is handed to dead-letter recovery. It does not measure DLT topic depth and does not prove the DLT publish succeeded.
 
-Publisher instances use `FOR UPDATE SKIP LOCKED`, so replicas do not convoy on the same
-row. The `KafkaTemplate.send()` call is bounded by `KAFKA_PRODUCER_MAX_BLOCK_MS`
-(5 seconds by default), then the send result is bounded by
-`OUTBOX_PUBLISHER_SEND_TIMEOUT_MS` (10 seconds by default). A timeout records a failed
-attempt and releases the database transaction. Downstream consumers remain idempotent
-by the stable event ID because a late broker acknowledgement can still produce an
-at-least-once duplicate.
+## Producer outbox path
 
-## Consumer path
+Harvest completion writes an `outbox_events` row in the business transaction. `OutboxPublisher` polls and publishes it to `agricore.harvest.events`. Failed publish attempts update `publish_attempts` and `last_error`.
 
-Inventory consumer is idempotent via `processed_events`.
-On processing exception, message is not acknowledged (Spring Kafka default redelivery).
+Operators can inspect a completion event with:
 
-## Operator steps for DLQ
+```text
+GET /api/v1/harvests/{harvestId}/completion-event
+```
 
-1. Inspect DLQ message headers (`eventId`, `exception`, `original-topic`).
-2. Fix root cause (schema, data, downstream).
-3. Replay to main topic if safe (same `eventId` — consumer must be idempotent).
-4. Delete or archive DLQ after resolution.
+After correcting the producer-side cause, an authorized operator can requeue the original row and envelope:
 
-## Alerts
+```text
+POST /api/v1/harvests/{harvestId}/completion-event/republish
+```
 
-- Outbox unpublished count > 100 for 5 minutes
-- Consumer lag > 1000
-- DLQ message count > 0
+The endpoint returns `202`, preserves the event ID, and is a no-op while the event is already pending. Stored topic, envelope metadata, and projection-critical payload are checked before requeue. Corrupt rows return `409`; concurrent repair lock contention returns retryable `503`.
+
+Publisher replicas use `FOR UPDATE SKIP LOCKED`. `KafkaTemplate.send()` is bounded by `KAFKA_PRODUCER_MAX_BLOCK_MS` (5 seconds by default) and then `OUTBOX_PUBLISHER_SEND_TIMEOUT_MS` (10 seconds by default). A late broker acknowledgement can still produce an at-least-once duplicate, so consumers retain idempotency by stable event ID.
+
+## DLT response procedure
+
+1. Inspect `agricore.harvest.events.DLT` in Kafka UI or with Kafka tooling.
+2. Capture the JSON envelope, original topic/partition/offset headers, and exception headers added by Spring Kafka.
+3. Check `agricore_kafka_dlq_attempts_total` and consumer logs for the affected consumer. Do not infer topic depth from the counter.
+4. Correct the schema, data, or application cause.
+5. Replay the original envelope to `agricore.harvest.events` only after confirming the stable `eventId`; inventory and traceability are idempotent for that ID.
+6. Retain or archive the DLT record according to the deployment's Kafka retention policy.
+
+## Recommended thresholds — not provisioned
+
+The repository does not provision Prometheus alert rules or Alertmanager. Candidate operator thresholds:
+
+- `agricore_outbox_backlog > 100` for 5 minutes.
+- Consumer lag greater than 1,000 records.
+- Any increase in `agricore_kafka_dlq_attempts_total`.
+- DLT topic depth greater than zero, measured through Kafka consumer-group/topic monitoring rather than the recovery counter.

@@ -1,6 +1,6 @@
 # JWT + Gateway E2E proof (local)
 
-Date: 2026-07-16 (refreshed after skeptic cutover)
+Date: 2026-07-16 (evidence scope reviewed 2026-07-22)
 
 Infrastructure: Postgres `:5434`, Redis `:6380`, Kafka `:9092` (`docker compose -f docker-compose.infrastructure.yml`).
 
@@ -28,10 +28,10 @@ Script: `scripts/e2e-happy-path.ps1` (Bearer JWT via gateway, legal crop-cycle s
 | Harvest complete + outbox event id | OK |
 | Kafka inventory consumer | `sku=COFFEE-ROBUSTA onHand=90` |
 | Public QR after Kafka projection | `CAPHER-*` product=`Ca phe Robusta` **farm=E2E Dak Lak Farm plot=P1** |
-| Unsigned forged JWT against domain services | **401** (prior capture) |
 
 ## Security notes
 
 - Domain services validate RS256 JWT via identity JWKS (`libs/common-security`).
 - Sales→inventory client forwards caller Bearer JWT (X-Dev only when `agricore.security.dev-mode=true`).
 - `HarvestCompleted.v1` payload includes `farmName`, `plotCode`, `productName`, `careSummary` for QR projection.
+- The referenced `scripts/e2e-happy-path.ps1` exercises the authenticated happy path only. It does not reproduce an unsigned-token negative test, so this evidence record makes no runtime claim for that case.
