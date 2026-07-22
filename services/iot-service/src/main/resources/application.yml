@@ -44,6 +44,11 @@ agricore:
     allow-insecure-http: ${FARM_SERVICE_ALLOW_INSECURE_HTTP:false}
   alert:
     cooldown-minutes: ${IOT_ALERT_COOLDOWN_MINUTES:15}
+  device:
+    offline-detection:
+      enabled: ${IOT_OFFLINE_DETECTION_ENABLED:true}
+      poll-ms: ${IOT_OFFLINE_DETECTION_POLL_MS:60000}
+      offline-after: ${IOT_OFFLINE_AFTER:15m}
   outbox:
     publisher:
       enabled: true

@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -57,6 +58,24 @@ public class IotEventOutboxWriter {
         payload.put("message", alert.getMessage());
         payload.put("detectedAt", alert.getCreatedAt().toString());
         enqueue(EventTypes.SENSOR_THRESHOLD_EXCEEDED, "SensorAlert", alert.getId(), payload, alert.getCreatedAt());
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void deviceOfflineDetected(
+            DeviceEntity device,
+            Instant lastActivityAt,
+            Instant detectedAt,
+            Duration offlineAfter
+    ) {
+        ObjectNode payload = objectMapper.createObjectNode();
+        payload.put("deviceId", device.getId().toString());
+        payload.put("deviceCode", device.getDeviceCode());
+        payload.put("plotId", device.getPlotId().toString());
+        payload.put("deviceName", device.getName());
+        payload.put("lastActivityAt", lastActivityAt.toString());
+        payload.put("detectedAt", detectedAt.toString());
+        payload.put("offlineAfterSeconds", offlineAfter.toSeconds());
+        enqueue(EventTypes.DEVICE_OFFLINE_DETECTED, "Device", device.getId(), payload, detectedAt);
     }
 
     private ObjectNode readingPayload(DeviceEntity device, SensorReadingEntity reading) {

@@ -21,6 +21,9 @@ public class DeviceEntity {
     private Instant lastSeenAt;
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
+    @Version
+    @Column(nullable = false)
+    private long version;
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
@@ -36,4 +39,5 @@ public class DeviceEntity {
     public void setLastSeenAt(Instant lastSeenAt) { this.lastSeenAt = lastSeenAt; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public long getVersion() { return version; }
 }

@@ -22,6 +22,10 @@ agricore:
     jwk-set-uri: http://localhost:8081/.well-known/jwks.json
   alert:
     cooldown-minutes: 15
+  device:
+    offline-detection:
+      enabled: false
+      offline-after: 15m
   outbox:
     publisher:
       enabled: false
