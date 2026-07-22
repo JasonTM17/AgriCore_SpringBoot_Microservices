@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agricore.local/schemas/SalesOrderCancelled.v1.json",
+  "title": "SalesOrderCancelled.v1",
+  "allOf": [
+    { "$ref": "DomainEventEnvelope.v1.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "SalesOrderCancelled.v1" },
+        "eventVersion": { "const": 1 },
+        "producer": { "const": "sales-service" },
+        "payload": {
+          "type": "object",
+          "required": ["salesOrderId", "orderNumber", "customerId", "inventoryItemId", "quantity", "status", "finalStatus", "reasonCode", "reason", "cancelledAt"],
+          "properties": {
+            "salesOrderId": { "type": "string", "format": "uuid" },
+            "orderNumber": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "customerId": { "type": "string", "format": "uuid" },
+            "inventoryItemId": { "type": "string", "format": "uuid" },
+            "quantity": { "type": "number", "exclusiveMinimum": 0 },
+            "status": { "type": "string", "enum": ["CANCELLED", "OUT_OF_STOCK"] },
+            "finalStatus": { "type": "string", "enum": ["CANCELLED", "OUT_OF_STOCK"] },
+            "reasonCode": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "reason": { "type": ["string", "null"] },
+            "cancelledAt": { "type": "string", "format": "date-time" },
+            "reservationId": { "type": "string", "format": "uuid" }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}

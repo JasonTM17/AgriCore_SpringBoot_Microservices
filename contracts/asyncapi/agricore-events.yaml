@@ -4,8 +4,8 @@ info:
   version: 0.1.0
   description: |
     Kafka contracts for the events currently emitted by AgriCore transactional
-    outbox producers. The implemented scope is 24 events on the farm,
-    crop-cycle, work, inventory, harvest, IoT, and traceability topics. Other constants in EventTypes are not
+    outbox producers. The implemented scope is 27 events on the farm,
+    crop-cycle, work, inventory, harvest, IoT, traceability, and sales topics. Other constants in EventTypes are not
     implemented event flows and are intentionally not documented as messages.
 defaultContentType: application/json
 channels:
@@ -133,6 +133,22 @@ channels:
         name: TraceabilityCodeGenerated.v1
         payload:
           $ref: ../event-schemas/TraceabilityCodeGenerated.v1.json
+  agricore.sales.events:
+    address: agricore.sales.events
+    description: Sales order lifecycle events emitted by sales-service.
+    messages:
+      SalesOrderCreated:
+        name: SalesOrderCreated.v1
+        payload:
+          $ref: ../event-schemas/SalesOrderCreated.v1.json
+      SalesOrderConfirmed:
+        name: SalesOrderConfirmed.v1
+        payload:
+          $ref: ../event-schemas/SalesOrderConfirmed.v1.json
+      SalesOrderCancelled:
+        name: SalesOrderCancelled.v1
+        payload:
+          $ref: ../event-schemas/SalesOrderCancelled.v1.json
   agricore.harvest.events.DLT:
     address: agricore.harvest.events.DLT
     description: |
@@ -210,6 +226,14 @@ operations:
     messages:
       - $ref: '#/channels/agricore.traceability.events/messages/TraceabilityBatchCreated'
       - $ref: '#/channels/agricore.traceability.events/messages/TraceabilityCodeGenerated'
+  salesServiceSendsSalesOrderEvents:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.sales.events'
+    messages:
+      - $ref: '#/channels/agricore.sales.events/messages/SalesOrderCreated'
+      - $ref: '#/channels/agricore.sales.events/messages/SalesOrderConfirmed'
+      - $ref: '#/channels/agricore.sales.events/messages/SalesOrderCancelled'
   inventoryServiceReceivesHarvestCompleted:
     action: receive
     channel:

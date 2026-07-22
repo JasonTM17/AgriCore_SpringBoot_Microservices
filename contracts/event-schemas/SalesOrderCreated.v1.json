@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agricore.local/schemas/SalesOrderCreated.v1.json",
+  "title": "SalesOrderCreated.v1",
+  "allOf": [
+    { "$ref": "DomainEventEnvelope.v1.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "SalesOrderCreated.v1" },
+        "eventVersion": { "const": 1 },
+        "producer": { "const": "sales-service" },
+        "payload": {
+          "type": "object",
+          "required": ["salesOrderId", "orderNumber", "customerId", "inventoryItemId", "quantity", "status", "createdAt"],
+          "properties": {
+            "salesOrderId": { "type": "string", "format": "uuid" },
+            "orderNumber": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "customerId": { "type": "string", "format": "uuid" },
+            "inventoryItemId": { "type": "string", "format": "uuid" },
+            "quantity": { "type": "number", "exclusiveMinimum": 0 },
+            "status": { "const": "PENDING_CONFIRMATION" },
+            "createdAt": { "type": "string", "format": "date-time" }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}

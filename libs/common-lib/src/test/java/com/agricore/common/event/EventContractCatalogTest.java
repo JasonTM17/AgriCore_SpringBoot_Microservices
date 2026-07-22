@@ -91,7 +91,14 @@ class EventContractCatalogTest {
             contract(EventTypes.TRACEABILITY_CODE_GENERATED, "traceability-service",
                     "agricore.traceability.events",
                     set("traceabilityBatchId", "traceabilityCode", "publicUrl", "qrImageUrl", "batchLabel",
-                            "generatedAt"))
+                            "generatedAt")),
+            contract(EventTypes.SALES_ORDER_CREATED, "sales-service", "agricore.sales.events",
+                    set("salesOrderId", "orderNumber", "customerId", "inventoryItemId", "quantity", "status", "createdAt")),
+            contract(EventTypes.SALES_ORDER_CONFIRMED, "sales-service", "agricore.sales.events",
+                    set("salesOrderId", "orderNumber", "customerId", "inventoryItemId", "quantity", "status", "reservationId", "confirmedAt")),
+            new Contract(EventTypes.SALES_ORDER_CANCELLED, "sales-service", "agricore.sales.events",
+                    set("salesOrderId", "orderNumber", "customerId", "inventoryItemId", "quantity", "status", "finalStatus", "reasonCode", "reason", "cancelledAt"),
+                    set("reservationId"))
     );
 
     @Test
@@ -165,7 +172,7 @@ class EventContractCatalogTest {
         assertThat(versionedMessageNames(channels))
                 .containsExactlyInAnyOrderElementsOf(CONTRACTS.stream().map(Contract::eventType).toList());
 
-        assertThat(actionCount(operations, "send")).isEqualTo(9);
+        assertThat(actionCount(operations, "send")).isEqualTo(10);
         assertThat(actionCount(operations, "receive")).isEqualTo(2);
         assertThat(fieldNames(operations)).contains(
                 "inventoryServiceReceivesHarvestCompleted",
