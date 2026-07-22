@@ -200,4 +200,4 @@ GitHub Actions: build + test on push/PR (`.github/workflows/ci.yml`).
 
 ## License
 
-MIT (see `LICENSE` when published).
+[MIT](LICENSE).
