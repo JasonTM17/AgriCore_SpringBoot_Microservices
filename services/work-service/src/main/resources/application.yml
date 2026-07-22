@@ -39,6 +39,13 @@ agricore:
     base-url: ${FARM_SERVICE_URL:http://localhost:8082}
     allowed-hosts: ${FARM_SERVICE_ALLOWED_HOSTS:localhost,127.0.0.1,::1,farm-service}
     allow-insecure-http: ${FARM_SERVICE_ALLOW_INSECURE_HTTP:false}
+  inventory-access:
+    base-url: ${INVENTORY_SERVICE_URL:http://localhost:8086}
+    allowed-hosts: ${INVENTORY_SERVICE_ALLOWED_HOSTS:localhost,127.0.0.1,::1,inventory-service}
+    allow-insecure-http: ${INVENTORY_SERVICE_ALLOW_INSECURE_HTTP:false}
+    connect-timeout: ${INVENTORY_SERVICE_CONNECT_TIMEOUT:2s}
+    read-timeout: ${INVENTORY_SERVICE_READ_TIMEOUT:3s}
+    max-response-bytes: ${INVENTORY_SERVICE_MAX_RESPONSE_BYTES:8192}
   outbox:
     publisher:
       enabled: true
