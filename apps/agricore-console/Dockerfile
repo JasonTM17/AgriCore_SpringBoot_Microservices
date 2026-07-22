@@ -1,7 +1,7 @@
 FROM node:22.13.0-alpine AS build
 
 WORKDIR /workspace
-RUN corepack enable && corepack prepare pnpm@11.0.9 --activate
+RUN npm install --global pnpm@11.0.9
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/agricore-console/package.json apps/agricore-console/package.json
