@@ -2,28 +2,143 @@ asyncapi: 3.0.0
 info:
   title: AgriCore Domain Events
   version: 0.1.0
-  description: Kafka topics for AgriCore microservices
+  description: |
+    Kafka contracts for the events currently emitted by AgriCore transactional
+    outbox producers. The implemented scope is 11 events on the farm,
+    crop-cycle, work, and harvest topics. Other constants in EventTypes are not
+    implemented event flows and are intentionally not documented as messages.
 defaultContentType: application/json
 channels:
+  agricore.farm.events:
+    address: agricore.farm.events
+    description: Events emitted by farm-service.
+    messages:
+      FarmCreated:
+        name: FarmCreated.v1
+        payload:
+          $ref: ../event-schemas/FarmCreated.v1.json
+      PlotCreated:
+        name: PlotCreated.v1
+        payload:
+          $ref: ../event-schemas/PlotCreated.v1.json
+      PlotStatusChanged:
+        name: PlotStatusChanged.v1
+        payload:
+          $ref: ../event-schemas/PlotStatusChanged.v1.json
+  agricore.crop-cycle.events:
+    address: agricore.crop-cycle.events
+    description: Events emitted by crop-cycle-service.
+    messages:
+      CropCycleCreated:
+        name: CropCycleCreated.v1
+        payload:
+          $ref: ../event-schemas/CropCycleCreated.v1.json
+      CropCycleStageChanged:
+        name: CropCycleStageChanged.v1
+        payload:
+          $ref: ../event-schemas/CropCycleStageChanged.v1.json
+      CropCycleCompleted:
+        name: CropCycleCompleted.v1
+        payload:
+          $ref: ../event-schemas/CropCycleCompleted.v1.json
+      CropCycleCancelled:
+        name: CropCycleCancelled.v1
+        payload:
+          $ref: ../event-schemas/CropCycleCancelled.v1.json
+  agricore.work.events:
+    address: agricore.work.events
+    description: Events emitted by work-service.
+    messages:
+      WorkTaskCreated:
+        name: WorkTaskCreated.v1
+        payload:
+          $ref: ../event-schemas/WorkTaskCreated.v1.json
+      WorkTaskAssigned:
+        name: WorkTaskAssigned.v1
+        payload:
+          $ref: ../event-schemas/WorkTaskAssigned.v1.json
+      WorkTaskCompleted:
+        name: WorkTaskCompleted.v1
+        payload:
+          $ref: ../event-schemas/WorkTaskCompleted.v1.json
   agricore.harvest.events:
     address: agricore.harvest.events
+    description: HarvestCompleted events emitted by harvest-service.
     messages:
       HarvestCompleted:
         name: HarvestCompleted.v1
         payload:
-          $ref: ../event-schemas/DomainEventEnvelope.v1.json
-  agricore.farm.events:
-    address: agricore.farm.events
-  agricore.crop-cycle.events:
-    address: agricore.crop-cycle.events
-  agricore.work.events:
-    address: agricore.work.events
+          $ref: ../event-schemas/HarvestCompleted.v1.json
+  agricore.harvest.events.DLT:
+    address: agricore.harvest.events.DLT
+    description: |
+      Real dead-letter destination used by the inventory-service and
+      traceability-service error handlers. Non-retryable records are sent
+      directly; retryable failures are sent after in-process retries are
+      exhausted. No Kafka retry topics are implemented. The record value is the
+      unchanged original string and can be malformed JSON or an invalid event;
+      Spring Kafka adds dead-letter headers.
+    messages:
+      HarvestCompletedDeadLetter:
+        name: HarvestCompletedDeadLetter
+        title: Rejected harvest event record
+        contentType: text/plain
+        description: Unchanged record value rejected by an inventory or traceability consumer.
+        payload:
+          type: string
 operations:
-  publishHarvestCompleted:
+  farmServiceSendsFarmEvents:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.farm.events'
+    messages:
+      - $ref: '#/channels/agricore.farm.events/messages/FarmCreated'
+      - $ref: '#/channels/agricore.farm.events/messages/PlotCreated'
+      - $ref: '#/channels/agricore.farm.events/messages/PlotStatusChanged'
+  cropCycleServiceSendsCropCycleEvents:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.crop-cycle.events'
+    messages:
+      - $ref: '#/channels/agricore.crop-cycle.events/messages/CropCycleCreated'
+      - $ref: '#/channels/agricore.crop-cycle.events/messages/CropCycleStageChanged'
+      - $ref: '#/channels/agricore.crop-cycle.events/messages/CropCycleCompleted'
+      - $ref: '#/channels/agricore.crop-cycle.events/messages/CropCycleCancelled'
+  workServiceSendsWorkEvents:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.work.events'
+    messages:
+      - $ref: '#/channels/agricore.work.events/messages/WorkTaskCreated'
+      - $ref: '#/channels/agricore.work.events/messages/WorkTaskAssigned'
+      - $ref: '#/channels/agricore.work.events/messages/WorkTaskCompleted'
+  harvestServiceSendsHarvestEvents:
     action: send
     channel:
       $ref: '#/channels/agricore.harvest.events'
-  consumeHarvestCompleted:
+    messages:
+      - $ref: '#/channels/agricore.harvest.events/messages/HarvestCompleted'
+  inventoryServiceReceivesHarvestCompleted:
     action: receive
     channel:
       $ref: '#/channels/agricore.harvest.events'
+    messages:
+      - $ref: '#/channels/agricore.harvest.events/messages/HarvestCompleted'
+  traceabilityServiceReceivesHarvestCompleted:
+    action: receive
+    channel:
+      $ref: '#/channels/agricore.harvest.events'
+    messages:
+      - $ref: '#/channels/agricore.harvest.events/messages/HarvestCompleted'
+  inventoryServiceSendsHarvestDeadLetters:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.harvest.events.DLT'
+    messages:
+      - $ref: '#/channels/agricore.harvest.events.DLT/messages/HarvestCompletedDeadLetter'
+  traceabilityServiceSendsHarvestDeadLetters:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.harvest.events.DLT'
+    messages:
+      - $ref: '#/channels/agricore.harvest.events.DLT/messages/HarvestCompletedDeadLetter'

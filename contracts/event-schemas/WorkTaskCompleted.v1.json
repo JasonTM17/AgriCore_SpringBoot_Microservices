@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agricore.local/schemas/WorkTaskCompleted.v1.json",
+  "title": "WorkTaskCompleted.v1",
+  "allOf": [
+    { "$ref": "DomainEventEnvelope.v1.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "WorkTaskCompleted.v1" },
+        "eventVersion": { "const": 1 },
+        "producer": { "const": "work-service" },
+        "payload": {
+          "type": "object",
+          "required": ["taskId", "code", "cropCycleId", "plotId", "taskType", "status"],
+          "properties": {
+            "taskId": { "type": "string", "format": "uuid" },
+            "code": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "cropCycleId": { "type": "string", "format": "uuid" },
+            "plotId": { "type": "string", "format": "uuid" },
+            "taskType": { "enum": ["LAND_PREPARATION", "SOWING", "IRRIGATION", "FERTILIZING", "PESTICIDE", "PRUNING", "INSPECTION", "PEST_CONTROL", "HARVEST", "MAINTENANCE"] },
+            "status": { "const": "COMPLETED" },
+            "assignedEmployeeId": { "type": "string", "format": "uuid" }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}

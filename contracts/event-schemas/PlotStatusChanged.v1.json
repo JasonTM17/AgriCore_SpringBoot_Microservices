@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agricore.local/schemas/PlotStatusChanged.v1.json",
+  "title": "PlotStatusChanged.v1",
+  "allOf": [
+    { "$ref": "DomainEventEnvelope.v1.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "PlotStatusChanged.v1" },
+        "eventVersion": { "const": 1 },
+        "producer": { "const": "farm-service" },
+        "payload": {
+          "type": "object",
+          "required": ["plotId", "farmId", "code", "name", "status", "areaInHectares", "previousStatus"],
+          "properties": {
+            "plotId": { "type": "string", "format": "uuid" },
+            "farmId": { "type": "string", "format": "uuid" },
+            "code": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "name": { "type": "string", "maxLength": 200 },
+            "status": { "enum": ["AVAILABLE", "PREPARING", "IN_USE", "RESTING", "MAINTENANCE", "INACTIVE"] },
+            "areaInHectares": { "type": "number", "minimum": 0.0001 },
+            "previousStatus": { "enum": ["AVAILABLE", "PREPARING", "IN_USE", "RESTING", "MAINTENANCE", "INACTIVE"] }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}

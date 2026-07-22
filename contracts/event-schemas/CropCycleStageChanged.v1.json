@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agricore.local/schemas/CropCycleStageChanged.v1.json",
+  "title": "CropCycleStageChanged.v1",
+  "allOf": [
+    { "$ref": "DomainEventEnvelope.v1.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "CropCycleStageChanged.v1" },
+        "eventVersion": { "const": 1 },
+        "producer": { "const": "crop-cycle-service" },
+        "payload": {
+          "type": "object",
+          "required": ["cropCycleId", "code", "farmId", "plotId", "cropId", "stage", "status", "previousStage"],
+          "properties": {
+            "cropCycleId": { "type": "string", "format": "uuid" },
+            "code": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "farmId": { "type": "string", "format": "uuid" },
+            "plotId": { "type": "string", "format": "uuid" },
+            "cropId": { "type": "string", "format": "uuid" },
+            "stage": { "enum": ["LAND_PREPARATION", "SOWING", "GROWING", "FERTILIZING", "PEST_CONTROL", "HARVESTING"] },
+            "status": { "const": "ACTIVE" },
+            "previousStage": { "enum": ["PLANNED", "LAND_PREPARATION", "SOWING", "GROWING", "FERTILIZING", "PEST_CONTROL"] }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}

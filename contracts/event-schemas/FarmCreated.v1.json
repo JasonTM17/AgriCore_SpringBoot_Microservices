@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agricore.local/schemas/FarmCreated.v1.json",
+  "title": "FarmCreated.v1",
+  "allOf": [
+    { "$ref": "DomainEventEnvelope.v1.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "FarmCreated.v1" },
+        "eventVersion": { "const": 1 },
+        "producer": { "const": "farm-service" },
+        "payload": {
+          "type": "object",
+          "required": ["farmId", "code", "name", "province", "status"],
+          "properties": {
+            "farmId": { "type": "string", "format": "uuid" },
+            "code": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "province": { "type": ["string", "null"], "maxLength": 120 },
+            "status": { "const": "ACTIVE" }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}

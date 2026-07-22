@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agricore.local/schemas/CropCycleCompleted.v1.json",
+  "title": "CropCycleCompleted.v1",
+  "allOf": [
+    { "$ref": "DomainEventEnvelope.v1.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "CropCycleCompleted.v1" },
+        "eventVersion": { "const": 1 },
+        "producer": { "const": "crop-cycle-service" },
+        "payload": {
+          "type": "object",
+          "required": ["cropCycleId", "code", "farmId", "plotId", "cropId", "stage", "status", "previousStage"],
+          "properties": {
+            "cropCycleId": { "type": "string", "format": "uuid" },
+            "code": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "farmId": { "type": "string", "format": "uuid" },
+            "plotId": { "type": "string", "format": "uuid" },
+            "cropId": { "type": "string", "format": "uuid" },
+            "stage": { "const": "COMPLETED" },
+            "status": { "const": "COMPLETED" },
+            "previousStage": { "const": "HARVESTING" }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}
