@@ -1,5 +1,6 @@
 const DEFAULT_MAX_BUFFERED_CHARACTERS = 256 * 1024;
 const DEFAULT_MAX_EVENT_CHARACTERS = 128 * 1024;
+const DEFAULT_IDLE_TIMEOUT_MS = 45_000;
 const DECODE_SLICE_BYTES = 16 * 1024;
 
 export interface FetchSseEvent {
@@ -11,18 +12,31 @@ export interface FetchSseEvent {
 export interface FetchSseOptions {
   onEvent: (event: FetchSseEvent) => void | Promise<void>;
   onComment?: (comment: string) => void | Promise<void>;
+  signal?: AbortSignal;
+  idleTimeoutMs?: number;
   maxBufferedCharacters?: number;
   maxEventCharacters?: number;
 }
 
 export class FetchSseError extends Error {
-  readonly code: "EVENT_STREAM_BUFFER_LIMIT_EXCEEDED" | "EVENT_STREAM_FRAME_LIMIT_EXCEEDED";
+  readonly code:
+    | "EVENT_STREAM_BUFFER_LIMIT_EXCEEDED"
+    | "EVENT_STREAM_FRAME_LIMIT_EXCEEDED"
+    | "EVENT_STREAM_IDLE_TIMEOUT";
 
   constructor(code: FetchSseError["code"], message: string) {
     super(message);
     this.name = "FetchSseError";
     this.code = code;
   }
+}
+
+function positiveTimeout(value: number | undefined): number {
+  const timeout = value ?? DEFAULT_IDLE_TIMEOUT_MS;
+  if (!Number.isSafeInteger(timeout) || timeout < 1) {
+    throw new RangeError("idleTimeoutMs must be a positive safe integer");
+  }
+  return timeout;
 }
 
 function positiveLimit(value: number | undefined, fallback: number, name: string): number {
@@ -47,6 +61,7 @@ export async function readFetchSse(
     DEFAULT_MAX_EVENT_CHARACTERS,
     "maxEventCharacters",
   );
+  const idleTimeoutMs = positiveTimeout(options.idleTimeoutMs);
   const reader = stream.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
@@ -55,6 +70,18 @@ export async function readFetchSse(
   let lastEventId = "";
   let eventCharacters = 0;
   let completed = false;
+  let readerCancelled = false;
+
+  const cancelReader = () => {
+    if (readerCancelled) return Promise.resolve();
+    readerCancelled = true;
+    return reader.cancel().catch(() => undefined);
+  };
+
+  const abortReader = () => {
+    void cancelReader();
+  };
+  options.signal?.addEventListener("abort", abortReader, { once: true });
 
   const resetEvent = () => {
     dataLines = [];
@@ -133,7 +160,22 @@ export async function readFetchSse(
 
   try {
     while (true) {
-      const { done, value } = await reader.read();
+      let idleTimer: ReturnType<typeof setTimeout> | undefined;
+      const result = await Promise.race([
+        reader.read(),
+        new Promise<never>((_, reject) => {
+          idleTimer = setTimeout(() => {
+            void cancelReader();
+            reject(new FetchSseError(
+              "EVENT_STREAM_IDLE_TIMEOUT",
+              "Event stream produced no data or heartbeat before the idle deadline",
+            ));
+          }, idleTimeoutMs);
+        }),
+      ]).finally(() => {
+        if (idleTimer !== undefined) clearTimeout(idleTimer);
+      });
+      const { done, value } = result;
       if (done) break;
       for (let offset = 0; offset < value.length; offset += DECODE_SLICE_BYTES) {
         const slice = value.subarray(offset, offset + DECODE_SLICE_BYTES);
@@ -143,8 +185,9 @@ export async function readFetchSse(
     await appendDecoded(decoder.decode(), true);
     completed = true;
   } finally {
+    options.signal?.removeEventListener("abort", abortReader);
     if (!completed) {
-      await reader.cancel().catch(() => undefined);
+      await cancelReader();
     }
     reader.releaseLock();
   }

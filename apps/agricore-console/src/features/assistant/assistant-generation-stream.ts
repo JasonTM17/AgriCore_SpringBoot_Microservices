@@ -72,6 +72,8 @@ export async function streamAssistantGeneration(
     requestOptions,
     async (response) => {
       await readFetchSse(response.body, {
+        ...(options.signal ? { signal: options.signal } : {}),
+        idleTimeoutMs: 45_000,
         onComment: async (comment) => {
           if (streamErrorCode) throw new AssistantStreamLifecycleError();
           if (comment === "heartbeat") await options.onHeartbeat?.();

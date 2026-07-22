@@ -118,4 +118,25 @@ describe("readFetchSse", () => {
     })).rejects.toThrow(RangeError);
     expect(stream.locked).toBe(false);
   });
+
+  it("fails and cancels a stream that produces no data before the idle deadline", async () => {
+    const cancel = vi.fn();
+    const reader = {
+      read: () => new Promise<ReadableStreamReadResult<Uint8Array>>(() => undefined),
+      cancel: () => {
+        cancel();
+        return Promise.resolve();
+      },
+      releaseLock: vi.fn(),
+    };
+    const stream = { getReader: () => reader } as unknown as ReadableStream<Uint8Array>;
+
+    await expect(readFetchSse(stream, {
+      onEvent: () => undefined,
+      idleTimeoutMs: 10,
+    })).rejects.toMatchObject({
+      code: "EVENT_STREAM_IDLE_TIMEOUT",
+    });
+    expect(cancel).toHaveBeenCalledOnce();
+  });
 });
