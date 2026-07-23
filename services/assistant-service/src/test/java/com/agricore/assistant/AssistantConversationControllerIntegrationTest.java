@@ -28,7 +28,7 @@ class AssistantConversationControllerIntegrationTest extends AssistantApiIntegra
                 "  Season planning  "
         );
 
-        mockMvc.perform(authenticated(get(CONVERSATIONS_PATH), OWNER, "AUDITOR"))
+        mockMvc.perform(authenticated(get(CONVERSATIONS_PATH), OWNER, "FIELD_WORKER"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.page").value(0))
                 .andExpect(jsonPath("$.size").value(20))
@@ -38,7 +38,7 @@ class AssistantConversationControllerIntegrationTest extends AssistantApiIntegra
                 .andExpect(jsonPath("$.content[0].roleSnapshot[0]").value("AGRONOMIST"))
                 .andExpect(jsonPath("$.content[0].roleSnapshot[1]").value("FARM_MANAGER"));
 
-        mockMvc.perform(authenticated(get(CONVERSATIONS_PATH + "/" + conversationId), OWNER, "AUDITOR"))
+        mockMvc.perform(authenticated(get(CONVERSATIONS_PATH + "/" + conversationId), OWNER, "FIELD_WORKER"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(conversationId.toString()))
                 .andExpect(jsonPath("$.status").value("OPEN"));
@@ -46,7 +46,7 @@ class AssistantConversationControllerIntegrationTest extends AssistantApiIntegra
         mockMvc.perform(authenticated(
                         post(CONVERSATIONS_PATH + "/" + conversationId + "/archive"),
                         OWNER,
-                        "AUDITOR"
+                        "FIELD_WORKER"
                 ))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ARCHIVED"))
@@ -56,18 +56,18 @@ class AssistantConversationControllerIntegrationTest extends AssistantApiIntegra
         mockMvc.perform(authenticated(
                         post(CONVERSATIONS_PATH + "/" + conversationId + "/archive"),
                         OWNER,
-                        "AUDITOR"
+                        "FIELD_WORKER"
                 ))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ARCHIVED"));
 
-        mockMvc.perform(authenticated(get(CONVERSATIONS_PATH), OWNER, "AUDITOR"))
+        mockMvc.perform(authenticated(get(CONVERSATIONS_PATH), OWNER, "FIELD_WORKER"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(0));
         mockMvc.perform(authenticated(
                         get(CONVERSATIONS_PATH).queryParam("status", "ARCHIVED"),
                         OWNER,
-                        "AUDITOR"
+                        "FIELD_WORKER"
                 ))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1));

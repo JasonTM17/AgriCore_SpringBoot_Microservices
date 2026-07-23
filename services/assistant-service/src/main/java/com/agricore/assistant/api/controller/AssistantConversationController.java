@@ -64,7 +64,7 @@ public class AssistantConversationController {
     }
 
     @PostMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_ASSISTANT_USE')")
     public ResponseEntity<ConversationResponse> create(
             @Valid @RequestBody CreateConversationRequest request,
             Authentication authentication
@@ -77,7 +77,7 @@ public class AssistantConversationController {
     }
 
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_ASSISTANT_USE')")
     public PageResponse<ConversationResponse> list(
             @RequestParam(required = false) ConversationStatus status,
             @RequestParam(defaultValue = "0") @Min(0) int page,
@@ -98,7 +98,7 @@ public class AssistantConversationController {
     }
 
     @GetMapping("/{conversationId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_ASSISTANT_USE')")
     public ConversationResponse get(
             @PathVariable UUID conversationId,
             Authentication authentication
@@ -110,7 +110,7 @@ public class AssistantConversationController {
     }
 
     @PostMapping("/{conversationId}/archive")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_ASSISTANT_USE')")
     public ConversationResponse archive(
             @PathVariable UUID conversationId,
             Authentication authentication
@@ -122,7 +122,7 @@ public class AssistantConversationController {
     }
 
     @GetMapping("/{conversationId}/messages")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_ASSISTANT_USE')")
     public PageResponse<MessageResponse> messages(
             @PathVariable UUID conversationId,
             @RequestParam(defaultValue = "0") @Min(0) int page,
@@ -143,7 +143,7 @@ public class AssistantConversationController {
     }
 
     @PostMapping("/{conversationId}/generations")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_ASSISTANT_USE')")
     public ResponseEntity<GenerationResponse> submitGeneration(
             @PathVariable UUID conversationId,
             @RequestHeader("Idempotency-Key") String idempotencyKey,
@@ -159,7 +159,7 @@ public class AssistantConversationController {
     }
 
     @GetMapping("/{conversationId}/generations/{generationId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_ASSISTANT_USE')")
     public GenerationResponse generation(
             @PathVariable UUID conversationId,
             @PathVariable UUID generationId,
@@ -170,7 +170,7 @@ public class AssistantConversationController {
     }
 
     @PostMapping("/{conversationId}/generations/{generationId}/cancel")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_ASSISTANT_USE')")
     public GenerationResponse cancelGeneration(
             @PathVariable UUID conversationId,
             @PathVariable UUID generationId,
@@ -184,7 +184,7 @@ public class AssistantConversationController {
             value = "/{conversationId}/generations/{generationId}/events",
             produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE
     )
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_ASSISTANT_USE')")
     public List<GenerationEventResponse> generationEvents(
             @PathVariable UUID conversationId,
             @PathVariable UUID generationId,

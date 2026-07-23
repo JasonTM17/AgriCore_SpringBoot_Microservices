@@ -22,7 +22,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/admin")
-@PreAuthorize("hasRole('SYSTEM_ADMIN')")
 public class AdminPermissionController {
 
     private final AdminPermissionService permissionService;
@@ -32,6 +31,7 @@ public class AdminPermissionController {
     }
 
     @GetMapping("/permissions")
+    @PreAuthorize("hasAuthority('PERMISSION_IDENTITY_POLICY_READ')")
     public PageResponse<PermissionResponse> listPermissions(
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) int size
@@ -42,11 +42,13 @@ public class AdminPermissionController {
     }
 
     @GetMapping("/roles/{roleCode}/permissions")
+    @PreAuthorize("hasAuthority('PERMISSION_IDENTITY_POLICY_READ')")
     public RolePermissionsResponse getRolePermissions(@PathVariable RoleCode roleCode) {
         return permissionService.getRolePermissions(roleCode);
     }
 
     @PutMapping("/roles/{roleCode}/permissions")
+    @PreAuthorize("hasAuthority('PERMISSION_IDENTITY_POLICY_ADMIN')")
     public RolePermissionsResponse replaceRolePermissions(
             @PathVariable RoleCode roleCode,
             @Valid @RequestBody UpdateRolePermissionsRequest request,

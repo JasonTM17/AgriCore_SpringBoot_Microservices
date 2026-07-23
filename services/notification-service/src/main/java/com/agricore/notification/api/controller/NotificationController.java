@@ -20,7 +20,7 @@ public class NotificationController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
+    @PreAuthorize("hasRole('SYSTEM_ADMIN') and hasAuthority('PERMISSION_NOTIFICATION_ADMIN')")
     public ResponseEntity<NotificationResponse> send(@Valid @RequestBody SendNotificationRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.send(request));
     }

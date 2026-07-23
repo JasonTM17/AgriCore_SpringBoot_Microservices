@@ -151,6 +151,36 @@ class WorkAccessFailureIntegrationTest {
         verifyNoInteractions(farmAccessClient);
     }
 
+    @Test
+    void create_whenRoleHasReadOnlyPermission_isDeniedBeforeFarmLookup() throws Exception {
+        assertApiError(
+                mockMvc.perform(post("/api/v1/work-tasks")
+                        .header("X-Dev-User", "agronomist")
+                        .header("X-Dev-Roles", "AGRONOMIST")
+                        .header("X-Dev-Permissions", "WORK_READ")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createRequest("PERMISSION-" + System.nanoTime(), UUID.randomUUID()))),
+                HttpStatus.FORBIDDEN,
+                "ACCESS_DENIED"
+        );
+
+        verifyNoInteractions(farmAccessClient);
+    }
+
+    @Test
+    void start_whenRoleHasReadOnlyPermission_isDeniedBeforeLifecycleMutation() throws Exception {
+        UUID taskId = createAccepted("USE-" + System.nanoTime(), UUID.randomUUID());
+
+        assertApiError(
+                mockMvc.perform(post("/api/v1/work-tasks/{taskId}/start", taskId)
+                        .header("X-Dev-User", "worker")
+                        .header("X-Dev-Roles", "FIELD_WORKER")
+                        .header("X-Dev-Permissions", "WORK_READ")),
+                HttpStatus.FORBIDDEN,
+                "ACCESS_DENIED"
+        );
+    }
+
     private UUID createAccepted(String code, UUID plotId) throws Exception {
         String body = mockMvc.perform(post("/api/v1/work-tasks")
                         .header("X-Dev-User", "agronomist")

@@ -39,13 +39,13 @@ public class HarvestController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST','WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAuthority('PERMISSION_HARVEST_WRITE')")
     public ResponseEntity<HarvestBatchResponse> start(@Valid @RequestBody StartHarvestRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(lifecycleService.start(request));
     }
 
     @PostMapping("/{harvestId}/complete")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST','WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAuthority('PERMISSION_HARVEST_WRITE')")
     public HarvestBatchResponse complete(
             @PathVariable UUID harvestId,
             @Valid @RequestBody CompleteHarvestBatchRequest request
@@ -54,19 +54,19 @@ public class HarvestController {
     }
 
     @PostMapping("/complete")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST','WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAuthority('PERMISSION_HARVEST_WRITE')")
     public ResponseEntity<HarvestBatchResponse> complete(@Valid @RequestBody CompleteHarvestRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.completeHarvest(request));
     }
 
     @GetMapping("/{harvestId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_HARVEST_READ')")
     public HarvestBatchResponse get(@PathVariable UUID harvestId) {
         return service.get(harvestId);
     }
 
     @GetMapping("/{harvestId}/completion-event")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_HARVEST_READ')")
     public HarvestCompletionEventStatusResponse getCompletionEventStatus(
             @PathVariable UUID harvestId
     ) {
@@ -74,7 +74,7 @@ public class HarvestController {
     }
 
     @PostMapping("/{harvestId}/completion-event/republish")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST','WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAuthority('PERMISSION_HARVEST_WRITE')")
     public ResponseEntity<HarvestCompletionEventStatusResponse> republishCompletionEvent(
             @PathVariable UUID harvestId
     ) {

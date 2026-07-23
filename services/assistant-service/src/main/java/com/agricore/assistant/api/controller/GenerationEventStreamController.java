@@ -45,7 +45,7 @@ public class GenerationEventStreamController {
             value = "/{conversationId}/generations/{generationId}/events",
             produces = MediaType.TEXT_EVENT_STREAM_VALUE
     )
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_ASSISTANT_USE')")
     public SseEmitter stream(
             @PathVariable UUID conversationId,
             @PathVariable UUID generationId,

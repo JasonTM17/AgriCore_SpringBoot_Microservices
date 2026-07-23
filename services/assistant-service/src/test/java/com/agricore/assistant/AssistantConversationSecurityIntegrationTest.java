@@ -36,11 +36,27 @@ class AssistantConversationSecurityIntegrationTest extends AssistantApiIntegrati
 
     @Test
     void lifecycleIsAvailableToAnyAuthenticatedRole() throws Exception {
-        createEnterpriseConversation(OWNER, "AUDITOR", "Audit discussion");
+        createEnterpriseConversation(OWNER, "FIELD_WORKER", "Audit discussion");
 
-        mockMvc.perform(authenticated(get(CONVERSATIONS_PATH), OWNER, "AUDITOR"))
+        mockMvc.perform(authenticated(get(CONVERSATIONS_PATH), OWNER, "FIELD_WORKER"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void conversationEndpointsRequireAssistantPermissionEvenForAuthenticatedRoles() throws Exception {
+        mockMvc.perform(authenticated(
+                        post(CONVERSATIONS_PATH)
+                                .header("X-Dev-Permissions", "")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {"title":"Permission denied","contextType":"ENTERPRISE"}
+                                        """),
+                        OWNER,
+                        "FIELD_WORKER"
+                ))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
     }
 
     @Test

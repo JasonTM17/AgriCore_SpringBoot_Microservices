@@ -137,6 +137,22 @@ class HarvestAccessFailureIntegrationTest {
         verifyNoInteractions(farmAccessClient);
     }
 
+    @Test
+    void complete_whenRoleHasReadOnlyPermission_isDeniedBeforeFarmLookup() throws Exception {
+        assertApiError(
+                mockMvc.perform(post("/api/v1/harvests/complete")
+                        .header("X-Dev-User", "manager")
+                        .header("X-Dev-Roles", "FARM_MANAGER")
+                        .header("X-Dev-Permissions", "HARVEST_READ")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validRequest("PERMISSION-" + System.nanoTime(), UUID.randomUUID()))),
+                HttpStatus.FORBIDDEN,
+                "ACCESS_DENIED"
+        );
+
+        verifyNoInteractions(farmAccessClient);
+    }
+
     private UUID createAccepted(String code, UUID plotId) throws Exception {
         String body = mockMvc.perform(post("/api/v1/harvests/complete")
                         .header("X-Dev-User", "manager")

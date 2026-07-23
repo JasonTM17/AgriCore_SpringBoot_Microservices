@@ -15,7 +15,6 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/admin/users")
-@PreAuthorize("hasRole('SYSTEM_ADMIN')")
 public class AdminUserController {
 
     private final AdminUserService adminUserService;
@@ -25,6 +24,7 @@ public class AdminUserController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('PERMISSION_IDENTITY_USER_READ')")
     public PageResponse<UserResponse> list(
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) int size
@@ -33,6 +33,7 @@ public class AdminUserController {
     }
 
     @PatchMapping("/{userId}/roles")
+    @PreAuthorize("hasAuthority('PERMISSION_IDENTITY_USER_ADMIN')")
     public UserResponse updateRoles(
             @PathVariable UUID userId,
             @Valid @RequestBody UpdateUserRolesRequest request

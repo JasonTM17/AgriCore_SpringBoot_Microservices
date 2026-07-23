@@ -52,7 +52,9 @@ class IdentityErrorBoundaryIntegrationTest {
     }
 
     @Test
-    @WithMockUser(roles = "SYSTEM_ADMIN")
+    @WithMockUser(authorities = {
+            "ROLE_SYSTEM_ADMIN", "PERMISSION_IDENTITY_USER_READ", "PERMISSION_IDENTITY_USER_ADMIN"
+    })
     void invalidUuid_returnsStableBadRequest() throws Exception {
         mockMvc.perform(patch("/api/v1/admin/users/not-a-uuid/roles")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -62,7 +64,17 @@ class IdentityErrorBoundaryIntegrationTest {
     }
 
     @Test
-    @WithMockUser(roles = "SYSTEM_ADMIN")
+    @WithMockUser(authorities = "ROLE_SYSTEM_ADMIN")
+    void missingPermission_returnsStableForbidden() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/users"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+    }
+
+    @Test
+    @WithMockUser(authorities = {
+            "ROLE_SYSTEM_ADMIN", "PERMISSION_IDENTITY_USER_READ", "PERMISSION_IDENTITY_USER_ADMIN"
+    })
     void invalidPaging_returnsValidationError() throws Exception {
         for (String query : List.of("?page=-1", "?size=0")) {
             mockMvc.perform(get("/api/v1/admin/users" + query))
@@ -72,7 +84,9 @@ class IdentityErrorBoundaryIntegrationTest {
     }
 
     @Test
-    @WithMockUser(roles = "SYSTEM_ADMIN")
+    @WithMockUser(authorities = {
+            "ROLE_SYSTEM_ADMIN", "PERMISSION_IDENTITY_USER_READ", "PERMISSION_IDENTITY_USER_ADMIN"
+    })
     void invalidRoleSets_returnValidationError() throws Exception {
         UUID userId = registerUser();
 
@@ -86,7 +100,9 @@ class IdentityErrorBoundaryIntegrationTest {
     }
 
     @Test
-    @WithMockUser(roles = "SYSTEM_ADMIN")
+    @WithMockUser(authorities = {
+            "ROLE_SYSTEM_ADMIN", "PERMISSION_IDENTITY_USER_READ", "PERMISSION_IDENTITY_USER_ADMIN"
+    })
     void unknownRole_returnsMalformedJson() throws Exception {
         mockMvc.perform(patch("/api/v1/admin/users/{userId}/roles", UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON)

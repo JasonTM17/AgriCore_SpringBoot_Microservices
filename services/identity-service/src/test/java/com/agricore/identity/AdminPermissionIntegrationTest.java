@@ -51,7 +51,9 @@ class AdminPermissionIntegrationTest {
     private EntityManager entityManager;
 
     @Test
-    @WithMockUser(roles = "SYSTEM_ADMIN")
+    @WithMockUser(authorities = {
+            "ROLE_SYSTEM_ADMIN", "PERMISSION_IDENTITY_POLICY_READ", "PERMISSION_IDENTITY_POLICY_ADMIN"
+    })
     void catalogAndSeededRolePoliciesAreDeterministicAndSorted() throws Exception {
         mockMvc.perform(get("/api/v1/admin/permissions").queryParam("size", "100"))
                 .andExpect(status().isOk())
@@ -83,7 +85,9 @@ class AdminPermissionIntegrationTest {
     }
 
     @Test
-    @WithMockUser(username = "admin-subject", roles = "SYSTEM_ADMIN")
+    @WithMockUser(username = "admin-subject", authorities = {
+            "ROLE_SYSTEM_ADMIN", "PERMISSION_IDENTITY_POLICY_READ", "PERMISSION_IDENTITY_POLICY_ADMIN"
+    })
     void versionedReplacementIsAtomicAuditedAndRejectsStaleWrites() throws Exception {
         PermissionEntity legacyPermission = new PermissionEntity();
         legacyPermission.setId(UUID.fromString("33333333-3333-3333-3333-333333333334"));
@@ -165,7 +169,9 @@ class AdminPermissionIntegrationTest {
     }
 
     @Test
-    @WithMockUser(roles = "SYSTEM_ADMIN")
+    @WithMockUser(authorities = {
+            "ROLE_SYSTEM_ADMIN", "PERMISSION_IDENTITY_POLICY_READ", "PERMISSION_IDENTITY_POLICY_ADMIN"
+    })
     void runtimePermissionCreationIsNotSupported() throws Exception {
         long before = permissionRepository.count();
 

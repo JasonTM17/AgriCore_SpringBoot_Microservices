@@ -53,13 +53,13 @@ public class WorkTaskController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST')")
+    @PreAuthorize("hasAuthority('PERMISSION_WORK_WRITE')")
     public ResponseEntity<WorkTaskResponse> create(@Valid @RequestBody CreateWorkTaskRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(request));
     }
 
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_WORK_READ')")
     public PageResponse<WorkTaskResponse> list(
             @RequestParam(required = false) UUID cropCycleId,
             @RequestParam(required = false) UUID plotId,
@@ -70,13 +70,13 @@ public class WorkTaskController {
     }
 
     @GetMapping("/{taskId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_WORK_READ')")
     public WorkTaskResponse get(@PathVariable UUID taskId) {
         return service.get(taskId);
     }
 
     @PostMapping("/{taskId}/assign")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST')")
+    @PreAuthorize("hasAuthority('PERMISSION_WORK_WRITE')")
     public WorkTaskResponse assign(
             @PathVariable UUID taskId,
             @Valid @RequestBody AssignTaskRequest request,
@@ -86,7 +86,7 @@ public class WorkTaskController {
     }
 
     @GetMapping("/{taskId}/assignments")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_WORK_READ')")
     public PageResponse<WorkAssignmentResponse> listAssignments(
             @PathVariable UUID taskId,
             @RequestParam(defaultValue = "0") @Min(0) int page,
@@ -101,13 +101,13 @@ public class WorkTaskController {
     }
 
     @PostMapping("/{taskId}/start")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST','FIELD_WORKER')")
+    @PreAuthorize("hasAuthority('PERMISSION_WORK_USE')")
     public WorkTaskResponse start(@PathVariable UUID taskId, Principal principal) {
         return service.start(taskId, principal.getName());
     }
 
     @PostMapping("/{taskId}/complete")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST','FIELD_WORKER')")
+    @PreAuthorize("hasAuthority('PERMISSION_WORK_USE')")
     public WorkTaskResponse complete(
             @PathVariable UUID taskId,
             @Valid @RequestBody(required = false) CompleteTaskRequest request,
@@ -121,7 +121,7 @@ public class WorkTaskController {
     }
 
     @PostMapping("/{taskId}/cancel")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST')")
+    @PreAuthorize("hasAuthority('PERMISSION_WORK_WRITE')")
     public WorkTaskResponse cancel(
             @PathVariable UUID taskId,
             @Valid @RequestBody(required = false) CancelTaskRequest request,
@@ -135,7 +135,7 @@ public class WorkTaskController {
     }
 
     @GetMapping("/{taskId}/executions")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_WORK_READ')")
     public PageResponse<TaskExecutionResponse> listExecutions(
             @PathVariable UUID taskId,
             @RequestParam(defaultValue = "0") @Min(0) int page,
@@ -150,7 +150,7 @@ public class WorkTaskController {
     }
 
     @PostMapping(path = "/{taskId}/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST','FIELD_WORKER')")
+    @PreAuthorize("hasAuthority('PERMISSION_WORK_USE')")
     public ResponseEntity<TaskAttachmentResponse> uploadAttachment(
             @PathVariable UUID taskId,
             @RequestPart("file") MultipartFile file,
@@ -161,13 +161,13 @@ public class WorkTaskController {
     }
 
     @GetMapping("/{taskId}/attachments")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_WORK_READ')")
     public List<TaskAttachmentResponse> listAttachments(@PathVariable UUID taskId) {
         return attachmentService.list(taskId);
     }
 
     @GetMapping("/{taskId}/attachments/{attachmentId}/download")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_WORK_READ')")
     public ResponseEntity<Void> downloadAttachment(
             @PathVariable UUID taskId,
             @PathVariable UUID attachmentId

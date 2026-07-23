@@ -11,6 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -208,7 +209,9 @@ class AuthIntegrationTest {
                 .asText();
 
         mockMvc.perform(put("/api/v1/admin/roles/FIELD_WORKER/permissions")
-                        .with(user("policy-admin").roles("SYSTEM_ADMIN"))
+                        .with(user("policy-admin").authorities(
+                                new SimpleGrantedAuthority("ROLE_SYSTEM_ADMIN"),
+                                new SimpleGrantedAuthority("PERMISSION_IDENTITY_POLICY_ADMIN")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -264,7 +267,9 @@ class AuthIntegrationTest {
                 .asText();
 
         mockMvc.perform(patch("/api/v1/admin/users/{userId}/roles", userId)
-                        .with(user("policy-admin").roles("SYSTEM_ADMIN"))
+                        .with(user("policy-admin").authorities(
+                                new SimpleGrantedAuthority("ROLE_SYSTEM_ADMIN"),
+                                new SimpleGrantedAuthority("PERMISSION_IDENTITY_USER_ADMIN")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"roles":["AUDITOR"]}
@@ -306,7 +311,9 @@ class AuthIntegrationTest {
                 .asText();
 
         mockMvc.perform(patch("/api/v1/admin/users/{userId}/roles", userId)
-                        .with(user("policy-admin").roles("SYSTEM_ADMIN"))
+                        .with(user("policy-admin").authorities(
+                                new SimpleGrantedAuthority("ROLE_SYSTEM_ADMIN"),
+                                new SimpleGrantedAuthority("PERMISSION_IDENTITY_USER_ADMIN")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"roles":["AUDITOR"]}
