@@ -95,8 +95,16 @@ public class HarvestApplicationService {
     }
 
     static void requireValidWeights(BigDecimal grossWeightKg, BigDecimal netWeightKg) {
-        if (netWeightKg.compareTo(grossWeightKg) > 0) {
-            throw new HarvestException("INVALID_WEIGHT", "netWeightKg cannot exceed grossWeightKg", 400);
+        if (grossWeightKg == null
+                || netWeightKg == null
+                || grossWeightKg.signum() <= 0
+                || netWeightKg.signum() <= 0
+                || netWeightKg.compareTo(grossWeightKg) > 0) {
+            throw new HarvestException(
+                    "INVALID_WEIGHT",
+                    "Weights must be positive and netWeightKg cannot exceed grossWeightKg",
+                    400
+            );
         }
     }
 }

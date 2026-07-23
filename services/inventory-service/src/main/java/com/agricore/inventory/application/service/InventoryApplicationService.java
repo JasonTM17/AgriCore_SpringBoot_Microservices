@@ -2,12 +2,16 @@ package com.agricore.inventory.application.service;
 
 import com.agricore.inventory.api.request.*;
 import com.agricore.inventory.api.response.InventoryItemResponse;
+import com.agricore.inventory.api.response.StockMovementResponse;
 import com.agricore.inventory.api.response.ReservationResponse;
 import com.agricore.inventory.api.response.WarehouseResponse;
+import com.agricore.common.api.PageResponse;
 import com.agricore.inventory.domain.exception.InventoryException;
 import com.agricore.inventory.domain.model.MovementType;
 import com.agricore.inventory.infrastructure.persistence.*;
 import com.agricore.inventory.infrastructure.persistence.entity.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -415,6 +419,28 @@ public class InventoryApplicationService {
         return toItemResponse(requireItem(id));
     }
 
+    @Transactional(readOnly = true)
+    public PageResponse<InventoryItemResponse> listItems(UUID warehouseId, Pageable pageable) {
+        Page<InventoryItemEntity> page = itemRepository.findByWarehouseId(warehouseId, pageable);
+        return PageResponse.of(
+                page.getContent().stream().map(this::toItemResponse).toList(),
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements()
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<StockMovementResponse> listMovements(UUID itemId, Pageable pageable) {
+        Page<StockMovementEntity> page = movementRepository.findByInventoryItemId(itemId, pageable);
+        return PageResponse.of(
+                page.getContent().stream().map(InventoryApplicationService::toMovementResponse).toList(),
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements()
+        );
+    }
+
     private InventoryItemEntity createProduceItem(UUID warehouseId, String sku) {
         Instant now = Instant.now();
         InventoryItemEntity item = new InventoryItemEntity();
@@ -542,6 +568,20 @@ public class InventoryApplicationService {
                 item.getReservedQuantity(),
                 item.availableQuantity(),
                 item.getVersion()
+        );
+    }
+
+    private static StockMovementResponse toMovementResponse(StockMovementEntity movement) {
+        return new StockMovementResponse(
+                movement.getId(),
+                movement.getInventoryItemId(),
+                movement.getBatchId(),
+                movement.getMovementType().name(),
+                movement.getQuantity(),
+                movement.getReferenceType(),
+                movement.getReferenceId(),
+                movement.getNote(),
+                movement.getCreatedAt()
         );
     }
 }

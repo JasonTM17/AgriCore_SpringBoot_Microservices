@@ -28,6 +28,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.Mockito.doAnswer;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -141,6 +142,34 @@ class HarvestLifecycleIntegrationTest {
         assertThat(eventsFor(harvestId).stream()
                 .filter(event -> EventTypes.HARVEST_COMPLETED.equals(event.getEventType())))
                 .hasSize(1);
+    }
+
+    @Test
+    void directCompletionRejectsNonPositiveWeightsAtTheApplicationBoundary() {
+        var started = lifecycleService.start(new StartHarvestRequest(
+                "INVALID-WEIGHT-" + UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "COFFEE-ROBUSTA",
+                null
+        ));
+
+        assertThatThrownBy(() -> lifecycleService.complete(
+                started.id(),
+                new CompleteHarvestBatchRequest(
+                        BigDecimal.ZERO,
+                        new BigDecimal("-1.000"),
+                        "GRADE_A",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null
+                )
+        ))
+                .isInstanceOf(com.agricore.harvest.domain.exception.HarvestException.class)
+                .hasMessageContaining("Weights must be positive");
     }
 
     @Test
