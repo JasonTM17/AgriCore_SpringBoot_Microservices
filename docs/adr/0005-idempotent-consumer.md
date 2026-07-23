@@ -1,18 +1,62 @@
-# 5. Idempotent Consumer via processed_events
+# 5. Idempotent consumers with processed-event ledgers
 
-**Date:** 2026-07-16  
+**Date:** 2026-07-16
+
 **Status:** Accepted
 
 ## Context
 
-Kafka delivers at-least-once. Inventory must not double stock when `HarvestCompleted.v1` is redelivered.
+Kafka is at least once. Redelivery after a consumer or broker failure must not
+double stock, duplicate a public batch, or resend the same notification effect.
 
 ## Decision
 
-Each consumer with side effects uses table `processed_events (event_id, consumer_name, processed_at)` with primary key `(event_id, consumer_name)`. Business write and insert into `processed_events` share one DB transaction.
+Each side-effecting consumer stores a stable event marker in its owning database.
+The event marker and business side effect commit in one transaction. The marker
+key includes the consumer identity and, where needed, authoritative farm or
+warehouse scope. Replaying an exact processed event returns the stored outcome
+without repeating the mutation.
+
+Invalid types, unsupported versions, and malformed envelopes do not create a
+processed marker; they follow the bounded retry/DLT policy.
 
 ## Consequences
 
-- Positive: correct under redelivery; simple to reason about
-- Negative: requires eventId on every envelope
-- Neutral: Kafka consumer adapter can call the same application method as the sync test endpoint
+### Positive
+
+- Exact event redelivery is safe and independently verifiable.
+- Consumer state and side effects cannot commit separately.
+
+### Negative
+
+- Every envelope needs a stable event ID.
+- Ledgers need indexes, retention policy, and scope-aware migrations.
+- Idempotency does not make semantically different events with different IDs
+  equivalent.
+
+### Neutral
+
+- The same application use case may be exercised by a guarded test/repair
+  endpoint, but production Kafka acknowledgement remains adapter-owned.
+
+## Trade-offs
+
+The platform accepts a small durable ledger per consumer to avoid relying on
+broker offsets as proof that a database side effect committed.
+
+## Alternatives considered
+
+- **Kafka offset only:** rejected because an offset and a database transaction
+  are separate commits.
+- **Exactly-once Kafka transactions:** rejected because they do not atomically
+  include arbitrary service databases.
+- **In-memory duplicate cache:** rejected because restart and eviction lose
+  evidence.
+- **Natural-key checks only:** insufficient for event replay diagnostics and
+  cannot cover every side effect.
+
+## References
+
+- [Harvest event flow](../diagrams/harvest-event-flow.md)
+- [Kafka DLT runbook](../runbooks/kafka-dlq.md)
+- [Kafka communication ADR](0013-kafka-event-communication.md)
