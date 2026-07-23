@@ -13,6 +13,8 @@ import java.util.UUID;
 
 public interface PlotJpaRepository extends JpaRepository<PlotEntity, UUID> {
     boolean existsByFarmIdAndCodeIgnoreCase(UUID farmId, String code);
+    boolean existsByFarmIdAndAreaId(UUID farmId, UUID areaId);
+
     @Query("""
             SELECT p FROM PlotEntity p
             WHERE p.farmId = :farmId

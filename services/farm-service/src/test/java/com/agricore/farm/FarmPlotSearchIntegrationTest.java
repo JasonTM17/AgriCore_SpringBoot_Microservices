@@ -32,8 +32,8 @@ class FarmPlotSearchIntegrationTest {
     void filtersAndSortsPlotsWithinAuthorizedFarm() throws Exception {
         String owner = UUID.randomUUID().toString();
         String farmId = createFarm(owner);
-        String northArea = UUID.randomUUID().toString();
-        String southArea = UUID.randomUUID().toString();
+        String northArea = createArea(owner, farmId, "North Area", 5.00);
+        String southArea = createArea(owner, farmId, "South Area", 2.00);
         createPlot(owner, farmId, "P-A", "North Small", northArea, 1.25);
         createPlot(owner, farmId, "P-B", "North Large", northArea, 3.50);
         createPlot(owner, farmId, "P-C", "South Block", southArea, 2.00);
@@ -104,6 +104,24 @@ class FarmPlotSearchIntegrationTest {
                                 }
                                 """.formatted(code, name, areaId, hectares)))
                 .andExpect(status().isCreated());
+    }
+
+    private String createArea(String owner, String farmId, String name, double hectares) throws Exception {
+        String body = mockMvc.perform(post("/api/v1/farms/{farmId}/areas", farmId)
+                        .headers(devAuth(owner))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "code":"A-%s",
+                                  "name":"%s",
+                                  "areaInHectares":%s
+                                }
+                                """.formatted(UUID.randomUUID().toString().replace("-", ""), name, hectares)))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        return objectMapper.readTree(body).get("id").asText();
     }
 
     private static HttpHeaders devAuth(String owner) {

@@ -327,6 +327,66 @@ export interface paths {
         patch: operations["updateFarm"];
         trace?: never;
     };
+    "/api/v1/farms/{farmId}/areas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Farm identifier. */
+                farmId: components["parameters"]["FarmId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List farm areas
+         * @description Requires farm membership; SYSTEM_ADMIN is the explicit global override. Optional filters are combined with logical AND, name/code search is case-insensitive, and sorting is restricted to documented area properties.
+         */
+        get: operations["listFarmAreas"];
+        put?: never;
+        /**
+         * Create a farm area
+         * @description Requires SYSTEM_ADMIN or FARM_MANAGER and farm access.
+         */
+        post: operations["createFarmArea"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/farms/{farmId}/areas/{areaId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Farm identifier. */
+                farmId: components["parameters"]["FarmId"];
+                /** @description Farm-scoped area identifier. */
+                areaId: components["parameters"]["FarmAreaId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get a farm area
+         * @description Requires access to the containing farm.
+         */
+        get: operations["getFarmArea"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete an unused farm area
+         * @description Requires SYSTEM_ADMIN or FARM_MANAGER, farm access, and the current optimistic-lock version. Areas referenced by any plot cannot be deleted.
+         */
+        delete: operations["deleteFarmArea"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a farm area
+         * @description Requires SYSTEM_ADMIN or FARM_MANAGER, farm access, and the current optimistic-lock version.
+         */
+        patch: operations["updateFarmArea"];
+        trace?: never;
+    };
     "/api/v1/farms/{farmId}/plots": {
         parameters: {
             query?: never;
@@ -1613,6 +1673,55 @@ export interface components {
             status?: components["schemas"]["FarmStatus"] | null;
         };
         /** @enum {string} */
+        FarmAreaStatus: "ACTIVE" | "INACTIVE" | "MAINTENANCE";
+        FarmAreaResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            farmId: string;
+            code: string;
+            name: string;
+            /** @description Null only for legacy areas backfilled from pre-area plot assignments. */
+            areaInHectares: number | null;
+            description: string | null;
+            status: components["schemas"]["FarmAreaStatus"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            createdBy: string;
+            updatedBy: string;
+            /** Format: int64 */
+            version: number;
+        };
+        FarmAreaPageResponse: {
+            content: components["schemas"]["FarmAreaResponse"][];
+            /** Format: int32 */
+            page: number;
+            /** Format: int32 */
+            size: number;
+            /** Format: int64 */
+            totalElements: number;
+            /** Format: int32 */
+            totalPages: number;
+            first: boolean;
+            last: boolean;
+        };
+        CreateFarmAreaRequest: {
+            code: string;
+            name: string;
+            areaInHectares: number;
+            description?: string | null;
+        };
+        UpdateFarmAreaRequest: {
+            /** Format: int64 */
+            version: number;
+            name?: string | null;
+            areaInHectares?: number | null;
+            description?: string | null;
+            status?: components["schemas"]["FarmAreaStatus"] | null;
+        };
+        /** @enum {string} */
         PlotStatus: "AVAILABLE" | "PREPARING" | "IN_USE" | "RESTING" | "MAINTENANCE" | "INACTIVE";
         PlotResponse: {
             /** Format: uuid */
@@ -1699,6 +1808,11 @@ export interface components {
             latitude?: number | null;
             /** Format: double */
             longitude?: number | null;
+            /**
+             * Format: uuid
+             * @description Omit to preserve the assignment, provide a same-farm UUID to reassign, or null to clear it.
+             */
+            areaId?: string | null;
         };
         CropResponse: {
             /** Format: uuid */
@@ -2462,7 +2576,7 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description A uniqueness or farm-membership invariant was violated. */
+        /** @description A uniqueness, optimistic-lock, assignment, deletion, or farm-membership invariant was violated. */
         Conflict: {
             headers: {
                 [name: string]: unknown;
@@ -2480,7 +2594,7 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description Requested farm, plot, or membership not found. */
+        /** @description Requested farm, farm area, plot, or membership not found. */
         NotFound: {
             headers: {
                 [name: string]: unknown;
@@ -2827,6 +2941,16 @@ export interface components {
         FarmSort: "code,asc" | "code,desc" | "name,asc" | "name,desc" | "province,asc" | "province,desc" | "totalAreaHa,asc" | "totalAreaHa,desc" | "status,asc" | "status,desc" | "createdAt,asc" | "createdAt,desc" | "updatedAt,asc" | "updatedAt,desc";
         /** @description Farm identifier. */
         FarmId: string;
+        /** @description Farm-area status code. */
+        FarmAreaStatusFilter: components["schemas"]["FarmAreaStatus"];
+        /** @description Case-insensitive farm-area code or name substring. */
+        FarmAreaQuery: string;
+        /** @description Supported farm-area property and direction. */
+        FarmAreaSort: "code,asc" | "code,desc" | "name,asc" | "name,desc" | "areaInHectares,asc" | "areaInHectares,desc" | "status,asc" | "status,desc" | "createdAt,asc" | "createdAt,desc" | "updatedAt,asc" | "updatedAt,desc";
+        /** @description Farm-scoped area identifier. */
+        FarmAreaId: string;
+        /** @description Current farm-area optimistic-lock version. */
+        FarmAreaVersion: number;
         /** @description Plot status code. */
         PlotStatusFilter: components["schemas"]["PlotStatus"];
         /** @description Exact farm-area identifier currently assigned to the plot. */
@@ -2985,6 +3109,178 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            415: components["responses"]["UnsupportedMediaType"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listFarmAreas: {
+        parameters: {
+            query?: {
+                /** @description Farm-area status code. */
+                status?: components["parameters"]["FarmAreaStatusFilter"];
+                /** @description Case-insensitive farm-area code or name substring. */
+                q?: components["parameters"]["FarmAreaQuery"];
+                /** @description Zero-based page index. */
+                page?: components["parameters"]["Page"];
+                /** @description Number of records per page. */
+                size?: components["parameters"]["Size"];
+                /** @description Supported farm-area property and direction. */
+                sort?: components["parameters"]["FarmAreaSort"];
+            };
+            header?: never;
+            path: {
+                /** @description Farm identifier. */
+                farmId: components["parameters"]["FarmId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paged farm areas. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FarmAreaPageResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    createFarmArea: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Farm identifier. */
+                farmId: components["parameters"]["FarmId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateFarmAreaRequest"];
+            };
+        };
+        responses: {
+            /** @description Farm area created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FarmAreaResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            415: components["responses"]["UnsupportedMediaType"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getFarmArea: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Farm identifier. */
+                farmId: components["parameters"]["FarmId"];
+                /** @description Farm-scoped area identifier. */
+                areaId: components["parameters"]["FarmAreaId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Farm area found. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FarmAreaResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    deleteFarmArea: {
+        parameters: {
+            query: {
+                /** @description Current farm-area optimistic-lock version. */
+                version: components["parameters"]["FarmAreaVersion"];
+            };
+            header?: never;
+            path: {
+                /** @description Farm identifier. */
+                farmId: components["parameters"]["FarmId"];
+                /** @description Farm-scoped area identifier. */
+                areaId: components["parameters"]["FarmAreaId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Farm area deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    updateFarmArea: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Farm identifier. */
+                farmId: components["parameters"]["FarmId"];
+                /** @description Farm-scoped area identifier. */
+                areaId: components["parameters"]["FarmAreaId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateFarmAreaRequest"];
+            };
+        };
+        responses: {
+            /** @description Farm area updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FarmAreaResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["InternalServerError"];
         };
@@ -3216,6 +3512,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["InternalServerError"];
         };

@@ -7,6 +7,7 @@ import com.agricore.farm.api.request.UpdateFarmRequest;
 import com.agricore.farm.api.response.FarmResponse;
 import com.agricore.farm.api.response.PlotResponse;
 import com.agricore.farm.application.service.FarmApplicationService;
+import com.agricore.farm.application.service.PlotApplicationService;
 import com.agricore.farm.application.service.PlotQueryService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -37,10 +38,16 @@ public class FarmController {
             "(code|name|areaInHectares|soilType|status|createdAt|updatedAt),(?i:asc|desc)";
 
     private final FarmApplicationService farmService;
+    private final PlotApplicationService plotService;
     private final PlotQueryService plotQueryService;
 
-    public FarmController(FarmApplicationService farmService, PlotQueryService plotQueryService) {
+    public FarmController(
+            FarmApplicationService farmService,
+            PlotApplicationService plotService,
+            PlotQueryService plotQueryService
+    ) {
         this.farmService = farmService;
+        this.plotService = plotService;
         this.plotQueryService = plotQueryService;
     }
 
@@ -81,7 +88,7 @@ public class FarmController {
             @PathVariable UUID farmId,
             @Valid @RequestBody CreatePlotRequest request
     ) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(farmService.createPlot(farmId, request));
+        return ResponseEntity.status(HttpStatus.CREATED).body(plotService.create(farmId, request));
     }
 
     @GetMapping("/{farmId}/plots")

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgriCore API Gateway
-  version: 1.9.0
+  version: 1.10.0
   description: |
     Edge routes for the AgriCore microservices portfolio.
     The gateway validates JWT (RS256 via Identity JWKS) then proxies path prefixes
@@ -83,6 +83,10 @@ paths:
     $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1farms'
   /api/v1/farms/{farmId}:
     $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1farms~1{farmId}'
+  /api/v1/farms/{farmId}/areas:
+    $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1farms~1{farmId}~1areas'
+  /api/v1/farms/{farmId}/areas/{areaId}:
+    $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1farms~1{farmId}~1areas~1{areaId}'
   /api/v1/farms/{farmId}/plots:
     $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1farms~1{farmId}~1plots'
   /api/v1/farms/{farmId}/memberships:
