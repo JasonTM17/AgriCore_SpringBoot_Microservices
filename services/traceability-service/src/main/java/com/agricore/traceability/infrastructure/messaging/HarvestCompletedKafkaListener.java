@@ -35,15 +35,16 @@ public class HarvestCompletedKafkaListener {
     }
 
     @RetryableTopic(
-            attempts = "${AGRICORE_KAFKA_RETRY_ATTEMPTS:4}",
+            attempts = "4",
             backoff = @Backoff(
-                    delayExpression = "${AGRICORE_KAFKA_RETRY_DELAY_MS:1000}",
-                    multiplierExpression = "${AGRICORE_KAFKA_RETRY_MULTIPLIER:2}",
-                    maxDelayExpression = "${AGRICORE_KAFKA_RETRY_MAX_DELAY_MS:8000}"
+                    delay = 1000,
+                    multiplier = 2.0,
+                    maxDelay = 4000
             ),
-            timeout = "${AGRICORE_KAFKA_RETRY_TIMEOUT_MS:30000}",
+            timeout = "30000",
             dltTopicSuffix = ".DLT",
-            autoCreateTopics = "${AGRICORE_KAFKA_RETRY_AUTO_CREATE_TOPICS:false}"
+            exclude = IllegalArgumentException.class,
+            autoCreateTopics = "false"
     )
     @KafkaListener(
             topics = "${agricore.kafka.topics.harvest-events:agricore.harvest.events}",
