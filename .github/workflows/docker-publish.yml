@@ -16,8 +16,9 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  REGISTRY: docker.io
-  IMAGE_NAMESPACE: nguyenson1710
+  DOCKERHUB_REGISTRY: docker.io
+  DOCKERHUB_NAMESPACE: nguyenson1710
+  GHCR_REGISTRY: ghcr.io
 
 jobs:
   resolve-sha:
@@ -69,6 +70,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      packages: write
     strategy:
       fail-fast: false
       matrix:
@@ -141,16 +143,28 @@ jobs:
       - name: Log in to Docker Hub
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
+          registry: ${{ env.DOCKERHUB_REGISTRY }}
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Short SHA
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image metadata inputs
         id: meta_sha
         shell: bash
         run: |
           full="${{ needs.resolve-sha.outputs.publish_sha }}"
-          echo "short=${full:0:7}" >> "$GITHUB_OUTPUT"
-          echo "full=$full" >> "$GITHUB_OUTPUT"
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          {
+            echo "short=${full:0:7}"
+            echo "full=$full"
+            echo "ghcr_namespace=${{ env.GHCR_REGISTRY }}/$owner"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Build and push
         id: build
@@ -160,10 +174,16 @@ jobs:
           file: ${{ matrix.file }}
           push: true
           tags: |
-            ${{ env.IMAGE_NAMESPACE }}/${{ matrix.image }}:${{ steps.meta_sha.outputs.short }}
-            ${{ env.IMAGE_NAMESPACE }}/${{ matrix.image }}:${{ steps.meta_sha.outputs.full }}
+            ${{ env.DOCKERHUB_NAMESPACE }}/${{ matrix.image }}:latest
+            ${{ env.DOCKERHUB_NAMESPACE }}/${{ matrix.image }}:${{ steps.meta_sha.outputs.short }}
+            ${{ env.DOCKERHUB_NAMESPACE }}/${{ matrix.image }}:${{ steps.meta_sha.outputs.full }}
+            ${{ steps.meta_sha.outputs.ghcr_namespace }}/${{ matrix.image }}:latest
+            ${{ steps.meta_sha.outputs.ghcr_namespace }}/${{ matrix.image }}:${{ steps.meta_sha.outputs.short }}
+            ${{ steps.meta_sha.outputs.ghcr_namespace }}/${{ matrix.image }}:${{ steps.meta_sha.outputs.full }}
           labels: |
             org.opencontainers.image.created=${{ github.event.workflow_run.created_at || github.event.repository.updated_at }}
+            org.opencontainers.image.description=AgriCore ${{ matrix.service }} application image
+            org.opencontainers.image.licenses=MIT
             org.opencontainers.image.revision=${{ needs.resolve-sha.outputs.publish_sha }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.version=${{ steps.meta_sha.outputs.full }}
@@ -173,9 +193,15 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
       - name: Install Cosign
         uses: sigstore/cosign-installer@1aa8e0f2454b781fbf0fbf306a4c9533a0c57409 # v3.7.0
-      - name: Sign immutable image digest
+      - name: Sign Docker Hub immutable image digest
         env:
           COSIGN_EXPERIMENTAL: "1"
         run: >-
           cosign sign --yes
-          ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ matrix.image }}@${{ steps.build.outputs.digest }}
+          ${{ env.DOCKERHUB_REGISTRY }}/${{ env.DOCKERHUB_NAMESPACE }}/${{ matrix.image }}@${{ steps.build.outputs.digest }}
+      - name: Sign GitHub Packages immutable image digest
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: >-
+          cosign sign --yes
+          ${{ steps.meta_sha.outputs.ghcr_namespace }}/${{ matrix.image }}@${{ steps.build.outputs.digest }}
