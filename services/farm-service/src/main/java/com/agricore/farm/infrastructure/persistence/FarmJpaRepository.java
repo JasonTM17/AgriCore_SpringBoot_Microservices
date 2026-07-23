@@ -18,11 +18,16 @@ public interface FarmJpaRepository extends JpaRepository<FarmEntity, UUID> {
     @Query("""
             SELECT f FROM FarmEntity f
             WHERE (:status IS NULL OR f.status = :status)
-              AND (:province IS NULL OR LOWER(f.province) LIKE LOWER(CONCAT('%', :province, '%')))
+              AND (:enterpriseId IS NULL OR f.enterpriseId = :enterpriseId)
+              AND (
+                :province IS NULL
+                OR LOWER(f.province) LIKE LOWER(CONCAT('%', :province, '%')) ESCAPE '!'
+              )
             """)
     Page<FarmEntity> search(
             @Param("province") String province,
             @Param("status") FarmStatus status,
+            @Param("enterpriseId") UUID enterpriseId,
             Pageable pageable
     );
 
@@ -33,12 +38,17 @@ public interface FarmJpaRepository extends JpaRepository<FarmEntity, UUID> {
                 WHERE m.farmId = f.id AND m.subject = :subject
             )
               AND (:status IS NULL OR f.status = :status)
-              AND (:province IS NULL OR LOWER(f.province) LIKE LOWER(CONCAT('%', :province, '%')))
+              AND (:enterpriseId IS NULL OR f.enterpriseId = :enterpriseId)
+              AND (
+                :province IS NULL
+                OR LOWER(f.province) LIKE LOWER(CONCAT('%', :province, '%')) ESCAPE '!'
+              )
             """)
     Page<FarmEntity> searchAccessible(
             @Param("subject") String subject,
             @Param("province") String province,
             @Param("status") FarmStatus status,
+            @Param("enterpriseId") UUID enterpriseId,
             Pageable pageable
     );
 }

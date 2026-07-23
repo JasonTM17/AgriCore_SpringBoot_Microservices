@@ -32,6 +32,7 @@ function farm(id: string, code: string, name: string): FarmResponse {
     id,
     code,
     name,
+    enterpriseId: null,
     address: null,
     province: null,
     totalAreaHa: 10,

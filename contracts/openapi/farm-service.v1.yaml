@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgriCore Farm Service API
-  version: 1.8.0
+  version: 1.9.0
   description: Verified enterprise, farm, farm-area, plot, soil-profile, membership, and resource-access contract.
 servers:
   - url: http://localhost:8082
@@ -141,7 +141,8 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Province'
         - $ref: '#/components/parameters/FarmStatusFilter'
-        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/FarmEnterpriseIdFilter'
+        - $ref: '#/components/parameters/FarmPage'
         - $ref: '#/components/parameters/Size'
         - $ref: '#/components/parameters/FarmSort'
       responses:
@@ -161,7 +162,9 @@ paths:
       tags: [Farms]
       operationId: createFarm
       summary: Create a farm
-      description: Requires SYSTEM_ADMIN or FARM_MANAGER. The creator receives the initial membership atomically.
+      description: |
+        Requires SYSTEM_ADMIN or FARM_MANAGER. The creator receives the initial membership atomically.
+        Only SYSTEM_ADMIN may provide a non-null enterpriseId.
       requestBody:
         required: true
         content:
@@ -181,6 +184,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
         '415':
@@ -216,7 +221,9 @@ paths:
       tags: [Farms]
       operationId: updateFarm
       summary: Update a farm
-      description: Requires SYSTEM_ADMIN or FARM_MANAGER, farm access, and the current optimistic-lock version.
+      description: |
+        Requires SYSTEM_ADMIN or FARM_MANAGER, farm access, and the current optimistic-lock version.
+        Only SYSTEM_ADMIN may assign or clear enterpriseId.
       requestBody:
         required: true
         content:
@@ -986,6 +993,16 @@ components:
         minimum: 0
         maximum: 2147483647
         default: 0
+    FarmPage:
+      in: query
+      name: page
+      description: Bounded zero-based farm page index; the bound prevents unsafe database offsets.
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+        maximum: 10000
+        default: 0
     SoilProfilePage:
       in: query
       name: page
@@ -1067,7 +1084,7 @@ components:
       in: query
       name: province
       required: false
-      description: Case-insensitive province substring.
+      description: Literal case-insensitive province substring.
       schema:
         type: string
         maxLength: 120
@@ -1078,6 +1095,14 @@ components:
       description: Farm status code.
       schema:
         $ref: '#/components/schemas/FarmStatus'
+    FarmEnterpriseIdFilter:
+      in: query
+      name: enterpriseId
+      required: false
+      description: Enterprise portfolio identifier; membership rules still constrain non-admin results.
+      schema:
+        type: string
+        format: uuid
     FarmSort:
       in: query
       name: sort
@@ -1494,6 +1519,11 @@ components:
           type: string
           minLength: 1
           maxLength: 200
+          pattern: '.*\S.*'
+        enterpriseId:
+          type: [string, 'null']
+          format: uuid
+          description: Optional enterprise owner; only SYSTEM_ADMIN may provide a non-null value.
         address:
           type: [string, 'null']
           maxLength: 500
@@ -1514,39 +1544,100 @@ components:
           minimum: -180
           maximum: 180
     UpdateFarmRequest:
-      type: object
-      required: [version]
-      properties:
-        version:
-          type: integer
-          format: int64
-          minimum: 0
-        name:
-          type: [string, 'null']
-          maxLength: 200
-        address:
-          type: [string, 'null']
-          maxLength: 500
-        province:
-          type: [string, 'null']
-          maxLength: 120
-        totalAreaHa:
-          type: [number, 'null']
-          minimum: 0
-        latitude:
-          type: [number, 'null']
-          format: double
-          minimum: -90
-          maximum: 90
-        longitude:
-          type: [number, 'null']
-          format: double
-          minimum: -180
-          maximum: 180
-        status:
-          oneOf:
-            - $ref: '#/components/schemas/FarmStatus'
-            - type: 'null'
+      description: Provide the current version and at least one mutable field.
+      allOf:
+        - type: object
+          additionalProperties: false
+          required: [version]
+          properties:
+            version:
+              type: integer
+              format: int64
+              minimum: 0
+            name:
+              type: string
+              minLength: 1
+              maxLength: 200
+              pattern: '.*\S.*'
+            enterpriseId:
+              type: [string, 'null']
+              format: uuid
+              description: Assign or clear the enterprise owner; SYSTEM_ADMIN only.
+            address:
+              type: [string, 'null']
+              maxLength: 500
+            province:
+              type: [string, 'null']
+              maxLength: 120
+            totalAreaHa:
+              type: [number, 'null']
+              minimum: 0
+            latitude:
+              type: [number, 'null']
+              format: double
+              minimum: -90
+              maximum: 90
+            longitude:
+              type: [number, 'null']
+              format: double
+              minimum: -180
+              maximum: 180
+            status:
+              $ref: '#/components/schemas/FarmStatus'
+        - anyOf:
+            - type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                  pattern: '.*\S.*'
+            - type: object
+              required: [enterpriseId]
+              properties:
+                enterpriseId:
+                  type: [string, 'null']
+                  format: uuid
+            - type: object
+              required: [address]
+              properties:
+                address:
+                  type: [string, 'null']
+                  maxLength: 500
+            - type: object
+              required: [province]
+              properties:
+                province:
+                  type: [string, 'null']
+                  maxLength: 120
+            - type: object
+              required: [totalAreaHa]
+              properties:
+                totalAreaHa:
+                  type: [number, 'null']
+                  minimum: 0
+            - type: object
+              required: [latitude]
+              properties:
+                latitude:
+                  type: [number, 'null']
+                  format: double
+                  minimum: -90
+                  maximum: 90
+            - type: object
+              required: [longitude]
+              properties:
+                longitude:
+                  type: [number, 'null']
+                  format: double
+                  minimum: -180
+                  maximum: 180
+            - type: object
+              required: [status]
+              properties:
+                status:
+                  $ref: '#/components/schemas/FarmStatus'
     CreateFarmAreaRequest:
       type: object
       required: [code, name, areaInHectares]
@@ -1913,6 +2004,7 @@ components:
         - id
         - code
         - name
+        - enterpriseId
         - address
         - province
         - totalAreaHa
@@ -1932,6 +2024,9 @@ components:
         name:
           type: string
           maxLength: 200
+        enterpriseId:
+          type: [string, 'null']
+          format: uuid
         address:
           type: [string, 'null']
           maxLength: 500

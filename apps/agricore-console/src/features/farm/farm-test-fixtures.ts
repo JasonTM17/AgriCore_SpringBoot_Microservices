@@ -32,6 +32,7 @@ const farms = [
   {
     id: FARM_A_ID,
     code: "FARM-DL-01",
+    enterpriseId: null,
     name: "Nông trại Đắk Lắk",
     address: "Buôn Ma Thuột",
     province: "Đắk Lắk",
@@ -46,6 +47,7 @@ const farms = [
   {
     id: FARM_B_ID,
     code: "FARM-LD-01",
+    enterpriseId: null,
     name: "Nông trại Lâm Đồng",
     address: "Bảo Lộc",
     province: "Lâm Đồng",

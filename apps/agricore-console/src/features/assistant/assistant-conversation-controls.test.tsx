@@ -13,6 +13,7 @@ import { AssistantNewConversationForm } from "./assistant-new-conversation-form"
 const ACTIVE_FARM = {
   id: TEST_ASSISTANT_FARM_ID,
   code: "FARM-DL-01",
+  enterpriseId: null,
   name: "Nông trại Đắk Lắk",
   address: null,
   province: "Đắk Lắk",

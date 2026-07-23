@@ -8,6 +8,7 @@ import { PlotListPanel } from "./plot-list-panel";
 const farm = {
   id: "20000000-0000-0000-0000-000000000001",
   code: "FARM-DL-01",
+  enterpriseId: null,
   name: "Nông trại Đắk Lắk",
   address: null,
   province: "Đắk Lắk",

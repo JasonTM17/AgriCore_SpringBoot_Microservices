@@ -66,6 +66,7 @@ class FarmIntegrationTest {
                 .orElseThrow();
         JsonNode farmCreatedEnvelope = objectMapper.readTree(farmCreated.getPayload());
         assertThat(farmCreatedEnvelope.path("eventId").asText()).isEqualTo(farmCreated.getId().toString());
+        assertThat(farmCreatedEnvelope.path("payload").has("enterpriseId")).isFalse();
 
         mockMvc.perform(post("/api/v1/farms/" + farmId + "/plots")
                         .header("X-Dev-User", "manager-1")

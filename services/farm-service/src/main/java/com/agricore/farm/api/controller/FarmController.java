@@ -62,12 +62,18 @@ public class FarmController {
     public PageResponse<FarmResponse> list(
             @RequestParam(required = false) @Size(max = 120) String province,
             @RequestParam(required = false) @Pattern(regexp = FARM_STATUS_PATTERN) String status,
-            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(required = false) UUID enterpriseId,
+            @RequestParam(defaultValue = "0") @Min(0) @Max(10000) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
             @RequestParam(defaultValue = "createdAt,desc") @Pattern(regexp = FARM_SORT_PATTERN) String sort
     ) {
-        Sort springSort = parseSort(sort);
-        return farmService.listFarms(province, status, PageRequest.of(page, size, springSort));
+        Sort springSort = parseSort(sort).and(Sort.by("id").ascending());
+        return farmService.listFarms(
+                province,
+                status,
+                enterpriseId,
+                PageRequest.of(page, size, springSort)
+        );
     }
 
     @GetMapping("/{farmId}")

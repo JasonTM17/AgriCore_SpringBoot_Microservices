@@ -343,6 +343,7 @@ export interface paths {
         /**
          * Create a farm
          * @description Requires SYSTEM_ADMIN or FARM_MANAGER. The creator receives the initial membership atomically.
+         *     Only SYSTEM_ADMIN may provide a non-null enterpriseId.
          */
         post: operations["createFarm"];
         delete?: never;
@@ -374,6 +375,7 @@ export interface paths {
         /**
          * Update a farm
          * @description Requires SYSTEM_ADMIN or FARM_MANAGER, farm access, and the current optimistic-lock version.
+         *     Only SYSTEM_ADMIN may assign or clear enterpriseId.
          */
         patch: operations["updateFarm"];
         trace?: never;
@@ -1852,6 +1854,8 @@ export interface components {
             id: string;
             code: string;
             name: string;
+            /** Format: uuid */
+            enterpriseId: string | null;
             address: string | null;
             province: string | null;
             totalAreaHa: number | null;
@@ -1883,6 +1887,11 @@ export interface components {
         CreateFarmRequest: {
             code: string;
             name: string;
+            /**
+             * Format: uuid
+             * @description Optional enterprise owner; only SYSTEM_ADMIN may provide a non-null value.
+             */
+            enterpriseId?: string | null;
             address?: string | null;
             province?: string | null;
             totalAreaHa?: number | null;
@@ -1891,10 +1900,16 @@ export interface components {
             /** Format: double */
             longitude?: number | null;
         };
+        /** @description Provide the current version and at least one mutable field. */
         UpdateFarmRequest: {
             /** Format: int64 */
             version: number;
-            name?: string | null;
+            name?: string;
+            /**
+             * Format: uuid
+             * @description Assign or clear the enterprise owner; SYSTEM_ADMIN only.
+             */
+            enterpriseId?: string | null;
             address?: string | null;
             province?: string | null;
             totalAreaHa?: number | null;
@@ -1902,8 +1917,27 @@ export interface components {
             latitude?: number | null;
             /** Format: double */
             longitude?: number | null;
-            status?: components["schemas"]["FarmStatus"] | null;
-        };
+            status?: components["schemas"]["FarmStatus"];
+        } & ({
+            name: string;
+        } | {
+            /** Format: uuid */
+            enterpriseId: string | null;
+        } | {
+            address: string | null;
+        } | {
+            province: string | null;
+        } | {
+            totalAreaHa: number | null;
+        } | {
+            /** Format: double */
+            latitude: number | null;
+        } | {
+            /** Format: double */
+            longitude: number | null;
+        } | {
+            status: components["schemas"]["FarmStatus"];
+        });
         /** @enum {string} */
         FarmAreaStatus: "ACTIVE" | "INACTIVE" | "MAINTENANCE";
         FarmAreaResponse: {
@@ -3327,12 +3361,14 @@ export interface components {
         EnterpriseSort: "code,asc" | "code,desc" | "name,asc" | "name,desc" | "legalName,asc" | "legalName,desc" | "taxCode,asc" | "taxCode,desc" | "province,asc" | "province,desc" | "status,asc" | "status,desc" | "createdAt,asc" | "createdAt,desc" | "updatedAt,asc" | "updatedAt,desc";
         /** @description Agricultural enterprise identifier. */
         EnterpriseId: string;
-        /** @description Case-insensitive province substring. */
+        /** @description Literal case-insensitive province substring. */
         Province: string;
         /** @description Farm status code. */
         FarmStatusFilter: components["schemas"]["FarmStatus"];
-        /** @description Zero-based page index. */
-        Page: number;
+        /** @description Enterprise portfolio identifier; membership rules still constrain non-admin results. */
+        FarmEnterpriseIdFilter: string;
+        /** @description Bounded zero-based farm page index; the bound prevents unsafe database offsets. */
+        FarmPage: number;
         /** @description Supported farm property and lowercase direction. */
         FarmSort: "code,asc" | "code,desc" | "name,asc" | "name,desc" | "province,asc" | "province,desc" | "totalAreaHa,asc" | "totalAreaHa,desc" | "status,asc" | "status,desc" | "createdAt,asc" | "createdAt,desc" | "updatedAt,asc" | "updatedAt,desc";
         /** @description Farm identifier. */
@@ -3341,6 +3377,8 @@ export interface components {
         FarmAreaStatusFilter: components["schemas"]["FarmAreaStatus"];
         /** @description Case-insensitive farm-area code or name substring. */
         FarmAreaQuery: string;
+        /** @description Zero-based page index. */
+        Page: number;
         /** @description Supported farm-area property and direction. */
         FarmAreaSort: "code,asc" | "code,desc" | "name,asc" | "name,desc" | "areaInHectares,asc" | "areaInHectares,desc" | "status,asc" | "status,desc" | "createdAt,asc" | "createdAt,desc" | "updatedAt,asc" | "updatedAt,desc";
         /** @description Farm-scoped area identifier. */
@@ -3542,12 +3580,14 @@ export interface operations {
     listFarms: {
         parameters: {
             query?: {
-                /** @description Case-insensitive province substring. */
+                /** @description Literal case-insensitive province substring. */
                 province?: components["parameters"]["Province"];
                 /** @description Farm status code. */
                 status?: components["parameters"]["FarmStatusFilter"];
-                /** @description Zero-based page index. */
-                page?: components["parameters"]["Page"];
+                /** @description Enterprise portfolio identifier; membership rules still constrain non-admin results. */
+                enterpriseId?: components["parameters"]["FarmEnterpriseIdFilter"];
+                /** @description Bounded zero-based farm page index; the bound prevents unsafe database offsets. */
+                page?: components["parameters"]["FarmPage"];
                 /** @description Number of records per page. */
                 size?: components["parameters"]["Size"];
                 /** @description Supported farm property and lowercase direction. */
@@ -3598,6 +3638,7 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["InternalServerError"];
