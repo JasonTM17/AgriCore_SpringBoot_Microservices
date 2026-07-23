@@ -284,6 +284,66 @@ paths:
                 $ref: '#/components/schemas/InventoryItemResponse'
         '404':
           description: Inventory item not found
+  /api/v1/inventory/warehouses/{warehouseId}/items:
+    get:
+      summary: List inventory items in a warehouse
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: warehouseId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 0, maximum: 10000, default: 0 }
+        - in: query
+          name: size
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - in: query
+          name: sort
+          schema:
+            type: string
+            pattern: '^(sku|name|createdAt|updatedAt),(asc|desc)$'
+            default: sku,asc
+      responses:
+        '200':
+          description: Paged warehouse inventory
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryItemPage'
+        '404': { description: Warehouse not found }
+  /api/v1/inventory/items/{itemId}/movements:
+    get:
+      summary: List stock movements for an inventory item
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 0, maximum: 10000, default: 0 }
+        - in: query
+          name: size
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - in: query
+          name: sort
+          schema:
+            type: string
+            pattern: '^(createdAt|quantity|movementType),(asc|desc)$'
+            default: createdAt,desc
+      responses:
+        '200':
+          description: Paged immutable stock ledger movements
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockMovementPage'
+        '404': { description: Inventory item not found }
 components:
   securitySchemes:
     bearerAuth:
@@ -376,6 +436,51 @@ components:
         reservedQuantity: { type: number }
         availableQuantity: { type: number }
         version: { type: integer, format: int64, minimum: 0 }
+    InventoryItemPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMetadata'
+        - type: object
+          required: [content]
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/InventoryItemResponse'
+    StockMovementPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMetadata'
+        - type: object
+          required: [content]
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/StockMovementResponse'
+    StockMovementResponse:
+      type: object
+      additionalProperties: false
+      required: [id, itemId, type, quantity, referenceType, referenceId, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        itemId: { type: string, format: uuid }
+        batchId: { type: [string, 'null'], format: uuid }
+        type: { type: string, enum: [STOCK_IN, STOCK_OUT, RESERVE, RELEASE, CONFIRM] }
+        quantity: { type: number, minimum: 0 }
+        referenceType: { type: string }
+        referenceId: { type: string }
+        note: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+    PageMetadata:
+      type: object
+      additionalProperties: false
+      required: [page, size, totalElements, totalPages, first, last]
+      properties:
+        page: { type: integer, minimum: 0 }
+        size: { type: integer, minimum: 1 }
+        totalElements: { type: integer, format: int64, minimum: 0 }
+        totalPages: { type: integer, minimum: 0 }
+        first: { type: boolean }
+        last: { type: boolean }
     ReservationResponse:
       type: object
       additionalProperties: false

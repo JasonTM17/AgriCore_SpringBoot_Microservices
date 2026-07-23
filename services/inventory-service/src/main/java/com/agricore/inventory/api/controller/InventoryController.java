@@ -1,16 +1,23 @@
 package com.agricore.inventory.api.controller;
 
+import com.agricore.common.api.PageResponse;
 import com.agricore.inventory.api.request.*;
 import com.agricore.inventory.api.response.InventoryHarvestProjectionAcknowledgementResponse;
 import com.agricore.inventory.api.response.InventoryItemResponse;
 import com.agricore.inventory.api.response.ReservationResponse;
+import com.agricore.inventory.api.response.StockMovementResponse;
 import com.agricore.inventory.api.response.WarehouseResponse;
 import com.agricore.inventory.application.service.HarvestProjectionAcknowledgementQueryService;
 import com.agricore.inventory.application.service.InventoryAccessGuard;
 import com.agricore.inventory.application.service.InventoryApplicationService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -23,6 +30,11 @@ import java.util.UUID;
 @RequestMapping("/api/v1/inventory")
 @Validated
 public class InventoryController {
+
+    private static final String ITEM_SORT_PATTERN =
+            "(sku|name|createdAt|updatedAt),(?i:asc|desc)";
+    private static final String MOVEMENT_SORT_PATTERN =
+            "(createdAt|quantity|movementType),(?i:asc|desc)";
 
     private final InventoryApplicationService service;
     private final InventoryAccessGuard accessGuard;
@@ -104,6 +116,36 @@ public class InventoryController {
         return service.getItem(itemId);
     }
 
+    @GetMapping("/warehouses/{warehouseId}/items")
+    @PreAuthorize("hasAuthority('PERMISSION_INVENTORY_READ')")
+    public PageResponse<InventoryItemResponse> listItems(
+            @PathVariable UUID warehouseId,
+            @RequestParam(defaultValue = "0") @Min(0) @Max(10000) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
+            @RequestParam(defaultValue = "sku,asc") @Pattern(regexp = ITEM_SORT_PATTERN) String sort
+    ) {
+        accessGuard.requireWarehouse(warehouseId);
+        return service.listItems(
+                warehouseId,
+                PageRequest.of(page, size, parseSort(sort))
+        );
+    }
+
+    @GetMapping("/items/{itemId}/movements")
+    @PreAuthorize("hasAuthority('PERMISSION_INVENTORY_READ')")
+    public PageResponse<StockMovementResponse> listMovements(
+            @PathVariable UUID itemId,
+            @RequestParam(defaultValue = "0") @Min(0) @Max(10000) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
+            @RequestParam(defaultValue = "createdAt,desc") @Pattern(regexp = MOVEMENT_SORT_PATTERN) String sort
+    ) {
+        accessGuard.requireItem(itemId);
+        return service.listMovements(
+                itemId,
+                PageRequest.of(page, size, parseSort(sort))
+        );
+    }
+
     /**
      * Sync adapter simulating Kafka consumer for HarvestCompleted (idempotent).
      * Production path will consume from Kafka using the same application method.
@@ -123,5 +165,13 @@ public class InventoryController {
     ) {
         UUID farmId = accessGuard.requireWarehouse(warehouseId);
         return acknowledgementQueryService.getAcknowledgement(eventId, warehouseId, farmId);
+    }
+
+    private static Sort parseSort(String sort) {
+        String[] parts = sort.split(",");
+        if (parts.length == 2 && "desc".equalsIgnoreCase(parts[1])) {
+            return Sort.by(parts[0]).descending();
+        }
+        return Sort.by(parts[0]).ascending();
     }
 }
