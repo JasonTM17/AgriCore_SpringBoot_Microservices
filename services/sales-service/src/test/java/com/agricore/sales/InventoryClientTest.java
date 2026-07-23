@@ -12,6 +12,7 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
+import java.net.URI;
 import java.util.UUID;
 
 import static com.agricore.sales.infrastructure.client.InventoryClient.ReleaseOutcome.FULFILLED;
@@ -72,6 +73,53 @@ class InventoryClientTest {
                         UUID.randomUUID().toString()
                 ))
                 .satisfies(exception -> assertThat(exception.isInsufficientStock()).isFalse());
+        fixture.server().verify();
+    }
+
+    @Test
+    void findByReference_readsAuthoritativeReservationState() {
+        UUID reservationId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        String orderId = UUID.randomUUID().toString();
+        TestClient fixture = client();
+        fixture.server().expect(once(), requestTo(
+                        URI.create(BASE_URL + "/api/v1/inventory/reservations/by-reference"
+                                + "?referenceType=SalesOrder&referenceId=" + orderId)))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("""
+                        {
+                          "id":"%s",
+                          "inventoryItemId":"%s",
+                          "quantity":12.500,
+                          "status":"ACTIVE",
+                          "referenceType":"SalesOrder",
+                          "referenceId":"%s"
+                        }
+                        """.formatted(reservationId, itemId, orderId), MediaType.APPLICATION_JSON));
+
+        assertThat(fixture.client().findByReference("SalesOrder", orderId))
+                .hasValueSatisfying(state -> {
+                    assertThat(state.id()).isEqualTo(reservationId);
+                    assertThat(state.inventoryItemId()).isEqualTo(itemId);
+                    assertThat(state.quantity()).isEqualByComparingTo("12.500");
+                    assertThat(state.status()).isEqualTo("ACTIVE");
+                });
+        fixture.server().verify();
+    }
+
+    @Test
+    void findByReference_treatsNotFoundAsNoReservation() {
+        String orderId = UUID.randomUUID().toString();
+        TestClient fixture = client();
+        fixture.server().expect(once(), requestTo(
+                        URI.create(BASE_URL + "/api/v1/inventory/reservations/by-reference"
+                                + "?referenceType=SalesOrder&referenceId=" + orderId)))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withStatus(HttpStatus.NOT_FOUND)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"code\":\"RESERVATION_NOT_FOUND\"}"));
+
+        assertThat(fixture.client().findByReference("SalesOrder", orderId)).isEmpty();
         fixture.server().verify();
     }
 

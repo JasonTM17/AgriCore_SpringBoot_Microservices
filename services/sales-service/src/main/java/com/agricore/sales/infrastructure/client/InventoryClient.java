@@ -15,6 +15,7 @@ import org.springframework.web.client.RestClientResponseException;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
 
@@ -102,6 +103,51 @@ public class InventoryClient {
         }
     }
 
+    /**
+     * Reads Inventory's durable business-reference projection after an
+     * ambiguous reserve response. A missing reference is authoritative for
+     * this lookup; transport and server failures remain retryable.
+     */
+    public Optional<ReservationState> findByReference(String referenceType, String referenceId) {
+        try {
+            String body = restClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/api/v1/inventory/reservations/by-reference")
+                            .queryParam("referenceType", referenceType)
+                            .queryParam("referenceId", referenceId)
+                            .build())
+                    .headers(authHeaders())
+                    .retrieve()
+                    .body(String.class);
+            if (body == null || body.isBlank()) {
+                throw new InventoryReservationException(502, "Inventory reservation lookup response was empty");
+            }
+            JsonNode response = objectMapper.readTree(body);
+            UUID id = UUID.fromString(requiredText(response, "id"));
+            String status = requiredText(response, "status");
+            UUID inventoryItemId = UUID.fromString(requiredText(response, "inventoryItemId"));
+            JsonNode quantityNode = response.get("quantity");
+            if (quantityNode == null || !quantityNode.isNumber()
+                    || quantityNode.decimalValue().signum() <= 0) {
+                throw new InventoryReservationException(502, "Inventory response missing valid quantity");
+            }
+            BigDecimal quantity = quantityNode.decimalValue();
+            return Optional.of(new ReservationState(id, inventoryItemId, quantity, status));
+        } catch (RestClientResponseException ex) {
+            if (ex.getStatusCode().value() == 404) {
+                return Optional.empty();
+            }
+            throw responseFailure(ex);
+        } catch (InventoryReservationException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new InventoryReservationException(
+                    502,
+                    ex.getMessage() == null ? "Invalid inventory reservation lookup response" : ex.getMessage()
+            );
+        }
+    }
+
     private InventoryReservationException responseFailure(RestClientResponseException failure) {
         String body = failure.getResponseBodyAsString();
         String errorCode = null;
@@ -111,6 +157,14 @@ public class InventoryClient {
             // Malformed bodies are retained for diagnostics but never classified by status alone.
         }
         return new InventoryReservationException(failure.getStatusCode().value(), body, errorCode);
+    }
+
+    private static String requiredText(JsonNode response, String field) {
+        String value = response.path(field).textValue();
+        if (value == null || value.isBlank()) {
+            throw new InventoryReservationException(502, "Inventory response missing " + field);
+        }
+        return value;
     }
 
     private Consumer<HttpHeaders> authHeaders() {
@@ -142,6 +196,14 @@ public class InventoryClient {
                 );
             };
         }
+    }
+
+    public record ReservationState(
+            UUID id,
+            UUID inventoryItemId,
+            BigDecimal quantity,
+            String status
+    ) {
     }
 
     public static class InventoryReservationException extends RuntimeException {
