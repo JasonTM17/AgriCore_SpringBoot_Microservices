@@ -549,6 +549,62 @@ export interface paths {
         patch: operations["updateSoilProfile"];
         trace?: never;
     };
+    "/api/v1/plots/{plotId}/irrigation-zones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Plot identifier. */
+                plotId: components["parameters"]["PlotId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List irrigation zones for a plot
+         * @description Requires access to the plot's farm. Filters are combined with logical AND; inaccessible and missing plots both return 404.
+         */
+        get: operations["listIrrigationZones"];
+        put?: never;
+        /**
+         * Configure an irrigation zone
+         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST and access to the plot's farm.
+         */
+        post: operations["createIrrigationZone"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plots/{plotId}/irrigation-zones/{zoneId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Plot identifier. */
+                plotId: components["parameters"]["PlotId"];
+                /** @description Irrigation-zone identifier scoped to the containing plot. */
+                zoneId: components["parameters"]["IrrigationZoneId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get one irrigation zone
+         * @description Requires access to the plot's farm.
+         */
+        get: operations["getIrrigationZone"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update irrigation-zone configuration or lifecycle
+         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST, farm access, the current optimistic-lock version, and at least one mutable field.
+         */
+        patch: operations["updateIrrigationZone"];
+        trace?: never;
+    };
     "/api/v1/crops": {
         parameters: {
             query?: never;
@@ -1951,6 +2007,79 @@ export interface components {
             /** @description Omit to preserve notes; provide null or blank text to clear them. */
             notes: string | null;
         };
+        /** @enum {string} */
+        IrrigationZoneStatus: "ACTIVE" | "MAINTENANCE" | "INACTIVE";
+        /** @enum {string} */
+        IrrigationMethod: "DRIP" | "SPRINKLER" | "MICRO_SPRINKLER" | "CENTER_PIVOT" | "FLOOD" | "MANUAL";
+        IrrigationZoneResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            farmId: string;
+            /** Format: uuid */
+            plotId: string;
+            code: string;
+            name: string;
+            method: components["schemas"]["IrrigationMethod"];
+            flowRateLitersPerMinute: number;
+            targetMoisturePercent: number;
+            status: components["schemas"]["IrrigationZoneStatus"];
+            notes: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            createdBy: string;
+            updatedBy: string;
+            /** Format: int64 */
+            version: number;
+        };
+        IrrigationZonePageResponse: {
+            content: components["schemas"]["IrrigationZoneResponse"][];
+            /** Format: int32 */
+            page: number;
+            /** Format: int32 */
+            size: number;
+            /** Format: int64 */
+            totalElements: number;
+            /** Format: int32 */
+            totalPages: number;
+            first: boolean;
+            last: boolean;
+        };
+        CreateIrrigationZoneRequest: {
+            /** @description Plot-scoped code; stored in canonical uppercase form. */
+            code: string;
+            name: string;
+            method: components["schemas"]["IrrigationMethod"];
+            flowRateLitersPerMinute: number;
+            targetMoisturePercent: number;
+            notes?: string | null;
+        };
+        /** @description Provide the current version and at least one mutable field. */
+        UpdateIrrigationZoneRequest: {
+            /** Format: int64 */
+            version: number;
+            name?: string;
+            method?: components["schemas"]["IrrigationMethod"];
+            flowRateLitersPerMinute?: number;
+            targetMoisturePercent?: number;
+            status?: components["schemas"]["IrrigationZoneStatus"];
+            /** @description Omit to preserve notes; provide null or blank text to clear them. */
+            notes?: string | null;
+        } & ({
+            name: string;
+        } | {
+            method: components["schemas"]["IrrigationMethod"];
+        } | {
+            flowRateLitersPerMinute: number;
+        } | {
+            targetMoisturePercent: number;
+        } | {
+            status: components["schemas"]["IrrigationZoneStatus"];
+        } | {
+            notes: string | null;
+        });
         CropResponse: {
             /** Format: uuid */
             id: string;
@@ -3114,6 +3243,18 @@ export interface components {
         SoilProfileSort: "sampledAt,asc" | "sampledAt,desc" | "sampleCode,asc" | "sampleCode,desc" | "ph,asc" | "ph,desc" | "status,asc" | "status,desc" | "createdAt,asc" | "createdAt,desc" | "updatedAt,asc" | "updatedAt,desc";
         /** @description Soil-profile identifier scoped to the containing plot. */
         SoilProfileId: string;
+        /** @description Irrigation-zone lifecycle status. */
+        IrrigationZoneStatusFilter: components["schemas"]["IrrigationZoneStatus"];
+        /** @description Irrigation delivery method. */
+        IrrigationMethodFilter: components["schemas"]["IrrigationMethod"];
+        /** @description Case-insensitive irrigation-zone code or name substring. */
+        IrrigationZoneQuery: string;
+        /** @description Bounded zero-based page index; the bound prevents unsafe database offsets. */
+        IrrigationZonePage: number;
+        /** @description Supported irrigation-zone property and direction. */
+        IrrigationZoneSort: "code,asc" | "code,desc" | "name,asc" | "name,desc" | "method,asc" | "method,desc" | "flowRateLitersPerMinute,asc" | "flowRateLitersPerMinute,desc" | "targetMoisturePercent,asc" | "targetMoisturePercent,desc" | "status,asc" | "status,desc" | "createdAt,asc" | "createdAt,desc" | "updatedAt,asc" | "updatedAt,desc";
+        /** @description Irrigation-zone identifier scoped to the containing plot. */
+        IrrigationZoneId: string;
         /** @description Zero-based page index. */
         "parameters-Page": number;
         /** @description Number of records per page; values outside 1 through 100 are rejected. */
@@ -3798,6 +3939,145 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SoilProfileResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            415: components["responses"]["UnsupportedMediaType"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listIrrigationZones: {
+        parameters: {
+            query?: {
+                /** @description Irrigation-zone lifecycle status. */
+                status?: components["parameters"]["IrrigationZoneStatusFilter"];
+                /** @description Irrigation delivery method. */
+                method?: components["parameters"]["IrrigationMethodFilter"];
+                /** @description Case-insensitive irrigation-zone code or name substring. */
+                q?: components["parameters"]["IrrigationZoneQuery"];
+                /** @description Bounded zero-based page index; the bound prevents unsafe database offsets. */
+                page?: components["parameters"]["IrrigationZonePage"];
+                /** @description Number of records per page. */
+                size?: components["parameters"]["Size"];
+                /** @description Supported irrigation-zone property and direction. */
+                sort?: components["parameters"]["IrrigationZoneSort"];
+            };
+            header?: never;
+            path: {
+                /** @description Plot identifier. */
+                plotId: components["parameters"]["PlotId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paged irrigation zones. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IrrigationZonePageResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    createIrrigationZone: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Plot identifier. */
+                plotId: components["parameters"]["PlotId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateIrrigationZoneRequest"];
+            };
+        };
+        responses: {
+            /** @description Irrigation zone configured. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IrrigationZoneResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            415: components["responses"]["UnsupportedMediaType"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getIrrigationZone: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Plot identifier. */
+                plotId: components["parameters"]["PlotId"];
+                /** @description Irrigation-zone identifier scoped to the containing plot. */
+                zoneId: components["parameters"]["IrrigationZoneId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Irrigation zone found. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IrrigationZoneResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    updateIrrigationZone: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Plot identifier. */
+                plotId: components["parameters"]["PlotId"];
+                /** @description Irrigation-zone identifier scoped to the containing plot. */
+                zoneId: components["parameters"]["IrrigationZoneId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateIrrigationZoneRequest"];
+            };
+        };
+        responses: {
+            /** @description Irrigation zone updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IrrigationZoneResponse"];
                 };
             };
             400: components["responses"]["BadRequest"];

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgriCore Farm Service API
-  version: 1.6.0
+  version: 1.7.0
   description: Verified farm, farm-area, plot, soil-profile, membership, and resource-access contract.
 servers:
   - url: http://localhost:8082
@@ -519,6 +519,128 @@ paths:
           $ref: '#/components/responses/UnsupportedMediaType'
         '500':
           $ref: '#/components/responses/InternalServerError'
+  /api/v1/plots/{plotId}/irrigation-zones:
+    parameters:
+      - $ref: '#/components/parameters/PlotId'
+    get:
+      tags: [Irrigation Zones]
+      operationId: listIrrigationZones
+      summary: List irrigation zones for a plot
+      description: >-
+        Requires access to the plot's farm. Filters are combined with logical AND; inaccessible and missing plots
+        both return 404.
+      parameters:
+        - $ref: '#/components/parameters/IrrigationZoneStatusFilter'
+        - $ref: '#/components/parameters/IrrigationMethodFilter'
+        - $ref: '#/components/parameters/IrrigationZoneQuery'
+        - $ref: '#/components/parameters/IrrigationZonePage'
+        - $ref: '#/components/parameters/Size'
+        - $ref: '#/components/parameters/IrrigationZoneSort'
+      responses:
+        '200':
+          description: Paged irrigation zones.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IrrigationZonePageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags: [Irrigation Zones]
+      operationId: createIrrigationZone
+      summary: Configure an irrigation zone
+      description: Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST and access to the plot's farm.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateIrrigationZoneRequest'
+      responses:
+        '201':
+          description: Irrigation zone configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IrrigationZoneResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/v1/plots/{plotId}/irrigation-zones/{zoneId}:
+    parameters:
+      - $ref: '#/components/parameters/PlotId'
+      - $ref: '#/components/parameters/IrrigationZoneId'
+    get:
+      tags: [Irrigation Zones]
+      operationId: getIrrigationZone
+      summary: Get one irrigation zone
+      description: Requires access to the plot's farm.
+      responses:
+        '200':
+          description: Irrigation zone found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IrrigationZoneResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      tags: [Irrigation Zones]
+      operationId: updateIrrigationZone
+      summary: Update irrigation-zone configuration or lifecycle
+      description: >-
+        Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST, farm access, the current optimistic-lock version, and
+        at least one mutable field.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateIrrigationZoneRequest'
+      responses:
+        '200':
+          description: Irrigation zone updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IrrigationZoneResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /api/v1/farms/{farmId}/memberships:
     parameters:
       - $ref: '#/components/parameters/FarmId'
@@ -711,6 +833,14 @@ components:
       name: profileId
       required: true
       description: Soil-profile identifier scoped to the containing plot.
+      schema:
+        type: string
+        format: uuid
+    IrrigationZoneId:
+      in: path
+      name: zoneId
+      required: true
+      description: Irrigation-zone identifier scoped to the containing plot.
       schema:
         type: string
         format: uuid
@@ -929,6 +1059,62 @@ components:
           - createdAt,desc
           - updatedAt,asc
           - updatedAt,desc
+    IrrigationZoneStatusFilter:
+      in: query
+      name: status
+      required: false
+      description: Irrigation-zone lifecycle status.
+      schema:
+        $ref: '#/components/schemas/IrrigationZoneStatus'
+    IrrigationMethodFilter:
+      in: query
+      name: method
+      required: false
+      description: Irrigation delivery method.
+      schema:
+        $ref: '#/components/schemas/IrrigationMethod'
+    IrrigationZoneQuery:
+      in: query
+      name: q
+      required: false
+      description: Case-insensitive irrigation-zone code or name substring.
+      schema:
+        type: string
+        maxLength: 200
+    IrrigationZonePage:
+      in: query
+      name: page
+      description: Bounded zero-based page index; the bound prevents unsafe database offsets.
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+        maximum: 1000000
+        default: 0
+    IrrigationZoneSort:
+      in: query
+      name: sort
+      description: Supported irrigation-zone property and direction.
+      schema:
+        type: string
+        default: name,asc
+        enum:
+          - code,asc
+          - code,desc
+          - name,asc
+          - name,desc
+          - method,asc
+          - method,desc
+          - flowRateLitersPerMinute,asc
+          - flowRateLitersPerMinute,desc
+          - targetMoisturePercent,asc
+          - targetMoisturePercent,desc
+          - status,asc
+          - status,desc
+          - createdAt,asc
+          - createdAt,desc
+          - updatedAt,asc
+          - updatedAt,desc
   responses:
     BadRequest:
       description: Invalid path, query, or JSON request.
@@ -996,6 +1182,12 @@ components:
         - SANDY_CLAY
         - SILTY_CLAY
         - CLAY
+    IrrigationMethod:
+      type: string
+      enum: [DRIP, SPRINKLER, MICRO_SPRINKLER, CENTER_PIVOT, FLOOD, MANUAL]
+    IrrigationZoneStatus:
+      type: string
+      enum: [ACTIVE, MAINTENANCE, INACTIVE]
     GrantFarmMembershipRequest:
       type: object
       required: [subject]
@@ -1262,6 +1454,114 @@ components:
               type: [string, 'null']
               maxLength: 1000
               description: Omit to preserve notes; provide null or blank text to clear them.
+    CreateIrrigationZoneRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - name
+        - method
+        - flowRateLitersPerMinute
+        - targetMoisturePercent
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: '^[A-Za-z0-9][A-Za-z0-9._/-]{0,63}$'
+          description: Plot-scoped code; stored in canonical uppercase form.
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        method:
+          $ref: '#/components/schemas/IrrigationMethod'
+        flowRateLitersPerMinute:
+          type: number
+          minimum: 0.01
+          maximum: 999999.99
+          multipleOf: 0.01
+        targetMoisturePercent:
+          type: number
+          minimum: 0
+          maximum: 100
+          multipleOf: 0.01
+        notes:
+          type: [string, 'null']
+          maxLength: 1000
+    UpdateIrrigationZoneRequest:
+      description: Provide the current version and at least one mutable field.
+      allOf:
+        - type: object
+          additionalProperties: false
+          required: [version]
+          properties:
+            version:
+              type: integer
+              format: int64
+              minimum: 0
+            name:
+              type: string
+              minLength: 1
+              maxLength: 200
+            method:
+              $ref: '#/components/schemas/IrrigationMethod'
+            flowRateLitersPerMinute:
+              type: number
+              minimum: 0.01
+              maximum: 999999.99
+              multipleOf: 0.01
+            targetMoisturePercent:
+              type: number
+              minimum: 0
+              maximum: 100
+              multipleOf: 0.01
+            status:
+              $ref: '#/components/schemas/IrrigationZoneStatus'
+            notes:
+              type: [string, 'null']
+              maxLength: 1000
+              description: Omit to preserve notes; provide null or blank text to clear them.
+        - anyOf:
+            - type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+            - type: object
+              required: [method]
+              properties:
+                method:
+                  $ref: '#/components/schemas/IrrigationMethod'
+            - type: object
+              required: [flowRateLitersPerMinute]
+              properties:
+                flowRateLitersPerMinute:
+                  type: number
+                  minimum: 0.01
+                  maximum: 999999.99
+                  multipleOf: 0.01
+            - type: object
+              required: [targetMoisturePercent]
+              properties:
+                targetMoisturePercent:
+                  type: number
+                  minimum: 0
+                  maximum: 100
+                  multipleOf: 0.01
+            - type: object
+              required: [status]
+              properties:
+                status:
+                  $ref: '#/components/schemas/IrrigationZoneStatus'
+            - type: object
+              required: [notes]
+              properties:
+                notes:
+                  type: [string, 'null']
+                  maxLength: 1000
     FarmResponse:
       type: object
       additionalProperties: false
@@ -1525,6 +1825,74 @@ components:
           type: integer
           format: int64
           minimum: 0
+    IrrigationZoneResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - farmId
+        - plotId
+        - code
+        - name
+        - method
+        - flowRateLitersPerMinute
+        - targetMoisturePercent
+        - status
+        - notes
+        - createdAt
+        - updatedAt
+        - createdBy
+        - updatedBy
+        - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        farmId:
+          type: string
+          format: uuid
+        plotId:
+          type: string
+          format: uuid
+        code:
+          type: string
+          maxLength: 64
+        name:
+          type: string
+          maxLength: 200
+        method:
+          $ref: '#/components/schemas/IrrigationMethod'
+        flowRateLitersPerMinute:
+          type: number
+          minimum: 0.01
+          maximum: 999999.99
+          multipleOf: 0.01
+        targetMoisturePercent:
+          type: number
+          minimum: 0
+          maximum: 100
+          multipleOf: 0.01
+        status:
+          $ref: '#/components/schemas/IrrigationZoneStatus'
+        notes:
+          type: [string, 'null']
+          maxLength: 1000
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          maxLength: 255
+        updatedBy:
+          type: string
+          maxLength: 255
+        version:
+          type: integer
+          format: int64
+          minimum: 0
     FarmMembershipResponse:
       type: object
       additionalProperties: false
@@ -1655,6 +2023,36 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SoilProfileResponse'
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int32
+          minimum: 0
+        first:
+          type: boolean
+        last:
+          type: boolean
+    IrrigationZonePageResponse:
+      type: object
+      additionalProperties: false
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/IrrigationZoneResponse'
         page:
           type: integer
           format: int32
