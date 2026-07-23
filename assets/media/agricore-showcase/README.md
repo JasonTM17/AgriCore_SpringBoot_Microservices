@@ -25,8 +25,10 @@ SHA-256 values are recorded in [`manifest.json`](./manifest.json). Recompute
 them with:
 
 ```powershell
-Get-FileHash assets/media/agricore-showcase/* -Algorithm SHA256
+node scripts/verify-showcase-media.mjs
 ```
 
-The GIF is intentionally limited to three frames and is not used as a data
+The verifier checks Git tracking, manifest membership, byte size, SHA-256,
+file signatures, and the 2 MiB repository budget. The GIF is intentionally
+limited to three frames and is not used as a data
 transport or operational animation.
