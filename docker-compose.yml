@@ -58,6 +58,9 @@ x-object-storage-env: &object-storage-env
   # Local Compose has no service-mesh TLS; keep plaintext opt-in explicit.
   OBJECT_STORAGE_ALLOW_INSECURE_HTTP: "true"
   OBJECT_STORAGE_DOWNLOAD_URL_TTL: ${OBJECT_STORAGE_DOWNLOAD_URL_TTL:-15m}
+  WORK_ATTACHMENT_MAX_UPLOAD_SIZE: ${WORK_ATTACHMENT_MAX_UPLOAD_SIZE:-10MB}
+  WORK_ATTACHMENT_MAX_REQUEST_SIZE: ${WORK_ATTACHMENT_MAX_REQUEST_SIZE:-11MB}
+  WORK_ATTACHMENT_MAX_PER_TASK: ${WORK_ATTACHMENT_MAX_PER_TASK:-20}
 
 x-app-healthcheck: &app-healthcheck
   interval: 15s

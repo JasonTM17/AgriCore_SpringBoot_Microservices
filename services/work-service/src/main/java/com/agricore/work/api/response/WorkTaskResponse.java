@@ -22,6 +22,7 @@ public record WorkTaskResponse(
         String notes,
         Instant createdAt,
         long version,
-        List<MaterialUsageResponse> materials
+        List<MaterialUsageResponse> materials,
+        List<TaskAttachmentResponse> attachments
 ) {
 }

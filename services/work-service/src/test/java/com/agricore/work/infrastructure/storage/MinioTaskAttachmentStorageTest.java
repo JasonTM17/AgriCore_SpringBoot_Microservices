@@ -32,7 +32,8 @@ class MinioTaskAttachmentStorageTest {
                 "tasks/00000000-0000-0000-0000-000000000001/photo.webp",
                 new ByteArrayInputStream(new byte[]{1, 2, 3}),
                 3,
-                "image/webp"
+                "image/webp",
+                "0".repeat(64)
         );
         URI url = storage.createDownloadUrl(
                 "tasks/00000000-0000-0000-0000-000000000001/photo.webp",

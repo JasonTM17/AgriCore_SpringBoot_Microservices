@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: AgriCore Work Service API
-  version: 1.6.0
-  description: Verified field-work task creation, immutable assignment and execution history, explicit lifecycle, completion, cancellation, and query contract.
+  version: 1.7.0
+  description: Verified field-work task creation, immutable assignment, execution, and image attachment history, explicit lifecycle, completion, cancellation, and query contract.
 servers:
   - url: http://localhost:8085
     description: Direct local service endpoint
@@ -204,6 +204,106 @@ paths:
           $ref: '#/components/responses/NotFound'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/work-tasks/{taskId}/attachments:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    get:
+      tags: [Work Tasks]
+      operationId: listTaskAttachments
+      summary: List immutable task image attachments
+      description: Returns the bounded attachment list after verifying access to the task's authoritative plot.
+      responses:
+        '200':
+          description: Task attachment list ordered by upload time.
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 100
+                items:
+                  $ref: '#/components/schemas/TaskAttachmentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    post:
+      tags: [Work Tasks]
+      operationId: uploadTaskAttachment
+      summary: Upload a task evidence image
+      description: >-
+        Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or FIELD_WORKER with task plot access. The service
+        validates size, file name, declared type, image structure, and SHA-256 before storing JPEG, PNG, or WebP
+        bytes in private object storage. Re-uploading identical bytes is idempotent. Terminal tasks are locked.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Attachment stored, or the existing attachment returned for identical task bytes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskAttachmentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/work-tasks/{taskId}/attachments/{attachmentId}/download:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+      - in: path
+        name: attachmentId
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Work Tasks]
+      operationId: downloadTaskAttachment
+      summary: Create a private attachment download redirect
+      description: Verifies task plot access before redirecting to a short-lived signed object URL.
+      responses:
+        '302':
+          description: Short-lived private object download URL.
+          headers:
+            Location:
+              required: true
+              schema: { type: string, format: uri }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/work-tasks/{taskId}/start:
     parameters:
       - $ref: '#/components/parameters/TaskId'
@@ -361,7 +461,7 @@ components:
           schema:
             $ref: '#/components/schemas/ApiError'
     UnsupportedMediaType:
-      description: Content-Type is not supported.
+      description: Request Content-Type or attachment bytes are not supported, or declared attachment type does not match its bytes.
       content:
         application/json:
           schema:
@@ -372,8 +472,14 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ApiError'
+    PayloadTooLarge:
+      description: Task attachment exceeds the configured upload limit.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
     ServiceUnavailable:
-      description: Authoritative farm access verification or material stock consumption is temporarily unavailable.
+      description: Authoritative farm access verification, material stock consumption, or private attachment storage is temporarily unavailable.
       content:
         application/json:
           schema:
@@ -449,6 +555,7 @@ components:
         - createdAt
         - version
         - materials
+        - attachments
       properties:
         id: { type: string, format: uuid }
         code: { type: string, maxLength: 64 }
@@ -473,6 +580,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MaterialUsageResponse'
+        attachments:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/TaskAttachmentResponse'
     MaterialUsageResponse:
       type: object
       additionalProperties: false
@@ -553,6 +665,20 @@ components:
         totalPages: { type: integer, format: int32, minimum: 0 }
         first: { type: boolean }
         last: { type: boolean }
+    TaskAttachmentResponse:
+      type: object
+      additionalProperties: false
+      required: [id, workTaskId, fileName, contentType, sizeBytes, sha256, uploadedBy, uploadedAt, downloadPath]
+      properties:
+        id: { type: string, format: uuid }
+        workTaskId: { type: string, format: uuid }
+        fileName: { type: string, minLength: 1, maxLength: 255 }
+        contentType: { type: string, enum: [image/jpeg, image/png, image/webp] }
+        sizeBytes: { type: integer, format: int64, minimum: 1, maximum: 52428800 }
+        sha256: { type: string, pattern: '^[0-9a-f]{64}$' }
+        uploadedBy: { type: string, minLength: 1, maxLength: 255 }
+        uploadedAt: { type: string, format: date-time }
+        downloadPath: { type: string, pattern: '^/api/v1/work-tasks/' }
     WorkTaskPageResponse:
       type: object
       additionalProperties: false

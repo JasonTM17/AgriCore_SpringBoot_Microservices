@@ -35,10 +35,19 @@ final class MinioTaskAttachmentStorage implements TaskAttachmentStorage {
     }
 
     @Override
-    public void store(String objectKey, InputStream content, long contentLength, String contentType) {
+    public void store(
+            String objectKey,
+            InputStream content,
+            long contentLength,
+            String contentType,
+            String sha256
+    ) {
         validateObjectKey(objectKey);
         if (content == null || contentLength <= 0 || contentType == null || contentType.isBlank()) {
             throw new IllegalArgumentException("Attachment content, length, and type are required");
+        }
+        if (sha256 == null || !sha256.matches("^[0-9a-f]{64}$")) {
+            throw new IllegalArgumentException("Attachment SHA-256 is invalid");
         }
         try {
             ensureBucket();
@@ -47,6 +56,7 @@ final class MinioTaskAttachmentStorage implements TaskAttachmentStorage {
                     .object(objectKey)
                     .stream(content, contentLength, -1L)
                     .contentType(contentType)
+                    .userMetadata(Map.of("sha256", sha256))
                     .build());
         } catch (Exception exception) {
             throw unavailable("store", exception);

@@ -3,6 +3,10 @@ server:
 spring:
   application:
     name: work-service
+  servlet:
+    multipart:
+      max-file-size: ${WORK_ATTACHMENT_MAX_UPLOAD_SIZE:10MB}
+      max-request-size: ${WORK_ATTACHMENT_MAX_REQUEST_SIZE:11MB}
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5434}/agricore_work
     username: ${POSTGRES_USER:agricore}
@@ -57,6 +61,8 @@ agricore:
     allowed-hosts: ${OBJECT_STORAGE_ALLOWED_HOSTS:localhost,127.0.0.1,::1,minio}
     allow-insecure-http: ${OBJECT_STORAGE_ALLOW_INSECURE_HTTP:false}
     download-url-ttl: ${OBJECT_STORAGE_DOWNLOAD_URL_TTL:15m}
+    max-upload-size: ${WORK_ATTACHMENT_MAX_UPLOAD_SIZE:10MB}
+    max-attachments-per-task: ${WORK_ATTACHMENT_MAX_PER_TASK:20}
   outbox:
     publisher:
       enabled: true

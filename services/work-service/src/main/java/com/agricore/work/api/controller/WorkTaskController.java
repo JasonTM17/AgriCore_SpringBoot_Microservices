@@ -5,10 +5,12 @@ import com.agricore.work.api.request.AssignTaskRequest;
 import com.agricore.work.api.request.CancelTaskRequest;
 import com.agricore.work.api.request.CompleteTaskRequest;
 import com.agricore.work.api.request.CreateWorkTaskRequest;
+import com.agricore.work.api.response.TaskAttachmentResponse;
 import com.agricore.work.api.response.TaskExecutionResponse;
 import com.agricore.work.api.response.WorkAssignmentResponse;
 import com.agricore.work.api.response.WorkTaskResponse;
 import com.agricore.work.application.service.TaskExecutionService;
+import com.agricore.work.application.service.TaskAttachmentService;
 import com.agricore.work.application.service.WorkApplicationService;
 import com.agricore.work.application.service.WorkAssignmentService;
 import jakarta.validation.Valid;
@@ -18,11 +20,14 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.security.Principal;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -33,15 +38,18 @@ public class WorkTaskController {
     private final WorkApplicationService service;
     private final WorkAssignmentService assignmentService;
     private final TaskExecutionService executionService;
+    private final TaskAttachmentService attachmentService;
 
     public WorkTaskController(
             WorkApplicationService service,
             WorkAssignmentService assignmentService,
-            TaskExecutionService executionService
+            TaskExecutionService executionService,
+            TaskAttachmentService attachmentService
     ) {
         this.service = service;
         this.assignmentService = assignmentService;
         this.executionService = executionService;
+        this.attachmentService = attachmentService;
     }
 
     @PostMapping
@@ -139,5 +147,33 @@ public class WorkTaskController {
                 Sort.Order.desc("id")
         );
         return executionService.list(taskId, PageRequest.of(page, size, sort));
+    }
+
+    @PostMapping(path = "/{taskId}/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST','FIELD_WORKER')")
+    public ResponseEntity<TaskAttachmentResponse> uploadAttachment(
+            @PathVariable UUID taskId,
+            @RequestPart("file") MultipartFile file,
+            Principal principal
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(attachmentService.upload(taskId, file, principal.getName()));
+    }
+
+    @GetMapping("/{taskId}/attachments")
+    @PreAuthorize("isAuthenticated()")
+    public List<TaskAttachmentResponse> listAttachments(@PathVariable UUID taskId) {
+        return attachmentService.list(taskId);
+    }
+
+    @GetMapping("/{taskId}/attachments/{attachmentId}/download")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> downloadAttachment(
+            @PathVariable UUID taskId,
+            @PathVariable UUID attachmentId
+    ) {
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(attachmentService.createDownloadUrl(taskId, attachmentId))
+                .build();
     }
 }

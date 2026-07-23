@@ -782,6 +782,55 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/work-tasks/{taskId}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List immutable task image attachments
+         * @description Returns the bounded attachment list after verifying access to the task's authoritative plot.
+         */
+        get: operations["listTaskAttachments"];
+        put?: never;
+        /**
+         * Upload a task evidence image
+         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or FIELD_WORKER with task plot access. The service validates size, file name, declared type, image structure, and SHA-256 before storing JPEG, PNG, or WebP bytes in private object storage. Re-uploading identical bytes is idempotent. Terminal tasks are locked.
+         */
+        post: operations["uploadTaskAttachment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-tasks/{taskId}/attachments/{attachmentId}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: components["parameters"]["TaskId"];
+                attachmentId: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Create a private attachment download redirect
+         * @description Verifies task plot access before redirecting to a short-lived signed object URL.
+         */
+        get: operations["downloadTaskAttachment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/work-tasks/{taskId}/start": {
         parameters: {
             query?: never;
@@ -1821,6 +1870,22 @@ export interface components {
             /** Format: date-time */
             consumedAt: string | null;
         };
+        TaskAttachmentResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            workTaskId: string;
+            fileName: string;
+            /** @enum {string} */
+            contentType: "image/jpeg" | "image/png" | "image/webp";
+            /** Format: int64 */
+            sizeBytes: number;
+            sha256: string;
+            uploadedBy: string;
+            /** Format: date-time */
+            uploadedAt: string;
+            downloadPath: string;
+        };
         WorkTaskResponse: {
             /** Format: uuid */
             id: string;
@@ -1850,6 +1915,7 @@ export interface components {
             /** Format: int64 */
             version: number;
             materials: components["schemas"]["MaterialUsageResponse"][];
+            attachments: components["schemas"]["TaskAttachmentResponse"][];
         };
         WorkTaskPageResponse: {
             content: components["schemas"]["WorkTaskResponse"][];
@@ -2382,7 +2448,7 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description Authoritative farm access verification or material stock consumption is temporarily unavailable. */
+        /** @description Authoritative farm access verification, material stock consumption, or private attachment storage is temporarily unavailable. */
         "responses-ServiceUnavailable": {
             headers: {
                 [name: string]: unknown;
@@ -2393,6 +2459,24 @@ export interface components {
         };
         /** @description Duplicate code, invalid lifecycle transition, unsafe cancellation, changed material retry, or a concurrent task update requiring reload. */
         "components-responses-Conflict": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Request Content-Type or attachment bytes are not supported, or declared attachment type does not match its bytes. */
+        "responses-UnsupportedMediaType": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Task attachment exceeds the configured upload limit. */
+        PayloadTooLarge: {
             headers: {
                 [name: string]: unknown;
             };
@@ -3442,7 +3526,7 @@ export interface operations {
             403: components["responses"]["responses-Forbidden"];
             404: components["responses"]["work-service.v1_components-responses-NotFound"];
             409: components["responses"]["components-responses-Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
             500: components["responses"]["responses-InternalServerError"];
             503: components["responses"]["responses-ServiceUnavailable"];
         };
@@ -3503,7 +3587,7 @@ export interface operations {
             403: components["responses"]["responses-Forbidden"];
             404: components["responses"]["work-service.v1_components-responses-NotFound"];
             409: components["responses"]["components-responses-Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
             500: components["responses"]["responses-InternalServerError"];
             503: components["responses"]["responses-ServiceUnavailable"];
         };
@@ -3572,6 +3656,97 @@ export interface operations {
             503: components["responses"]["responses-ServiceUnavailable"];
         };
     };
+    listTaskAttachments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Task attachment list ordered by upload time. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskAttachmentResponse"][];
+                };
+            };
+            400: components["responses"]["work-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["work-service.v1_components-responses-NotFound"];
+            503: components["responses"]["responses-ServiceUnavailable"];
+        };
+    };
+    uploadTaskAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Attachment stored, or the existing attachment returned for identical task bytes. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskAttachmentResponse"];
+                };
+            };
+            400: components["responses"]["work-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["work-service.v1_components-responses-NotFound"];
+            409: components["responses"]["components-responses-Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
+            503: components["responses"]["responses-ServiceUnavailable"];
+        };
+    };
+    downloadTaskAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: components["parameters"]["TaskId"];
+                attachmentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Short-lived private object download URL. */
+            302: {
+                headers: {
+                    Location: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["work-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["work-service.v1_components-responses-NotFound"];
+            503: components["responses"]["responses-ServiceUnavailable"];
+        };
+    };
     startWorkTask: {
         parameters: {
             query?: never;
@@ -3629,7 +3804,7 @@ export interface operations {
             403: components["responses"]["responses-Forbidden"];
             404: components["responses"]["work-service.v1_components-responses-NotFound"];
             409: components["responses"]["components-responses-Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
             500: components["responses"]["responses-InternalServerError"];
             503: components["responses"]["responses-ServiceUnavailable"];
         };
@@ -3663,7 +3838,7 @@ export interface operations {
             403: components["responses"]["responses-Forbidden"];
             404: components["responses"]["work-service.v1_components-responses-NotFound"];
             409: components["responses"]["components-responses-Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
             503: components["responses"]["responses-ServiceUnavailable"];
         };
     };

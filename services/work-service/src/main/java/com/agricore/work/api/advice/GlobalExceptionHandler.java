@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -110,6 +112,32 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({HandlerMethodValidationException.class, ConstraintViolationException.class})
     public ResponseEntity<ApiError> methodValidation(Exception ex, HttpServletRequest request) {
         return error(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", "Request validation failed", request);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiError> uploadTooLarge(
+            MaxUploadSizeExceededException ex,
+            HttpServletRequest request
+    ) {
+        return error(
+                HttpStatus.PAYLOAD_TOO_LARGE,
+                "ATTACHMENT_TOO_LARGE",
+                "Attachment exceeds the configured size limit",
+                request
+        );
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<ApiError> missingRequestPart(
+            MissingServletRequestPartException ex,
+            HttpServletRequest request
+    ) {
+        return error(
+                HttpStatus.BAD_REQUEST,
+                "ATTACHMENT_FILE_REQUIRED",
+                "Attachment file is required",
+                request
+        );
     }
 
     private ApiError.FieldViolation toViolation(FieldError error) {

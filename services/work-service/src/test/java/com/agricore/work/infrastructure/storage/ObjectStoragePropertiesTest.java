@@ -1,6 +1,7 @@
 package com.agricore.work.infrastructure.storage;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.util.unit.DataSize;
 
 import java.net.URI;
 import java.time.Duration;
@@ -52,6 +53,22 @@ class ObjectStoragePropertiesTest {
         properties.setDownloadUrlTtl(Duration.ofHours(25));
         assertThatExceptionOfType(IllegalArgumentException.class)
                 .isThrownBy(properties::validatedDownloadUrlTtl);
+    }
+
+    @Test
+    void rejectsUnsafeUploadAndAttachmentLimits() {
+        ObjectStorageProperties properties = configuredProperties();
+        properties.setMaxUploadSize(DataSize.ofBytes(1023));
+        assertThatExceptionOfType(IllegalArgumentException.class)
+                .isThrownBy(properties::validatedMaxUploadBytes);
+
+        properties.setMaxUploadSize(DataSize.ofMegabytes(51));
+        assertThatExceptionOfType(IllegalArgumentException.class)
+                .isThrownBy(properties::validatedMaxUploadBytes);
+
+        properties.setMaxAttachmentsPerTask(101);
+        assertThatExceptionOfType(IllegalArgumentException.class)
+                .isThrownBy(properties::validatedMaxAttachmentsPerTask);
     }
 
     private static ObjectStorageProperties configuredProperties() {

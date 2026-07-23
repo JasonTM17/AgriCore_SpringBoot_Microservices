@@ -8,7 +8,13 @@ final class DisabledTaskAttachmentStorage implements TaskAttachmentStorage {
     private static final String MESSAGE = "Task attachment storage is disabled";
 
     @Override
-    public void store(String objectKey, InputStream content, long contentLength, String contentType) {
+    public void store(
+            String objectKey,
+            InputStream content,
+            long contentLength,
+            String contentType,
+            String sha256
+    ) {
         throw new AttachmentStorageException(MESSAGE);
     }
 

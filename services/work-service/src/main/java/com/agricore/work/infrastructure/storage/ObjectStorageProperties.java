@@ -1,6 +1,7 @@
 package com.agricore.work.infrastructure.storage;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.util.unit.DataSize;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -26,6 +27,8 @@ public class ObjectStorageProperties {
     private Set<String> allowedHosts = new LinkedHashSet<>(Set.of("localhost", "127.0.0.1", "::1", "minio"));
     private boolean allowInsecureHttp;
     private Duration downloadUrlTtl = Duration.ofMinutes(15);
+    private DataSize maxUploadSize = DataSize.ofMegabytes(10);
+    private int maxAttachmentsPerTask = 20;
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -47,6 +50,12 @@ public class ObjectStorageProperties {
     public void setAllowInsecureHttp(boolean allowInsecureHttp) { this.allowInsecureHttp = allowInsecureHttp; }
     public Duration getDownloadUrlTtl() { return downloadUrlTtl; }
     public void setDownloadUrlTtl(Duration downloadUrlTtl) { this.downloadUrlTtl = downloadUrlTtl; }
+    public DataSize getMaxUploadSize() { return maxUploadSize; }
+    public void setMaxUploadSize(DataSize maxUploadSize) { this.maxUploadSize = maxUploadSize; }
+    public int getMaxAttachmentsPerTask() { return maxAttachmentsPerTask; }
+    public void setMaxAttachmentsPerTask(int maxAttachmentsPerTask) {
+        this.maxAttachmentsPerTask = maxAttachmentsPerTask;
+    }
 
     URI validatedEndpoint() {
         return validatedEndpoint("endpoint", endpoint);
@@ -112,6 +121,21 @@ public class ObjectStorageProperties {
             throw invalid("download-url-ttl must be between 1 minute and 24 hours");
         }
         return downloadUrlTtl;
+    }
+
+    public long validatedMaxUploadBytes() {
+        long bytes = maxUploadSize == null ? 0 : maxUploadSize.toBytes();
+        if (bytes < 1024 || bytes > DataSize.ofMegabytes(50).toBytes()) {
+            throw invalid("max-upload-size must be between 1KB and 50MB");
+        }
+        return bytes;
+    }
+
+    public int validatedMaxAttachmentsPerTask() {
+        if (maxAttachmentsPerTask < 1 || maxAttachmentsPerTask > 100) {
+            throw invalid("max-attachments-per-task must be between 1 and 100");
+        }
+        return maxAttachmentsPerTask;
     }
 
     private boolean isAllowedHost(String host) {
