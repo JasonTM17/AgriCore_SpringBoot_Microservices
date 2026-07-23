@@ -44,7 +44,7 @@ public class CropCycleController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST')")
+    @PreAuthorize("hasAuthority('PERMISSION_CROP_CYCLE_WRITE')")
     public ResponseEntity<CropCycleResponse> create(
             @Valid @RequestBody CreateCropCycleRequest request,
             Principal principal
@@ -53,7 +53,7 @@ public class CropCycleController {
     }
 
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_CROP_CYCLE_READ')")
     public PageResponse<CropCycleResponse> list(
             @RequestParam(required = false) UUID farmId,
             @RequestParam(required = false) UUID plotId,
@@ -64,13 +64,13 @@ public class CropCycleController {
     }
 
     @GetMapping("/{cycleId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_CROP_CYCLE_READ')")
     public CropCycleResponse get(@PathVariable UUID cycleId) {
         return service.get(cycleId);
     }
 
     @PatchMapping("/{cycleId}/stage")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST')")
+    @PreAuthorize("hasAuthority('PERMISSION_CROP_CYCLE_WRITE')")
     public CropCycleResponse changeStage(
             @PathVariable UUID cycleId,
             @Valid @RequestBody ChangeStageRequest request,
@@ -81,7 +81,7 @@ public class CropCycleController {
 
     @Deprecated(forRemoval = false)
     @PostMapping("/{cycleId}/stage")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST')")
+    @PreAuthorize("hasAuthority('PERMISSION_CROP_CYCLE_WRITE')")
     public CropCycleResponse changeStageLegacy(
             @PathVariable UUID cycleId,
             @Valid @RequestBody ChangeStageRequest request,
@@ -91,13 +91,13 @@ public class CropCycleController {
     }
 
     @PostMapping("/{cycleId}/cancel")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST')")
+    @PreAuthorize("hasAuthority('PERMISSION_CROP_CYCLE_WRITE')")
     public CropCycleResponse cancel(@PathVariable UUID cycleId, Principal principal) {
         return service.cancel(cycleId, principal.getName());
     }
 
     @GetMapping("/{cycleId}/stage-history")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_CROP_CYCLE_READ')")
     public PageResponse<CropCycleStageHistoryResponse> listStageHistory(
             @PathVariable UUID cycleId,
             @RequestParam(defaultValue = "0") @Min(0) int page,
@@ -112,7 +112,7 @@ public class CropCycleController {
     }
 
     @PostMapping("/{cycleId}/observations")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST','FIELD_WORKER')")
+    @PreAuthorize("hasAuthority('PERMISSION_CROP_CYCLE_USE')")
     public ResponseEntity<CropCycleObservationResponse> createObservation(
             @PathVariable UUID cycleId,
             @Valid @RequestBody CreateCropCycleObservationRequest request,
@@ -124,7 +124,7 @@ public class CropCycleController {
     }
 
     @GetMapping("/{cycleId}/observations")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_CROP_CYCLE_READ')")
     public PageResponse<CropCycleObservationResponse> listObservations(
             @PathVariable UUID cycleId,
             @RequestParam(defaultValue = "0") @Min(0) int page,

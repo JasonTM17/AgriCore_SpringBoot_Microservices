@@ -25,7 +25,7 @@ public class CropController {
     }
 
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_CROP_CATALOG_READ')")
     public PageResponse<CropResponse> list(
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String q,
@@ -37,13 +37,13 @@ public class CropController {
     }
 
     @GetMapping("/{cropId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_CROP_CATALOG_READ')")
     public CropResponse get(@PathVariable UUID cropId) {
         return cropCatalogService.get(cropId);
     }
 
     @GetMapping("/by-code/{code}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_CROP_CATALOG_READ')")
     public CropResponse getByCode(@PathVariable String code) {
         return cropCatalogService.getByCode(code);
     }

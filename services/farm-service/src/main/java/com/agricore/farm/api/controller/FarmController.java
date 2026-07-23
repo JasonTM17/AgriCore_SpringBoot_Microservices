@@ -52,13 +52,13 @@ public class FarmController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER')")
+    @PreAuthorize("hasAuthority('PERMISSION_FARM_WRITE')")
     public ResponseEntity<FarmResponse> create(@Valid @RequestBody CreateFarmRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(farmService.createFarm(request));
     }
 
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_FARM_READ')")
     public PageResponse<FarmResponse> list(
             @RequestParam(required = false) @Size(max = 120) String province,
             @RequestParam(required = false) @Pattern(regexp = FARM_STATUS_PATTERN) String status,
@@ -77,19 +77,19 @@ public class FarmController {
     }
 
     @GetMapping("/{farmId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_FARM_READ')")
     public FarmResponse get(@PathVariable UUID farmId) {
         return farmService.getFarm(farmId);
     }
 
     @PatchMapping("/{farmId}")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER')")
+    @PreAuthorize("hasAuthority('PERMISSION_FARM_WRITE')")
     public FarmResponse update(@PathVariable UUID farmId, @Valid @RequestBody UpdateFarmRequest request) {
         return farmService.updateFarm(farmId, request);
     }
 
     @PostMapping("/{farmId}/plots")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST')")
+    @PreAuthorize("hasAuthority('PERMISSION_FARM_WRITE')")
     public ResponseEntity<PlotResponse> createPlot(
             @PathVariable UUID farmId,
             @Valid @RequestBody CreatePlotRequest request
@@ -98,7 +98,7 @@ public class FarmController {
     }
 
     @GetMapping("/{farmId}/plots")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_FARM_READ')")
     public PageResponse<PlotResponse> listPlots(
             @PathVariable UUID farmId,
             @RequestParam(required = false) @Pattern(regexp = PLOT_STATUS_PATTERN) String status,

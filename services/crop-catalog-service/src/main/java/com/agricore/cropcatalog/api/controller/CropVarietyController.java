@@ -27,7 +27,7 @@ public class CropVarietyController {
     }
 
     @GetMapping("/api/v1/crops/{cropId}/varieties")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_CROP_CATALOG_READ')")
     public PageResponse<CropVarietyResponse> list(
             @PathVariable UUID cropId,
             @RequestParam(required = false) String q,
@@ -39,7 +39,7 @@ public class CropVarietyController {
     }
 
     @GetMapping("/api/v1/crop-varieties/{varietyId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_CROP_CATALOG_READ')")
     public CropVarietyResponse get(@PathVariable UUID varietyId) {
         return varietyService.get(varietyId);
     }

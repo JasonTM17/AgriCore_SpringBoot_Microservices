@@ -25,7 +25,7 @@ public class CropCareProfileManagementController {
     }
 
     @PutMapping
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','AGRONOMIST')")
+    @PreAuthorize("hasAuthority('PERMISSION_CROP_CATALOG_WRITE')")
     public CropCareProfileResponse replace(
             @PathVariable UUID cropId,
             @Valid @RequestBody ReplaceCropCareProfileRequest request,

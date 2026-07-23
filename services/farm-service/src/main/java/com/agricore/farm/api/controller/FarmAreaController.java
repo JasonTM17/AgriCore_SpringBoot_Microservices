@@ -45,7 +45,7 @@ public class FarmAreaController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER')")
+    @PreAuthorize("hasAuthority('PERMISSION_FARM_WRITE')")
     public FarmAreaResponse create(
             @PathVariable UUID farmId,
             @Valid @RequestBody CreateFarmAreaRequest request
@@ -54,7 +54,7 @@ public class FarmAreaController {
     }
 
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_FARM_READ')")
     public PageResponse<FarmAreaResponse> list(
             @PathVariable UUID farmId,
             @RequestParam(required = false) @Pattern(regexp = STATUS_PATTERN) String status,
@@ -67,13 +67,13 @@ public class FarmAreaController {
     }
 
     @GetMapping("/{areaId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_FARM_READ')")
     public FarmAreaResponse get(@PathVariable UUID farmId, @PathVariable UUID areaId) {
         return areaService.get(farmId, areaId);
     }
 
     @PatchMapping("/{areaId}")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER')")
+    @PreAuthorize("hasAuthority('PERMISSION_FARM_WRITE')")
     public FarmAreaResponse update(
             @PathVariable UUID farmId,
             @PathVariable UUID areaId,
@@ -84,7 +84,7 @@ public class FarmAreaController {
 
     @DeleteMapping("/{areaId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER')")
+    @PreAuthorize("hasAuthority('PERMISSION_FARM_WRITE')")
     public void delete(
             @PathVariable UUID farmId,
             @PathVariable UUID areaId,

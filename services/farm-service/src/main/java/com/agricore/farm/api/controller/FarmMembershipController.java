@@ -27,7 +27,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/farms/{farmId}/memberships")
 @Validated
-@PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER')")
+@PreAuthorize("hasAuthority('PERMISSION_FARM_ADMIN')")
 public class FarmMembershipController {
 
     private final FarmMembershipApplicationService membershipService;

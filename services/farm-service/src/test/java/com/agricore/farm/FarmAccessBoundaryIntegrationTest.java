@@ -31,6 +31,20 @@ class FarmAccessBoundaryIntegrationTest {
     private ObjectMapper objectMapper;
 
     @Test
+    void farmWriteRequiresCanonicalPermissionEvenWhenRoleMatches() throws Exception {
+        HttpHeaders headers = devAuth(subject(), "FARM_MANAGER");
+        headers.set("X-Dev-Permissions", "FARM_READ");
+
+        mockMvc.perform(post("/api/v1/farms")
+                        .headers(headers)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"code":"F-%s","name":"Permission boundary"}
+                                """.formatted(UUID.randomUUID().toString().replace("-", ""))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void farmAndPlotBoundaries_rejectCrossFarmSubstitution() throws Exception {
         String ownerA = subject();
         String ownerB = subject();

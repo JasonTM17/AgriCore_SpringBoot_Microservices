@@ -46,7 +46,7 @@ public class IrrigationZoneController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST')")
+    @PreAuthorize("hasAuthority('PERMISSION_FARM_WRITE')")
     public ResponseEntity<IrrigationZoneResponse> create(
             @PathVariable UUID plotId,
             @Valid @RequestBody CreateIrrigationZoneRequest request
@@ -55,7 +55,7 @@ public class IrrigationZoneController {
     }
 
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_FARM_READ')")
     public PageResponse<IrrigationZoneResponse> list(
             @PathVariable UUID plotId,
             @RequestParam(required = false) @Pattern(regexp = STATUS_PATTERN) String status,
@@ -75,7 +75,7 @@ public class IrrigationZoneController {
     }
 
     @GetMapping("/{zoneId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_FARM_READ')")
     public IrrigationZoneResponse get(
             @PathVariable UUID plotId,
             @PathVariable UUID zoneId
@@ -84,7 +84,7 @@ public class IrrigationZoneController {
     }
 
     @PatchMapping("/{zoneId}")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST')")
+    @PreAuthorize("hasAuthority('PERMISSION_FARM_WRITE')")
     public IrrigationZoneResponse update(
             @PathVariable UUID plotId,
             @PathVariable UUID zoneId,

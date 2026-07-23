@@ -21,7 +21,7 @@ public class CropCareProfileController {
     }
 
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_CROP_CATALOG_READ')")
     public CropCareProfileResponse get(@PathVariable UUID cropId) {
         return service.get(cropId);
     }

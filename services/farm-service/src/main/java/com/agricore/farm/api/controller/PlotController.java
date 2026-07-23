@@ -20,13 +20,13 @@ public class PlotController {
     }
 
     @GetMapping("/{plotId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_FARM_READ')")
     public PlotResponse get(@PathVariable UUID plotId) {
         return plotService.get(plotId);
     }
 
     @PatchMapping("/{plotId}")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST')")
+    @PreAuthorize("hasAuthority('PERMISSION_FARM_WRITE')")
     public PlotResponse update(@PathVariable UUID plotId, @Valid @RequestBody UpdatePlotRequest request) {
         return plotService.update(plotId, request);
     }

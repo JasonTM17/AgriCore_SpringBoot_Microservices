@@ -12,7 +12,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/internal/api/v1/farm-access")
-@PreAuthorize("isAuthenticated()")
+@PreAuthorize("hasAuthority('PERMISSION_FARM_READ')")
 public class FarmResourceAccessController {
 
     private final FarmResourceAccessService accessService;

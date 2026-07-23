@@ -37,6 +37,20 @@ class CropCycleListAccessIntegrationTest {
     private FarmAccessClient farmAccessClient;
 
     @Test
+    void listRequiresCanonicalReadPermissionEvenWhenRoleMatches() throws Exception {
+        UUID farmId = UUID.randomUUID();
+
+        mockMvc.perform(get("/api/v1/crop-cycles")
+                        .queryParam("farmId", farmId.toString())
+                        .header("X-Dev-User", "worker")
+                        .header("X-Dev-Roles", "FIELD_WORKER")
+                        .header("X-Dev-Permissions", ""))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(farmAccessClient);
+    }
+
+    @Test
     void list_withoutScope_requiresSystemAdmin() throws Exception {
         mockMvc.perform(get("/api/v1/crop-cycles")
                         .header("X-Dev-User", "worker")

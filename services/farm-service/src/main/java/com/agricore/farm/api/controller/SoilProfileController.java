@@ -45,7 +45,7 @@ public class SoilProfileController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST')")
+    @PreAuthorize("hasAuthority('PERMISSION_FARM_WRITE')")
     public ResponseEntity<SoilProfileResponse> create(
             @PathVariable UUID plotId,
             @Valid @RequestBody CreateSoilProfileRequest request
@@ -54,7 +54,7 @@ public class SoilProfileController {
     }
 
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_FARM_READ')")
     public PageResponse<SoilProfileResponse> list(
             @PathVariable UUID plotId,
             @RequestParam(required = false) @Pattern(regexp = STATUS_PATTERN) String status,
@@ -79,7 +79,7 @@ public class SoilProfileController {
     }
 
     @GetMapping("/{profileId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_FARM_READ')")
     public SoilProfileResponse get(
             @PathVariable UUID plotId,
             @PathVariable UUID profileId
@@ -88,7 +88,7 @@ public class SoilProfileController {
     }
 
     @PatchMapping("/{profileId}")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST')")
+    @PreAuthorize("hasAuthority('PERMISSION_FARM_WRITE')")
     public SoilProfileResponse update(
             @PathVariable UUID plotId,
             @PathVariable UUID profileId,

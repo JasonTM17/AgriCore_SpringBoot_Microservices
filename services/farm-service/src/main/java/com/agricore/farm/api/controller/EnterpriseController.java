@@ -43,7 +43,7 @@ public class EnterpriseController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
+    @PreAuthorize("hasRole('SYSTEM_ADMIN') and hasAuthority('PERMISSION_FARM_ADMIN')")
     public ResponseEntity<EnterpriseResponse> create(
             @Valid @RequestBody CreateEnterpriseRequest request
     ) {
@@ -51,7 +51,7 @@ public class EnterpriseController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
+    @PreAuthorize("hasRole('SYSTEM_ADMIN') and hasAuthority('PERMISSION_FARM_ADMIN')")
     public PageResponse<EnterpriseResponse> list(
             @RequestParam(required = false) @Pattern(regexp = STATUS_PATTERN) String status,
             @RequestParam(required = false) @Size(max = 120) String province,
@@ -69,13 +69,13 @@ public class EnterpriseController {
     }
 
     @GetMapping("/{enterpriseId}")
-    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
+    @PreAuthorize("hasRole('SYSTEM_ADMIN') and hasAuthority('PERMISSION_FARM_ADMIN')")
     public EnterpriseResponse get(@PathVariable UUID enterpriseId) {
         return enterpriseService.get(enterpriseId);
     }
 
     @PatchMapping("/{enterpriseId}")
-    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
+    @PreAuthorize("hasRole('SYSTEM_ADMIN') and hasAuthority('PERMISSION_FARM_ADMIN')")
     public EnterpriseResponse update(
             @PathVariable UUID enterpriseId,
             @Valid @RequestBody UpdateEnterpriseRequest request
