@@ -11,6 +11,8 @@ import com.agricore.sales.infrastructure.persistence.entity.SalesOrderEntity;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -56,6 +58,17 @@ class SalesReconcileTest {
 
     @MockBean
     private InventoryClient inventoryClient;
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "SALES_READ"})
+    void matchingSalesRoleWithoutUsePermissionCannotReconcile(String explicitPermissions) throws Exception {
+        mockMvc.perform(post("/api/v1/sales/orders/" + UUID.randomUUID() + "/reconcile")
+                        .param("action", "RELEASE")
+                        .header("X-Dev-User", "ops")
+                        .header("X-Dev-Roles", "SALES_STAFF")
+                        .header("X-Dev-Permissions", explicitPermissions))
+                .andExpect(status().isForbidden());
+    }
 
     private UUID persistCustomer() {
         CustomerEntity c = new CustomerEntity();

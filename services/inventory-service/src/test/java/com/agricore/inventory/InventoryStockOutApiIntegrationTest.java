@@ -3,6 +3,8 @@ package com.agricore.inventory;
 import com.agricore.farmaccess.FarmAccessClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -34,6 +36,25 @@ class InventoryStockOutApiIntegrationTest {
     private ObjectMapper objectMapper;
     @MockitoBean
     private FarmAccessClient farmAccessClient;
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "INVENTORY_READ"})
+    void matchingWarehouseRoleWithoutWritePermissionCannotStockOut(String explicitPermissions) throws Exception {
+        mockMvc.perform(post("/api/v1/inventory/stock-out")
+                        .header(USER_HEADER, "warehouse")
+                        .header(ROLES_HEADER, "WAREHOUSE_MANAGER")
+                        .header("X-Dev-Permissions", explicitPermissions)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "inventoryItemId":"%s",
+                                  "quantity":1.000,
+                                  "referenceType":"WorkTask",
+                                  "referenceId":"PERMISSION-BOUNDARY"
+                                }
+                                """.formatted(UUID.randomUUID())))
+                .andExpect(status().isForbidden());
+    }
 
     @Test
     void warehouseManagerCanStockOutIdempotentlyWhileOtherRolesAreForbidden() throws Exception {

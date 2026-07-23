@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -47,6 +48,25 @@ class IotAccessFailureIntegrationTest {
     private SensorAlertJpaRepository alertRepository;
     @MockitoBean
     private FarmAccessClient farmAccessClient;
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "IOT_READ"})
+    void matchingAgronomistRoleWithoutWritePermissionCannotRegister(String explicitPermissions) throws Exception {
+        clearInvocations(farmAccessClient);
+
+        assertApiError(
+                mockMvc.perform(post("/api/v1/iot/devices")
+                        .header("X-Dev-User", "agronomist")
+                        .header("X-Dev-Roles", "AGRONOMIST")
+                        .header("X-Dev-Permissions", explicitPermissions)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registerRequest("PERMISSION-" + System.nanoTime(), UUID.randomUUID()))),
+                HttpStatus.FORBIDDEN,
+                "ACCESS_DENIED"
+        );
+
+        verifyNoInteractions(farmAccessClient);
+    }
 
     @ParameterizedTest
     @MethodSource("farmAccessFailures")

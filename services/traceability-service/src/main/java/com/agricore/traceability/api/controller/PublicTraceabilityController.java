@@ -47,7 +47,7 @@ public class PublicTraceabilityController {
      * Not public — requires warehouse or admin role so FIELD_WORKER cannot invent QR rows.
      */
     @PostMapping("/api/v1/traceability/batches")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAuthority('PERMISSION_TRACEABILITY_WRITE')")
     public ResponseEntity<PublicTraceabilityResponse> create(@Valid @RequestBody CreateTraceabilityRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.createFromHarvest(request));
     }

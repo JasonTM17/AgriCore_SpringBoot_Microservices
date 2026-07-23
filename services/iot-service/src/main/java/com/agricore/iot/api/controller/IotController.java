@@ -22,13 +22,13 @@ public class IotController {
     }
 
     @PostMapping("/devices")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST')")
+    @PreAuthorize("hasAuthority('PERMISSION_IOT_WRITE')")
     public ResponseEntity<DeviceResponse> register(@Valid @RequestBody RegisterDeviceRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.registerDevice(request));
     }
 
     @PostMapping("/readings")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST','FIELD_WORKER')")
+    @PreAuthorize("hasAnyAuthority('PERMISSION_IOT_WRITE','PERMISSION_IOT_USE')")
     public IngestResultResponse ingest(@Valid @RequestBody IngestReadingRequest request) {
         return service.ingest(request);
     }

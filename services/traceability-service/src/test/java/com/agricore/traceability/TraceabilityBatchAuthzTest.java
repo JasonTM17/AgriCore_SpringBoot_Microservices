@@ -1,6 +1,8 @@
 package com.agricore.traceability;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -10,6 +12,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.UUID;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -39,6 +42,18 @@ class TraceabilityBatchAuthzTest {
                   "netWeightKg":100
                 }
                 """.formatted(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "TRACEABILITY_READ"})
+    void matchingWarehouseRoleWithoutUsePermissionCannotReadAcknowledgement(String explicitPermissions)
+            throws Exception {
+        mockMvc.perform(get("/api/v1/traceability/events/harvest-completed/{eventId}/acknowledgement",
+                        UUID.randomUUID())
+                        .header("X-Dev-User", "wh")
+                        .header("X-Dev-Roles", "WAREHOUSE_MANAGER")
+                        .header("X-Dev-Permissions", explicitPermissions))
+                .andExpect(status().isForbidden());
     }
 
     @Test

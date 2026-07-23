@@ -21,7 +21,7 @@ public class TraceabilityProjectionAcknowledgementController {
     }
 
     @GetMapping("/api/v1/traceability/events/harvest-completed/{eventId}/acknowledgement")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST','WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAuthority('PERMISSION_TRACEABILITY_USE')")
     public TraceabilityHarvestProjectionAcknowledgementResponse getAcknowledgement(
             @PathVariable UUID eventId
     ) {

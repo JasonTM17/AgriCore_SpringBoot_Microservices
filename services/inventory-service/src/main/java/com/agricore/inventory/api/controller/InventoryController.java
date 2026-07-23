@@ -39,42 +39,42 @@ public class InventoryController {
     }
 
     @PostMapping("/warehouses")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAuthority('PERMISSION_INVENTORY_WRITE')")
     public ResponseEntity<WarehouseResponse> createWarehouse(@Valid @RequestBody CreateWarehouseRequest request) {
         accessGuard.requireFarm(request.farmId());
         return ResponseEntity.status(HttpStatus.CREATED).body(service.createWarehouse(request));
     }
 
     @PostMapping("/items")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAuthority('PERMISSION_INVENTORY_WRITE')")
     public ResponseEntity<InventoryItemResponse> createItem(@Valid @RequestBody CreateItemRequest request) {
         accessGuard.requireWarehouse(request.warehouseId());
         return ResponseEntity.status(HttpStatus.CREATED).body(service.createItem(request));
     }
 
     @PostMapping("/stock-in")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAuthority('PERMISSION_INVENTORY_WRITE')")
     public InventoryItemResponse stockIn(@Valid @RequestBody StockInRequest request) {
         accessGuard.requireItem(request.inventoryItemId());
         return service.stockIn(request);
     }
 
     @PostMapping("/stock-out")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAuthority('PERMISSION_INVENTORY_WRITE')")
     public InventoryItemResponse stockOut(@Valid @RequestBody StockOutRequest request) {
         accessGuard.requireItem(request.inventoryItemId());
         return service.stockOut(request);
     }
 
     @PostMapping("/reservations")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','WAREHOUSE_MANAGER','SALES_STAFF')")
+    @PreAuthorize("hasAuthority('PERMISSION_INVENTORY_USE')")
     public ResponseEntity<ReservationResponse> reserve(@Valid @RequestBody ReserveStockRequest request) {
         accessGuard.requireItem(request.inventoryItemId());
         return ResponseEntity.status(HttpStatus.CREATED).body(service.reserve(request));
     }
 
     @GetMapping("/reservations/by-reference")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','WAREHOUSE_MANAGER','SALES_STAFF')")
+    @PreAuthorize("hasAuthority('PERMISSION_INVENTORY_USE')")
     public ReservationResponse getReservationByReference(
             @RequestParam @NotBlank @Size(max = 64) String referenceType,
             @RequestParam @NotBlank @Size(max = 100) String referenceId
@@ -84,21 +84,21 @@ public class InventoryController {
     }
 
     @PostMapping("/reservations/{reservationId}/release")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','WAREHOUSE_MANAGER','SALES_STAFF')")
+    @PreAuthorize("hasAuthority('PERMISSION_INVENTORY_USE')")
     public ReservationResponse release(@PathVariable UUID reservationId) {
         accessGuard.requireReservation(reservationId);
         return service.release(reservationId);
     }
 
     @PostMapping("/reservations/{reservationId}/confirm")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','WAREHOUSE_MANAGER','SALES_STAFF')")
+    @PreAuthorize("hasAuthority('PERMISSION_INVENTORY_USE')")
     public ReservationResponse confirm(@PathVariable UUID reservationId) {
         accessGuard.requireReservation(reservationId);
         return service.confirm(reservationId);
     }
 
     @GetMapping("/items/{itemId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_INVENTORY_READ')")
     public InventoryItemResponse getItem(@PathVariable UUID itemId) {
         accessGuard.requireItem(itemId);
         return service.getItem(itemId);
@@ -109,14 +109,14 @@ public class InventoryController {
      * Production path will consume from Kafka using the same application method.
      */
     @PostMapping("/events/harvest-completed")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAuthority('PERMISSION_INVENTORY_WRITE')")
     public InventoryItemResponse harvestCompleted(@Valid @RequestBody HarvestCompletedCommand command) {
         accessGuard.requireWarehouse(command.warehouseId());
         return service.processHarvestCompleted(command);
     }
 
     @GetMapping("/events/harvest-completed/{eventId}/acknowledgement")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST','WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAuthority('PERMISSION_INVENTORY_READ')")
     public InventoryHarvestProjectionAcknowledgementResponse getHarvestProjectionAcknowledgement(
             @PathVariable UUID eventId,
             @RequestParam UUID warehouseId
