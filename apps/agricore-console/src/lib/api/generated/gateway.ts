@@ -4,6 +4,57 @@
  */
 
 export interface paths {
+    "/api/v1/enterprises": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List agricultural enterprises
+         * @description Requires SYSTEM_ADMIN. Filters are combined with logical AND.
+         */
+        get: operations["listEnterprises"];
+        put?: never;
+        /**
+         * Register an agricultural enterprise
+         * @description Requires SYSTEM_ADMIN.
+         */
+        post: operations["createEnterprise"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/enterprises/{enterpriseId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Agricultural enterprise identifier. */
+                enterpriseId: components["parameters"]["EnterpriseId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get an agricultural enterprise
+         * @description Requires SYSTEM_ADMIN.
+         */
+        get: operations["getEnterprise"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update enterprise identity or lifecycle
+         * @description Requires SYSTEM_ADMIN, the current optimistic-lock version, and at least one mutable field.
+         */
+        patch: operations["updateEnterprise"];
+        trace?: never;
+    };
     "/api/v1/auth/{proxy+}": {
         parameters: {
             query?: never;
@@ -1709,6 +1760,92 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /** @enum {string} */
+        EnterpriseStatus: "ACTIVE" | "INACTIVE";
+        EnterpriseResponse: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            name: string;
+            legalName: string | null;
+            taxCode: string | null;
+            address: string | null;
+            province: string | null;
+            status: components["schemas"]["EnterpriseStatus"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            createdBy: string;
+            updatedBy: string;
+            /** Format: int64 */
+            version: number;
+        };
+        EnterprisePageResponse: {
+            content: components["schemas"]["EnterpriseResponse"][];
+            /** Format: int32 */
+            page: number;
+            /** Format: int32 */
+            size: number;
+            /** Format: int64 */
+            totalElements: number;
+            /** Format: int32 */
+            totalPages: number;
+            first: boolean;
+            last: boolean;
+        };
+        FieldViolation: {
+            field: string;
+            message: string;
+        };
+        ApiError: {
+            /** Format: date-time */
+            timestamp: string;
+            /** Format: int32 */
+            status: number;
+            error: string;
+            code: string;
+            message: string;
+            path: string;
+            traceId?: string | null;
+            violations?: components["schemas"]["FieldViolation"][];
+            details?: {
+                [key: string]: unknown;
+            };
+        };
+        CreateEnterpriseRequest: {
+            /** @description Enterprise code stored in canonical uppercase form. */
+            code: string;
+            name: string;
+            legalName?: string | null;
+            /** @description Optional globally unique tax identifier stored in canonical uppercase form. */
+            taxCode?: string | null;
+            address?: string | null;
+            province?: string | null;
+        };
+        /** @description Provide the current version and at least one mutable field. */
+        UpdateEnterpriseRequest: {
+            /** Format: int64 */
+            version: number;
+            name?: string;
+            legalName?: string | null;
+            taxCode?: string | null;
+            address?: string | null;
+            province?: string | null;
+            status?: components["schemas"]["EnterpriseStatus"];
+        } & ({
+            name: string;
+        } | {
+            legalName: string | null;
+        } | {
+            taxCode: string | null;
+        } | {
+            address: string | null;
+        } | {
+            province: string | null;
+        } | {
+            status: components["schemas"]["EnterpriseStatus"];
+        });
+        /** @enum {string} */
         FarmStatus: "ACTIVE" | "INACTIVE" | "MAINTENANCE";
         FarmResponse: {
             /** Format: uuid */
@@ -1742,25 +1879,6 @@ export interface components {
             totalPages: number;
             first: boolean;
             last: boolean;
-        };
-        FieldViolation: {
-            field: string;
-            message: string;
-        };
-        ApiError: {
-            /** Format: date-time */
-            timestamp: string;
-            /** Format: int32 */
-            status: number;
-            error: string;
-            code: string;
-            message: string;
-            path: string;
-            traceId?: string | null;
-            violations?: components["schemas"]["FieldViolation"][];
-            details?: {
-                [key: string]: unknown;
-            };
         };
         CreateFarmRequest: {
             code: string;
@@ -2824,8 +2942,8 @@ export interface components {
             };
             content?: never;
         };
-        /** @description Unexpected server failure. */
-        InternalServerError: {
+        /** @description The authenticated user lacks the required role or farm membership. */
+        Forbidden: {
             headers: {
                 [name: string]: unknown;
             };
@@ -2833,8 +2951,8 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description The authenticated user lacks the required role or farm membership. */
-        Forbidden: {
+        /** @description Unexpected server failure. */
+        InternalServerError: {
             headers: {
                 [name: string]: unknown;
             };
@@ -3195,14 +3313,26 @@ export interface components {
         };
     };
     parameters: {
+        /** @description Enterprise lifecycle status. */
+        EnterpriseStatusFilter: components["schemas"]["EnterpriseStatus"];
+        /** @description Literal case-insensitive headquarters-province substring. */
+        EnterpriseProvince: string;
+        /** @description Literal case-insensitive code, name, legal-name, or tax-code substring. */
+        EnterpriseQuery: string;
+        /** @description Bounded zero-based page index; the bound prevents unsafe database offsets. */
+        EnterprisePage: number;
+        /** @description Number of records per page. */
+        Size: number;
+        /** @description Supported enterprise property and direction; id is the stable tie-breaker. */
+        EnterpriseSort: "code,asc" | "code,desc" | "name,asc" | "name,desc" | "legalName,asc" | "legalName,desc" | "taxCode,asc" | "taxCode,desc" | "province,asc" | "province,desc" | "status,asc" | "status,desc" | "createdAt,asc" | "createdAt,desc" | "updatedAt,asc" | "updatedAt,desc";
+        /** @description Agricultural enterprise identifier. */
+        EnterpriseId: string;
         /** @description Case-insensitive province substring. */
         Province: string;
         /** @description Farm status code. */
         FarmStatusFilter: components["schemas"]["FarmStatus"];
         /** @description Zero-based page index. */
         Page: number;
-        /** @description Number of records per page. */
-        Size: number;
         /** @description Supported farm property and lowercase direction. */
         FarmSort: "code,asc" | "code,desc" | "name,asc" | "name,desc" | "province,asc" | "province,desc" | "totalAreaHa,asc" | "totalAreaHa,desc" | "status,asc" | "status,desc" | "createdAt,asc" | "createdAt,desc" | "updatedAt,asc" | "updatedAt,desc";
         /** @description Farm identifier. */
@@ -3280,6 +3410,135 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    listEnterprises: {
+        parameters: {
+            query?: {
+                /** @description Enterprise lifecycle status. */
+                status?: components["parameters"]["EnterpriseStatusFilter"];
+                /** @description Literal case-insensitive headquarters-province substring. */
+                province?: components["parameters"]["EnterpriseProvince"];
+                /** @description Literal case-insensitive code, name, legal-name, or tax-code substring. */
+                q?: components["parameters"]["EnterpriseQuery"];
+                /** @description Bounded zero-based page index; the bound prevents unsafe database offsets. */
+                page?: components["parameters"]["EnterprisePage"];
+                /** @description Number of records per page. */
+                size?: components["parameters"]["Size"];
+                /** @description Supported enterprise property and direction; id is the stable tie-breaker. */
+                sort?: components["parameters"]["EnterpriseSort"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paged agricultural enterprises. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnterprisePageResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    createEnterprise: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateEnterpriseRequest"];
+            };
+        };
+        responses: {
+            /** @description Enterprise registered. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnterpriseResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            415: components["responses"]["UnsupportedMediaType"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getEnterprise: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Agricultural enterprise identifier. */
+                enterpriseId: components["parameters"]["EnterpriseId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Enterprise found. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnterpriseResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    updateEnterprise: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Agricultural enterprise identifier. */
+                enterpriseId: components["parameters"]["EnterpriseId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateEnterpriseRequest"];
+            };
+        };
+        responses: {
+            /** @description Enterprise updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnterpriseResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            415: components["responses"]["UnsupportedMediaType"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
     listFarms: {
         parameters: {
             query?: {

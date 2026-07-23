@@ -30,7 +30,7 @@ spring:
         - id: farm-service
           uri: ${FARM_SERVICE_URL:http://localhost:8082}
           predicates:
-            - Path=/api/v1/farms/**,/api/v1/plots/**
+            - Path=/api/v1/enterprises/**,/api/v1/farms/**,/api/v1/plots/**
         - id: crop-catalog-service
           uri: ${CROP_CATALOG_SERVICE_URL:http://localhost:8083}
           predicates:

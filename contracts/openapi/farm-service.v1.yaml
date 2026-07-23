@@ -1,14 +1,15 @@
 openapi: 3.1.0
 info:
   title: AgriCore Farm Service API
-  version: 1.7.0
-  description: Verified farm, farm-area, plot, soil-profile, membership, and resource-access contract.
+  version: 1.8.0
+  description: Verified enterprise, farm, farm-area, plot, soil-profile, membership, and resource-access contract.
 servers:
   - url: http://localhost:8082
     description: Direct local service endpoint
 security:
   - bearerAuth: []
 tags:
+  - name: Enterprises
   - name: Farms
   - name: Farm Areas
   - name: Plots
@@ -16,6 +17,121 @@ tags:
   - name: Farm Memberships
   - name: Internal Farm Access
 paths:
+  /api/v1/enterprises:
+    get:
+      tags: [Enterprises]
+      operationId: listEnterprises
+      summary: List agricultural enterprises
+      description: Requires SYSTEM_ADMIN. Filters are combined with logical AND.
+      parameters:
+        - $ref: '#/components/parameters/EnterpriseStatusFilter'
+        - $ref: '#/components/parameters/EnterpriseProvince'
+        - $ref: '#/components/parameters/EnterpriseQuery'
+        - $ref: '#/components/parameters/EnterprisePage'
+        - $ref: '#/components/parameters/Size'
+        - $ref: '#/components/parameters/EnterpriseSort'
+      responses:
+        '200':
+          description: Paged agricultural enterprises.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnterprisePageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags: [Enterprises]
+      operationId: createEnterprise
+      summary: Register an agricultural enterprise
+      description: Requires SYSTEM_ADMIN.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEnterpriseRequest'
+      responses:
+        '201':
+          description: Enterprise registered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnterpriseResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/v1/enterprises/{enterpriseId}:
+    parameters:
+      - $ref: '#/components/parameters/EnterpriseId'
+    get:
+      tags: [Enterprises]
+      operationId: getEnterprise
+      summary: Get an agricultural enterprise
+      description: Requires SYSTEM_ADMIN.
+      responses:
+        '200':
+          description: Enterprise found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnterpriseResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      tags: [Enterprises]
+      operationId: updateEnterprise
+      summary: Update enterprise identity or lifecycle
+      description: Requires SYSTEM_ADMIN, the current optimistic-lock version, and at least one mutable field.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEnterpriseRequest'
+      responses:
+        '200':
+          description: Enterprise updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnterpriseResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /api/v1/farms:
     get:
       tags: [Farms]
@@ -804,6 +920,14 @@ components:
       scheme: bearer
       bearerFormat: JWT
   parameters:
+    EnterpriseId:
+      in: path
+      name: enterpriseId
+      required: true
+      description: Agricultural enterprise identifier.
+      schema:
+        type: string
+        format: uuid
     FarmId:
       in: path
       name: farmId
@@ -882,6 +1006,63 @@ components:
         minimum: 1
         maximum: 100
         default: 20
+    EnterpriseStatusFilter:
+      in: query
+      name: status
+      required: false
+      description: Enterprise lifecycle status.
+      schema:
+        $ref: '#/components/schemas/EnterpriseStatus'
+    EnterpriseProvince:
+      in: query
+      name: province
+      required: false
+      description: Literal case-insensitive headquarters-province substring.
+      schema:
+        type: string
+        maxLength: 120
+    EnterpriseQuery:
+      in: query
+      name: q
+      required: false
+      description: Literal case-insensitive code, name, legal-name, or tax-code substring.
+      schema:
+        type: string
+        maxLength: 200
+    EnterprisePage:
+      in: query
+      name: page
+      description: Bounded zero-based page index; the bound prevents unsafe database offsets.
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+        maximum: 10000
+        default: 0
+    EnterpriseSort:
+      in: query
+      name: sort
+      description: Supported enterprise property and direction; id is the stable tie-breaker.
+      schema:
+        type: string
+        default: name,asc
+        enum:
+          - code,asc
+          - code,desc
+          - name,asc
+          - name,desc
+          - legalName,asc
+          - legalName,desc
+          - taxCode,asc
+          - taxCode,desc
+          - province,asc
+          - province,desc
+          - status,asc
+          - status,desc
+          - createdAt,asc
+          - createdAt,desc
+          - updatedAt,asc
+          - updatedAt,desc
     Province:
       in: query
       name: province
@@ -1155,6 +1336,9 @@ components:
           schema:
             $ref: '#/components/schemas/ApiError'
   schemas:
+    EnterpriseStatus:
+      type: string
+      enum: [ACTIVE, INACTIVE]
     FarmStatus:
       type: string
       enum: [ACTIVE, INACTIVE, MAINTENANCE]
@@ -1188,6 +1372,109 @@ components:
     IrrigationZoneStatus:
       type: string
       enum: [ACTIVE, MAINTENANCE, INACTIVE]
+    CreateEnterpriseRequest:
+      type: object
+      additionalProperties: false
+      required: [code, name]
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: '^[A-Za-z0-9][A-Za-z0-9._/-]{0,63}$'
+          description: Enterprise code stored in canonical uppercase form.
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          pattern: '.*\S.*'
+        legalName:
+          type: [string, 'null']
+          maxLength: 250
+        taxCode:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 64
+          pattern: '^[A-Za-z0-9][A-Za-z0-9.-]{0,63}$'
+          description: Optional globally unique tax identifier stored in canonical uppercase form.
+        address:
+          type: [string, 'null']
+          maxLength: 500
+        province:
+          type: [string, 'null']
+          maxLength: 120
+    UpdateEnterpriseRequest:
+      description: Provide the current version and at least one mutable field.
+      allOf:
+        - type: object
+          additionalProperties: false
+          required: [version]
+          properties:
+            version:
+              type: integer
+              format: int64
+              minimum: 0
+            name:
+              type: string
+              minLength: 1
+              maxLength: 200
+              pattern: '.*\S.*'
+            legalName:
+              type: [string, 'null']
+              maxLength: 250
+            taxCode:
+              type: [string, 'null']
+              minLength: 1
+              maxLength: 64
+              pattern: '^[A-Za-z0-9][A-Za-z0-9.-]{0,63}$'
+            address:
+              type: [string, 'null']
+              maxLength: 500
+            province:
+              type: [string, 'null']
+              maxLength: 120
+            status:
+              $ref: '#/components/schemas/EnterpriseStatus'
+        - anyOf:
+            - type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                  pattern: '.*\S.*'
+            - type: object
+              required: [legalName]
+              properties:
+                legalName:
+                  type: [string, 'null']
+                  maxLength: 250
+            - type: object
+              required: [taxCode]
+              properties:
+                taxCode:
+                  type: [string, 'null']
+                  minLength: 1
+                  maxLength: 64
+                  pattern: '^[A-Za-z0-9][A-Za-z0-9.-]{0,63}$'
+            - type: object
+              required: [address]
+              properties:
+                address:
+                  type: [string, 'null']
+                  maxLength: 500
+            - type: object
+              required: [province]
+              properties:
+                province:
+                  type: [string, 'null']
+                  maxLength: 120
+            - type: object
+              required: [status]
+              properties:
+                status:
+                  $ref: '#/components/schemas/EnterpriseStatus'
     GrantFarmMembershipRequest:
       type: object
       required: [subject]
@@ -1562,6 +1849,63 @@ components:
                 notes:
                   type: [string, 'null']
                   maxLength: 1000
+    EnterpriseResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - code
+        - name
+        - legalName
+        - taxCode
+        - address
+        - province
+        - status
+        - createdAt
+        - updatedAt
+        - createdBy
+        - updatedBy
+        - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          maxLength: 64
+        name:
+          type: string
+          maxLength: 200
+        legalName:
+          type: [string, 'null']
+          maxLength: 250
+        taxCode:
+          type: [string, 'null']
+          maxLength: 64
+        address:
+          type: [string, 'null']
+          maxLength: 500
+        province:
+          type: [string, 'null']
+          maxLength: 120
+        status:
+          $ref: '#/components/schemas/EnterpriseStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          maxLength: 255
+        updatedBy:
+          type: string
+          maxLength: 255
+        version:
+          type: integer
+          format: int64
+          minimum: 0
     FarmResponse:
       type: object
       additionalProperties: false
@@ -1924,6 +2268,36 @@ components:
         plotId:
           type: [string, 'null']
           format: uuid
+    EnterprisePageResponse:
+      type: object
+      additionalProperties: false
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnterpriseResponse'
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int32
+          minimum: 0
+        first:
+          type: boolean
+        last:
+          type: boolean
     FarmPageResponse:
       type: object
       additionalProperties: false
