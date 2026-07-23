@@ -1,0 +1,44 @@
+{
+  "generatedAt": "2026-07-23",
+  "generator": "OpenAI built-in image generation workflow",
+  "license": "Repository-owned generated assets; no user data or external source media",
+  "assets": [
+    {
+      "file": "agricore-farm-sunrise.webp",
+      "mimeType": "image/webp",
+      "width": 1672,
+      "height": 941,
+      "bytes": 252782,
+      "sha256": "7658C6E6CFAC87C69E29BDFF669FF8C6D121628CBA7D3CF8C9E6C579B0F5C467",
+      "role": "console hero and farm overview"
+    },
+    {
+      "file": "agricore-harvest-packing.webp",
+      "mimeType": "image/webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 220304,
+      "sha256": "9792AD158E70E6EC3D0023BE2291CC6A48B4D901D8E244C1F6C2E54F65844DC3",
+      "role": "harvest and cold-chain showcase"
+    },
+    {
+      "file": "agricore-traceability-produce.webp",
+      "mimeType": "image/webp",
+      "width": 1122,
+      "height": 1402,
+      "bytes": 141024,
+      "sha256": "5E49569C5E72F86F2D72AB8B4E0A7B2D5239F90615B61B72D6FCA46A6D4817B6",
+      "role": "public traceability showcase"
+    },
+    {
+      "file": "agricore-farm-story.gif",
+      "mimeType": "image/gif",
+      "width": 960,
+      "height": 540,
+      "frames": 3,
+      "bytes": 660723,
+      "sha256": "7AEFDB475EDE138B43D575A54795FC323CBBD23F91AD68D3E2F4B0D9F5295D36",
+      "role": "bounded three-frame farm story preview"
+    }
+  ]
+}

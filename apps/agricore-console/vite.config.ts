@@ -8,6 +8,7 @@ const gatewayUrl = process.env["AGRICORE_GATEWAY_URL"] ?? "http://localhost:8080
 
 export default defineConfig(({ command }) => ({
   plugins: [browserSecurityPolicyPlugin(command), react(), tailwindcss()],
+  publicDir: "../../assets/media/agricore-showcase",
   server: {
     host: "127.0.0.1",
     port: 5173,

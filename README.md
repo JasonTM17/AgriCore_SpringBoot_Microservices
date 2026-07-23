@@ -47,6 +47,20 @@ Sales ── synchronous inventory reservation saga
 
 See [System Architecture](docs/architecture/SYSTEM_ARCHITECTURE.md), [ADRs](docs/adr/), and [local operations](docs/runbooks/local-operations.md).
 
+## Visual showcase
+
+The repository includes a small, optimized media set for demos and product
+walkthroughs. These are generated, repository-owned visuals; they contain no
+production data or scannable identifiers.
+
+![AgriCore farm at sunrise](assets/media/agricore-showcase/agricore-farm-sunrise.webp)
+
+- [Farm sunrise hero](assets/media/agricore-showcase/agricore-farm-sunrise.webp)
+- [Harvest packing workflow](assets/media/agricore-showcase/agricore-harvest-packing.webp)
+- [Public traceability produce](assets/media/agricore-showcase/agricore-traceability-produce.webp)
+- [Three-frame farm story GIF](assets/media/agricore-showcase/agricore-farm-story.gif)
+- [Asset manifest and checksums](assets/media/agricore-showcase/manifest.json)
+
 ## Prerequisites
 
 - JDK 21+
