@@ -11,6 +11,8 @@ import com.agricore.inventory.application.service.InventoryApplicationService;
 import com.agricore.inventory.domain.exception.InventoryException;
 import com.agricore.inventory.domain.model.MovementType;
 import com.agricore.inventory.infrastructure.persistence.InventoryItemJpaRepository;
+import com.agricore.inventory.infrastructure.persistence.InventoryBatchJpaRepository;
+import com.agricore.inventory.infrastructure.persistence.InventoryReservationAllocationJpaRepository;
 import com.agricore.inventory.infrastructure.persistence.InventoryReservationJpaRepository;
 import com.agricore.inventory.infrastructure.persistence.OutboxJpaRepository;
 import com.agricore.inventory.infrastructure.persistence.ProcessedEventJpaRepository;
@@ -43,6 +45,10 @@ class InventoryDomainEventsIntegrationTest {
     @Autowired
     private InventoryItemJpaRepository itemRepository;
     @Autowired
+    private InventoryBatchJpaRepository batchRepository;
+    @Autowired
+    private InventoryReservationAllocationJpaRepository allocationRepository;
+    @Autowired
     private StockMovementJpaRepository movementRepository;
     @Autowired
     private InventoryReservationJpaRepository reservationRepository;
@@ -57,8 +63,10 @@ class InventoryDomainEventsIntegrationTest {
     void cleanDatabase() {
         outboxRepository.deleteAllInBatch();
         processedEventRepository.deleteAllInBatch();
+        allocationRepository.deleteAllInBatch();
         reservationRepository.deleteAllInBatch();
         movementRepository.deleteAllInBatch();
+        batchRepository.deleteAllInBatch();
         itemRepository.deleteAllInBatch();
         warehouseRepository.deleteAllInBatch();
     }
@@ -78,6 +86,7 @@ class InventoryDomainEventsIntegrationTest {
         assertThat(envelope.path("producer").asText()).isEqualTo("inventory-service");
         assertThat(envelope.path("payload").path("inventoryItemId").asText()).isEqualTo(item.id().toString());
         assertThat(envelope.path("payload").path("movementId").asText()).isNotBlank();
+        assertThat(envelope.path("payload").path("batchId").asText()).isNotBlank();
         assertThat(envelope.path("payload").path("onHandQuantity").decimalValue())
                 .isEqualByComparingTo(stocked.onHandQuantity());
         assertThat(event.getAggregateId()).isEqualTo(item.id().toString());

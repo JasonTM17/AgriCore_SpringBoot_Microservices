@@ -223,6 +223,35 @@ WHERE id = '<warehouse-uuid>'
 
 Do not bulk-assign a default farm. Re-run the audit and require zero rows before enabling Work material stock-out for migrated warehouses.
 
+### Inventory expiry-aware batches
+
+Migration `V6__add_expiry_aware_inventory_batches.sql` creates the lot ledger and
+backfills each existing item into a `LEGACY-<item-uuid>` lot with no expiry. New
+stock-in requests may provide `lotCode` and `expiresAt`; when omitted, the service
+derives a deterministic lot code from the movement reference. Reservations and
+dispatch use FEFO/FIFO ordering and reject expired available stock.
+
+After applying V6, reconcile aggregate and lot balances before enabling production
+traffic. The following query should return no rows (the aggregate is the sum of
+batch quantities and the reserved balance is the sum of batch reservations):
+
+```sql
+SELECT i.id,
+       i.on_hand_quantity,
+       COALESCE(SUM(b.quantity), 0) AS batch_quantity,
+       i.reserved_quantity,
+       COALESCE(SUM(b.reserved_quantity), 0) AS batch_reserved_quantity
+FROM inventory_items i
+LEFT JOIN inventory_batches b ON b.inventory_item_id = i.id
+GROUP BY i.id, i.on_hand_quantity, i.reserved_quantity
+HAVING i.on_hand_quantity <> COALESCE(SUM(b.quantity), 0)
+    OR i.reserved_quantity <> COALESCE(SUM(b.reserved_quantity), 0);
+```
+
+Do not manually delete a batch with reservation allocations. Repair through the
+inventory application flow so the aggregate, batch ledger, movement, and outbox
+remain consistent.
+
 ## Stop the stack
 
 Stop observability before the main project so its containers release the external network:

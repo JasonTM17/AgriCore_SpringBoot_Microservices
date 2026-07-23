@@ -302,8 +302,21 @@ components:
         itemType: { type: string, minLength: 1 }
         unit: { type: string, minLength: 1, maxLength: 16 }
     StockInRequest:
-      allOf:
-        - $ref: '#/components/schemas/StockMutationRequest'
+      type: object
+      additionalProperties: false
+      required: [inventoryItemId, quantity, referenceType, referenceId]
+      description: |
+        Adds stock to an expiry-aware lot. Omitting lotCode derives a deterministic
+        lot identity from referenceType/referenceId. Omitting expiresAt means the lot
+        is not expiry-managed.
+      properties:
+        inventoryItemId: { type: string, format: uuid }
+        quantity: { type: number, minimum: 0.001, maximum: 999999999999999.999, multipleOf: 0.001 }
+        referenceType: { type: string, minLength: 1, maxLength: 64 }
+        referenceId: { type: string, minLength: 1, maxLength: 100 }
+        note: { type: [string, 'null'], maxLength: 1000 }
+        lotCode: { type: string, maxLength: 100 }
+        expiresAt: { type: string, format: date-time }
     StockOutRequest:
       allOf:
         - $ref: '#/components/schemas/StockMutationRequest'

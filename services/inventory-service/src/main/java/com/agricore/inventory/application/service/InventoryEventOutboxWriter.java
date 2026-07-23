@@ -88,6 +88,9 @@ public class InventoryEventOutboxWriter {
         payload.put("quantity", movement.getQuantity());
         payload.put("referenceType", movement.getReferenceType());
         payload.put("referenceId", movement.getReferenceId());
+        if (movement.getBatchId() != null) {
+            payload.put("batchId", movement.getBatchId());
+        }
         return payload;
     }
 

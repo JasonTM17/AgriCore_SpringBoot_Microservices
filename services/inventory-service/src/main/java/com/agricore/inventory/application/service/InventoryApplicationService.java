@@ -12,7 +12,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -25,6 +27,7 @@ public class InventoryApplicationService {
     private final StockMovementJpaRepository movementRepository;
     private final ProcessedEventJpaRepository processedEventRepository;
     private final InventoryReservationJpaRepository reservationRepository;
+    private final InventoryBatchAllocationService batchAllocationService;
     private final InventoryMetrics metrics;
     private final InventoryEventOutboxWriter eventWriter;
 
@@ -34,6 +37,7 @@ public class InventoryApplicationService {
             StockMovementJpaRepository movementRepository,
             ProcessedEventJpaRepository processedEventRepository,
             InventoryReservationJpaRepository reservationRepository,
+            InventoryBatchAllocationService batchAllocationService,
             InventoryMetrics metrics,
             InventoryEventOutboxWriter eventWriter
     ) {
@@ -42,6 +46,7 @@ public class InventoryApplicationService {
         this.movementRepository = movementRepository;
         this.processedEventRepository = processedEventRepository;
         this.reservationRepository = reservationRepository;
+        this.batchAllocationService = batchAllocationService;
         this.metrics = metrics;
         this.eventWriter = eventWriter;
     }
@@ -84,20 +89,53 @@ public class InventoryApplicationService {
         item.setCreatedAt(now);
         item.setUpdatedAt(now);
         itemRepository.save(item);
+        batchAllocationService.ensureOpeningBatch(item);
         return toItemResponse(item);
     }
 
     @Transactional
     public InventoryItemResponse stockIn(StockInRequest request) {
-        InventoryItemEntity item = requireItem(request.inventoryItemId());
-        if (request.quantity().signum() <= 0) {
+        InventoryItemEntity item = requireItemForUpdate(request.inventoryItemId());
+        if (request.quantity() == null || request.quantity().signum() <= 0) {
             throw new InventoryException("INVALID_QTY", "Quantity must be positive", 400);
         }
+        String referenceType = request.referenceType().trim();
+        String referenceId = request.referenceId().trim();
+        var existingMovement = movementRepository.findFirstByInventoryItemIdAndMovementTypeAndReferenceTypeAndReferenceId(
+                item.getId(), MovementType.STOCK_IN, referenceType, referenceId
+        );
+        if (existingMovement.isPresent()) {
+            if (existingMovement.get().getQuantity().compareTo(request.quantity()) != 0) {
+                throw new InventoryException(
+                        "IDEMPOTENCY_KEY_REUSED",
+                        "Stock-in reference was already used with a different quantity",
+                        409
+                );
+            }
+            return toItemResponse(item);
+        }
+
+        Instant now = Instant.now();
+        validateExpiry(request.expiresAt(), now);
+        InventoryBatchEntity batch = batchAllocationService.addStock(
+                item.getId(),
+                request.quantity(),
+                normalizeLotCode(request.lotCode(), referenceType, referenceId),
+                request.expiresAt(),
+                now
+        );
         item.setOnHandQuantity(item.getOnHandQuantity().add(request.quantity()));
-        item.setUpdatedAt(Instant.now());
+        item.setUpdatedAt(now);
         itemRepository.save(item);
-        StockMovementEntity movement = writeMovement(item.getId(), MovementType.STOCK_IN, request.quantity(),
-                request.referenceType(), request.referenceId(), request.note());
+        StockMovementEntity movement = writeMovement(
+                item.getId(),
+                MovementType.STOCK_IN,
+                request.quantity(),
+                referenceType,
+                referenceId,
+                request.note(),
+                batch.getId()
+        );
         eventWriter.stockAdded(item, movement);
         return toItemResponse(item);
     }
@@ -141,13 +179,16 @@ public class InventoryApplicationService {
         if (item.availableQuantity().compareTo(request.quantity()) < 0) {
             throw new InventoryException("INSUFFICIENT_STOCK", "Not enough available stock", 409);
         }
-
+        Instant now = Instant.now();
+        List<InventoryBatchAllocationService.BatchAllocation> allocations =
+                batchAllocationService.deduct(item.getId(), request.quantity(), now);
         item.setOnHandQuantity(item.getOnHandQuantity().subtract(request.quantity()));
-        item.setUpdatedAt(Instant.now());
+        item.setUpdatedAt(now);
         itemRepository.save(item);
         StockMovementEntity movement = writeMovement(
                 item.getId(), MovementType.STOCK_OUT, request.quantity(),
-                referenceType, referenceId, request.note()
+                referenceType, referenceId, request.note(),
+                singleBatchId(allocations)
         );
         eventWriter.stockDeducted(item, movement, null);
         return toItemResponse(item);
@@ -182,9 +223,18 @@ public class InventoryApplicationService {
         InventoryItemEntity item = itemRepository
                 .findByWarehouseIdAndSkuIgnoreCase(command.warehouseId(), sku)
                 .orElseGet(() -> createProduceItem(command.warehouseId(), sku));
+        item = requireItemForUpdate(item.getId());
 
+        Instant now = Instant.now();
+        InventoryBatchEntity batch = batchAllocationService.addStock(
+                item.getId(),
+                command.netWeightKg(),
+                "HARVEST-" + command.harvestBatchId(),
+                null,
+                now
+        );
         item.setOnHandQuantity(item.getOnHandQuantity().add(command.netWeightKg()));
-        item.setUpdatedAt(Instant.now());
+        item.setUpdatedAt(now);
         itemRepository.save(item);
 
         StockMovementEntity movement = writeMovement(
@@ -193,7 +243,8 @@ public class InventoryApplicationService {
                 command.netWeightKg(),
                 "HarvestBatch",
                 command.harvestBatchId().toString(),
-                "HarvestCompleted " + command.eventId()
+                "HarvestCompleted " + command.eventId(),
+                batch.getId()
         );
         eventWriter.stockAdded(item, movement);
 
@@ -230,9 +281,6 @@ public class InventoryApplicationService {
             eventWriter.inventoryReservationFailed(item, request);
             throw new InventoryException("INSUFFICIENT_STOCK", "Not enough available stock", 409);
         }
-        item.setReservedQuantity(item.getReservedQuantity().add(request.quantity()));
-        item.setUpdatedAt(Instant.now());
-        itemRepository.save(item);
 
         Instant now = Instant.now();
         InventoryReservationEntity reservation = new InventoryReservationEntity();
@@ -246,6 +294,15 @@ public class InventoryApplicationService {
         reservation.setUpdatedAt(now);
         // Flush the unique business reference before recording non-transactional success metrics.
         reservationRepository.saveAndFlush(reservation);
+        batchAllocationService.reserve(
+                reservation.getId(),
+                item.getId(),
+                request.quantity(),
+                now
+        );
+        item.setReservedQuantity(item.getReservedQuantity().add(request.quantity()));
+        item.setUpdatedAt(now);
+        itemRepository.save(item);
 
         writeMovement(item.getId(), MovementType.RESERVE, request.quantity(),
                 reservation.getReferenceType(), reservation.getReferenceId(), "Reserve");
@@ -276,15 +333,17 @@ public class InventoryApplicationService {
                     reservation.getStatus(), reservation.getReferenceType(), reservation.getReferenceId()
             );
         }
-        InventoryItemEntity item = requireItem(reservation.getInventoryItemId());
+        InventoryItemEntity item = requireItemForUpdate(reservation.getInventoryItemId());
+        Instant now = Instant.now();
+        batchAllocationService.release(reservation.getId(), item.getId(), now);
         item.setReservedQuantity(item.getReservedQuantity().subtract(reservation.getQuantity()));
         if (item.getReservedQuantity().signum() < 0) {
             throw new InventoryException("NEGATIVE_RESERVED", "Reserved quantity would go negative", 500);
         }
-        item.setUpdatedAt(Instant.now());
+        item.setUpdatedAt(now);
         itemRepository.save(item);
         reservation.setStatus("RELEASED");
-        reservation.setUpdatedAt(Instant.now());
+        reservation.setUpdatedAt(now);
         reservationRepository.save(reservation);
         writeMovement(item.getId(), MovementType.RELEASE, reservation.getQuantity(),
                 reservation.getReferenceType(), reservation.getReferenceId(), "Release");
@@ -316,24 +375,34 @@ public class InventoryApplicationService {
                     409
             );
         }
-        InventoryItemEntity item = requireItem(reservation.getInventoryItemId());
+        InventoryItemEntity item = requireItemForUpdate(reservation.getInventoryItemId());
         if (item.getOnHandQuantity().compareTo(reservation.getQuantity()) < 0) {
             throw new InventoryException("INSUFFICIENT_ON_HAND", "On-hand stock below reserved quantity", 409);
         }
         if (item.getReservedQuantity().compareTo(reservation.getQuantity()) < 0) {
             throw new InventoryException("NEGATIVE_RESERVED", "Reserved quantity below reservation", 500);
         }
+        Instant now = Instant.now();
+        List<InventoryBatchAllocationService.BatchAllocation> allocations =
+                batchAllocationService.fulfill(reservation.getId(), item.getId(), now);
         item.setOnHandQuantity(item.getOnHandQuantity().subtract(reservation.getQuantity()));
         item.setReservedQuantity(item.getReservedQuantity().subtract(reservation.getQuantity()));
-        item.setUpdatedAt(Instant.now());
+        item.setUpdatedAt(now);
         itemRepository.save(item);
         reservation.setStatus("FULFILLED");
-        reservation.setUpdatedAt(Instant.now());
+        reservation.setUpdatedAt(now);
         reservationRepository.save(reservation);
         writeMovement(item.getId(), MovementType.CONFIRM, reservation.getQuantity(),
                 reservation.getReferenceType(), reservation.getReferenceId(), "Confirm reservation");
-        StockMovementEntity stockOutMovement = writeMovement(item.getId(), MovementType.STOCK_OUT, reservation.getQuantity(),
-                reservation.getReferenceType(), reservation.getReferenceId(), "Sales fulfillment");
+        StockMovementEntity stockOutMovement = writeMovement(
+                item.getId(),
+                MovementType.STOCK_OUT,
+                reservation.getQuantity(),
+                reservation.getReferenceType(),
+                reservation.getReferenceId(),
+                "Sales fulfillment",
+                singleBatchId(allocations)
+        );
         eventWriter.stockDeducted(item, stockOutMovement, reservation.getId());
         return new ReservationResponse(
                 reservation.getId(), item.getId(), reservation.getQuantity(),
@@ -359,7 +428,9 @@ public class InventoryApplicationService {
         item.setReservedQuantity(BigDecimal.ZERO);
         item.setCreatedAt(now);
         item.setUpdatedAt(now);
-        return itemRepository.save(item);
+        InventoryItemEntity saved = itemRepository.save(item);
+        batchAllocationService.ensureOpeningBatch(saved);
+        return saved;
     }
 
     private InventoryItemEntity requireItem(UUID id) {
@@ -374,6 +445,29 @@ public class InventoryApplicationService {
 
     private static InventoryException itemNotFound() {
         return new InventoryException("ITEM_NOT_FOUND", "Inventory item not found", 404);
+    }
+
+    private static void validateExpiry(Instant expiresAt, Instant receivedAt) {
+        if (expiresAt != null && !expiresAt.isAfter(receivedAt)) {
+            throw new InventoryException(
+                    "INVALID_EXPIRY",
+                    "Expiry must be after the stock receipt time",
+                    400
+            );
+        }
+    }
+
+    private static String normalizeLotCode(String requestedLotCode, String referenceType, String referenceId) {
+        if (requestedLotCode != null && !requestedLotCode.isBlank()) {
+            return requestedLotCode.trim();
+        }
+        return "LOT-" + UUID.nameUUIDFromBytes(
+                (referenceType + ":" + referenceId).getBytes(StandardCharsets.UTF_8)
+        );
+    }
+
+    private static UUID singleBatchId(List<InventoryBatchAllocationService.BatchAllocation> allocations) {
+        return allocations.size() == 1 ? allocations.get(0).batchId() : null;
     }
 
     private ReservationResponse validateReplay(
@@ -411,9 +505,22 @@ public class InventoryApplicationService {
             String refId,
             String note
     ) {
+        return writeMovement(itemId, type, qty, refType, refId, note, null);
+    }
+
+    private StockMovementEntity writeMovement(
+            UUID itemId,
+            MovementType type,
+            BigDecimal qty,
+            String refType,
+            String refId,
+            String note,
+            UUID batchId
+    ) {
         StockMovementEntity m = new StockMovementEntity();
         m.setId(UUID.randomUUID());
         m.setInventoryItemId(itemId);
+        m.setBatchId(batchId);
         m.setMovementType(type);
         m.setQuantity(qty);
         m.setReferenceType(refType);

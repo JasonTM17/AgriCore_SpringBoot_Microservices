@@ -50,7 +50,7 @@ The browser uses a same-origin edge: Nginx serves `/` and forwards `/api` and `/
 | Crop cycle | Cycles, stages, lifecycle | Publishes crop-cycle events through outbox |
 | Work | Tasks and assignments | Publishes work events through outbox |
 | Harvest | Harvest batches and completion repair | Publishes `HarvestCompleted.v1` through outbox |
-| Inventory | Stock, reservations, movements | Consumes `HarvestCompleted.v1`, idempotent with DLT recovery; publishes stock events |
+| Inventory | Stock, expiry-aware lots, reservations, movements | Consumes `HarvestCompleted.v1`, idempotent with DLT recovery; publishes stock events |
 | Traceability | Public QR timeline/read model | Consumes `HarvestCompleted.v1`, idempotent with DLT recovery; publishes QR lifecycle events |
 | IoT | Devices, readings, threshold alerts | Publishes reading, threshold, and offline events through outbox |
 | Sales | Orders and inventory saga state | Synchronous reserve/confirm/release calls to inventory; publishes order lifecycle events |
@@ -67,6 +67,16 @@ Implemented consumer topology includes `HarvestCompleted.v1` from harvest to inv
 - Current tool access is authenticated, read-only, host-allowlisted farm data with row, byte, and timeout bounds.
 - Redis-backed request/token budgets fail closed when Redis is unavailable.
 - Autonomous writes, arbitrary URLs, RAG ingestion, and cross-service database access are out of scope.
+
+### Inventory batch allocation
+
+Inventory keeps the aggregate item balance for fast reads and an `inventory_batches`
+ledger for lot-level correctness. Stock-in creates or increments a lot, while
+reservation and dispatch allocation lock the item's batches and consume eligible
+lots in FEFO order (earliest expiry first, then receipt time). Expired batches are
+never newly reserved or dispatched. The V6 migration backfills one non-expiring
+legacy lot per existing item and preserves reservation balances through allocation
+rows, so the aggregate and lot ledger can be reconciled after deployment.
 
 ## 5. Communication patterns
 

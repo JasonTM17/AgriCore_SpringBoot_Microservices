@@ -3238,6 +3238,22 @@ export interface components {
             /** Format: int64 */
             version: number;
         };
+        /**
+         * @description Adds stock to an expiry-aware lot. Omitting lotCode derives a deterministic
+         *     lot identity from referenceType/referenceId. Omitting expiresAt means the lot
+         *     is not expiry-managed.
+         */
+        StockInRequest: {
+            /** Format: uuid */
+            inventoryItemId: string;
+            quantity: number;
+            referenceType: string;
+            referenceId: string;
+            note?: string | null;
+            lotCode?: string;
+            /** Format: date-time */
+            expiresAt?: string;
+        };
         StockMutationRequest: {
             /** Format: uuid */
             inventoryItemId: string;
@@ -3246,7 +3262,6 @@ export interface components {
             referenceId: string;
             note?: string | null;
         };
-        StockInRequest: components["schemas"]["StockMutationRequest"];
         StockOutRequest: components["schemas"]["StockMutationRequest"];
         ReservationResponse: {
             /** Format: uuid */
