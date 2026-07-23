@@ -1,8 +1,8 @@
 # AgriCore Implementation Plan
 
-**Status:** In progress; assistant, observability, event producers, contracts, Sales saga events, and Notification consumption delivered; release verification remains
+**Status:** In progress; assistant, observability, event producers, contracts, canonical permissions, bounded inventory/harvest ledgers, Sales reconciliation, and Notification consumption delivered; release verification remains
 **Created:** 2026-07-16
-**Last updated:** 2026-07-22
+**Last updated:** 2026-07-23
 
 ## Delivered scope
 
@@ -30,12 +30,12 @@ Jaeger is not part of the delivered stack. Production object storage and log ret
 | Crop catalog | 8083 | `agricore_crop_catalog` | Crops, varieties, care specifications |
 | Crop cycle | 8084 | `agricore_crop_cycle` | Seasons, stages, lifecycle |
 | Work | 8085 | `agricore_work` | Field tasks and assignments |
-| Inventory | 8086 | `agricore_inventory` | Stock, reservations, movements |
-| Harvest | 8087 | `agricore_harvest` | Harvest batches, completion outbox, repair |
+| Inventory | 8086 | `agricore_inventory` | Stock, expiry-aware batches, paged movements, reservations |
+| Harvest | 8087 | `agricore_harvest` | Harvest batches, lifecycle invariants, completion outbox, repair |
 | Notification | 8089 | `agricore_notification` | Requested/sent/failed notification delivery lifecycle |
 | IoT | 8090 | `agricore_iot` | Devices, readings, threshold alerts |
 | Sales | 8091 | `agricore_sales` | Orders and inventory saga orchestration |
-| Traceability | 8092 | `agricore_traceability` | QR and public timeline read model |
+| Traceability | 8092 | `agricore_traceability` | QR and public timeline read model with authoritative harvest facts |
 | Assistant | 8093 | `agricore_assistant` | Persisted assistant generations and bounded farm context |
 | React console | 3000 host | — | Same-origin browser experience and Nginx edge |
 
@@ -59,15 +59,15 @@ Lifecycle transitions, task workflows, and outbox-backed event publication.
 
 ### M4 — Harvest and inventory
 
-Harvest completion, stock-in projection, optimistic concurrency, idempotent consumption, and outbox repair controls.
+Harvest completion, positive weight/status constraints, stock-in projection, optimistic concurrency, expiry-aware batch allocation, paged ledger queries, idempotent consumption, and outbox repair controls.
 
 ### M5 — Traceability
 
-Idempotent public QR read model without internal identifiers or personal data.
+Idempotent public QR read model without internal identifiers or personal data; product code and gross weight are projected only when supplied by the authoritative harvest event.
 
 ### M6 — IoT, sales, and notification (delivered)
 
-HTTP and QoS 1 MQTT sensor ingestion with stable reading-ID deduplication and alert cooldown, inventory-backed sales saga with transactional order lifecycle events, and idempotent Notification consumption of Sales, Traceability, and IoT events. Notification email uses bounded SMTP delivery, while in-app notifications persist locally; both produce truthful lifecycle events.
+HTTP and QoS 1 MQTT sensor ingestion with stable reading-ID deduplication and alert cooldown, inventory-backed sales saga with price snapshots, order-item persistence, durable reservation reconciliation, transactional order lifecycle events, and idempotent Notification consumption of Sales, Traceability, and IoT events. Notification email uses bounded SMTP delivery, while in-app notifications persist locally; both produce truthful lifecycle events.
 
 ### M7 — Gateway and observability
 
@@ -94,8 +94,10 @@ Application Helm chart, security review, runbooks, seed scripts, gateway happy p
 
 - Reject malformed or wrong-version `HarvestCompleted.v1` envelopes to DLT instead of acknowledging them silently.
 - Bring farm, crop-cycle, and work publishers to the harvest publisher's locking, bounded-send, index, metric, and test standard.
-- Define and seed the production permission catalog, then add explicit `hasAuthority("PERMISSION_*")` endpoint policies and compatibility tests. Current policies remain role-based.
-- Add console permission administration only after the enforced permission policy and catalog are defined.
+- Prove the full broker-backed harvest → inventory → traceability → notification flow with duplicate delivery and DLT assertions.
+- Add durable Sales timeout/retry/fulfillment milestones beyond the current synchronous reserve/confirm adapter.
+- Finish gateway/OpenAPI regeneration for additive inventory, Sales, and traceability response fields, then keep frontend contracts drift-free.
+- Replace role-only console navigation hints with permission-aware hints once the session exposes the canonical permission snapshot.
 
 ## Release acceptance criteria
 
@@ -104,6 +106,7 @@ Application Helm chart, security review, runbooks, seed scripts, gateway happy p
 - Compose configuration validates; Helm chart lints and renders.
 - Gitleaks, CodeQL, and Trivy workflows remain enforced.
 - Gateway JWT happy path and Kafka-backed harvest projection are reproducible through the verification scripts.
+- Bounded seed profiles are repeatable, avoid cross-service database writes except the documented local bootstrap, and include repository-owned media checksums.
 - Every implemented event producer has a transactional outbox path, versioned schema, AsyncAPI message, and focused contract test.
 - Kafka consumers validate the exact event type/version and route invalid envelopes through the documented DLT policy.
 - Docker images publish only from an eligible verified default-branch revision.
