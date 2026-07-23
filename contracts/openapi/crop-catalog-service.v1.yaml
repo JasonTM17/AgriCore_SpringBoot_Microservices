@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: AgriCore Crop Catalog Service API
-  version: 1.2.0
-  description: Verified read-only crop catalog contract.
+  version: 1.3.0
+  description: Verified crop, variety, and agronomic care knowledge contract.
 servers:
   - url: http://localhost:8083
     description: Direct local service endpoint
@@ -11,6 +11,7 @@ security:
 tags:
   - name: Crops
   - name: Crop Varieties
+  - name: Crop Care
 paths:
   /api/v1/crops:
     get:
@@ -111,6 +112,27 @@ paths:
                 $ref: '#/components/schemas/CropVarietyPageResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/crops/{cropId}/care-profile:
+    parameters:
+      - $ref: '#/components/parameters/CropId'
+    get:
+      tags: [Crop Care]
+      operationId: getCropCareProfile
+      summary: Get agronomic care knowledge for one crop
+      description: >-
+        Returns crop-scoped irrigation and fertilization cycles, common diseases, and ordered care
+        recommendations. A newly managed crop can temporarily have a null growth requirement and empty lists.
+      responses:
+        '200':
+          description: Crop care profile found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropCareProfileResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -262,3 +284,66 @@ components:
         totalPages: { type: integer, format: int32, minimum: 0 }
         first: { type: boolean }
         last: { type: boolean }
+    CropCareProfileResponse:
+      type: object
+      additionalProperties: false
+      required: [cropId, growthRequirement, commonDiseases, recommendations]
+      properties:
+        cropId: { type: string, format: uuid }
+        growthRequirement:
+          oneOf:
+            - $ref: '#/components/schemas/GrowthRequirementResponse'
+            - type: 'null'
+        commonDiseases:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommonDiseaseResponse'
+        recommendations:
+          type: array
+          items:
+            $ref: '#/components/schemas/CareRecommendationResponse'
+    GrowthRequirementResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - irrigationIntervalDaysMin
+        - irrigationIntervalDaysMax
+        - fertilizationIntervalDaysMin
+        - fertilizationIntervalDaysMax
+        - waterRequirementMmPerWeek
+        - notes
+        - updatedAt
+      properties:
+        irrigationIntervalDaysMin: { type: integer, format: int32, minimum: 1 }
+        irrigationIntervalDaysMax: { type: integer, format: int32, minimum: 1 }
+        fertilizationIntervalDaysMin: { type: integer, format: int32, minimum: 1 }
+        fertilizationIntervalDaysMax: { type: integer, format: int32, minimum: 1 }
+        waterRequirementMmPerWeek: { type: number, minimum: 0 }
+        notes: { type: [string, 'null'] }
+        updatedAt: { type: string, format: date-time }
+    CommonDiseaseResponse:
+      type: object
+      additionalProperties: false
+      required: [id, code, name, symptoms, prevention, treatment, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string, minLength: 1, maxLength: 64 }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        symptoms: { type: string, minLength: 1 }
+        prevention: { type: string, minLength: 1 }
+        treatment: { type: string, minLength: 1 }
+        createdAt: { type: string, format: date-time }
+    CareRecommendationResponse:
+      type: object
+      additionalProperties: false
+      required: [id, category, title, description, growthStage, sortOrder, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        category:
+          type: string
+          enum: [IRRIGATION, FERTILIZATION, PEST_MANAGEMENT, PRUNING, HARVEST, SOIL]
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, minLength: 1 }
+        growthStage: { type: [string, 'null'], maxLength: 64 }
+        sortOrder: { type: integer, format: int32, minimum: 0 }
+        createdAt: { type: string, format: date-time }

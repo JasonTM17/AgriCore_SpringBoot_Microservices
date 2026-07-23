@@ -106,4 +106,33 @@ class CropCatalogIntegrationTest {
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
                 .andExpect(jsonPath("$.path").value("/api/v1/crops"));
     }
+
+    @Test
+    void careProfile_returnsGrowthDiseaseAndOrderedRecommendations() throws Exception {
+        mockMvc.perform(get("/api/v1/crops/{cropId}/care-profile",
+                        "22222222-2222-2222-2222-222222222004")
+                        .header("X-Dev-User", "agronomist")
+                        .header("X-Dev-Roles", "AGRONOMIST"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cropId")
+                        .value("22222222-2222-2222-2222-222222222004"))
+                .andExpect(jsonPath("$.growthRequirement.irrigationIntervalDaysMin").value(2))
+                .andExpect(jsonPath("$.growthRequirement.fertilizationIntervalDaysMax").value(25))
+                .andExpect(jsonPath("$.commonDiseases[0].code").value("RICE_BLAST"))
+                .andExpect(jsonPath("$.recommendations.length()").value(2))
+                .andExpect(jsonPath("$.recommendations[0].category").value("FERTILIZATION"))
+                .andExpect(jsonPath("$.recommendations[1].category").value("PEST_MANAGEMENT"));
+    }
+
+    @Test
+    void careProfile_rejectsMissingCropAndAnonymousAccess() throws Exception {
+        mockMvc.perform(get("/api/v1/crops/{cropId}/care-profile", UUID.randomUUID())
+                        .header("X-Dev-User", "agronomist")
+                        .header("X-Dev-Roles", "AGRONOMIST"))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(get("/api/v1/crops/{cropId}/care-profile",
+                        "22222222-2222-2222-2222-222222222004"))
+                .andExpect(status().isUnauthorized());
+    }
 }

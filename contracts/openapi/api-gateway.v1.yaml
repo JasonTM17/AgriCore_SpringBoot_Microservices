@@ -97,6 +97,8 @@ paths:
     $ref: './crop-catalog-service.v1.yaml#/paths/~1api~1v1~1crops~1{cropId}'
   /api/v1/crops/{cropId}/varieties:
     $ref: './crop-catalog-service.v1.yaml#/paths/~1api~1v1~1crops~1{cropId}~1varieties'
+  /api/v1/crops/{cropId}/care-profile:
+    $ref: './crop-catalog-service.v1.yaml#/paths/~1api~1v1~1crops~1{cropId}~1care-profile'
   /api/v1/crops/by-code/{code}:
     $ref: './crop-catalog-service.v1.yaml#/paths/~1api~1v1~1crops~1by-code~1{code}'
   /api/v1/crop-varieties/{varietyId}:

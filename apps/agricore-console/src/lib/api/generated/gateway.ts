@@ -488,6 +488,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/crops/{cropId}/care-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cropId: components["parameters"]["CropId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get agronomic care knowledge for one crop
+         * @description Returns crop-scoped irrigation and fertilization cycles, common diseases, and ordered care recommendations. A newly managed crop can temporarily have a null growth requirement and empty lists.
+         */
+        get: operations["getCropCareProfile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/crops/by-code/{code}": {
         parameters: {
             query?: never;
@@ -1716,6 +1738,51 @@ export interface components {
             totalPages: number;
             first: boolean;
             last: boolean;
+        };
+        GrowthRequirementResponse: {
+            /** Format: int32 */
+            irrigationIntervalDaysMin: number;
+            /** Format: int32 */
+            irrigationIntervalDaysMax: number;
+            /** Format: int32 */
+            fertilizationIntervalDaysMin: number;
+            /** Format: int32 */
+            fertilizationIntervalDaysMax: number;
+            waterRequirementMmPerWeek: number;
+            notes: string | null;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        CommonDiseaseResponse: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            name: string;
+            symptoms: string;
+            prevention: string;
+            treatment: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        CareRecommendationResponse: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            category: "IRRIGATION" | "FERTILIZATION" | "PEST_MANAGEMENT" | "PRUNING" | "HARVEST" | "SOIL";
+            title: string;
+            description: string;
+            growthStage: string | null;
+            /** Format: int32 */
+            sortOrder: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        CropCareProfileResponse: {
+            /** Format: uuid */
+            cropId: string;
+            growthRequirement: components["schemas"]["GrowthRequirementResponse"] | null;
+            commonDiseases: components["schemas"]["CommonDiseaseResponse"][];
+            recommendations: components["schemas"]["CareRecommendationResponse"][];
         };
         /** @enum {string} */
         CycleStage: "PLANNED" | "LAND_PREPARATION" | "SOWING" | "GROWING" | "FERTILIZING" | "PEST_CONTROL" | "HARVESTING" | "COMPLETED" | "CANCELLED";
@@ -3129,6 +3196,30 @@ export interface operations {
                 };
             };
             400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["responses-NotFound"];
+        };
+    };
+    getCropCareProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cropId: components["parameters"]["CropId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Crop care profile found. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CropCareProfileResponse"];
+                };
+            };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["responses-NotFound"];
         };
