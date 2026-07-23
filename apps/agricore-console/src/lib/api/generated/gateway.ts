@@ -3415,6 +3415,8 @@ export interface components {
             qualityGrade?: string | null;
             netWeightKg?: number | null;
             careSummary?: string | null;
+            productCode?: string | null;
+            grossWeightKg?: number | null;
         };
         PublicTraceabilityResponse: {
             traceabilityCode: string;
@@ -3422,11 +3424,13 @@ export interface components {
             varietyName: string | null;
             farmName: string | null;
             plotCode: string | null;
+            productCode: string | null;
             /** Format: date */
             plantingDate: string | null;
             /** Format: date */
             harvestDate: string;
             qualityGrade: string | null;
+            grossWeightKg: number | null;
             netWeightKg: number | null;
             careSummary: string | null;
             qrUrl: string;
