@@ -158,7 +158,7 @@ public class InventoryController {
     }
 
     @GetMapping("/events/harvest-completed/{eventId}/acknowledgement")
-    @PreAuthorize("hasAuthority('PERMISSION_INVENTORY_READ')")
+    @PreAuthorize("hasAuthority('PERMISSION_HARVEST_WRITE')")
     public InventoryHarvestProjectionAcknowledgementResponse getHarvestProjectionAcknowledgement(
             @PathVariable UUID eventId,
             @RequestParam UUID warehouseId
