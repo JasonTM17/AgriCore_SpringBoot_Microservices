@@ -5,10 +5,12 @@ import com.agricore.iot.api.response.IngestResultResponse;
 import com.agricore.iot.domain.exception.IotException;
 import com.agricore.iot.infrastructure.persistence.DeviceJpaRepository;
 import com.agricore.iot.infrastructure.persistence.SensorAlertJpaRepository;
+import com.agricore.iot.infrastructure.persistence.SensorReadingIdempotencyStore;
 import com.agricore.iot.infrastructure.persistence.SensorReadingJpaRepository;
 import com.agricore.iot.infrastructure.persistence.ThresholdRuleJpaRepository;
 import com.agricore.iot.infrastructure.persistence.entity.DeviceEntity;
 import com.agricore.iot.infrastructure.persistence.entity.SensorAlertEntity;
+import com.agricore.iot.infrastructure.persistence.entity.SensorReadingIdempotencyEntity;
 import com.agricore.iot.infrastructure.persistence.entity.SensorReadingEntity;
 import com.agricore.iot.infrastructure.persistence.entity.ThresholdRuleEntity;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,6 +27,7 @@ public class IotReadingIngestionService {
 
     private final DeviceJpaRepository deviceRepository;
     private final SensorReadingJpaRepository readingRepository;
+    private final SensorReadingIdempotencyStore readingIdempotencyStore;
     private final ThresholdRuleJpaRepository ruleRepository;
     private final SensorAlertJpaRepository alertRepository;
     private final IotEventOutboxWriter eventWriter;
@@ -34,6 +37,7 @@ public class IotReadingIngestionService {
     public IotReadingIngestionService(
             DeviceJpaRepository deviceRepository,
             SensorReadingJpaRepository readingRepository,
+            SensorReadingIdempotencyStore readingIdempotencyStore,
             ThresholdRuleJpaRepository ruleRepository,
             SensorAlertJpaRepository alertRepository,
             IotEventOutboxWriter eventWriter,
@@ -42,6 +46,7 @@ public class IotReadingIngestionService {
     ) {
         this.deviceRepository = deviceRepository;
         this.readingRepository = readingRepository;
+        this.readingIdempotencyStore = readingIdempotencyStore;
         this.ruleRepository = ruleRepository;
         this.alertRepository = alertRepository;
         this.eventWriter = eventWriter;
@@ -55,16 +60,27 @@ public class IotReadingIngestionService {
                 .filter(candidate -> candidate.getId().equals(authorizedDeviceId))
                 .orElseThrow(() -> new IotException("DEVICE_NOT_FOUND", "Unknown device", 404));
 
-        UUID readingId = request.readingId() == null ? UUID.randomUUID() : request.readingId();
-        var existingReading = readingRepository.findById(readingId);
-        if (existingReading.isPresent()) {
-            requireMatchingReadingIntent(existingReading.get(), request, device);
-            return new IngestResultResponse(readingId, false, null, null, "Duplicate reading ignored");
-        }
-
         Instant now = Instant.now();
         Instant recordedAt = (request.recordedAt() == null ? now : request.recordedAt())
                 .truncatedTo(ChronoUnit.MICROS);
+        UUID readingId = request.readingId() == null ? UUID.randomUUID() : request.readingId();
+        String metricType = request.metricType().trim().toUpperCase();
+        String unit = request.unit().trim().toUpperCase();
+
+        var existingClaim = readingIdempotencyStore.claim(
+                readingId,
+                device.getId(),
+                metricType,
+                request.metricValue(),
+                unit,
+                recordedAt,
+                now
+        );
+        if (existingClaim.isPresent()) {
+            requireMatchingReadingIntent(existingClaim.get(), request, device);
+            return new IngestResultResponse(readingId, false, null, null, "Duplicate reading ignored");
+        }
+
         device.setLastSeenAt(now);
         device.setStatus("ACTIVE");
         deviceRepository.save(device);
@@ -85,7 +101,7 @@ public class IotReadingIngestionService {
     }
 
     private static void requireMatchingReadingIntent(
-            SensorReadingEntity existing,
+            SensorReadingIdempotencyEntity existing,
             IngestReadingRequest request,
             DeviceEntity device
     ) {
