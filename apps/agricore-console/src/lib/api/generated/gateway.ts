@@ -493,6 +493,62 @@ export interface paths {
         patch: operations["updatePlot"];
         trace?: never;
     };
+    "/api/v1/plots/{plotId}/soil-profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Plot identifier. */
+                plotId: components["parameters"]["PlotId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List historical soil samples for a plot
+         * @description Requires access to the plot's farm. Filters are combined with logical AND; inaccessible and missing plots both return 404.
+         */
+        get: operations["listSoilProfiles"];
+        put?: never;
+        /**
+         * Record an immutable soil sample
+         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST and access to the plot's farm.
+         */
+        post: operations["createSoilProfile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plots/{plotId}/soil-profiles/{profileId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Plot identifier. */
+                plotId: components["parameters"]["PlotId"];
+                /** @description Soil-profile identifier scoped to the containing plot. */
+                profileId: components["parameters"]["SoilProfileId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get one historical soil sample
+         * @description Requires access to the plot's farm.
+         */
+        get: operations["getSoilProfile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Archive, reactivate, or annotate a soil sample
+         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST, farm access, and the current optimistic-lock version. Measurement fields are immutable; corrections are recorded as a new sample.
+         */
+        patch: operations["updateSoilProfile"];
+        trace?: never;
+    };
     "/api/v1/crops": {
         parameters: {
             query?: never;
@@ -1818,6 +1874,83 @@ export interface components {
              */
             areaId?: string | null;
         };
+        /** @enum {string} */
+        SoilProfileStatus: "ACTIVE" | "ARCHIVED";
+        /** @enum {string} */
+        SoilTexture: "SAND" | "LOAMY_SAND" | "SANDY_LOAM" | "LOAM" | "SILT_LOAM" | "SILT" | "SANDY_CLAY_LOAM" | "CLAY_LOAM" | "SILTY_CLAY_LOAM" | "SANDY_CLAY" | "SILTY_CLAY" | "CLAY";
+        SoilProfileResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            farmId: string;
+            /** Format: uuid */
+            plotId: string;
+            sampleCode: string;
+            /** Format: date */
+            sampledAt: string;
+            sampleDepthCm: number;
+            texture: components["schemas"]["SoilTexture"];
+            ph: number;
+            organicMatterPercent: number | null;
+            nitrogenMgKg: number | null;
+            phosphorusMgKg: number | null;
+            potassiumMgKg: number | null;
+            moisturePercent: number | null;
+            notes: string | null;
+            status: components["schemas"]["SoilProfileStatus"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            createdBy: string;
+            updatedBy: string;
+            /** Format: int64 */
+            version: number;
+        };
+        SoilProfilePageResponse: {
+            content: components["schemas"]["SoilProfileResponse"][];
+            /** Format: int32 */
+            page: number;
+            /** Format: int32 */
+            size: number;
+            /** Format: int64 */
+            totalElements: number;
+            /** Format: int32 */
+            totalPages: number;
+            first: boolean;
+            last: boolean;
+        };
+        CreateSoilProfileRequest: {
+            sampleCode: string;
+            /**
+             * Format: date
+             * @description Collection date; future dates are rejected.
+             */
+            sampledAt: string;
+            sampleDepthCm: number;
+            texture: components["schemas"]["SoilTexture"];
+            ph: number;
+            organicMatterPercent?: number | null;
+            nitrogenMgKg?: number | null;
+            phosphorusMgKg?: number | null;
+            potassiumMgKg?: number | null;
+            moisturePercent?: number | null;
+            notes?: string | null;
+        };
+        /** @description Provide at least one of status or notes in addition to the current version. */
+        UpdateSoilProfileRequest: {
+            /** Format: int64 */
+            version: number;
+            status: components["schemas"]["SoilProfileStatus"];
+            /** @description Omit to preserve notes; provide null or blank text to clear them. */
+            notes?: string | null;
+        } | {
+            /** Format: int64 */
+            version: number;
+            status?: components["schemas"]["SoilProfileStatus"];
+            /** @description Omit to preserve notes; provide null or blank text to clear them. */
+            notes: string | null;
+        };
         CropResponse: {
             /** Format: uuid */
             id: string;
@@ -2580,7 +2713,7 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description A uniqueness, optimistic-lock, assignment, deletion, or farm-membership invariant was violated. */
+        /** @description A uniqueness, optimistic-lock, assignment, deletion, or membership invariant was violated. */
         Conflict: {
             headers: {
                 [name: string]: unknown;
@@ -2598,7 +2731,7 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description Requested farm, farm area, plot, or membership not found. */
+        /** @description Requested farm, farm area, plot, soil profile, or membership not found. */
         NotFound: {
             headers: {
                 [name: string]: unknown;
@@ -2967,6 +3100,20 @@ export interface components {
         MembershipId: string;
         /** @description Plot identifier. */
         PlotId: string;
+        /** @description Soil-profile lifecycle status. */
+        SoilProfileStatusFilter: components["schemas"]["SoilProfileStatus"];
+        /** @description Include samples collected on or after this date. */
+        SoilProfileSampledFrom: string;
+        /** @description Include samples collected on or before this date. */
+        SoilProfileSampledTo: string;
+        /** @description Case-insensitive sample-code substring. */
+        SoilProfileQuery: string;
+        /** @description Bounded zero-based page index; the bound prevents unsafe database offsets. */
+        SoilProfilePage: number;
+        /** @description Supported soil-profile property and direction. */
+        SoilProfileSort: "sampledAt,asc" | "sampledAt,desc" | "sampleCode,asc" | "sampleCode,desc" | "ph,asc" | "ph,desc" | "status,asc" | "status,desc" | "createdAt,asc" | "createdAt,desc" | "updatedAt,asc" | "updatedAt,desc";
+        /** @description Soil-profile identifier scoped to the containing plot. */
+        SoilProfileId: string;
         /** @description Zero-based page index. */
         "parameters-Page": number;
         /** @description Number of records per page; values outside 1 through 100 are rejected. */
@@ -3510,6 +3657,147 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlotResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            415: components["responses"]["UnsupportedMediaType"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    listSoilProfiles: {
+        parameters: {
+            query?: {
+                /** @description Soil-profile lifecycle status. */
+                status?: components["parameters"]["SoilProfileStatusFilter"];
+                /** @description Include samples collected on or after this date. */
+                sampledFrom?: components["parameters"]["SoilProfileSampledFrom"];
+                /** @description Include samples collected on or before this date. */
+                sampledTo?: components["parameters"]["SoilProfileSampledTo"];
+                /** @description Case-insensitive sample-code substring. */
+                q?: components["parameters"]["SoilProfileQuery"];
+                /** @description Bounded zero-based page index; the bound prevents unsafe database offsets. */
+                page?: components["parameters"]["SoilProfilePage"];
+                /** @description Number of records per page. */
+                size?: components["parameters"]["Size"];
+                /** @description Supported soil-profile property and direction. */
+                sort?: components["parameters"]["SoilProfileSort"];
+            };
+            header?: never;
+            path: {
+                /** @description Plot identifier. */
+                plotId: components["parameters"]["PlotId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paged historical soil samples. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SoilProfilePageResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    createSoilProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Plot identifier. */
+                plotId: components["parameters"]["PlotId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSoilProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description Soil sample recorded. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SoilProfileResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            415: components["responses"]["UnsupportedMediaType"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getSoilProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Plot identifier. */
+                plotId: components["parameters"]["PlotId"];
+                /** @description Soil-profile identifier scoped to the containing plot. */
+                profileId: components["parameters"]["SoilProfileId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Soil sample found. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SoilProfileResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    updateSoilProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Plot identifier. */
+                plotId: components["parameters"]["PlotId"];
+                /** @description Soil-profile identifier scoped to the containing plot. */
+                profileId: components["parameters"]["SoilProfileId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSoilProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description Soil sample metadata updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SoilProfileResponse"];
                 };
             };
             400: components["responses"]["BadRequest"];

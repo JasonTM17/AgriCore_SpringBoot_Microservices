@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: AgriCore Farm Service API
-  version: 1.5.0
-  description: Verified farm, farm-area, plot, membership, and internal resource-access contract for the farm service.
+  version: 1.6.0
+  description: Verified farm, farm-area, plot, soil-profile, membership, and resource-access contract.
 servers:
   - url: http://localhost:8082
     description: Direct local service endpoint
@@ -12,6 +12,7 @@ tags:
   - name: Farms
   - name: Farm Areas
   - name: Plots
+  - name: Soil Profiles
   - name: Farm Memberships
   - name: Internal Farm Access
 paths:
@@ -395,6 +396,129 @@ paths:
           $ref: '#/components/responses/UnsupportedMediaType'
         '500':
           $ref: '#/components/responses/InternalServerError'
+  /api/v1/plots/{plotId}/soil-profiles:
+    parameters:
+      - $ref: '#/components/parameters/PlotId'
+    get:
+      tags: [Soil Profiles]
+      operationId: listSoilProfiles
+      summary: List historical soil samples for a plot
+      description: >-
+        Requires access to the plot's farm. Filters are combined with logical AND; inaccessible and missing plots
+        both return 404.
+      parameters:
+        - $ref: '#/components/parameters/SoilProfileStatusFilter'
+        - $ref: '#/components/parameters/SoilProfileSampledFrom'
+        - $ref: '#/components/parameters/SoilProfileSampledTo'
+        - $ref: '#/components/parameters/SoilProfileQuery'
+        - $ref: '#/components/parameters/SoilProfilePage'
+        - $ref: '#/components/parameters/Size'
+        - $ref: '#/components/parameters/SoilProfileSort'
+      responses:
+        '200':
+          description: Paged historical soil samples.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SoilProfilePageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags: [Soil Profiles]
+      operationId: createSoilProfile
+      summary: Record an immutable soil sample
+      description: Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST and access to the plot's farm.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSoilProfileRequest'
+      responses:
+        '201':
+          description: Soil sample recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SoilProfileResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/v1/plots/{plotId}/soil-profiles/{profileId}:
+    parameters:
+      - $ref: '#/components/parameters/PlotId'
+      - $ref: '#/components/parameters/SoilProfileId'
+    get:
+      tags: [Soil Profiles]
+      operationId: getSoilProfile
+      summary: Get one historical soil sample
+      description: Requires access to the plot's farm.
+      responses:
+        '200':
+          description: Soil sample found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SoilProfileResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      tags: [Soil Profiles]
+      operationId: updateSoilProfile
+      summary: Archive, reactivate, or annotate a soil sample
+      description: >-
+        Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST, farm access, and the current optimistic-lock version.
+        Measurement fields are immutable; corrections are recorded as a new sample.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSoilProfileRequest'
+      responses:
+        '200':
+          description: Soil sample metadata updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SoilProfileResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /api/v1/farms/{farmId}/memberships:
     parameters:
       - $ref: '#/components/parameters/FarmId'
@@ -582,6 +706,14 @@ components:
       schema:
         type: string
         format: uuid
+    SoilProfileId:
+      in: path
+      name: profileId
+      required: true
+      description: Soil-profile identifier scoped to the containing plot.
+      schema:
+        type: string
+        format: uuid
     MembershipId:
       in: path
       name: membershipId
@@ -599,6 +731,16 @@ components:
         format: int32
         minimum: 0
         maximum: 2147483647
+        default: 0
+    SoilProfilePage:
+      in: query
+      name: page
+      description: Bounded zero-based page index; the bound prevents unsafe database offsets.
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+        maximum: 1000000
         default: 0
     Size:
       in: query
@@ -736,6 +878,57 @@ components:
           - createdAt,desc
           - updatedAt,asc
           - updatedAt,desc
+    SoilProfileStatusFilter:
+      in: query
+      name: status
+      required: false
+      description: Soil-profile lifecycle status.
+      schema:
+        $ref: '#/components/schemas/SoilProfileStatus'
+    SoilProfileSampledFrom:
+      in: query
+      name: sampledFrom
+      required: false
+      description: Include samples collected on or after this date.
+      schema:
+        type: string
+        format: date
+    SoilProfileSampledTo:
+      in: query
+      name: sampledTo
+      required: false
+      description: Include samples collected on or before this date.
+      schema:
+        type: string
+        format: date
+    SoilProfileQuery:
+      in: query
+      name: q
+      required: false
+      description: Case-insensitive sample-code substring.
+      schema:
+        type: string
+        maxLength: 200
+    SoilProfileSort:
+      in: query
+      name: sort
+      description: Supported soil-profile property and direction.
+      schema:
+        type: string
+        default: sampledAt,desc
+        enum:
+          - sampledAt,asc
+          - sampledAt,desc
+          - sampleCode,asc
+          - sampleCode,desc
+          - ph,asc
+          - ph,desc
+          - status,asc
+          - status,desc
+          - createdAt,asc
+          - createdAt,desc
+          - updatedAt,asc
+          - updatedAt,desc
   responses:
     BadRequest:
       description: Invalid path, query, or JSON request.
@@ -752,13 +945,13 @@ components:
           schema:
             $ref: '#/components/schemas/ApiError'
     NotFound:
-      description: Requested farm, farm area, plot, or membership not found.
+      description: Requested farm, farm area, plot, soil profile, or membership not found.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ApiError'
     Conflict:
-      description: A uniqueness, optimistic-lock, assignment, deletion, or farm-membership invariant was violated.
+      description: A uniqueness, optimistic-lock, assignment, deletion, or membership invariant was violated.
       content:
         application/json:
           schema:
@@ -785,6 +978,24 @@ components:
     PlotStatus:
       type: string
       enum: [AVAILABLE, PREPARING, IN_USE, RESTING, MAINTENANCE, INACTIVE]
+    SoilProfileStatus:
+      type: string
+      enum: [ACTIVE, ARCHIVED]
+    SoilTexture:
+      type: string
+      enum:
+        - SAND
+        - LOAMY_SAND
+        - SANDY_LOAM
+        - LOAM
+        - SILT_LOAM
+        - SILT
+        - SANDY_CLAY_LOAM
+        - CLAY_LOAM
+        - SILTY_CLAY_LOAM
+        - SANDY_CLAY
+        - SILTY_CLAY
+        - CLAY
     GrantFarmMembershipRequest:
       type: object
       required: [subject]
@@ -967,6 +1178,90 @@ components:
           type: [string, 'null']
           format: uuid
           description: Omit to preserve the assignment, provide a same-farm UUID to reassign, or null to clear it.
+    CreateSoilProfileRequest:
+      type: object
+      required: [sampleCode, sampledAt, sampleDepthCm, texture, ph]
+      properties:
+        sampleCode:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: '^[A-Za-z0-9][A-Za-z0-9._/-]{0,63}$'
+        sampledAt:
+          type: string
+          format: date
+          description: Collection date; future dates are rejected.
+        sampleDepthCm:
+          type: number
+          minimum: 0.01
+          maximum: 999.99
+          multipleOf: 0.01
+        texture:
+          $ref: '#/components/schemas/SoilTexture'
+        ph:
+          type: number
+          minimum: 0
+          maximum: 14
+          multipleOf: 0.01
+        organicMatterPercent:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 100
+          multipleOf: 0.01
+        nitrogenMgKg:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 99999999.99
+          multipleOf: 0.01
+        phosphorusMgKg:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 99999999.99
+          multipleOf: 0.01
+        potassiumMgKg:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 99999999.99
+          multipleOf: 0.01
+        moisturePercent:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 100
+          multipleOf: 0.01
+        notes:
+          type: [string, 'null']
+          maxLength: 1000
+    UpdateSoilProfileRequest:
+      description: Provide at least one of status or notes in addition to the current version.
+      anyOf:
+        - type: object
+          additionalProperties: false
+          required: [version, status]
+          properties:
+            version:
+              type: integer
+              format: int64
+              minimum: 0
+            status:
+              $ref: '#/components/schemas/SoilProfileStatus'
+            notes:
+              type: [string, 'null']
+              maxLength: 1000
+              description: Omit to preserve notes; provide null or blank text to clear them.
+        - type: object
+          additionalProperties: false
+          required: [version, notes]
+          properties:
+            version:
+              type: integer
+              format: int64
+              minimum: 0
+            status:
+              $ref: '#/components/schemas/SoilProfileStatus'
+            notes:
+              type: [string, 'null']
+              maxLength: 1000
+              description: Omit to preserve notes; provide null or blank text to clear them.
     FarmResponse:
       type: object
       additionalProperties: false
@@ -1132,6 +1427,104 @@ components:
           type: integer
           format: int64
           minimum: 0
+    SoilProfileResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - farmId
+        - plotId
+        - sampleCode
+        - sampledAt
+        - sampleDepthCm
+        - texture
+        - ph
+        - organicMatterPercent
+        - nitrogenMgKg
+        - phosphorusMgKg
+        - potassiumMgKg
+        - moisturePercent
+        - notes
+        - status
+        - createdAt
+        - updatedAt
+        - createdBy
+        - updatedBy
+        - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        farmId:
+          type: string
+          format: uuid
+        plotId:
+          type: string
+          format: uuid
+        sampleCode:
+          type: string
+          maxLength: 64
+        sampledAt:
+          type: string
+          format: date
+        sampleDepthCm:
+          type: number
+          minimum: 0.01
+          maximum: 999.99
+          multipleOf: 0.01
+        texture:
+          $ref: '#/components/schemas/SoilTexture'
+        ph:
+          type: number
+          minimum: 0
+          maximum: 14
+          multipleOf: 0.01
+        organicMatterPercent:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 100
+          multipleOf: 0.01
+        nitrogenMgKg:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 99999999.99
+          multipleOf: 0.01
+        phosphorusMgKg:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 99999999.99
+          multipleOf: 0.01
+        potassiumMgKg:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 99999999.99
+          multipleOf: 0.01
+        moisturePercent:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 100
+          multipleOf: 0.01
+        notes:
+          type: [string, 'null']
+          maxLength: 1000
+        status:
+          $ref: '#/components/schemas/SoilProfileStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          maxLength: 255
+        updatedBy:
+          type: string
+          maxLength: 255
+        version:
+          type: integer
+          format: int64
+          minimum: 0
     FarmMembershipResponse:
       type: object
       additionalProperties: false
@@ -1232,6 +1625,36 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PlotResponse'
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int32
+          minimum: 0
+        first:
+          type: boolean
+        last:
+          type: boolean
+    SoilProfilePageResponse:
+      type: object
+      additionalProperties: false
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/SoilProfileResponse'
         page:
           type: integer
           format: int32
