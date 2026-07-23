@@ -39,6 +39,14 @@ AgriCore has 13 independently deployed Spring applications. Operators need consi
 - Operators choose the production OTLP endpoint, sampling policy, backend persistence, retention, and access controls.
 - Grafana dashboards are provisioned read-only and are changed through repository JSON.
 
+## Trade-offs
+
+Local development favors complete, reproducible visibility with full trace
+sampling and bounded short retention. Cluster deployments favor operator choice
+and lower default sampling, so the repository does not pretend to own production
+storage, tenancy, or compliance policy. Direct OTLP export keeps the local stack
+small but gives up collector-side buffering and tail sampling.
+
 ## Alternatives considered
 
 - **OpenTelemetry Java agent:** rejected for the delivered stack because compile-time Micrometer integration matches Spring observations and keeps configuration visible in each application. The agent remains a deployment option if runtime-only instrumentation becomes necessary.
