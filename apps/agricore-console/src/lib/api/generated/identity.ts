@@ -181,11 +181,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List permissions for administration */
+        /**
+         * List the immutable canonical permission catalog
+         * @description Only migration-owned, assignable permission definitions are returned.
+         */
         get: operations["listPermissions"];
         put?: never;
-        /** Create a permission */
-        post: operations["createPermission"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -204,8 +206,10 @@ export interface paths {
         /** Get the permission grants for a role */
         get: operations["getRolePermissions"];
         /**
-         * Replace the permission grants for a role
-         * @description The replacement is atomic; an unknown permission leaves the existing grant set unchanged.
+         * Replace the canonical permission grants for a role
+         * @description The replacement is atomic and requires the current policy version plus an audit reason.
+         *     Unknown or non-canonical permission codes and stale versions leave the existing grant set unchanged.
+         *     Legacy non-assignable grants are retained for rollback/audit but are not returned or effective.
          */
         put: operations["replaceRolePermissions"];
         post?: never;
@@ -279,7 +283,16 @@ export interface components {
             fullName: string;
             /** @enum {string} */
             status: "ACTIVE" | "LOCKED" | "DISABLED";
+            /**
+             * @description Sorted role codes. Auth token responses match the issued JWT snapshot;
+             *     `/users/me` reflects the authenticated bearer token snapshot.
+             */
             roles: components["schemas"]["RoleCode"][];
+            /**
+             * @description Sorted effective canonical permissions. Auth token responses match the issued JWT
+             *     snapshot; `/users/me` reflects the authenticated bearer token snapshot.
+             */
+            permissions: components["schemas"]["PermissionCode"][];
             /** Format: date-time */
             lastLoginAt: string | null;
             /** Format: date-time */
@@ -291,13 +304,11 @@ export interface components {
             roles: components["schemas"]["RoleCode"][];
         };
         PermissionCode: string;
-        CreatePermissionRequest: {
-            code: components["schemas"]["PermissionCode"];
-            name: string;
-            description?: string | null;
-        };
         UpdateRolePermissionsRequest: {
             permissionCodes: components["schemas"]["PermissionCode"][];
+            /** Format: int64 */
+            expectedVersion: number;
+            reason: string;
         };
         PermissionResponse: {
             /** Format: uuid */
@@ -307,9 +318,13 @@ export interface components {
             description: string | null;
             /** Format: date-time */
             createdAt: string;
+            /** Format: int32 */
+            catalogVersion: number;
         };
         RolePermissionsResponse: {
             role: components["schemas"]["RoleCode"];
+            /** Format: int64 */
+            version: number;
             permissions: components["schemas"]["PermissionResponse"][];
         };
         PermissionPageResponse: {
@@ -987,69 +1002,6 @@ export interface operations {
             };
         };
     };
-    createPermission: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreatePermissionRequest"];
-            };
-        };
-        responses: {
-            /** @description Permission created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PermissionResponse"];
-                };
-            };
-            /** @description Invalid permission fields */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiError"];
-                };
-            };
-            /** @description Authentication required */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description System administrator role required */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Permission code already exists */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiError"];
-                };
-            };
-            /** @description Content-Type is not supported */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
     getRolePermissions: {
         parameters: {
             query?: never;
@@ -1147,8 +1099,17 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Role or requested permission not found */
+            /** @description Role or requested canonical permission not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Expected policy version is stale */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

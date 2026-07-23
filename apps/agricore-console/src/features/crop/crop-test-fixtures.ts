@@ -8,6 +8,7 @@ const user = {
   fullName: "Kỹ thuật viên nông học",
   status: "ACTIVE",
   roles: ["AGRONOMIST"],
+  permissions: [],
   lastLoginAt: null,
   createdAt: "2026-07-19T00:00:00Z",
 } satisfies UserResponse;

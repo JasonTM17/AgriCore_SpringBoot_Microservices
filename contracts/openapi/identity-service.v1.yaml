@@ -1,11 +1,13 @@
 openapi: 3.1.0
 info:
   title: AgriCore Identity Service API
-  version: 1.3.0
+  version: 1.4.0
   description: |
-    Authentication, users, RBAC.
+    Authentication, users, RBAC, and migration-owned permission policy.
     Browser clients should prefer `/api/v1/auth/web/*` so refresh credentials stay
     in an HttpOnly cookie. Non-browser clients continue to use JSON refresh tokens.
+    Pre-release compatibility note: version 1.4.0 intentionally removes runtime
+    permission creation and makes permission-policy replacement versioned and audited.
 servers:
   - url: http://localhost:8081
 paths:
@@ -392,7 +394,8 @@ paths:
                 $ref: '#/components/schemas/ApiError'
   /api/v1/admin/permissions:
     get:
-      summary: List permissions for administration
+      summary: List the immutable canonical permission catalog
+      description: Only migration-owned, assignable permission definitions are returned.
       operationId: listPermissions
       security:
         - bearerAuth: []
@@ -414,39 +417,6 @@ paths:
                 $ref: '#/components/schemas/ApiError'
         '401': { description: Authentication required }
         '403': { description: System administrator role required }
-    post:
-      summary: Create a permission
-      operationId: createPermission
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreatePermissionRequest'
-      responses:
-        '201':
-          description: Permission created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PermissionResponse'
-        '400':
-          description: Invalid permission fields
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '401': { description: Authentication required }
-        '403': { description: System administrator role required }
-        '409':
-          description: Permission code already exists
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiError'
-        '415': { description: Content-Type is not supported }
   /api/v1/admin/roles/{roleCode}/permissions:
     parameters:
       - name: roleCode
@@ -471,8 +441,11 @@ paths:
         '403': { description: System administrator role required }
         '404': { description: Role not found }
     put:
-      summary: Replace the permission grants for a role
-      description: The replacement is atomic; an unknown permission leaves the existing grant set unchanged.
+      summary: Replace the canonical permission grants for a role
+      description: |
+        The replacement is atomic and requires the current policy version plus an audit reason.
+        Unknown or non-canonical permission codes and stale versions leave the existing grant set unchanged.
+        Legacy non-assignable grants are retained for rollback/audit but are not returned or effective.
       operationId: replaceRolePermissions
       security:
         - bearerAuth: []
@@ -498,7 +471,13 @@ paths:
         '401': { description: Authentication required }
         '403': { description: System administrator role required }
         '404':
-          description: Role or requested permission not found
+          description: Role or requested canonical permission not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Expected policy version is stale
           content:
             application/json:
               schema:
@@ -596,7 +575,7 @@ components:
           $ref: '#/components/schemas/UserResponse'
     UserResponse:
       type: object
-      required: [id, email, fullName, status, roles, lastLoginAt, createdAt]
+      required: [id, email, fullName, status, roles, permissions, lastLoginAt, createdAt]
       properties:
         id: { type: string, format: uuid }
         email: { type: string, format: email, maxLength: 320 }
@@ -606,8 +585,20 @@ components:
           type: array
           maxItems: 7
           uniqueItems: true
+          description: |
+            Sorted role codes. Auth token responses match the issued JWT snapshot;
+            `/users/me` reflects the authenticated bearer token snapshot.
           items:
             $ref: '#/components/schemas/RoleCode'
+        permissions:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          description: |
+            Sorted effective canonical permissions. Auth token responses match the issued JWT
+            snapshot; `/users/me` reflects the authenticated bearer token snapshot.
+          items:
+            $ref: '#/components/schemas/PermissionCode'
         lastLoginAt:
           type: [string, 'null']
           format: date-time
@@ -638,19 +629,10 @@ components:
       minLength: 3
       maxLength: 64
       pattern: '^[A-Z][A-Z0-9_]{2,63}$'
-    CreatePermissionRequest:
-      type: object
-      additionalProperties: false
-      required: [code, name]
-      properties:
-        code:
-          $ref: '#/components/schemas/PermissionCode'
-        name: { type: string, minLength: 1, maxLength: 100 }
-        description: { type: [string, 'null'], maxLength: 500 }
     UpdateRolePermissionsRequest:
       type: object
       additionalProperties: false
-      required: [permissionCodes]
+      required: [permissionCodes, expectedVersion, reason]
       properties:
         permissionCodes:
           type: array
@@ -658,10 +640,19 @@ components:
           uniqueItems: true
           items:
             $ref: '#/components/schemas/PermissionCode'
+        expectedVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+          pattern: '\S'
     PermissionResponse:
       type: object
       additionalProperties: false
-      required: [id, code, name, description, createdAt]
+      required: [id, code, name, description, createdAt, catalogVersion]
       properties:
         id: { type: string, format: uuid }
         code:
@@ -669,13 +660,18 @@ components:
         name: { type: string, maxLength: 100 }
         description: { type: [string, 'null'], maxLength: 500 }
         createdAt: { type: string, format: date-time }
+        catalogVersion: { type: integer, format: int32, minimum: 1 }
     RolePermissionsResponse:
       type: object
       additionalProperties: false
-      required: [role, permissions]
+      required: [role, version, permissions]
       properties:
         role:
           $ref: '#/components/schemas/RoleCode'
+        version:
+          type: integer
+          format: int64
+          minimum: 1
         permissions:
           type: array
           maxItems: 100

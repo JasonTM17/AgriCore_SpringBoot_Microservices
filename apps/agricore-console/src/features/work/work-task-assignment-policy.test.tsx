@@ -43,6 +43,7 @@ describe("work-task assignment policy", () => {
         fullName: "Nhân viên hiện trường",
         status: "ACTIVE",
         roles: ["FIELD_WORKER"],
+        permissions: [],
         lastLoginAt: null,
         createdAt: "2026-07-19T00:00:00Z",
       },
