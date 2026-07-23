@@ -60,7 +60,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     id: "iot",
     label: "IoT",
     to: "/iot",
-    roles: ["SYSTEM_ADMIN", "FARM_MANAGER", "AGRONOMIST", "AUDITOR"],
+    roles: ["SYSTEM_ADMIN", "FARM_MANAGER", "AGRONOMIST", "FIELD_WORKER", "AUDITOR"],
   },
   {
     id: "admin",

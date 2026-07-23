@@ -21,4 +21,8 @@ describe("roles", () => {
       true,
     );
   });
+
+  it("shows IoT ingestion to field workers", () => {
+    expect(visibleNavItems(["FIELD_WORKER"]).some((item) => item.id === "iot")).toBe(true);
+  });
 });
