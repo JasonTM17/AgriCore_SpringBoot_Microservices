@@ -5,14 +5,9 @@ import {
   createRouter,
 } from "@tanstack/react-router";
 
-import {
-  ForbiddenPage,
-  NotFoundPage,
-  PlaceholderModulePage,
-} from "../features/system/status-pages";
-import type { NavItem } from "../lib/auth/roles";
+import { ForbiddenPage, NotFoundPage } from "../features/system/status-pages";
 import { sanitizeInternalRedirect } from "../lib/auth/redirects";
-import { AuthenticatedLayout, RoleGate } from "./auth-gates";
+import { AuthenticatedLayout } from "./auth-gates";
 import { lazyRouteComponents } from "./lazy-route-components";
 import { RouteErrorState, RouteLoadingState } from "./route-states";
 import { SessionRouteBoundary } from "./session-route-boundary";
@@ -49,23 +44,6 @@ const dashboardRoute = createRoute({
   component: lazyRouteComponents.dashboard,
 });
 
-function moduleRoute(
-  path: string,
-  title: string,
-  description: string,
-  roles: NavItem["roles"],
-) {
-  return createRoute({
-    getParentRoute: () => authedLayoutRoute,
-    path,
-    component: () => (
-      <RoleGate roles={roles}>
-        <PlaceholderModulePage title={title} description={description} />
-      </RoleGate>
-    ),
-  });
-}
-
 const farmsRoute = createRoute({
   getParentRoute: () => authedLayoutRoute,
   path: "/farms",
@@ -96,30 +74,26 @@ const harvestReceiptRoute = createRoute({
   path: "/harvests/$harvestId",
   component: lazyRouteComponents.harvestReceipt,
 });
-const inventoryRoute = moduleRoute(
-  "/inventory",
-  "Kho vận",
-  "Tồn kho, giữ hàng và xác nhận reservation.",
-  ["SYSTEM_ADMIN", "WAREHOUSE_MANAGER", "SALES_STAFF", "AUDITOR"],
-);
-const salesRoute = moduleRoute(
-  "/sales",
-  "Bán hàng",
-  "Đơn bán và trạng thái saga inventory.",
-  ["SYSTEM_ADMIN", "SALES_STAFF", "WAREHOUSE_MANAGER", "AUDITOR"],
-);
-const iotRoute = moduleRoute(
-  "/iot",
-  "IoT",
-  "Đăng ký thiết bị và nạp reading chẩn đoán.",
-  ["SYSTEM_ADMIN", "FARM_MANAGER", "AGRONOMIST", "AUDITOR"],
-);
-const adminRoute = moduleRoute(
-  "/admin/users",
-  "Quản trị người dùng",
-  "Danh sách người dùng và cập nhật vai trò (SYSTEM_ADMIN).",
-  ["SYSTEM_ADMIN"],
-);
+const inventoryRoute = createRoute({
+  getParentRoute: () => authedLayoutRoute,
+  path: "/inventory",
+  component: lazyRouteComponents.inventory,
+});
+const salesRoute = createRoute({
+  getParentRoute: () => authedLayoutRoute,
+  path: "/sales",
+  component: lazyRouteComponents.sales,
+});
+const iotRoute = createRoute({
+  getParentRoute: () => authedLayoutRoute,
+  path: "/iot",
+  component: lazyRouteComponents.iot,
+});
+const adminRoute = createRoute({
+  getParentRoute: () => authedLayoutRoute,
+  path: "/admin/users",
+  component: lazyRouteComponents.adminUsers,
+});
 const assistantRoute = createRoute({
   getParentRoute: () => authedLayoutRoute,
   path: "/assistant",

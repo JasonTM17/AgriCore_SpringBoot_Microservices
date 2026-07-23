@@ -11,6 +11,25 @@ const FARM_OPERATIONS_ROLES: NavItem["roles"] = [
   "FIELD_WORKER",
   "AUDITOR",
 ];
+const INVENTORY_VIEW_ROLES: NavItem["roles"] = [
+  "SYSTEM_ADMIN",
+  "WAREHOUSE_MANAGER",
+  "SALES_STAFF",
+  "AUDITOR",
+];
+const SALES_VIEW_ROLES: NavItem["roles"] = [
+  "SYSTEM_ADMIN",
+  "SALES_STAFF",
+  "WAREHOUSE_MANAGER",
+  "AUDITOR",
+];
+const IOT_VIEW_ROLES: NavItem["roles"] = [
+  "SYSTEM_ADMIN",
+  "FARM_MANAGER",
+  "AGRONOMIST",
+  "FIELD_WORKER",
+  "AUDITOR",
+];
 
 function withRoleGate(
   Page: RouteComponent,
@@ -63,6 +82,28 @@ export const lazyRouteComponents = {
   harvestReceipt: lazyRouteComponent(
     () => import("./harvest-receipt-route"),
     "HarvestReceiptRoute",
+  ),
+  inventory: withRoleGate(
+    lazyRouteComponent(
+      () => import("../features/inventory/inventory-page"),
+      "InventoryPage",
+    ),
+    INVENTORY_VIEW_ROLES,
+  ),
+  sales: withRoleGate(
+    lazyRouteComponent(() => import("../features/sales/sales-page"), "SalesPage"),
+    SALES_VIEW_ROLES,
+  ),
+  iot: withRoleGate(
+    lazyRouteComponent(() => import("../features/iot/iot-page"), "IotPage"),
+    IOT_VIEW_ROLES,
+  ),
+  adminUsers: withRoleGate(
+    lazyRouteComponent(
+      () => import("../features/admin/admin-users-page"),
+      "AdminUsersPage",
+    ),
+    ["SYSTEM_ADMIN"],
   ),
   publicTraceability: lazyRouteComponent(
     () => import("./public-traceability-route"),
