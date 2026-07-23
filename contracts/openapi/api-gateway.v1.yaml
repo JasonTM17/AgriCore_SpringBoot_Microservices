@@ -1,12 +1,14 @@
 openapi: 3.1.0
 info:
   title: AgriCore API Gateway
-  version: 1.15.0
+  version: 2.0.0
   description: |
     Edge routes for the AgriCore microservices portfolio.
     The gateway validates JWT (RS256 via Identity JWKS) then proxies path prefixes
     to domain services. This contract documents the public edge surface. Verified
-    domain operations are incorporated from per-service OpenAPI contracts.
+    domain operations are incorporated from per-service OpenAPI contracts. Version 2
+    includes lifecycle-aware harvest responses and requires warehouse scope for inventory
+    harvest acknowledgements.
 servers:
   - url: http://localhost:8080
     description: Local gateway
@@ -164,12 +166,36 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         '200': { description: OK }
+  /api/v1/inventory/warehouses:
+    $ref: './inventory-service.v1.yaml#/paths/~1api~1v1~1inventory~1warehouses'
+  /api/v1/inventory/items:
+    $ref: './inventory-service.v1.yaml#/paths/~1api~1v1~1inventory~1items'
+  /api/v1/inventory/items/{itemId}:
+    $ref: './inventory-service.v1.yaml#/paths/~1api~1v1~1inventory~1items~1{itemId}'
+  /api/v1/inventory/stock-in:
+    $ref: './inventory-service.v1.yaml#/paths/~1api~1v1~1inventory~1stock-in'
+  /api/v1/inventory/stock-out:
+    $ref: './inventory-service.v1.yaml#/paths/~1api~1v1~1inventory~1stock-out'
+  /api/v1/inventory/reservations:
+    $ref: './inventory-service.v1.yaml#/paths/~1api~1v1~1inventory~1reservations'
+  /api/v1/inventory/reservations/by-reference:
+    $ref: './inventory-service.v1.yaml#/paths/~1api~1v1~1inventory~1reservations~1by-reference'
+  /api/v1/inventory/reservations/{id}/release:
+    $ref: './inventory-service.v1.yaml#/paths/~1api~1v1~1inventory~1reservations~1{id}~1release'
+  /api/v1/inventory/reservations/{id}/confirm:
+    $ref: './inventory-service.v1.yaml#/paths/~1api~1v1~1inventory~1reservations~1{id}~1confirm'
+  /api/v1/inventory/events/harvest-completed:
+    $ref: './inventory-service.v1.yaml#/paths/~1api~1v1~1inventory~1events~1harvest-completed'
   /api/v1/inventory/events/harvest-completed/{eventId}/acknowledgement:
     $ref: './inventory-service.v1.yaml#/paths/~1api~1v1~1inventory~1events~1harvest-completed~1{eventId}~1acknowledgement'
+  /api/v1/harvests:
+    $ref: './harvest-service.v1.yaml#/paths/~1api~1v1~1harvests'
   /api/v1/harvests/complete:
     $ref: './harvest-service.v1.yaml#/paths/~1api~1v1~1harvests~1complete'
   /api/v1/harvests/{harvestId}:
     $ref: './harvest-service.v1.yaml#/paths/~1api~1v1~1harvests~1{harvestId}'
+  /api/v1/harvests/{harvestId}/complete:
+    $ref: './harvest-service.v1.yaml#/paths/~1api~1v1~1harvests~1{harvestId}~1complete'
   /api/v1/harvests/{harvestId}/completion-event:
     $ref: './harvest-service.v1.yaml#/paths/~1api~1v1~1harvests~1{harvestId}~1completion-event'
   /api/v1/harvests/{harvestId}/completion-event/republish:

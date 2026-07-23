@@ -201,7 +201,7 @@ For an existing PostgreSQL volume, follow [assistant database provisioning](./as
 
 ### Inventory warehouse farm-scope upgrade
 
-Inventory migration `V4__add_warehouse_farm_scope.sql` adds `warehouses.farm_id`. It intentionally does not guess a farm for existing warehouses. New warehouse requests require `farmId`; an existing warehouse with a null farm assignment is unavailable to Work material consumption until an operator maps it to the correct farm.
+Inventory migration `V4__add_warehouse_farm_scope.sql` adds `warehouses.farm_id`. It intentionally does not guess a farm for existing warehouses. New warehouse requests require `farmId`; an existing warehouse with a null farm assignment is unavailable to public inventory reads/mutations and Work material consumption until an operator maps it to the correct farm. Migration `V5__scope_processed_events_to_farms.sql` applies the same fail-closed rule to legacy harvest acknowledgement markers.
 
 Audit the inventory database after migration:
 

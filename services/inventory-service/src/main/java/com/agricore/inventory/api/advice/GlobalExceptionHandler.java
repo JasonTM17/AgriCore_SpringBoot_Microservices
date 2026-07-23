@@ -1,6 +1,7 @@
 package com.agricore.inventory.api.advice;
 
 import com.agricore.common.api.ApiError;
+import com.agricore.farmaccess.FarmAccessException;
 import com.agricore.inventory.domain.exception.InventoryException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
@@ -33,6 +34,18 @@ public class GlobalExceptionHandler {
                 409, "Conflict", "OPTIMISTIC_LOCK",
                 "Concurrent stock update conflict; retry the request",
                 request.getRequestURI(), null
+        ));
+    }
+
+    @ExceptionHandler(FarmAccessException.class)
+    public ResponseEntity<ApiError> farmAccess(FarmAccessException ex, HttpServletRequest request) {
+        return ResponseEntity.status(ex.getHttpStatus()).body(ApiError.of(
+                ex.getHttpStatus(),
+                HttpStatus.valueOf(ex.getHttpStatus()).getReasonPhrase(),
+                ex.getCode(),
+                ex.getMessage(),
+                request.getRequestURI(),
+                null
         ));
     }
 

@@ -91,6 +91,48 @@ describe("harvest receipt page", () => {
     expect(screen.queryByRole("button", { name: "Gửi lại sự kiện gốc" })).not.toBeInTheDocument();
   });
 
+  it("renders an in-progress batch without assuming completion measurements", async () => {
+    const baseFetch = authenticatedFetch();
+    const requestedPaths: string[] = [];
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+      const path = requestUrl(input).pathname;
+      requestedPaths.push(path);
+      if (path === harvestPath) {
+        return jsonResponse({
+          ...harvestBatch,
+          status: "IN_PROGRESS",
+          grossWeightKg: null,
+          netWeightKg: null,
+          qualityGrade: null,
+          harvestedAt: null,
+          lastOutboxEventId: null,
+        });
+      }
+      if (path === producerPath) {
+        return jsonResponse({
+          ...publishedProducer,
+          eventId: null,
+          state: "UNAVAILABLE",
+          createdAt: null,
+          publishedAt: null,
+          publishAttempts: 0,
+        });
+      }
+      return baseFetch(input);
+    }));
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: `Biên nhận ${harvestBatch.code}` }))
+      .toBeInTheDocument();
+    expect(screen.getAllByText("—")).toHaveLength(4);
+    expect(screen.getByText("Chưa phát sinh")).toBeInTheDocument();
+    expect(await screen.findByText("Chưa phát sinh sự kiện")).toBeInTheDocument();
+    expect(screen.queryByText("Không có (legacy)")).not.toBeInTheDocument();
+    expect(requestedPaths).not.toContain(inventoryPath);
+    expect(requestedPaths).not.toContain(traceabilityPath);
+  });
+
   it("requeues the same event and publishes the authoritative retry state", async () => {
     const baseFetch = authenticatedFetch();
     let repairRequests = 0;

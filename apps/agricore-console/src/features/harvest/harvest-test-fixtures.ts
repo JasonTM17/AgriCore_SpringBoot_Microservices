@@ -36,6 +36,7 @@ export const harvestBatch = {
   netWeightKg: 3300,
   qualityGrade: "GRADE_A",
   status: "COMPLETED",
+  startedAt: "2026-07-19T07:45:00Z",
   harvestedAt: "2026-07-19T08:30:00Z",
   notes: "Đợt đầu mùa",
   lastOutboxEventId: eventId,

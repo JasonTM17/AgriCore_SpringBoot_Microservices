@@ -159,6 +159,16 @@ public class InventoryApplicationService {
      */
     @Transactional
     public InventoryItemResponse processHarvestCompleted(HarvestCompletedCommand command) {
+        WarehouseEntity warehouse = warehouseRepository.findById(command.warehouseId())
+                .orElseThrow(() -> new InventoryException("WAREHOUSE_NOT_FOUND", "Warehouse not found", 404));
+        if (warehouse.getFarmId() == null) {
+            throw new InventoryException(
+                    "WAREHOUSE_SCOPE_UNAVAILABLE",
+                    "Warehouse farm scope is unavailable",
+                    503
+            );
+        }
+
         if (processedEventRepository.existsByEventIdAndConsumerName(command.eventId(), HARVEST_CONSUMER)) {
             metrics.recordDuplicateHarvestEvent();
             InventoryItemEntity existing = itemRepository
@@ -166,10 +176,6 @@ public class InventoryApplicationService {
                     .orElseThrow(() -> new InventoryException("ITEM_NOT_FOUND",
                             "Item missing after prior event processing", 500));
             return toItemResponse(existing);
-        }
-
-        if (!warehouseRepository.existsById(command.warehouseId())) {
-            throw new InventoryException("WAREHOUSE_NOT_FOUND", "Warehouse not found", 404);
         }
 
         String sku = command.productCode().trim().toUpperCase();
@@ -191,7 +197,12 @@ public class InventoryApplicationService {
         );
         eventWriter.stockAdded(item, movement);
 
-        processedEventRepository.save(ProcessedEventEntity.of(command.eventId(), HARVEST_CONSUMER));
+        processedEventRepository.save(ProcessedEventEntity.of(
+                command.eventId(),
+                HARVEST_CONSUMER,
+                warehouse.getFarmId(),
+                warehouse.getId()
+        ));
         metrics.recordAppliedHarvestEvent();
         return toItemResponse(item);
     }

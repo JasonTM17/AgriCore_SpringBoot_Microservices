@@ -55,10 +55,11 @@ export function republishHarvestCompletionEvent(
 export function getInventoryHarvestProjectionAcknowledgement(
   api: ApiClient,
   eventId: string,
+  warehouseId: string,
   signal?: AbortSignal,
 ): Promise<InventoryHarvestProjectionAcknowledgementResponse> {
   return api.request<InventoryHarvestProjectionAcknowledgementResponse>(
-    `/api/v1/inventory/events/harvest-completed/${encodeURIComponent(eventId)}/acknowledgement`,
+    `/api/v1/inventory/events/harvest-completed/${encodeURIComponent(eventId)}/acknowledgement?warehouseId=${encodeURIComponent(warehouseId)}`,
     { method: "GET", ...(signal ? { signal } : {}) },
   );
 }

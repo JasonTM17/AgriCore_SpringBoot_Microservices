@@ -6,6 +6,7 @@ import com.agricore.inventory.api.response.InventoryItemResponse;
 import com.agricore.inventory.api.response.ReservationResponse;
 import com.agricore.inventory.api.response.WarehouseResponse;
 import com.agricore.inventory.application.service.HarvestProjectionAcknowledgementQueryService;
+import com.agricore.inventory.application.service.InventoryAccessGuard;
 import com.agricore.inventory.application.service.InventoryApplicationService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -24,43 +25,51 @@ import java.util.UUID;
 public class InventoryController {
 
     private final InventoryApplicationService service;
+    private final InventoryAccessGuard accessGuard;
     private final HarvestProjectionAcknowledgementQueryService acknowledgementQueryService;
 
     public InventoryController(
             InventoryApplicationService service,
+            InventoryAccessGuard accessGuard,
             HarvestProjectionAcknowledgementQueryService acknowledgementQueryService
     ) {
         this.service = service;
+        this.accessGuard = accessGuard;
         this.acknowledgementQueryService = acknowledgementQueryService;
     }
 
     @PostMapping("/warehouses")
     @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','WAREHOUSE_MANAGER')")
     public ResponseEntity<WarehouseResponse> createWarehouse(@Valid @RequestBody CreateWarehouseRequest request) {
+        accessGuard.requireFarm(request.farmId());
         return ResponseEntity.status(HttpStatus.CREATED).body(service.createWarehouse(request));
     }
 
     @PostMapping("/items")
     @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','WAREHOUSE_MANAGER')")
     public ResponseEntity<InventoryItemResponse> createItem(@Valid @RequestBody CreateItemRequest request) {
+        accessGuard.requireWarehouse(request.warehouseId());
         return ResponseEntity.status(HttpStatus.CREATED).body(service.createItem(request));
     }
 
     @PostMapping("/stock-in")
     @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','WAREHOUSE_MANAGER')")
     public InventoryItemResponse stockIn(@Valid @RequestBody StockInRequest request) {
+        accessGuard.requireItem(request.inventoryItemId());
         return service.stockIn(request);
     }
 
     @PostMapping("/stock-out")
     @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','WAREHOUSE_MANAGER')")
     public InventoryItemResponse stockOut(@Valid @RequestBody StockOutRequest request) {
+        accessGuard.requireItem(request.inventoryItemId());
         return service.stockOut(request);
     }
 
     @PostMapping("/reservations")
     @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','WAREHOUSE_MANAGER','SALES_STAFF')")
     public ResponseEntity<ReservationResponse> reserve(@Valid @RequestBody ReserveStockRequest request) {
+        accessGuard.requireItem(request.inventoryItemId());
         return ResponseEntity.status(HttpStatus.CREATED).body(service.reserve(request));
     }
 
@@ -70,24 +79,28 @@ public class InventoryController {
             @RequestParam @NotBlank @Size(max = 64) String referenceType,
             @RequestParam @NotBlank @Size(max = 100) String referenceId
     ) {
+        accessGuard.requireReservationReference(referenceType, referenceId);
         return service.getReservationByReference(referenceType, referenceId);
     }
 
     @PostMapping("/reservations/{reservationId}/release")
     @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','WAREHOUSE_MANAGER','SALES_STAFF')")
     public ReservationResponse release(@PathVariable UUID reservationId) {
+        accessGuard.requireReservation(reservationId);
         return service.release(reservationId);
     }
 
     @PostMapping("/reservations/{reservationId}/confirm")
     @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','WAREHOUSE_MANAGER','SALES_STAFF')")
     public ReservationResponse confirm(@PathVariable UUID reservationId) {
+        accessGuard.requireReservation(reservationId);
         return service.confirm(reservationId);
     }
 
     @GetMapping("/items/{itemId}")
     @PreAuthorize("isAuthenticated()")
     public InventoryItemResponse getItem(@PathVariable UUID itemId) {
+        accessGuard.requireItem(itemId);
         return service.getItem(itemId);
     }
 
@@ -98,14 +111,17 @@ public class InventoryController {
     @PostMapping("/events/harvest-completed")
     @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','WAREHOUSE_MANAGER')")
     public InventoryItemResponse harvestCompleted(@Valid @RequestBody HarvestCompletedCommand command) {
+        accessGuard.requireWarehouse(command.warehouseId());
         return service.processHarvestCompleted(command);
     }
 
     @GetMapping("/events/harvest-completed/{eventId}/acknowledgement")
     @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','FARM_MANAGER','AGRONOMIST','WAREHOUSE_MANAGER')")
     public InventoryHarvestProjectionAcknowledgementResponse getHarvestProjectionAcknowledgement(
-            @PathVariable UUID eventId
+            @PathVariable UUID eventId,
+            @RequestParam UUID warehouseId
     ) {
-        return acknowledgementQueryService.getAcknowledgement(eventId);
+        UUID farmId = accessGuard.requireWarehouse(warehouseId);
+        return acknowledgementQueryService.getAcknowledgement(eventId, warehouseId, farmId);
     }
 }

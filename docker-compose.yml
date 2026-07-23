@@ -237,8 +237,10 @@ services:
         condition: service_completed_successfully
       identity-service:
         condition: service_healthy
+      farm-service:
+        condition: service_healthy
     environment:
-      <<: [*db-env, *security-env, *kafka-env, *observability-env]
+      <<: [*db-env, *security-env, *kafka-env, *farm-access-env, *observability-env]
       INVENTORY_PORT: 8086
     ports:
       - "8086:8086"

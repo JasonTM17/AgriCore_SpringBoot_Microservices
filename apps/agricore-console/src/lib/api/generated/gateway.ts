@@ -1204,6 +1204,493 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/inventory/warehouses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create warehouse */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        farmId: string;
+                        code: string;
+                        name: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WarehouseResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create an inventory item in a warehouse */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateInventoryItemRequest"];
+                };
+            };
+            responses: {
+                /** @description Inventory item created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["InventoryItemResponse"];
+                    };
+                };
+                /** @description Warehouse not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description SKU already exists in the warehouse */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/items/{itemId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get inventory item */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    itemId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Item with onHand and reserved quantities */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["InventoryItemResponse"];
+                    };
+                };
+                /** @description Inventory item not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/stock-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add stock and record the referenced ledger movement */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["StockInRequest"];
+                };
+            };
+            responses: {
+                /** @description Updated inventory balance */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["InventoryItemResponse"];
+                    };
+                };
+                /** @description Inventory item not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/stock-out": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Deduct available stock idempotently by business reference */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["StockOutRequest"];
+                };
+            };
+            responses: {
+                /** @description Updated inventory balance or the result of an idempotent replay */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["InventoryItemResponse"];
+                    };
+                };
+                /** @description Inventory item not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Insufficient available stock or idempotency conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/reservations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reserve stock idempotently by business reference
+         * @description Repeating the same referenceType/referenceId with the same item and quantity returns the authoritative reservation without increasing the hold. Reusing a reference for a different request returns 409.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        inventoryItemId: string;
+                        quantity: number;
+                        referenceType: string;
+                        referenceId: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Reserved */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReservationResponse"];
+                    };
+                };
+                /** @description Insufficient stock or reference conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/reservations/by-reference": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Resolve the authoritative reservation for a business reference */
+        get: {
+            parameters: {
+                query: {
+                    referenceType: string;
+                    referenceId: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Current reservation state */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReservationResponse"];
+                    };
+                };
+                /** @description Invalid or missing business reference */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Reservation not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/reservations/{id}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Release reservation */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Current reservation state. RELEASED means the stock hold was removed; FULFILLED means inventory was already committed and can no longer be released. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReservationReleaseResponse"];
+                    };
+                };
+                /** @description Reservation not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/reservations/{id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm reservation (fulfill - decrement on-hand and reserved)
+         * @description Sales saga confirm step. Idempotent when already FULFILLED.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Fulfilled */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReservationResponse"];
+                    };
+                };
+                /** @description Reservation not ACTIVE or insufficient on-hand */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/events/harvest-completed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sync adapter for HarvestCompleted (same path as Kafka consumer) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["HarvestCompletedCommand"];
+                };
+            };
+            responses: {
+                /** @description Stock applied (idempotent on eventId) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["InventoryItemResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/inventory/events/harvest-completed/{eventId}/acknowledgement": {
         parameters: {
             query?: never;
@@ -1218,6 +1705,26 @@ export interface paths {
         get: operations["getInventoryHarvestProjectionAcknowledgement"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/harvests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start an in-progress harvest batch
+         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or WAREHOUSE_MANAGER plus access to the request plot.
+         */
+        post: operations["startHarvestBatch"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1260,6 +1767,28 @@ export interface paths {
         get: operations["getHarvest"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/harvests/{harvestId}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                harvestId: components["parameters"]["HarvestId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete a previously started harvest batch
+         * @description Completes an IN_PROGRESS batch once and enqueues its stable HarvestCompleted.v1 event.
+         */
+        post: operations["completeHarvestBatch"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2676,6 +3205,81 @@ export interface components {
         CancelTaskRequest: {
             notes?: string | null;
         };
+        WarehouseResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            farmId: string;
+            code: string;
+            name: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        CreateInventoryItemRequest: {
+            /** Format: uuid */
+            warehouseId: string;
+            sku: string;
+            name: string;
+            itemType: string;
+            unit: string;
+        };
+        InventoryItemResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            warehouseId: string;
+            sku: string;
+            name: string;
+            itemType: string;
+            unit: string;
+            onHandQuantity: number;
+            reservedQuantity: number;
+            availableQuantity: number;
+            /** Format: int64 */
+            version: number;
+        };
+        StockMutationRequest: {
+            /** Format: uuid */
+            inventoryItemId: string;
+            quantity: number;
+            referenceType: string;
+            referenceId: string;
+            note?: string | null;
+        };
+        StockInRequest: components["schemas"]["StockMutationRequest"];
+        StockOutRequest: components["schemas"]["StockMutationRequest"];
+        ReservationResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            inventoryItemId: string;
+            quantity: number;
+            /** @enum {string} */
+            status: "ACTIVE" | "RELEASED" | "FULFILLED";
+            referenceType: string;
+            referenceId: string;
+        };
+        ReservationReleaseResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            inventoryItemId: string;
+            quantity: number;
+            /** @enum {string} */
+            status: "RELEASED" | "FULFILLED";
+            referenceType: string;
+            referenceId: string;
+        };
+        HarvestCompletedCommand: {
+            eventId: string;
+            /** Format: uuid */
+            harvestBatchId: string;
+            /** Format: uuid */
+            warehouseId: string;
+            productCode: string;
+            netWeightKg: number;
+            qualityGrade?: string | null;
+        };
         InventoryHarvestProjectionAcknowledgementResponse: {
             /** Format: uuid */
             eventId: string;
@@ -2685,6 +3289,49 @@ export interface components {
             state: "ACKNOWLEDGED" | "NOT_ACKNOWLEDGED";
             /** Format: date-time */
             acknowledgedAt: string | null;
+        };
+        StartHarvestRequest: {
+            code: string;
+            /** Format: uuid */
+            cropCycleId: string;
+            /** Format: uuid */
+            plotId: string;
+            /** Format: uuid */
+            warehouseId: string;
+            productCode: string;
+            notes?: string | null;
+        };
+        /** @enum {string} */
+        HarvestStatus: "IN_PROGRESS" | "RECORDED" | "COMPLETED" | "CANCELLED";
+        HarvestBatchResponse: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            /** Format: uuid */
+            cropCycleId: string;
+            /** Format: uuid */
+            plotId: string;
+            /** Format: uuid */
+            warehouseId: string;
+            productCode: string;
+            grossWeightKg: number | null;
+            netWeightKg: number | null;
+            qualityGrade: string | null;
+            status: components["schemas"]["HarvestStatus"];
+            /** Format: date-time */
+            startedAt: string;
+            /** Format: date-time */
+            harvestedAt: string | null;
+            notes: string | null;
+            /**
+             * Format: uuid
+             * @description Stable HarvestCompleted event identity; null before completion or for legacy records created before identity persistence.
+             */
+            lastOutboxEventId: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: int64 */
+            version: number;
         };
         CompleteHarvestRequest: {
             code: string;
@@ -2704,42 +3351,22 @@ export interface components {
             productName?: string | null;
             careSummary?: string | null;
         };
-        /** @enum {string} */
-        HarvestStatus: "RECORDED" | "COMPLETED" | "CANCELLED";
-        HarvestBatchResponse: {
-            /** Format: uuid */
-            id: string;
-            code: string;
-            /** Format: uuid */
-            cropCycleId: string;
-            /** Format: uuid */
-            plotId: string;
-            /** Format: uuid */
-            warehouseId: string;
-            productCode: string;
+        CompleteHarvestBatchRequest: {
             grossWeightKg: number;
             netWeightKg: number;
             qualityGrade: string;
-            status: components["schemas"]["HarvestStatus"];
-            /** Format: date-time */
-            harvestedAt: string;
-            notes: string | null;
-            /**
-             * Format: uuid
-             * @description Stable HarvestCompleted event identity; null only for legacy records created before identity persistence.
-             */
-            lastOutboxEventId: string | null;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: int64 */
-            version: number;
+            notes?: string | null;
+            farmName?: string | null;
+            plotCode?: string | null;
+            productName?: string | null;
+            careSummary?: string | null;
         };
         HarvestCompletionEventStatusResponse: {
             /** Format: uuid */
             harvestId: string;
             /**
              * Format: uuid
-             * @description Stable HarvestCompleted identity; null only for legacy harvests.
+             * @description Stable HarvestCompleted identity; null before completion or for legacy harvests.
              */
             eventId: string | null;
             /** @enum {string} */
@@ -5243,7 +5870,10 @@ export interface operations {
     };
     getInventoryHarvestProjectionAcknowledgement: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description Warehouse scope used to authorize both pending and acknowledged states. */
+                warehouseId: string;
+            };
             header?: never;
             path: {
                 eventId: string;
@@ -5282,6 +5912,50 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Warehouse not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Farm authorization */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    startHarvestBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartHarvestRequest"];
+            };
+        };
+        responses: {
+            /** @description Harvest batch started. Completion measurements and event identity are null until completion. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HarvestBatchResponse"];
+                };
+            };
+            400: components["responses"]["harvest-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["harvest-service.v1_components-responses-Forbidden"];
+            404: components["responses"]["harvest-service.v1_components-responses-NotFound"];
+            409: components["responses"]["harvest-service.v1_components-responses-Conflict"];
+            415: components["responses"]["UnsupportedMediaType"];
         };
     };
     completeHarvest: {
@@ -5340,6 +6014,40 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["harvest-service.v1_components-responses-Forbidden"];
             404: components["responses"]["harvest-service.v1_components-responses-NotFound"];
+            503: components["responses"]["components-responses-ServiceUnavailable"];
+        };
+    };
+    completeHarvestBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                harvestId: components["parameters"]["HarvestId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteHarvestBatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Completed batch. An idempotent replay returns the same completed state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HarvestBatchResponse"];
+                };
+            };
+            400: components["responses"]["harvest-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["harvest-service.v1_components-responses-Forbidden"];
+            404: components["responses"]["harvest-service.v1_components-responses-NotFound"];
+            409: components["responses"]["harvest-service.v1_components-responses-Conflict"];
+            415: components["responses"]["UnsupportedMediaType"];
+            500: components["responses"]["responses-InternalServerError"];
             503: components["responses"]["components-responses-ServiceUnavailable"];
         };
     };

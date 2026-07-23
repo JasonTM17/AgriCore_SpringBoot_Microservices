@@ -80,6 +80,10 @@ Task completion reuses the authoritative `farmId` returned when farm-service res
 
 Missing items, warehouses without a farm assignment, and cross-farm item IDs all return the same `404 ITEM_NOT_FOUND` response. The check runs before idempotency lookup or quantity mutation, so an unauthorized caller cannot learn whether a referenced item exists and cannot change its stock.
 
+### Public inventory scope boundary
+
+Public inventory reads and mutations resolve the stored warehouse, item, or reservation before calling farm-service. The guard runs before idempotency lookup or side effects. Harvest acknowledgement reads require a caller-supplied `warehouseId`; the warehouse farm is authorized before the processed-event marker is inspected, so pending and acknowledged states share the same boundary. A marker from another farm or warehouse is reported as the same `NOT_ACKNOWLEDGED` state, while legacy markers or warehouses without stored scope fail closed with an explicit `503` until an operator maps the scope.
+
 ## Failure and masking semantics
 
 | Status | Meaning |
@@ -87,9 +91,9 @@ Missing items, warehouses without a farm assignment, and cross-farm item IDs all
 | 401 | Missing or invalid authentication at gateway or service boundary. |
 | 403 | Authenticated caller lacks the required operation role, or a direct farm check denies membership. |
 | 404 | Plot-linked resource is missing, outside the caller's farms, or mismatched. Downstream responses omit protected entity data. |
-| 503 | Farm authorization cannot be trusted because the dependency failed, returned an unexpected status, sent an invalid/oversized response, or no forwardable request authentication exists. |
+| 503 | Farm authorization cannot be trusted because the dependency failed, returned an unexpected status, sent an invalid/oversized response, no forwardable request authentication exists, or a legacy inventory resource has no stored farm scope. |
 
-Downstream guards run before protected mutations. Access-failure integration tests assert no crop cycle, task, harvest batch, outbox event, IoT device, reading, or alert is written when authorization returns 403, 404, or 503.
+Downstream guards run before protected mutations. Access-failure integration tests assert no crop cycle, task, harvest batch, inventory balance/movement/reservation, outbox event, IoT device, reading, or alert is written when authorization returns 403, 404, or 503.
 
 ## Caller-token propagation and client hardening
 
@@ -114,4 +118,4 @@ This is caller-token authorization over configured HTTP(S). The repository does 
 
 - [System architecture](../architecture/SYSTEM_ARCHITECTURE.md)
 - [Security review](./SECURITY_REVIEW.md)
-- Service contracts under `contracts/openapi/`, especially `identity-service.v1.yaml`, `farm-service.v1.yaml`, `crop-cycle-service.v1.yaml`, `work-service.v1.yaml`, `harvest-service.v1.yaml`, `iot-service.v1.yaml`, and `api-gateway.v1.yaml`.
+- Service contracts under `contracts/openapi/`, especially `identity-service.v1.yaml`, `farm-service.v1.yaml`, `crop-cycle-service.v1.yaml`, `work-service.v1.yaml`, `harvest-service.v1.yaml`, `inventory-service.v1.yaml`, `iot-service.v1.yaml`, and `api-gateway.v1.yaml`.

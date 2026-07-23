@@ -1,8 +1,12 @@
 openapi: 3.1.0
 info:
   title: AgriCore Harvest Service API
-  version: 1.5.0
-  description: Farm-scoped harvest completion and detail contract backed by a transactional outbox.
+  version: 2.0.0
+  description: |
+    Farm-scoped harvest lifecycle and detail contract backed by a transactional outbox.
+    Version 2 documents the existing start lifecycle: IN_PROGRESS responses have nullable
+    completion measurements and expose startedAt. Consumers generated from the earlier
+    completion-only schema must handle these lifecycle states before upgrading.
 servers:
   - url: http://localhost:8087
     description: Direct local service endpoint
@@ -11,6 +15,37 @@ security:
 tags:
   - name: Harvests
 paths:
+  /api/v1/harvests:
+    post:
+      tags: [Harvests]
+      operationId: startHarvestBatch
+      summary: Start an in-progress harvest batch
+      description: Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or WAREHOUSE_MANAGER plus access to the request plot.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartHarvestRequest'
+      responses:
+        '201':
+          description: Harvest batch started. Completion measurements and event identity are null until completion.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HarvestBatchResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
   /api/v1/harvests/complete:
     post:
       tags: [Harvests]
@@ -26,6 +61,43 @@ paths:
       responses:
         '201':
           description: Harvest recorded; inventory and traceability projection has started but is not yet acknowledged.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HarvestBatchResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/harvests/{harvestId}/complete:
+    parameters:
+      - $ref: '#/components/parameters/HarvestId'
+    post:
+      tags: [Harvests]
+      operationId: completeHarvestBatch
+      summary: Complete a previously started harvest batch
+      description: Completes an IN_PROGRESS batch once and enqueues its stable HarvestCompleted.v1 event.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteHarvestBatchRequest'
+      responses:
+        '200':
+          description: Completed batch. An idempotent replay returns the same completed state.
           content:
             application/json:
               schema:
@@ -189,7 +261,31 @@ components:
   schemas:
     HarvestStatus:
       type: string
-      enum: [RECORDED, COMPLETED, CANCELLED]
+      enum: [IN_PROGRESS, RECORDED, COMPLETED, CANCELLED]
+    StartHarvestRequest:
+      type: object
+      additionalProperties: false
+      required: [code, cropCycleId, plotId, warehouseId, productCode]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 64 }
+        cropCycleId: { type: string, format: uuid }
+        plotId: { type: string, format: uuid }
+        warehouseId: { type: string, format: uuid }
+        productCode: { type: string, minLength: 1, maxLength: 64 }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+    CompleteHarvestBatchRequest:
+      type: object
+      additionalProperties: false
+      required: [grossWeightKg, netWeightKg, qualityGrade]
+      properties:
+        grossWeightKg: { type: number, minimum: 0.001, maximum: 99999999999.999, multipleOf: 0.001 }
+        netWeightKg: { type: number, minimum: 0.001, maximum: 99999999999.999, multipleOf: 0.001 }
+        qualityGrade: { type: string, minLength: 1, maxLength: 32 }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+        farmName: { type: [string, 'null'], maxLength: 200 }
+        plotCode: { type: [string, 'null'], maxLength: 64 }
+        productName: { type: [string, 'null'], maxLength: 200 }
+        careSummary: { type: [string, 'null'], maxLength: 1000 }
     CompleteHarvestRequest:
       type: object
       required: [code, cropCycleId, plotId, warehouseId, productCode, grossWeightKg, netWeightKg, qualityGrade]
@@ -221,6 +317,7 @@ components:
         - netWeightKg
         - qualityGrade
         - status
+        - startedAt
         - harvestedAt
         - notes
         - lastOutboxEventId
@@ -233,17 +330,18 @@ components:
         plotId: { type: string, format: uuid }
         warehouseId: { type: string, format: uuid }
         productCode: { type: string, maxLength: 64 }
-        grossWeightKg: { type: number, minimum: 0.001 }
-        netWeightKg: { type: number, minimum: 0.001 }
-        qualityGrade: { type: string, maxLength: 32 }
+        grossWeightKg: { type: [number, 'null'], minimum: 0.001 }
+        netWeightKg: { type: [number, 'null'], minimum: 0.001 }
+        qualityGrade: { type: [string, 'null'], maxLength: 32 }
         status:
           $ref: '#/components/schemas/HarvestStatus'
-        harvestedAt: { type: string, format: date-time }
+        startedAt: { type: string, format: date-time }
+        harvestedAt: { type: [string, 'null'], format: date-time }
         notes: { type: [string, 'null'] }
         lastOutboxEventId:
           type: [string, 'null']
           format: uuid
-          description: Stable HarvestCompleted event identity; null only for legacy records created before identity persistence.
+          description: Stable HarvestCompleted event identity; null before completion or for legacy records created before identity persistence.
         createdAt: { type: string, format: date-time }
         version: { type: integer, format: int64, minimum: 0 }
     HarvestCompletionEventStatusResponse:
@@ -255,7 +353,7 @@ components:
         eventId:
           type: [string, 'null']
           format: uuid
-          description: Stable HarvestCompleted identity; null only for legacy harvests.
+          description: Stable HarvestCompleted identity; null before completion or for legacy harvests.
         producer: { type: string, enum: [HARVEST] }
         state: { type: string, enum: [UNAVAILABLE, ENQUEUED, RETRYING, PUBLISHED] }
         createdAt: { type: [string, 'null'], format: date-time }

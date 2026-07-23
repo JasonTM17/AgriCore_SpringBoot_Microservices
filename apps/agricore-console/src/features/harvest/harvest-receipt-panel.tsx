@@ -56,6 +56,10 @@ function repairMessage(error: Error): string {
   return "Không thể gửi lại sự kiện. Hãy tải lại trạng thái rồi thử lại.";
 }
 
+function formatOptionalWeight(value: number | null): string {
+  return value === null ? "—" : formatHarvestWeight(value);
+}
+
 export function HarvestReceiptPanel({
   harvest,
   producer,
@@ -73,10 +77,13 @@ export function HarvestReceiptPanel({
   const traceabilityData = traceability.data;
   const hasMissingProjection = inventoryData?.state === "NOT_ACKNOWLEDGED"
     || traceabilityData?.state === "NOT_ACKNOWLEDGED";
+  const isInProgress = harvest.status === "IN_PROGRESS";
   const offerRepair = canRepair
     && producerData?.state === "PUBLISHED"
     && hasMissingProjection;
-  const lossKg = Math.max(0, harvest.grossWeightKg - harvest.netWeightKg);
+  const lossKg = harvest.grossWeightKg === null || harvest.netWeightKg === null
+    ? null
+    : Math.max(0, harvest.grossWeightKg - harvest.netWeightKg);
 
   function handleRepair() {
     const confirmed = window.confirm(
@@ -107,12 +114,12 @@ export function HarvestReceiptPanel({
         <h2 id="receipt-details-heading" className="text-lg font-semibold text-ink">Kết quả đã ghi nhận</h2>
         <dl className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <div><dt className="text-xs font-semibold uppercase text-muted">Sản phẩm</dt><dd className="mt-1 font-semibold">{harvest.productCode}</dd></div>
-          <div><dt className="text-xs font-semibold uppercase text-muted">Chất lượng</dt><dd className="mt-1 font-semibold">{harvest.qualityGrade}</dd></div>
-          <div><dt className="text-xs font-semibold uppercase text-muted">Khối lượng thô</dt><dd className="mt-1 font-semibold">{formatHarvestWeight(harvest.grossWeightKg)}</dd></div>
-          <div><dt className="text-xs font-semibold uppercase text-muted">Khối lượng thực</dt><dd className="mt-1 font-semibold">{formatHarvestWeight(harvest.netWeightKg)}</dd></div>
-          <div><dt className="text-xs font-semibold uppercase text-muted">Hao hụt</dt><dd className="mt-1 font-semibold">{formatHarvestWeight(lossKg)}</dd></div>
+          <div><dt className="text-xs font-semibold uppercase text-muted">Chất lượng</dt><dd className="mt-1 font-semibold">{harvest.qualityGrade ?? "—"}</dd></div>
+          <div><dt className="text-xs font-semibold uppercase text-muted">Khối lượng thô</dt><dd className="mt-1 font-semibold">{formatOptionalWeight(harvest.grossWeightKg)}</dd></div>
+          <div><dt className="text-xs font-semibold uppercase text-muted">Khối lượng thực</dt><dd className="mt-1 font-semibold">{formatOptionalWeight(harvest.netWeightKg)}</dd></div>
+          <div><dt className="text-xs font-semibold uppercase text-muted">Hao hụt</dt><dd className="mt-1 font-semibold">{formatOptionalWeight(lossKg)}</dd></div>
           <div><dt className="text-xs font-semibold uppercase text-muted">Thời điểm</dt><dd className="mt-1 font-semibold">{formatHarvestInstant(harvest.harvestedAt)}</dd></div>
-          <div className="sm:col-span-2"><dt className="text-xs font-semibold uppercase text-muted">Event ID ổn định</dt><dd className="mt-1 break-all font-mono text-sm">{harvest.lastOutboxEventId ?? "Không có (legacy)"}</dd></div>
+          <div className="sm:col-span-2"><dt className="text-xs font-semibold uppercase text-muted">Event ID ổn định</dt><dd className="mt-1 break-all font-mono text-sm">{harvest.lastOutboxEventId ?? (isInProgress ? "Chưa phát sinh" : "Không có (legacy)")}</dd></div>
         </dl>
         {harvest.notes ? <p className="mt-4 border-t border-border pt-4 text-sm text-ink">{harvest.notes}</p> : null}
       </section>
@@ -122,7 +129,11 @@ export function HarvestReceiptPanel({
         <div className="mt-4 grid gap-4 lg:grid-cols-3">
           <HarvestProjectionCard
             title="Harvest producer"
-            stateLabel={producerData ? producerStateLabel(producerData.state) : "Chưa có trạng thái"}
+            stateLabel={producerData
+              ? isInProgress && producerData.state === "UNAVAILABLE"
+                ? "Chưa phát sinh sự kiện"
+                : producerStateLabel(producerData.state)
+              : "Chưa có trạng thái"}
             description="Trạng thái phát Kafka của outbox gốc; không đại diện cho consumer downstream."
             timestamp={producerData ? formatHarvestInstant(producerData.publishedAt) : null}
             error={producer.error}

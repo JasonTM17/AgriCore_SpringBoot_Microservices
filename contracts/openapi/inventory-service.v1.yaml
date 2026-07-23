@@ -1,8 +1,11 @@
 openapi: 3.1.0
 info:
   title: AgriCore Inventory Service API
-  version: 1.2.0
-  description: Warehouses, stock movements, reservations; Kafka HarvestCompleted consumer is idempotent
+  version: 2.0.0
+  description: |
+    Farm-scoped warehouses, stock movements, reservations, and an idempotent
+    HarvestCompleted consumer. Version 2 requires warehouseId when reading harvest
+    acknowledgements so pending and completed states share the same authorization boundary.
 servers:
   - url: http://localhost:8086
 paths:
@@ -30,6 +33,65 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WarehouseResponse'
+  /api/v1/inventory/items:
+    post:
+      summary: Create an inventory item in a warehouse
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInventoryItemRequest'
+      responses:
+        '201':
+          description: Inventory item created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryItemResponse'
+        '404': { description: Warehouse not found }
+        '409': { description: SKU already exists in the warehouse }
+  /api/v1/inventory/stock-in:
+    post:
+      summary: Add stock and record the referenced ledger movement
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockInRequest'
+      responses:
+        '200':
+          description: Updated inventory balance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryItemResponse'
+        '404': { description: Inventory item not found }
+  /api/v1/inventory/stock-out:
+    post:
+      summary: Deduct available stock idempotently by business reference
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockOutRequest'
+      responses:
+        '200':
+          description: Updated inventory balance or the result of an idempotent replay
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryItemResponse'
+        '404': { description: Inventory item not found }
+        '409': { description: Insufficient available stock or idempotency conflict }
   /internal/api/v1/inventory/stock-out:
     post:
       summary: Deduct task material from the authoritative farm inventory
@@ -74,15 +136,20 @@ paths:
           application/json:
             schema:
               type: object
+              additionalProperties: false
               required: [inventoryItemId, quantity, referenceType, referenceId]
               properties:
                 inventoryItemId: { type: string, format: uuid }
-                quantity: { type: number }
-                referenceType: { type: string }
-                referenceId: { type: string }
+                quantity: { type: number, minimum: 0.001, maximum: 999999999999999.999, multipleOf: 0.001 }
+                referenceType: { type: string, minLength: 1, maxLength: 64 }
+                referenceId: { type: string, minLength: 1, maxLength: 100 }
       responses:
         '201':
           description: Reserved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationResponse'
         '409':
           description: Insufficient stock or reference conflict
   /api/v1/inventory/reservations/by-reference:
@@ -145,6 +212,10 @@ paths:
       responses:
         '200':
           description: Fulfilled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationResponse'
         '409':
           description: Reservation not ACTIVE or insufficient on-hand
   /api/v1/inventory/events/harvest-completed:
@@ -161,6 +232,10 @@ paths:
       responses:
         '200':
           description: Stock applied (idempotent on eventId)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryItemResponse'
   /api/v1/inventory/events/harvest-completed/{eventId}/acknowledgement:
     get:
       operationId: getInventoryHarvestProjectionAcknowledgement
@@ -173,6 +248,11 @@ paths:
           name: eventId
           required: true
           schema: { type: string, format: uuid }
+        - in: query
+          name: warehouseId
+          required: true
+          description: Warehouse scope used to authorize both pending and acknowledged states.
+          schema: { type: string, format: uuid }
       responses:
         '200':
           description: Current inventory consumer acknowledgement state.
@@ -183,6 +263,8 @@ paths:
         '400': { description: Invalid event identifier }
         '401': { description: Authentication required }
         '403': { description: Harvest workflow role required }
+        '404': { description: Warehouse not found }
+        '503': { description: Farm authorization, warehouse scope, or legacy acknowledgement scope unavailable }
   /api/v1/inventory/items/{itemId}:
     get:
       summary: Get inventory item
@@ -196,6 +278,12 @@ paths:
       responses:
         '200':
           description: Item with onHand and reserved quantities
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryItemResponse'
+        '404':
+          description: Inventory item not found
 components:
   securitySchemes:
     bearerAuth:
@@ -203,6 +291,32 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    CreateInventoryItemRequest:
+      type: object
+      additionalProperties: false
+      required: [warehouseId, sku, name, itemType, unit]
+      properties:
+        warehouseId: { type: string, format: uuid }
+        sku: { type: string, minLength: 1, maxLength: 64 }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        itemType: { type: string, minLength: 1 }
+        unit: { type: string, minLength: 1, maxLength: 16 }
+    StockInRequest:
+      allOf:
+        - $ref: '#/components/schemas/StockMutationRequest'
+    StockOutRequest:
+      allOf:
+        - $ref: '#/components/schemas/StockMutationRequest'
+    StockMutationRequest:
+      type: object
+      additionalProperties: false
+      required: [inventoryItemId, quantity, referenceType, referenceId]
+      properties:
+        inventoryItemId: { type: string, format: uuid }
+        quantity: { type: number, minimum: 0.001, maximum: 999999999999999.999, multipleOf: 0.001 }
+        referenceType: { type: string, minLength: 1, maxLength: 64 }
+        referenceId: { type: string, minLength: 1, maxLength: 100 }
+        note: { type: [string, 'null'], maxLength: 1000 }
     WarehouseResponse:
       type: object
       additionalProperties: false
@@ -282,11 +396,12 @@ components:
         acknowledgedAt: { type: [string, 'null'], format: date-time }
     HarvestCompletedCommand:
       type: object
+      additionalProperties: false
       required: [eventId, harvestBatchId, warehouseId, productCode, netWeightKg]
       properties:
-        eventId: { type: string }
+        eventId: { type: string, minLength: 1 }
         harvestBatchId: { type: string, format: uuid }
         warehouseId: { type: string, format: uuid }
-        productCode: { type: string }
-        netWeightKg: { type: number }
-        qualityGrade: { type: string }
+        productCode: { type: string, minLength: 1 }
+        netWeightKg: { type: number, minimum: 0.001 }
+        qualityGrade: { type: [string, 'null'] }

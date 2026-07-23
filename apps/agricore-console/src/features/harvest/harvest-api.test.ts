@@ -78,13 +78,13 @@ describe("harvest API", () => {
     const api = client(fetchImpl);
     const signal = new AbortController().signal;
 
-    await getInventoryHarvestProjectionAcknowledgement(api, "event/id", signal);
+    await getInventoryHarvestProjectionAcknowledgement(api, "event/id", "warehouse/id", signal);
     await getTraceabilityHarvestProjectionAcknowledgement(api, "event/id", signal);
 
     const [inventoryInput, inventoryInit] = vi.mocked(fetchImpl).mock.calls[0] ?? [];
     const [traceInput, traceInit] = vi.mocked(fetchImpl).mock.calls[1] ?? [];
     expect(inventoryInput).toBe(
-      "/api/v1/inventory/events/harvest-completed/event%2Fid/acknowledgement",
+      "/api/v1/inventory/events/harvest-completed/event%2Fid/acknowledgement?warehouseId=warehouse%2Fid",
     );
     expect(inventoryInit?.method).toBe("GET");
     expect(inventoryInit?.signal).toBeInstanceOf(AbortSignal);

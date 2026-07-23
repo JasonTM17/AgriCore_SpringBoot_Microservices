@@ -73,8 +73,15 @@ export function HarvestReceiptPage({ harvestId }: { harvestId: string }) {
   const inventoryQuery = useQuery({
     queryKey: harvestQueryKeys.inventory(subject, eventId ?? "unavailable"),
     queryFn: ({ signal }) => {
-      if (!eventId) throw new Error("Cannot load inventory acknowledgement without event identity");
-      return getInventoryHarvestProjectionAcknowledgement(api, eventId, signal);
+      if (!eventId || !validatedHarvest) {
+        throw new Error("Cannot load inventory acknowledgement without harvest scope");
+      }
+      return getInventoryHarvestProjectionAcknowledgement(
+        api,
+        eventId,
+        validatedHarvest.warehouseId,
+        signal,
+      );
     },
     enabled: acknowledgementsEnabled,
     staleTime: 0,

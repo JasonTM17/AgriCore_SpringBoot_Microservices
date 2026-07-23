@@ -87,7 +87,7 @@ spec:
             - name: MANAGEMENT_TRACING_SAMPLING_PROBABILITY
               value: {{ $.Values.observability.samplingProbability | quote }}
             {{- end }}
-            {{- if or (eq $name "crop-cycle") (eq $name "work") (eq $name "harvest") (eq $name "iot") }}
+            {{- if or (eq $name "crop-cycle") (eq $name "work") (eq $name "inventory") (eq $name "harvest") (eq $name "iot") }}
             - name: FARM_SERVICE_URL
               value: {{ $.Values.farmAccess.serviceUrl | quote }}
             - name: FARM_SERVICE_ALLOWED_HOSTS
