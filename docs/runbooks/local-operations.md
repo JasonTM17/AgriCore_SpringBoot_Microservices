@@ -175,18 +175,34 @@ pnpm build
 
 ### Deterministic development dataset
 
-Seed up to eight regional farms and twelve plots per farm through the gateway.
-The default profile creates eight farms and six plots per farm:
+The seed tool is deterministic and reuses farms/plots by code. Choose a bounded
+profile before running it:
+
+| Profile | Farms | Plots per farm | Total plots |
+|---|---:|---:|---:|
+| `Quick` | 2 | 3 | 6 |
+| `Showcase` (default) | 8 | 6 | 48 |
+| `Large` | 32 | 24 | 768 |
 
 ```powershell
-.\scripts\seed-data.ps1 -FarmLimit 8 -PlotsPerFarm 6
+$env:AGRICORE_SEED_PASSWORD = "<local-only-password>"
+.\scripts\seed-data.ps1 -Profile Large -DryRun
+.\scripts\seed-data.ps1 -Profile Large
+Remove-Item Env:AGRICORE_SEED_PASSWORD
 ```
 
-The script registers the documented development users, grants their local roles
-through the Compose identity database, then creates farm and plot records
-through the same authenticated gateway contracts as the console. It never
-inserts farm data directly into service databases. All sample credentials and
-records are for local development only.
+`FarmLimit` and `PlotsPerFarm` may override a profile but are hard-capped at 32
+and 24. The script checks C: and the repository drive before work and after
+every 100 mutations, stops below `MinimumFreeSpaceGb` (2 GB by default), and
+throttles larger runs. `DryRun` performs no API or database calls.
+
+The script registers seven local personas, grants their roles through the
+Compose identity database, then creates all farm and plot data through the
+authenticated gateway contracts used by the console. The identity bootstrap is
+the only direct database write because public registration intentionally cannot
+grant privileged roles. The password is read from
+`AGRICORE_SEED_PASSWORD`, never stored or printed. `seed-data.sh` delegates to
+the same implementation and requires PowerShell 7 (`pwsh`).
 
 ## Console and assistant
 

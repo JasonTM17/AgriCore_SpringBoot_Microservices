@@ -104,6 +104,12 @@ The assistant is not published directly. Use the console or gateway route `/api/
 
 Local email delivery uses Mailpit. Notification state is persisted as `REQUESTED` before bounded delivery attempts and ends as `SENT` or `FAILED`; captured development email is visible in the Mailpit UI.
 
+For deterministic demo data, set a local-only `AGRICORE_SEED_PASSWORD`, preview
+with `.\scripts\seed-data.ps1 -Profile Large -DryRun`, then remove `-DryRun`.
+The bounded Large profile creates or reuses 32 farms and 768 plots while
+checking free space and throttling writes. See the
+[local operations runbook](docs/runbooks/local-operations.md#deterministic-development-dataset).
+
 IoT devices publish authenticated QoS 1 JSON to `agricore/telemetry/{deviceCode}/reading`. Every MQTT payload requires a stable `readingId`, and `iot-service` deduplicates redelivery by that ID while rejecting ID reuse with different telemetry. Local Mosquitto bootstraps non-anonymous service/device users from environment variables and restricts each device user to its own topic. Run a deterministic simulator with `./scripts/sensor-simulator.ps1 -DeviceCount 3 -Iterations 10 -FrequencySeconds 2 -MinimumValue 30 -MaximumValue 70 -AnomalyProbabilityPercent 20 -Seed 42`; the POSIX equivalent is the `iot-mqtt-simulator` Compose profile. Register the mapped device codes first. Production must provide authenticated TLS plus broker ACLs managed outside this repository.
 
 For an existing PostgreSQL volume, follow the [assistant database provisioning runbook](docs/runbooks/assistant-database-provisioning.md).
