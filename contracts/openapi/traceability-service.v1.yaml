@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgriCore Traceability Service API
-  version: 1.3.0
+  version: 1.4.0
   description: Verified public-safe traceability lookup, QR image, and privileged projection read/write contract.
 servers:
   - url: http://localhost:8092
@@ -148,6 +148,12 @@ components:
           maximum: 99999999999.999
           multipleOf: 0.001
         careSummary: { type: [string, 'null'], maxLength: 1000 }
+        productCode: { type: [string, 'null'], maxLength: 64 }
+        grossWeightKg:
+          type: [number, 'null']
+          minimum: 0.001
+          maximum: 99999999999.999
+          multipleOf: 0.001
     PublicTraceabilityResponse:
       type: object
       additionalProperties: false
@@ -157,9 +163,11 @@ components:
         - varietyName
         - farmName
         - plotCode
+        - productCode
         - plantingDate
         - harvestDate
         - qualityGrade
+        - grossWeightKg
         - netWeightKg
         - careSummary
         - qrUrl
@@ -171,9 +179,11 @@ components:
         varietyName: { type: [string, 'null'], maxLength: 200 }
         farmName: { type: [string, 'null'], maxLength: 200 }
         plotCode: { type: [string, 'null'], maxLength: 64 }
+        productCode: { type: [string, 'null'], maxLength: 64 }
         plantingDate: { type: [string, 'null'], format: date }
         harvestDate: { type: string, format: date }
         qualityGrade: { type: [string, 'null'], maxLength: 32 }
+        grossWeightKg: { type: [number, 'null'], minimum: 0.001 }
         netWeightKg: { type: [number, 'null'] }
         careSummary: { type: [string, 'null'] }
         qrUrl: { type: string, maxLength: 500 }
