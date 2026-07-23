@@ -7,6 +7,7 @@ import com.agricore.farm.api.request.UpdateFarmRequest;
 import com.agricore.farm.api.response.FarmResponse;
 import com.agricore.farm.api.response.PlotResponse;
 import com.agricore.farm.application.service.FarmApplicationService;
+import com.agricore.farm.application.service.PlotQueryService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -30,11 +31,17 @@ public class FarmController {
     private static final String FARM_STATUS_PATTERN = "(?i)ACTIVE|INACTIVE|MAINTENANCE";
     private static final String FARM_SORT_PATTERN =
             "(code|name|province|totalAreaHa|status|createdAt|updatedAt),(?i:asc|desc)";
+    private static final String PLOT_STATUS_PATTERN =
+            "(?i)AVAILABLE|PREPARING|IN_USE|RESTING|MAINTENANCE|INACTIVE";
+    private static final String PLOT_SORT_PATTERN =
+            "(code|name|areaInHectares|soilType|status|createdAt|updatedAt),(?i:asc|desc)";
 
     private final FarmApplicationService farmService;
+    private final PlotQueryService plotQueryService;
 
-    public FarmController(FarmApplicationService farmService) {
+    public FarmController(FarmApplicationService farmService, PlotQueryService plotQueryService) {
         this.farmService = farmService;
+        this.plotQueryService = plotQueryService;
     }
 
     @PostMapping
@@ -81,10 +88,20 @@ public class FarmController {
     @PreAuthorize("isAuthenticated()")
     public PageResponse<PlotResponse> listPlots(
             @PathVariable UUID farmId,
+            @RequestParam(required = false) @Pattern(regexp = PLOT_STATUS_PATTERN) String status,
+            @RequestParam(required = false) UUID areaId,
+            @RequestParam(required = false) @Size(max = 200) String q,
             @RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
+            @RequestParam(defaultValue = "code,asc") @Pattern(regexp = PLOT_SORT_PATTERN) String sort
     ) {
-        return farmService.listPlots(farmId, PageRequest.of(page, size, Sort.by("code").ascending()));
+        return plotQueryService.list(
+                farmId,
+                status,
+                areaId,
+                q,
+                PageRequest.of(page, size, parseSort(sort))
+        );
     }
 
     private static Sort parseSort(String sort) {

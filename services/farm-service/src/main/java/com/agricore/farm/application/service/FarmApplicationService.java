@@ -166,18 +166,6 @@ public class FarmApplicationService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<PlotResponse> listPlots(UUID farmId, Pageable pageable) {
-        requireFarm(farmId);
-        Page<PlotEntity> page = plotRepository.findByFarmId(farmId, pageable);
-        return PageResponse.of(
-                page.getContent().stream().map(this::toPlotResponse).toList(),
-                page.getNumber(),
-                page.getSize(),
-                page.getTotalElements()
-        );
-    }
-
-    @Transactional(readOnly = true)
     public PlotResponse getPlot(UUID plotId) {
         return toPlotResponse(requirePlot(plotId));
     }

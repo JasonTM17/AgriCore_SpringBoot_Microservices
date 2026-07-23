@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgriCore Farm Service API
-  version: 1.2.0
+  version: 1.3.0
   description: Verified farm, plot, membership, and internal resource-access contract for the farm service.
 servers:
   - url: http://localhost:8082
@@ -131,10 +131,16 @@ paths:
       tags: [Plots]
       operationId: listFarmPlots
       summary: List plots in a farm
-      description: Requires farm membership; SYSTEM_ADMIN is the explicit global override. Results use plot-code order.
+      description: >-
+        Requires farm membership; SYSTEM_ADMIN is the explicit global override. Optional filters are combined with
+        logical AND, name/code search is case-insensitive, and sorting is restricted to documented plot properties.
       parameters:
+        - $ref: '#/components/parameters/PlotStatusFilter'
+        - $ref: '#/components/parameters/PlotAreaIdFilter'
+        - $ref: '#/components/parameters/PlotQuery'
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Size'
+        - $ref: '#/components/parameters/PlotSort'
       responses:
         '200':
           description: Paged farm plots.
@@ -475,6 +481,51 @@ components:
           - province,desc
           - totalAreaHa,asc
           - totalAreaHa,desc
+          - status,asc
+          - status,desc
+          - createdAt,asc
+          - createdAt,desc
+          - updatedAt,asc
+          - updatedAt,desc
+    PlotStatusFilter:
+      in: query
+      name: status
+      required: false
+      description: Plot status code.
+      schema:
+        $ref: '#/components/schemas/PlotStatus'
+    PlotAreaIdFilter:
+      in: query
+      name: areaId
+      required: false
+      description: Exact farm-area identifier currently assigned to the plot.
+      schema:
+        type: string
+        format: uuid
+    PlotQuery:
+      in: query
+      name: q
+      required: false
+      description: Case-insensitive plot code or name substring.
+      schema:
+        type: string
+        maxLength: 200
+    PlotSort:
+      in: query
+      name: sort
+      description: Supported plot property and direction.
+      schema:
+        type: string
+        default: code,asc
+        enum:
+          - code,asc
+          - code,desc
+          - name,asc
+          - name,desc
+          - areaInHectares,asc
+          - areaInHectares,desc
+          - soilType,asc
+          - soilType,desc
           - status,asc
           - status,desc
           - createdAt,asc

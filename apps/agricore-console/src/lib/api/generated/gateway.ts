@@ -339,7 +339,7 @@ export interface paths {
         };
         /**
          * List plots in a farm
-         * @description Requires farm membership; SYSTEM_ADMIN is the explicit global override. Results use plot-code order.
+         * @description Requires farm membership; SYSTEM_ADMIN is the explicit global override. Optional filters are combined with logical AND, name/code search is case-insensitive, and sorting is restricted to documented plot properties.
          */
         get: operations["listFarmPlots"];
         put?: never;
@@ -2827,6 +2827,14 @@ export interface components {
         FarmSort: "code,asc" | "code,desc" | "name,asc" | "name,desc" | "province,asc" | "province,desc" | "totalAreaHa,asc" | "totalAreaHa,desc" | "status,asc" | "status,desc" | "createdAt,asc" | "createdAt,desc" | "updatedAt,asc" | "updatedAt,desc";
         /** @description Farm identifier. */
         FarmId: string;
+        /** @description Plot status code. */
+        PlotStatusFilter: components["schemas"]["PlotStatus"];
+        /** @description Exact farm-area identifier currently assigned to the plot. */
+        PlotAreaIdFilter: string;
+        /** @description Case-insensitive plot code or name substring. */
+        PlotQuery: string;
+        /** @description Supported plot property and direction. */
+        PlotSort: "code,asc" | "code,desc" | "name,asc" | "name,desc" | "areaInHectares,asc" | "areaInHectares,desc" | "soilType,asc" | "soilType,desc" | "status,asc" | "status,desc" | "createdAt,asc" | "createdAt,desc" | "updatedAt,asc" | "updatedAt,desc";
         /** @description Farm membership identifier. */
         MembershipId: string;
         /** @description Plot identifier. */
@@ -2984,10 +2992,18 @@ export interface operations {
     listFarmPlots: {
         parameters: {
             query?: {
+                /** @description Plot status code. */
+                status?: components["parameters"]["PlotStatusFilter"];
+                /** @description Exact farm-area identifier currently assigned to the plot. */
+                areaId?: components["parameters"]["PlotAreaIdFilter"];
+                /** @description Case-insensitive plot code or name substring. */
+                q?: components["parameters"]["PlotQuery"];
                 /** @description Zero-based page index. */
                 page?: components["parameters"]["Page"];
                 /** @description Number of records per page. */
                 size?: components["parameters"]["Size"];
+                /** @description Supported plot property and direction. */
+                sort?: components["parameters"]["PlotSort"];
             };
             header?: never;
             path: {
