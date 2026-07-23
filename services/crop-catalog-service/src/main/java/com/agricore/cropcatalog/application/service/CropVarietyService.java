@@ -2,16 +2,15 @@ package com.agricore.cropcatalog.application.service;
 
 import com.agricore.common.api.PageResponse;
 import com.agricore.cropcatalog.api.response.CropVarietyResponse;
+import com.agricore.cropcatalog.domain.exception.CatalogException;
 import com.agricore.cropcatalog.infrastructure.persistence.CropJpaRepository;
 import com.agricore.cropcatalog.infrastructure.persistence.CropVarietyJpaRepository;
 import com.agricore.cropcatalog.infrastructure.persistence.entity.CropVarietyEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.UUID;
 
@@ -32,7 +31,7 @@ public class CropVarietyService {
     @Transactional(readOnly = true)
     public PageResponse<CropVarietyResponse> list(UUID cropId, String query, Pageable pageable) {
         if (!cropRepository.existsById(cropId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Crop not found");
+            throw new CatalogException("CROP_NOT_FOUND", "Crop not found", 404);
         }
         Page<CropVarietyEntity> page = StringUtils.hasText(query)
                 ? varietyRepository.searchByCropId(cropId, query.trim(), pageable)
@@ -49,7 +48,11 @@ public class CropVarietyService {
     public CropVarietyResponse get(UUID varietyId) {
         return varietyRepository.findById(varietyId)
                 .map(this::toResponse)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Crop variety not found"));
+                .orElseThrow(() -> new CatalogException(
+                        "CROP_VARIETY_NOT_FOUND",
+                        "Crop variety not found",
+                        404
+                ));
     }
 
     private CropVarietyResponse toResponse(CropVarietyEntity variety) {

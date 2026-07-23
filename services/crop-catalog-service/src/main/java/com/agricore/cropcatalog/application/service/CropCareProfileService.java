@@ -11,10 +11,9 @@ import com.agricore.cropcatalog.infrastructure.persistence.GrowthRequirementJpaR
 import com.agricore.cropcatalog.infrastructure.persistence.entity.CareRecommendationEntity;
 import com.agricore.cropcatalog.infrastructure.persistence.entity.CommonDiseaseEntity;
 import com.agricore.cropcatalog.infrastructure.persistence.entity.GrowthRequirementEntity;
-import org.springframework.http.HttpStatus;
+import com.agricore.cropcatalog.domain.exception.CatalogException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.UUID;
 
@@ -41,7 +40,7 @@ public class CropCareProfileService {
     @Transactional(readOnly = true)
     public CropCareProfileResponse get(UUID cropId) {
         if (!cropRepository.existsById(cropId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Crop not found");
+            throw cropNotFound();
         }
         GrowthRequirementResponse growthRequirement = growthRequirementRepository.findById(cropId)
                 .map(CropCareProfileService::toResponse)
@@ -66,7 +65,9 @@ public class CropCareProfileService {
                 requirement.getFertilizationIntervalDaysMax(),
                 requirement.getWaterRequirementMmPerWeek(),
                 requirement.getNotes(),
-                requirement.getUpdatedAt()
+                requirement.getUpdatedAt(),
+                requirement.getVersion(),
+                requirement.getUpdatedBy()
         );
     }
 
@@ -92,5 +93,9 @@ public class CropCareProfileService {
                 recommendation.getSortOrder(),
                 recommendation.getCreatedAt()
         );
+    }
+
+    private static CatalogException cropNotFound() {
+        return new CatalogException("CROP_NOT_FOUND", "Crop not found", 404);
     }
 }

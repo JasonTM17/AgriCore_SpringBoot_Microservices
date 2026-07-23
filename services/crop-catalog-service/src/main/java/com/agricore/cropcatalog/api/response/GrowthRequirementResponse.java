@@ -10,6 +10,8 @@ public record GrowthRequirementResponse(
         int fertilizationIntervalDaysMax,
         BigDecimal waterRequirementMmPerWeek,
         String notes,
-        Instant updatedAt
+        Instant updatedAt,
+        long version,
+        String updatedBy
 ) {
 }

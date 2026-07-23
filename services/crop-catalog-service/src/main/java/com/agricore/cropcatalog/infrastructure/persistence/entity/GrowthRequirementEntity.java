@@ -4,6 +4,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -38,6 +39,13 @@ public class GrowthRequirementEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Version
+    @Column(nullable = false)
+    private long version;
+
+    @Column(name = "updated_by", nullable = false, length = 255)
+    private String updatedBy;
+
     public UUID getCropId() { return cropId; }
     public int getIrrigationIntervalDaysMin() { return irrigationIntervalDaysMin; }
     public int getIrrigationIntervalDaysMax() { return irrigationIntervalDaysMax; }
@@ -46,4 +54,32 @@ public class GrowthRequirementEntity {
     public BigDecimal getWaterRequirementMmPerWeek() { return waterRequirementMmPerWeek; }
     public String getNotes() { return notes; }
     public Instant getUpdatedAt() { return updatedAt; }
+    public long getVersion() { return version; }
+    public String getUpdatedBy() { return updatedBy; }
+
+    public static GrowthRequirementEntity create(UUID cropId) {
+        GrowthRequirementEntity requirement = new GrowthRequirementEntity();
+        requirement.cropId = cropId;
+        return requirement;
+    }
+
+    public void update(
+            int irrigationMin,
+            int irrigationMax,
+            int fertilizationMin,
+            int fertilizationMax,
+            BigDecimal waterRequirement,
+            String notes,
+            String actor,
+            Instant timestamp
+    ) {
+        this.irrigationIntervalDaysMin = irrigationMin;
+        this.irrigationIntervalDaysMax = irrigationMax;
+        this.fertilizationIntervalDaysMin = fertilizationMin;
+        this.fertilizationIntervalDaysMax = fertilizationMax;
+        this.waterRequirementMmPerWeek = waterRequirement;
+        this.notes = notes;
+        this.updatedBy = actor;
+        this.updatedAt = timestamp;
+    }
 }

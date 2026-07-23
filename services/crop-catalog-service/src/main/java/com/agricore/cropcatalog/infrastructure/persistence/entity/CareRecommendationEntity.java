@@ -44,4 +44,26 @@ public class CareRecommendationEntity {
     public String getGrowthStage() { return growthStage; }
     public int getSortOrder() { return sortOrder; }
     public Instant getCreatedAt() { return createdAt; }
+
+    public static CareRecommendationEntity create(UUID id, UUID cropId, Instant createdAt) {
+        CareRecommendationEntity recommendation = new CareRecommendationEntity();
+        recommendation.id = id;
+        recommendation.cropId = cropId;
+        recommendation.createdAt = createdAt;
+        return recommendation;
+    }
+
+    public void update(
+            String category,
+            String title,
+            String description,
+            String growthStage,
+            int sortOrder
+    ) {
+        this.category = category;
+        this.title = title;
+        this.description = description;
+        this.growthStage = growthStage;
+        this.sortOrder = sortOrder;
+    }
 }

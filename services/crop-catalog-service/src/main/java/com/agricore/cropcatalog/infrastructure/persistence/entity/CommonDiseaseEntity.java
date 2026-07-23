@@ -44,4 +44,20 @@ public class CommonDiseaseEntity {
     public String getPrevention() { return prevention; }
     public String getTreatment() { return treatment; }
     public Instant getCreatedAt() { return createdAt; }
+
+    public static CommonDiseaseEntity create(UUID id, UUID cropId, Instant createdAt) {
+        CommonDiseaseEntity disease = new CommonDiseaseEntity();
+        disease.id = id;
+        disease.cropId = cropId;
+        disease.createdAt = createdAt;
+        return disease;
+    }
+
+    public void update(String code, String name, String symptoms, String prevention, String treatment) {
+        this.code = code;
+        this.name = name;
+        this.symptoms = symptoms;
+        this.prevention = prevention;
+        this.treatment = treatment;
+    }
 }
