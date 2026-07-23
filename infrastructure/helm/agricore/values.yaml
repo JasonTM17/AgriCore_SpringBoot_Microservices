@@ -100,6 +100,22 @@ iot:
   replicaCount: 1
   image: nguyenson1710/agricore-iot
   port: 8090
+  timescalePreflight:
+    # Mandatory by default. Set unsafeSkip=true only when an equivalent
+    # operator-controlled preflight has already verified the external IoT DB.
+    unsafeSkip: false
+    image: postgres:16-alpine
+    imagePullPolicy: IfNotPresent
+    database: agricore_iot
+    # Empty reuses postgres.databaseSecretName.
+    credentialSecretName: ""
+    usernameKey: username
+    passwordKey: password
+    maxAttempts: 30
+    retrySeconds: 2
+    activeDeadlineSeconds: 180
+    backoffLimit: 2
+    ttlSecondsAfterFinished: 300
   mqtt:
     enabled: false
     broker: ssl://mqtt.example.invalid:8883

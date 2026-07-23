@@ -33,11 +33,18 @@ spec:
   replicas: {{ $svc.replicaCount | default 1 }}
   minReadySeconds: 10
   progressDeadlineSeconds: 600
+  {{- if eq $name "iot" }}
+  # IoT Flyway migrations can rewrite the readings table into a hypertable.
+  # Stop old writers before starting the new revision.
+  strategy:
+    type: Recreate
+  {{- else }}
   strategy:
     type: RollingUpdate
     rollingUpdate:
       maxUnavailable: 0
       maxSurge: 1
+  {{- end }}
   selector:
     matchLabels:
       app.kubernetes.io/name: agricore-{{ $name }}

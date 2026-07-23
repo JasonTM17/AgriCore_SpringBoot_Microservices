@@ -314,6 +314,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      iot-timescale-init:
+        condition: service_completed_successfully
       identity-service:
         condition: service_healthy
       farm-service:

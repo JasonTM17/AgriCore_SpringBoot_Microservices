@@ -7,12 +7,19 @@ x-bounded-logging: &bounded-logging
     max-size: ${DOCKER_LOG_MAX_SIZE:-10m}
     max-file: ${DOCKER_LOG_MAX_FILES:-3}
 
+x-timescale-image: &timescale-image timescale/timescaledb:2.27.0-pg16@sha256:51eb3bcdfc41f481c797026813d9d457fb5cbc8ea370a65640d8cda13a4040c1
+
 services:
   postgres:
-    image: postgres:16-alpine
+    image: *timescale-image
     container_name: agricore-postgres
     logging: *bounded-logging
-    command: ["postgres", "-c", "max_connections=200"]
+    command:
+      - postgres
+      - -c
+      - max_connections=200
+      - -c
+      - shared_preload_libraries=timescaledb
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-agricore}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agricore_dev_change_me}
@@ -20,12 +27,35 @@ services:
       - "${POSTGRES_PORT:-5434}:5432"
     volumes:
       - agricore_pg_data:/var/lib/postgresql/data
+      - ./infrastructure/docker/postgres/disable-template-timescaledb-install.sh:/docker-entrypoint-initdb.d/000_install_timescaledb.sh:ro
       - ./infrastructure/docker/postgres/init-databases.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-agricore}"]
       interval: 5s
       timeout: 5s
       retries: 10
+
+  iot-timescale-init:
+    image: *timescale-image
+    container_name: agricore-iot-timescale-init
+    logging: *bounded-logging
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER:-agricore}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-agricore_dev_change_me}
+      IOT_TIMESCALE_INIT_MAX_ATTEMPTS: ${IOT_TIMESCALE_INIT_MAX_ATTEMPTS:-60}
+      IOT_TIMESCALE_INIT_RETRY_SECONDS: ${IOT_TIMESCALE_INIT_RETRY_SECONDS:-2}
+    entrypoint: ["/bin/sh", "/opt/agricore/provision-iot-timescale.sh"]
+    volumes:
+      - ./infrastructure/docker/postgres/provision-iot-timescale.sh:/opt/agricore/provision-iot-timescale.sh:ro
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
 
   redis:
     image: redis:7-alpine
