@@ -27,6 +27,9 @@ spring:
       acks: all
       properties:
         enable.idempotence: true
+        max.block.ms: ${KAFKA_PRODUCER_MAX_BLOCK_MS:5000}
+        request.timeout.ms: ${KAFKA_PRODUCER_REQUEST_TIMEOUT_MS:5000}
+        delivery.timeout.ms: ${KAFKA_PRODUCER_DELIVERY_TIMEOUT_MS:10000}
     listener:
       ack-mode: record
 
@@ -52,13 +55,6 @@ agricore:
     allowed-hosts: ${FARM_SERVICE_ALLOWED_HOSTS:localhost,127.0.0.1,::1,farm-service}
     allow-insecure-http: ${FARM_SERVICE_ALLOW_INSECURE_HTTP:false}
   kafka:
-    retry:
-      attempts: ${AGRICORE_KAFKA_RETRY_ATTEMPTS:4}
-      delay-ms: ${AGRICORE_KAFKA_RETRY_DELAY_MS:1000}
-      multiplier: ${AGRICORE_KAFKA_RETRY_MULTIPLIER:2}
-      max-delay-ms: ${AGRICORE_KAFKA_RETRY_MAX_DELAY_MS:8000}
-      timeout-ms: ${AGRICORE_KAFKA_RETRY_TIMEOUT_MS:30000}
-      auto-create-topics: ${AGRICORE_KAFKA_RETRY_AUTO_CREATE_TOPICS:false}
     consumer:
       enabled: true
     topics:
