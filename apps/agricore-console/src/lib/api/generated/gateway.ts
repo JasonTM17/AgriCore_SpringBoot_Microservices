@@ -322,7 +322,7 @@ export interface paths {
         head?: never;
         /**
          * Update a farm
-         * @description Requires SYSTEM_ADMIN or FARM_MANAGER.
+         * @description Requires SYSTEM_ADMIN or FARM_MANAGER, farm access, and the current optimistic-lock version.
          */
         patch: operations["updateFarm"];
         trace?: never;
@@ -488,7 +488,7 @@ export interface paths {
         head?: never;
         /**
          * Update a plot
-         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST.
+         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST and the current optimistic-lock version.
          */
         patch: operations["updatePlot"];
         trace?: never;
@@ -1662,6 +1662,8 @@ export interface components {
             longitude?: number | null;
         };
         UpdateFarmRequest: {
+            /** Format: int64 */
+            version: number;
             name?: string | null;
             address?: string | null;
             province?: string | null;
@@ -1800,6 +1802,8 @@ export interface components {
             subject: string;
         };
         UpdatePlotRequest: {
+            /** Format: int64 */
+            version: number;
             name?: string | null;
             areaInHectares?: number | null;
             soilType?: string | null;

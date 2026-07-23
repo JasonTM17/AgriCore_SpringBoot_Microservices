@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: AgriCore Farm Service API
-  version: 1.4.0
+  version: 1.5.0
   description: Verified farm, farm-area, plot, membership, and internal resource-access contract for the farm service.
 servers:
   - url: http://localhost:8082
@@ -99,7 +99,7 @@ paths:
       tags: [Farms]
       operationId: updateFarm
       summary: Update a farm
-      description: Requires SYSTEM_ADMIN or FARM_MANAGER.
+      description: Requires SYSTEM_ADMIN or FARM_MANAGER, farm access, and the current optimistic-lock version.
       requestBody:
         required: true
         content:
@@ -367,7 +367,7 @@ paths:
       tags: [Plots]
       operationId: updatePlot
       summary: Update a plot
-      description: Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST.
+      description: Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST and the current optimistic-lock version.
       requestBody:
         required: true
         content:
@@ -825,7 +825,12 @@ components:
           maximum: 180
     UpdateFarmRequest:
       type: object
+      required: [version]
       properties:
+        version:
+          type: integer
+          format: int64
+          minimum: 0
         name:
           type: [string, 'null']
           maxLength: 200
@@ -929,7 +934,12 @@ components:
           maximum: 180
     UpdatePlotRequest:
       type: object
+      required: [version]
       properties:
+        version:
+          type: integer
+          format: int64
+          minimum: 0
         name:
           type: [string, 'null']
           maxLength: 200

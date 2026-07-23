@@ -3,13 +3,19 @@ package com.agricore.farm.api.request;
 import com.fasterxml.jackson.annotation.JsonSetter;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.util.UUID;
 
 public class UpdatePlotRequest {
+
+    @NotNull
+    @PositiveOrZero
+    private Long version;
 
     @Size(max = 200)
     private String name;
@@ -37,6 +43,7 @@ public class UpdatePlotRequest {
     public UpdatePlotRequest() {
     }
 
+    public Long version() { return version; }
     public String name() { return name; }
     public BigDecimal areaInHectares() { return areaInHectares; }
     public String soilType() { return soilType; }
@@ -46,6 +53,7 @@ public class UpdatePlotRequest {
     public UUID areaId() { return areaId; }
     public boolean areaIdPresent() { return areaIdPresent; }
 
+    public void setVersion(Long version) { this.version = version; }
     public void setName(String name) { this.name = name; }
     public void setAreaInHectares(BigDecimal areaInHectares) { this.areaInHectares = areaInHectares; }
     public void setSoilType(String soilType) { this.soilType = soilType; }

@@ -83,7 +83,7 @@ class FarmErrorBoundaryIntegrationTest {
         mockMvc.perform(authenticated(patch("/api/v1/farms/{farmId}", UUID.randomUUID()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"status":"DELETED"}
+                                {"version":0,"status":"DELETED"}
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
@@ -94,7 +94,7 @@ class FarmErrorBoundaryIntegrationTest {
         mockMvc.perform(authenticated(patch("/api/v1/plots/{plotId}", UUID.randomUUID()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"status":"DELETED"}
+                                {"version":0,"status":"DELETED"}
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));

@@ -88,6 +88,13 @@ public class PlotApplicationService {
     @Transactional
     public PlotResponse update(UUID plotId, UpdatePlotRequest request) {
         PlotEntity plot = resourceResolver.requireAccessiblePlot(plotId);
+        if (plot.getVersion() != request.version()) {
+            throw new FarmException(
+                    "PLOT_VERSION_CONFLICT",
+                    "Plot changed; reload the latest version before retrying",
+                    409
+            );
+        }
         PlotStatus previousStatus = plot.getStatus();
         apply(plot, request);
         plot.setUpdatedAt(Instant.now());

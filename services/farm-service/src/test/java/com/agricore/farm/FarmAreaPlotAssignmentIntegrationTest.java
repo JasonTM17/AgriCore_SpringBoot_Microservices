@@ -1,6 +1,7 @@
 package com.agricore.farm;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -50,15 +51,15 @@ class FarmAreaPlotAssignmentIntegrationTest extends FarmAreaApiTestSupport {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("FARM_AREA_IN_USE"));
 
-        patchPlotArea(ownerA, plotId, objectMapper.createObjectNode().put("areaId", areaA2.get("id").asText()))
+        patchPlotArea(ownerA, plotId, 0, objectMapper.createObjectNode().put("areaId", areaA2.get("id").asText()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.areaId").value(areaA2.get("id").asText()));
 
-        patchPlotArea(ownerA, plotId, objectMapper.createObjectNode().put("name", "Renamed Plot"))
+        patchPlotArea(ownerA, plotId, 1, objectMapper.createObjectNode().put("name", "Renamed Plot"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.areaId").value(areaA2.get("id").asText()));
 
-        patchPlotArea(ownerA, plotId, objectMapper.createObjectNode().put("areaId", areaB.get("id").asText()))
+        patchPlotArea(ownerA, plotId, 2, objectMapper.createObjectNode().put("areaId", areaB.get("id").asText()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("FARM_AREA_NOT_FOUND"));
 
@@ -66,7 +67,7 @@ class FarmAreaPlotAssignmentIntegrationTest extends FarmAreaApiTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.areaId").value(areaA2.get("id").asText()));
 
-        patchPlotArea(ownerA, plotId, objectMapper.createObjectNode().putNull("areaId"))
+        patchPlotArea(ownerA, plotId, 2, objectMapper.createObjectNode().putNull("areaId"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.areaId").isEmpty());
     }
@@ -86,8 +87,10 @@ class FarmAreaPlotAssignmentIntegrationTest extends FarmAreaApiTestSupport {
     private org.springframework.test.web.servlet.ResultActions patchPlotArea(
             String owner,
             String plotId,
-            JsonNode request
+            long version,
+            ObjectNode request
     ) throws Exception {
+        request.put("version", version);
         return mockMvc.perform(patch("/api/v1/plots/{plotId}", plotId)
                 .headers(devAuth(owner))
                 .contentType(MediaType.APPLICATION_JSON)

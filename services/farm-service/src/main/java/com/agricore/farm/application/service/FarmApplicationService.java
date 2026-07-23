@@ -100,6 +100,13 @@ public class FarmApplicationService {
     @Transactional
     public FarmResponse updateFarm(UUID farmId, UpdateFarmRequest request) {
         FarmEntity farm = requireFarm(farmId);
+        if (farm.getVersion() != request.version()) {
+            throw new FarmException(
+                    "FARM_VERSION_CONFLICT",
+                    "Farm changed; reload the latest version before retrying",
+                    409
+            );
+        }
         if (request.name() != null) {
             farm.setName(request.name().trim());
         }
@@ -122,7 +129,7 @@ public class FarmApplicationService {
             farm.setStatus(FarmStatus.valueOf(request.status().toUpperCase()));
         }
         farm.setUpdatedAt(Instant.now());
-        farmRepository.save(farm);
+        farmRepository.saveAndFlush(farm);
         return toFarmResponse(farm);
     }
 

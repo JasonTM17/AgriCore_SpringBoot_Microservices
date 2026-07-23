@@ -50,7 +50,7 @@ class FarmAccessBoundaryIntegrationTest {
         mockMvc.perform(patch("/api/v1/farms/{farmId}", farmB)
                         .headers(devAuth(ownerA, "FARM_MANAGER"))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"Forbidden update\"}"))
+                        .content("{\"version\":0,\"name\":\"Forbidden update\"}"))
                 .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/v1/farms/{farmId}/plots", farmB)
                         .headers(devAuth(ownerA, "FARM_MANAGER")))
@@ -62,7 +62,7 @@ class FarmAccessBoundaryIntegrationTest {
         mockMvc.perform(patch("/api/v1/plots/{plotId}", plotB)
                         .headers(devAuth(ownerA, "FARM_MANAGER"))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"Forbidden update\"}"))
+                        .content("{\"version\":0,\"name\":\"Forbidden update\"}"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("PLOT_NOT_FOUND"));
 
