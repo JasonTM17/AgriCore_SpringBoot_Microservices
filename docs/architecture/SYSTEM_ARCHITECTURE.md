@@ -1,6 +1,6 @@
 # AgriCore System Architecture
 
-**Last updated:** 2026-07-22
+**Last updated:** 2026-07-23
 **Status:** Active
 
 ## 1. Purpose
@@ -48,7 +48,7 @@ The browser uses a same-origin edge: Nginx serves `/` and forwards `/api` and `/
 | Farm | Farms, areas, plots, memberships | Publishes farm events through outbox |
 | Crop catalog | Crops, varieties, care specifications | None |
 | Crop cycle | Cycles, stages, lifecycle | Publishes crop-cycle events through outbox |
-| Work | Tasks and assignments | Publishes work events through outbox |
+| Work | Tasks, assignments, and private task attachments | Publishes work events through outbox; attachments use the bounded MinIO-compatible storage adapter |
 | Harvest | Harvest batches and completion repair | Publishes `HarvestCompleted.v1` through outbox |
 | Inventory | Stock, expiry-aware lots, reservations, movements | Consumes `HarvestCompleted.v1`, idempotent with DLT recovery; publishes stock events |
 | Traceability | Public QR timeline/read model | Consumes `HarvestCompleted.v1`, idempotent with DLT recovery; publishes QR lifecycle events |
@@ -78,6 +78,15 @@ never newly reserved or dispatched. The V6 migration backfills one non-expiring
 legacy lot per existing item and preserves reservation balances through allocation
 rows, so the aggregate and lot ledger can be reconciled after deployment.
 
+### IoT time-series persistence
+
+IoT readings are stored in PostgreSQL/TimescaleDB. The service keeps the
+idempotency ledger and reading table in the same transaction, then converts
+`sensor_readings` to a seven-day hypertable with a composite
+`(id, recorded_at)` primary key. The Compose and Helm paths require the
+Timescale extension/preflight before IoT starts; upgrades use a controlled
+recreate so old writers cannot race a schema conversion.
+
 ## 5. Communication patterns
 
 | Need | Pattern |
@@ -105,7 +114,8 @@ api → application → domain ← infrastructure
 - Gateway and servlet domain services validate RS256 JWTs against identity-service JWKS, issuer, and `agricore-api` audience.
 - Identity resolves the sorted distinct union of permissions granted through a user's roles when it issues an access token. The resulting `roles` and `permissions` claims are token-lifetime snapshots.
 - Identity, the API gateway, and servlet domain services map string role entries to `ROLE_*` and string permission entries to `PERMISSION_*`. Malformed or blank entries are ignored and authorities are deduplicated.
-- Permission catalog and role-grant APIs are restricted to `SYSTEM_ADMIN`. Role grant replacement uses a pessimistic role lock and validates all requested codes before changing the grant set.
+- Permission catalog reads and role-grant mutation use canonical identity permissions; mutation still requires the `SYSTEM_ADMIN` role as a second administrative boundary. Role grant replacement uses a pessimistic role lock and validates all requested codes before changing the grant set.
+- Canonical `PERMISSION_*` authorities are enforced at the Identity, Work, Harvest, Inventory, Sales, Traceability, IoT, Assistant, and Notification controller boundaries. Farm membership and internal service-token checks remain separate scope boundaries.
 - Gateway routes preserve the caller bearer token. `libs/farm-access-client` forwards it from crop-cycle, work, harvest, and IoT to farm-service.
 - `farm_memberships` maps JWT subjects to farm scope. `ROLE_SYSTEM_ADMIN` is the explicit global override.
 - Plot resolution masks missing, inaccessible, and mismatched plots as `404`.
@@ -121,7 +131,7 @@ Identity permissions + role_permissions
   -> ROLE_* + PERMISSION_* in the Spring Security context
 ```
 
-Current endpoint policies still use roles and farm membership; the repository has no production `hasAuthority("PERMISSION_*")` guard. Permission enforcement, a seeded catalog, and a console UI therefore remain future work. Grant changes appear only in newly issued access tokens, such as after login or refresh; existing tokens retain their previous snapshot until expiry. The default access-token TTL is 900 seconds.
+Grant changes appear only in newly issued access tokens, such as after login or refresh; existing tokens retain their previous snapshot until expiry. The default access-token TTL is 900 seconds. Dev-only header authentication derives the same catalog snapshot when an explicit permission header is absent, while an explicitly supplied header is treated as authoritative for negative-path testing.
 
 See [Microservices authorization model](../security/microservices-authz.md) for endpoint and failure semantics.
 
@@ -186,7 +196,7 @@ The Helm chart expects external PostgreSQL, Redis, Kafka, MinIO-compatible objec
 - No Eureka or Consul.
 - No shared JPA entities across services.
 - No Debezium until polling outbox is insufficient.
-- No application media/object-storage integration is implemented yet; MinIO is provisioned for the local platform boundary.
+- No cross-service media ownership is introduced; Work owns private task attachments through its MinIO-compatible adapter, while repository-owned showcase media is static demo content.
 - No production log aggregation deployment is claimed; local Compose provides bounded Alloy/Loki collection only.
 
 ## References
