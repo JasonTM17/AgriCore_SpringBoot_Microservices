@@ -173,6 +173,21 @@ pnpm build
 .\scripts\seed-data.ps1
 ```
 
+### Deterministic development dataset
+
+Seed up to eight regional farms and twelve plots per farm through the gateway.
+The default profile creates eight farms and six plots per farm:
+
+```powershell
+.\scripts\seed-data.ps1 -FarmLimit 8 -PlotsPerFarm 6
+```
+
+The script registers the documented development users, grants their local roles
+through the Compose identity database, then creates farm and plot records
+through the same authenticated gateway contracts as the console. It never
+inserts farm data directly into service databases. All sample credentials and
+records are for local development only.
+
 ## Console and assistant
 
 - Assistant is internal at `assistant-service:8093`; use `/api/v1/assistant/**` through the gateway.

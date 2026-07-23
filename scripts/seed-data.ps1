@@ -2,7 +2,11 @@
 # Requires full stack (identity + farm + gateway). Dev-only passwords documented below.
 param(
   [string]$Gateway = $(if ($env:GATEWAY_URL) { $env:GATEWAY_URL } else { "http://localhost:8080" }),
-  [string]$Identity = $(if ($env:IDENTITY_URL) { $env:IDENTITY_URL } else { "http://localhost:8081" })
+  [string]$Identity = $(if ($env:IDENTITY_URL) { $env:IDENTITY_URL } else { "http://localhost:8081" }),
+  [ValidateRange(1, 8)]
+  [int]$FarmLimit = 8,
+  [ValidateRange(1, 12)]
+  [int]$PlotsPerFarm = 6
 )
 $ErrorActionPreference = "Stop"
 
@@ -47,22 +51,38 @@ Write-Host "Seeding farms via gateway (JWT)..."
 $farms = @(
   @{ code = "FARM-DL-01"; name = "Nong trai Dak Lak"; province = "Dak Lak"; totalAreaHa = 120.5; latitude = 12.6667; longitude = 108.05 },
   @{ code = "FARM-LD-01"; name = "Nong trai Lam Dong"; province = "Lam Dong"; totalAreaHa = 80.0; latitude = 11.94; longitude = 108.44 },
-  @{ code = "FARM-BT-01"; name = "Nong trai Binh Thuan"; province = "Binh Thuan"; totalAreaHa = 95.0; latitude = 10.93; longitude = 108.1 }
+  @{ code = "FARM-BT-01"; name = "Nong trai Binh Thuan"; province = "Binh Thuan"; totalAreaHa = 95.0; latitude = 10.93; longitude = 108.1 },
+  @{ code = "FARM-LA-01"; name = "Nong trai Long An"; province = "Long An"; totalAreaHa = 64.0; latitude = 10.53; longitude = 106.41 },
+  @{ code = "FARM-CT-01"; name = "Nong trai Can Tho"; province = "Can Tho"; totalAreaHa = 72.5; latitude = 10.045; longitude = 105.746 },
+  @{ code = "FARM-AG-01"; name = "Nong trai An Giang"; province = "An Giang"; totalAreaHa = 110.0; latitude = 10.52; longitude = 105.125 },
+  @{ code = "FARM-QN-01"; name = "Nong trai Quang Nam"; province = "Quang Nam"; totalAreaHa = 88.0; latitude = 15.54; longitude = 108.02 },
+  @{ code = "FARM-SL-01"; name = "Nong trai Son La"; province = "Son La"; totalAreaHa = 76.0; latitude = 21.33; longitude = 103.91 }
 )
-foreach ($f in $farms) {
+$plotNames = @("Khu Bac", "Khu Nam", "Nha Luoi", "Vuon Uom", "Khu Dong", "Khu Tay", "Khu Trung", "Khu Phoi Tron", "Khu Dong Goi", "Khu Cach Ly", "Khu Thu Nghiem", "Khu Giong")
+$soilTypes = @("BASALT", "ALLUVIAL", "LOAM", "SANDY_LOAM")
+$farmsToSeed = $farms | Select-Object -First $FarmLimit
+$seededFarmCount = 0
+$seededPlotCount = 0
+foreach ($f in $farmsToSeed) {
   try {
     $farm = PostJson "$Gateway/api/v1/farms" $Auth $f
     Write-Host "  farm $($farm.code) id=$($farm.id)"
-    $plot = PostJson "$Gateway/api/v1/farms/$($farm.id)/plots" $Auth @{
-      code = ($f.code -replace "FARM-", "") + "-A01"
-      name = "Block A"
-      areaInHectares = 2.5
-      soilType = "BASALT"
+    $seededFarmCount++
+    for ($plotIndex = 0; $plotIndex -lt $PlotsPerFarm; $plotIndex++) {
+      $plotCode = ($f.code -replace "FARM-", "") + "-P{0:00}" -f ($plotIndex + 1)
+      $plot = PostJson "$Gateway/api/v1/farms/$($farm.id)/plots" $Auth @{
+        code = $plotCode
+        name = $plotNames[$plotIndex]
+        areaInHectares = [math]::Round(2.5 + (($plotIndex % 4) * 0.75), 4)
+        soilType = $soilTypes[$plotIndex % $soilTypes.Count]
+      }
+      $seededPlotCount++
+      Write-Host "    plot $($plot.code) soil=$($soilTypes[$plotIndex % $soilTypes.Count])"
     }
-    Write-Host "  plot $($plot.code)"
   } catch {
     Write-Host "  skip farm $($f.code): $($_.Exception.Message)"
   }
 }
 
-Write-Host "Seed complete. Login manager@agricore.local / $DevPassword (DEV ONLY)."
+Write-Host "Seed complete: $seededFarmCount farms, $seededPlotCount plots attempted."
+Write-Host "Login manager@agricore.local / $DevPassword (DEV ONLY)."
