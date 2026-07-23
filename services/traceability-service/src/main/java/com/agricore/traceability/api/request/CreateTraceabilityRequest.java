@@ -22,6 +22,41 @@ public record CreateTraceabilityRequest(
         @NotNull LocalDate harvestDate,
         @Size(max = 32) String qualityGrade,
         @DecimalMin("0.001") @Digits(integer = 11, fraction = 3) BigDecimal netWeightKg,
-        @Size(max = 1000) String careSummary
+        @Size(max = 1000) String careSummary,
+        @Size(max = 64) String productCode,
+        @DecimalMin("0.001") @Digits(integer = 11, fraction = 3) BigDecimal grossWeightKg
 ) {
+    public CreateTraceabilityRequest(
+            UUID eventId,
+            UUID harvestBatchId,
+            UUID cropCycleId,
+            UUID plotId,
+            String farmName,
+            String plotCode,
+            String productName,
+            String varietyName,
+            LocalDate plantingDate,
+            LocalDate harvestDate,
+            String qualityGrade,
+            BigDecimal netWeightKg,
+            String careSummary
+    ) {
+        this(
+                eventId,
+                harvestBatchId,
+                cropCycleId,
+                plotId,
+                farmName,
+                plotCode,
+                productName,
+                varietyName,
+                plantingDate,
+                harvestDate,
+                qualityGrade,
+                netWeightKg,
+                careSummary,
+                null,
+                null
+        );
+    }
 }

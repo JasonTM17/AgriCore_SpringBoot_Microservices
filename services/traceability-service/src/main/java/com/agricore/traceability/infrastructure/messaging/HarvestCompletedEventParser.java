@@ -65,16 +65,16 @@ final class HarvestCompletedEventParser {
         UUID cropCycleId = requiredUuid(payload, "cropCycleId");
         UUID plotId = requiredUuid(payload, "plotId");
         requiredUuid(payload, "warehouseId");
-        requiredText(payload, "productCode", 64);
-        positiveDecimal(payload, "grossWeightKg");
+        String productCode = requiredText(payload, "productCode", 64);
+        BigDecimal grossWeightKg = positiveDecimal(payload, "grossWeightKg");
         BigDecimal netWeightKg = positiveDecimal(payload, "netWeightKg");
         String qualityGrade = requiredText(payload, "qualityGrade", 32);
         LocalDate harvestDate = requiredDate(payload, "harvestDate");
         String productName = requiredText(payload, "productName", 200);
 
-        String farmName = optionalText(payload, "farmName", 200).orElse("Farm");
-        String plotCode = optionalText(payload, "plotCode", 64).orElse("PLOT");
-        String careSummary = optionalText(payload, "careSummary", 1000).orElse("See farm records");
+        String farmName = optionalText(payload, "farmName", 200).orElse(null);
+        String plotCode = optionalText(payload, "plotCode", 64).orElse(null);
+        String careSummary = optionalText(payload, "careSummary", 1000).orElse(null);
 
         return Optional.of(new CreateTraceabilityRequest(
                 envelope.eventId(),
@@ -89,7 +89,9 @@ final class HarvestCompletedEventParser {
                 harvestDate,
                 qualityGrade,
                 netWeightKg,
-                careSummary
+                careSummary,
+                productCode,
+                grossWeightKg
         ));
     }
 

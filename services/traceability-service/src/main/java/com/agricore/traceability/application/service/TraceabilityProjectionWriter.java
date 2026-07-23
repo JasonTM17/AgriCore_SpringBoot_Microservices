@@ -62,10 +62,12 @@ public class TraceabilityProjectionWriter {
         batch.setFarmName(request.farmName());
         batch.setPlotCode(request.plotCode());
         batch.setProductName(request.productName());
+        batch.setProductCode(request.productCode());
         batch.setVarietyName(request.varietyName());
         batch.setPlantingDate(request.plantingDate());
         batch.setHarvestDate(request.harvestDate());
         batch.setQualityGrade(request.qualityGrade());
+        batch.setGrossWeightKg(request.grossWeightKg());
         batch.setNetWeightKg(request.netWeightKg());
         batch.setCareSummary(request.careSummary());
         batch.setQrUrl(publicBaseUrl + "/" + batch.getTraceabilityCode());

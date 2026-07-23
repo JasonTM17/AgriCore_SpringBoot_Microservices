@@ -25,6 +25,8 @@ public class TraceabilityBatchEntity {
     private String plotCode;
     @Column(name = "product_name", nullable = false, length = 200)
     private String productName;
+    @Column(name = "product_code", length = 64)
+    private String productCode;
     @Column(name = "variety_name", length = 200)
     private String varietyName;
     @Column(name = "planting_date")
@@ -35,6 +37,8 @@ public class TraceabilityBatchEntity {
     private String qualityGrade;
     @Column(name = "net_weight_kg", precision = 14, scale = 3)
     private BigDecimal netWeightKg;
+    @Column(name = "gross_weight_kg", precision = 14, scale = 3)
+    private BigDecimal grossWeightKg;
     @Column(name = "care_summary", columnDefinition = "TEXT")
     private String careSummary;
     @Column(name = "qr_url", nullable = false, length = 500)
@@ -58,6 +62,8 @@ public class TraceabilityBatchEntity {
     public void setPlotCode(String plotCode) { this.plotCode = plotCode; }
     public String getProductName() { return productName; }
     public void setProductName(String productName) { this.productName = productName; }
+    public String getProductCode() { return productCode; }
+    public void setProductCode(String productCode) { this.productCode = productCode; }
     public String getVarietyName() { return varietyName; }
     public void setVarietyName(String varietyName) { this.varietyName = varietyName; }
     public LocalDate getPlantingDate() { return plantingDate; }
@@ -68,6 +74,8 @@ public class TraceabilityBatchEntity {
     public void setQualityGrade(String qualityGrade) { this.qualityGrade = qualityGrade; }
     public BigDecimal getNetWeightKg() { return netWeightKg; }
     public void setNetWeightKg(BigDecimal netWeightKg) { this.netWeightKg = netWeightKg; }
+    public BigDecimal getGrossWeightKg() { return grossWeightKg; }
+    public void setGrossWeightKg(BigDecimal grossWeightKg) { this.grossWeightKg = grossWeightKg; }
     public String getCareSummary() { return careSummary; }
     public void setCareSummary(String careSummary) { this.careSummary = careSummary; }
     public String getQrUrl() { return qrUrl; }

@@ -53,16 +53,20 @@ class TraceabilityIntegrationTest {
                                   "farmName":"Nong trai Dak Lak",
                                   "plotCode":"DL-A01",
                                   "productName":"Ca phe Robusta",
+                                  "productCode":"COFFEE-ROBUSTA",
                                   "varietyName":"TR4",
                                   "plantingDate":"2025-03-01",
                                   "harvestDate":"2026-03-15",
                                   "qualityGrade":"GRADE_A",
+                                  "grossWeightKg":3500,
                                   "netWeightKg":3300,
                                   "careSummary":"Organic fertilizer, drip irrigation"
                                 }
                                 """.formatted(eventId, harvestId, UUID.randomUUID(), UUID.randomUUID())))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.farmName").value("Nong trai Dak Lak"))
+                .andExpect(jsonPath("$.productCode").value("COFFEE-ROBUSTA"))
+                .andExpect(jsonPath("$.grossWeightKg").value(3500))
                 .andExpect(jsonPath("$.traceabilityCode").isNotEmpty())
                 .andExpect(jsonPath("$.qrUrl").isNotEmpty())
                 .andReturn();

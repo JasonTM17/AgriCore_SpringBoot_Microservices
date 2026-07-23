@@ -2,6 +2,7 @@ package com.agricore.traceability.infrastructure.messaging;
 
 import com.agricore.traceability.application.service.TraceabilityApplicationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -10,6 +11,7 @@ import org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Profile;
 import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
@@ -18,6 +20,7 @@ import java.util.UUID;
 import static org.mockito.Mockito.mock;
 
 @Configuration(proxyBeanMethods = false)
+@Profile("kafka-direct-dlt")
 @ImportAutoConfiguration(KafkaAutoConfiguration.class)
 @Import({
         KafkaConsumerErrorConfig.class,
@@ -36,7 +39,7 @@ class KafkaDirectDltTestConfiguration {
 
     @Bean
     ObjectMapper objectMapper() {
-        return new ObjectMapper();
+        return new ObjectMapper().registerModule(new JavaTimeModule());
     }
 
     @Bean

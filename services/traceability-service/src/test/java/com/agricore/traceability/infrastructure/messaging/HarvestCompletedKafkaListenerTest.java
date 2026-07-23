@@ -47,7 +47,11 @@ class HarvestCompletedKafkaListenerTest {
         assertThat(request.getValue().eventId()).isEqualTo(eventId);
         assertThat(request.getValue().harvestBatchId()).isEqualTo(harvestId);
         assertThat(request.getValue().productName()).isEqualTo("Robusta coffee");
-        assertThat(request.getValue().farmName()).isEqualTo("Farm");
+        assertThat(request.getValue().farmName()).isNull();
+        assertThat(request.getValue().plotCode()).isNull();
+        assertThat(request.getValue().careSummary()).isNull();
+        assertThat(request.getValue().productCode()).isEqualTo("COFFEE-ROBUSTA");
+        assertThat(request.getValue().grossWeightKg()).isEqualByComparingTo("100.0");
         assertThat(request.getValue().netWeightKg()).isEqualByComparingTo("90.5");
     }
 

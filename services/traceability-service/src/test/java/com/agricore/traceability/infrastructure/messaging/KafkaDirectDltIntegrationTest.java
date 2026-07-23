@@ -21,6 +21,7 @@ import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
 import java.nio.ByteBuffer;
@@ -59,6 +60,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
         "spring.kafka.producer.value-serializer=org.apache.kafka.common.serialization.StringSerializer",
         "agricore.kafka.consumer.group-id=traceability-direct-dlt-test"
 })
+@ActiveProfiles("kafka-direct-dlt")
 class KafkaDirectDltIntegrationTest {
 
     private static final String MAIN_TOPIC = "agricore.harvest.events";
