@@ -11,10 +11,14 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -41,7 +45,9 @@ class AuthIntegrationTest {
                                 """.formatted(email)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.email").value(email))
-                .andExpect(jsonPath("$.roles[0]").value("FIELD_WORKER"));
+                .andExpect(jsonPath("$.roles[0]").value("FIELD_WORKER"))
+                .andExpect(jsonPath("$.permissions[0]").value("ASSISTANT_USE"))
+                .andExpect(jsonPath("$.permissions[12]").value("WORK_USE"));
 
         MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -51,6 +57,7 @@ class AuthIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
                 .andExpect(jsonPath("$.refreshToken").isNotEmpty())
+                .andExpect(jsonPath("$.user.permissions[0]").value("ASSISTANT_USE"))
                 .andReturn();
 
         JsonNode loginJson = objectMapper.readTree(loginResult.getResponse().getContentAsString());
@@ -60,7 +67,9 @@ class AuthIntegrationTest {
         mockMvc.perform(get("/api/v1/users/me")
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.email").value(email));
+                .andExpect(jsonPath("$.email").value(email))
+                .andExpect(jsonPath("$.permissions[0]").value("ASSISTANT_USE"))
+                .andExpect(jsonPath("$.permissions[12]").value("WORK_USE"));
 
         MvcResult refreshResult = mockMvc.perform(post("/api/v1/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -174,5 +183,138 @@ class AuthIntegrationTest {
         mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("EMAIL_ALREADY_EXISTS"));
+    }
+
+    @Test
+    @Transactional
+    void currentUserKeepsJwtPermissionSnapshotUntilANewTokenIsIssued() throws Exception {
+        String email = "snapshot" + System.nanoTime() + "@agricore.test";
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","password":"Secret123!","fullName":"Snapshot User"}
+                                """.formatted(email)))
+                .andExpect(status().isCreated());
+
+        MvcResult firstLogin = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","password":"Secret123!"}
+                                """.formatted(email)))
+                .andExpect(status().isOk())
+                .andReturn();
+        String originalToken = objectMapper.readTree(firstLogin.getResponse().getContentAsString())
+                .get("accessToken")
+                .asText();
+
+        mockMvc.perform(put("/api/v1/admin/roles/FIELD_WORKER/permissions")
+                        .with(user("policy-admin").roles("SYSTEM_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "permissionCodes":["WORK_USE"],
+                                  "expectedVersion":1,
+                                  "reason":"Snapshot compatibility test"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.version").value(2));
+
+        mockMvc.perform(get("/api/v1/users/me")
+                        .header("Authorization", "Bearer " + originalToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.permissions.length()").value(13))
+                .andExpect(jsonPath("$.permissions[0]").value("ASSISTANT_USE"));
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","password":"Secret123!"}
+                                """.formatted(email)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.user.permissions.length()").value(1))
+                .andExpect(jsonPath("$.user.permissions[0]").value("WORK_USE"));
+    }
+
+    @Test
+    @Transactional
+    void currentUserKeepsJwtRoleSnapshotUntilANewTokenIsIssued() throws Exception {
+        String email = "role-snapshot" + System.nanoTime() + "@agricore.test";
+        MvcResult registration = mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","password":"Secret123!","fullName":"Role Snapshot User"}
+                                """.formatted(email)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String userId = objectMapper.readTree(registration.getResponse().getContentAsString())
+                .get("id")
+                .asText();
+
+        MvcResult firstLogin = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","password":"Secret123!"}
+                                """.formatted(email)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.user.roles[0]").value("FIELD_WORKER"))
+                .andReturn();
+        String originalToken = objectMapper.readTree(firstLogin.getResponse().getContentAsString())
+                .get("accessToken")
+                .asText();
+
+        mockMvc.perform(patch("/api/v1/admin/users/{userId}/roles", userId)
+                        .with(user("policy-admin").roles("SYSTEM_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"roles":["AUDITOR"]}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.roles[0]").value("AUDITOR"));
+
+        mockMvc.perform(get("/api/v1/users/me")
+                        .header("Authorization", "Bearer " + originalToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.roles.length()").value(1))
+                .andExpect(jsonPath("$.roles[0]").value("FIELD_WORKER"))
+                .andExpect(jsonPath("$.permissions.length()").value(13));
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","password":"Secret123!"}
+                                """.formatted(email)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.user.roles.length()").value(1))
+                .andExpect(jsonPath("$.user.roles[0]").value("AUDITOR"))
+                .andExpect(jsonPath("$.user.permissions.length()").value(12));
+    }
+
+    @Test
+    @Transactional
+    void adminUserResponseIncludesSortedLiveEffectivePermissions() throws Exception {
+        String email = "admin-view" + System.nanoTime() + "@agricore.test";
+        MvcResult registration = mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","password":"Secret123!","fullName":"Admin View User"}
+                                """.formatted(email)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String userId = objectMapper.readTree(registration.getResponse().getContentAsString())
+                .get("id")
+                .asText();
+
+        mockMvc.perform(patch("/api/v1/admin/users/{userId}/roles", userId)
+                        .with(user("policy-admin").roles("SYSTEM_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"roles":["AUDITOR"]}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.roles[0]").value("AUDITOR"))
+                .andExpect(jsonPath("$.permissions.length()").value(12))
+                .andExpect(jsonPath("$.permissions[0]").value("CROP_CATALOG_READ"))
+                .andExpect(jsonPath("$.permissions[11]").value("WORK_READ"));
     }
 }

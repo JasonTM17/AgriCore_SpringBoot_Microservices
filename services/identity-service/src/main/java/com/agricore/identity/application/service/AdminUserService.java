@@ -25,16 +25,25 @@ public class AdminUserService {
 
     private final UserJpaRepository userRepository;
     private final RoleJpaRepository roleRepository;
+    private final EffectivePermissionService effectivePermissionService;
 
-    public AdminUserService(UserJpaRepository userRepository, RoleJpaRepository roleRepository) {
+    public AdminUserService(
+            UserJpaRepository userRepository,
+            RoleJpaRepository roleRepository,
+            EffectivePermissionService effectivePermissionService
+    ) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
+        this.effectivePermissionService = effectivePermissionService;
     }
 
     @Transactional(readOnly = true)
     public PageResponse<UserResponse> listUsers(Pageable pageable) {
         Page<UserEntity> page = userRepository.findAll(pageable);
-        List<UserResponse> content = page.getContent().stream().map(this::toResponse).toList();
+        var permissionsByUser = effectivePermissionService.resolveForUsers(page.getContent());
+        List<UserResponse> content = page.getContent().stream()
+                .map(user -> toResponse(user, permissionsByUser.getOrDefault(user.getId(), List.of())))
+                .toList();
         return PageResponse.of(content, page.getNumber(), page.getSize(), page.getTotalElements());
     }
 
@@ -53,10 +62,12 @@ public class AdminUserService {
         user.setRoles(roles);
         user.setUpdatedAt(Instant.now());
         userRepository.save(user);
-        return toResponse(user);
+        return toResponse(user, effectivePermissionService.resolveForRoles(
+                roles.stream().map(RoleEntity::getCode).toList()
+        ));
     }
 
-    private UserResponse toResponse(UserEntity user) {
+    private UserResponse toResponse(UserEntity user, List<String> permissions) {
         List<String> roles = user.getRoles().stream().map(RoleEntity::getCode).sorted().collect(Collectors.toList());
         return new UserResponse(
                 user.getId(),
@@ -64,6 +75,7 @@ public class AdminUserService {
                 user.getFullName(),
                 user.getStatus().name(),
                 roles,
+                permissions,
                 user.getLastLoginAt(),
                 user.getCreatedAt()
         );

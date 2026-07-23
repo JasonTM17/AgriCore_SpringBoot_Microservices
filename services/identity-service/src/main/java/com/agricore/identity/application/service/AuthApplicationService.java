@@ -49,6 +49,7 @@ public class AuthApplicationService {
     private final RefreshTokenJpaRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
+    private final EffectivePermissionService effectivePermissionService;
     private final SecurityProperties securityProperties;
     private final LoginRateLimiter loginRateLimiter;
 
@@ -58,6 +59,7 @@ public class AuthApplicationService {
             RefreshTokenJpaRepository refreshTokenRepository,
             PasswordEncoder passwordEncoder,
             JwtTokenService jwtTokenService,
+            EffectivePermissionService effectivePermissionService,
             SecurityProperties securityProperties,
             LoginRateLimiter loginRateLimiter
     ) {
@@ -66,6 +68,7 @@ public class AuthApplicationService {
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenService = jwtTokenService;
+        this.effectivePermissionService = effectivePermissionService;
         this.securityProperties = securityProperties;
         this.loginRateLimiter = loginRateLimiter;
     }
@@ -107,7 +110,7 @@ public class AuthApplicationService {
             }
             throw new IdentityException("EMAIL_ALREADY_EXISTS", "Email is already registered", 409);
         }
-        return toUserResponse(user);
+        return toUserResponse(user, effectivePermissionService.resolveForRoles(roleNames(user)));
     }
 
     @Transactional(noRollbackFor = InvalidCredentialsException.class)
@@ -192,14 +195,15 @@ public class AuthApplicationService {
         refreshTokenRepository.saveAndFlush(existing);
 
         List<String> roles = roleNames(user);
-        String accessToken = jwtTokenService.createAccessToken(user, roles);
+        List<String> permissions = effectivePermissionService.resolveForRoles(roles);
+        String accessToken = jwtTokenService.createAccessToken(user, roles, permissions);
 
         return new AuthTokensResponse(
                 accessToken,
                 newRaw,
                 "Bearer",
                 jwtTokenService.accessTokenTtlSeconds(),
-                toUserResponse(user)
+                toUserResponse(user, permissions)
         );
     }
 
@@ -220,10 +224,14 @@ public class AuthApplicationService {
     }
 
     @Transactional(readOnly = true)
-    public UserResponse me(UUID userId) {
+    public UserResponse me(
+            UUID userId,
+            List<String> roleSnapshot,
+            List<String> permissionSnapshot
+    ) {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new IdentityException("USER_NOT_FOUND", "User not found", 404));
-        return toUserResponse(user);
+        return toUserResponse(user, roleSnapshot, permissionSnapshot);
     }
 
     private void handleRevokedRefreshPresentation(RefreshTokenEntity existing, Instant now) {
@@ -269,14 +277,15 @@ public class AuthApplicationService {
         refreshTokenRepository.save(refresh);
 
         List<String> roles = roleNames(user);
-        String accessToken = jwtTokenService.createAccessToken(user, roles);
+        List<String> permissions = effectivePermissionService.resolveForRoles(roles);
+        String accessToken = jwtTokenService.createAccessToken(user, roles, permissions);
 
         return new AuthTokensResponse(
                 accessToken,
                 rawRefresh,
                 "Bearer",
                 jwtTokenService.accessTokenTtlSeconds(),
-                toUserResponse(user)
+                toUserResponse(user, permissions)
         );
     }
 
@@ -294,13 +303,22 @@ public class AuthApplicationService {
         return false;
     }
 
-    private static UserResponse toUserResponse(UserEntity user) {
+    private static UserResponse toUserResponse(UserEntity user, List<String> permissions) {
+        return toUserResponse(user, roleNames(user), permissions);
+    }
+
+    private static UserResponse toUserResponse(
+            UserEntity user,
+            List<String> roles,
+            List<String> permissions
+    ) {
         return new UserResponse(
                 user.getId(),
                 user.getEmail(),
                 user.getFullName(),
                 user.getStatus().name(),
-                roleNames(user),
+                roles,
+                permissions,
                 user.getLastLoginAt(),
                 user.getCreatedAt()
         );

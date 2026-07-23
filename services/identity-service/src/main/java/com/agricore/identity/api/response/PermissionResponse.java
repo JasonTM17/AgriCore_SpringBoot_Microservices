@@ -8,6 +8,7 @@ public record PermissionResponse(
         String code,
         String name,
         String description,
-        Instant createdAt
+        Instant createdAt,
+        int catalogVersion
 ) {
 }

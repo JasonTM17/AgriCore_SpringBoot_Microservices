@@ -1,7 +1,6 @@
 package com.agricore.identity.infrastructure.security;
 
 import com.agricore.identity.infrastructure.configuration.SecurityProperties;
-import com.agricore.identity.infrastructure.persistence.PermissionJpaRepository;
 import com.agricore.identity.infrastructure.persistence.entity.UserEntity;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -17,24 +16,22 @@ public class JwtTokenService {
 
     private final RsaKeyProvider keyProvider;
     private final SecurityProperties properties;
-    private final PermissionJpaRepository permissionRepository;
 
     public JwtTokenService(
             RsaKeyProvider keyProvider,
-            SecurityProperties properties,
-            PermissionJpaRepository permissionRepository
+            SecurityProperties properties
     ) {
         this.keyProvider = keyProvider;
         this.properties = properties;
-        this.permissionRepository = permissionRepository;
     }
 
-    public String createAccessToken(UserEntity user, List<String> roles) {
+    public String createAccessToken(UserEntity user, List<String> roles, List<String> permissions) {
         Instant now = Instant.now();
         Instant exp = now.plusSeconds(properties.accessTokenTtlSeconds());
-        List<String> permissions = roles.isEmpty()
-                ? List.of()
-                : permissionRepository.findGrantedCodesByRoleCodes(roles);
+        List<String> permissionSnapshot = permissions.stream()
+                .distinct()
+                .sorted()
+                .toList();
 
         return Jwts.builder()
                 .header().keyId(keyProvider.keyId()).and()
@@ -47,7 +44,7 @@ public class JwtTokenService {
                 .claim("email", user.getEmail())
                 .claim("name", user.getFullName())
                 .claim("roles", roles)
-                .claim("permissions", permissions)
+                .claim("permissions", permissionSnapshot)
                 .signWith(keyProvider.privateKey(), Jwts.SIG.RS256)
                 .compact();
     }

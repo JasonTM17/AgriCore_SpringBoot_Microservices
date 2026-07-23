@@ -34,12 +34,12 @@ class PermissionPersistenceIntegrationTest {
 
     @Test
     @Transactional
-    void rolePermissionMappingPersistsAndCodeLookupIsCaseInsensitive() {
+    void legacyRoleGrantPersistsButIsNotAnEffectiveCanonicalPermission() {
         PermissionEntity permission = new PermissionEntity();
         permission.setId(UUID.randomUUID());
-        permission.setCode("WORK_EXECUTE");
-        permission.setName("Execute work tasks");
-        permission.setDescription("Complete assigned field work and record material usage");
+        permission.setCode("LEGACY_WORK_EXECUTE");
+        permission.setName("Legacy execute work tasks");
+        permission.setDescription("Created before the migration-owned canonical catalog");
         permission.setCreatedAt(Instant.now());
         permissionRepository.saveAndFlush(permission);
 
@@ -51,10 +51,10 @@ class PermissionPersistenceIntegrationTest {
         var reloadedRole = roleRepository.findByCode("FIELD_WORKER").orElseThrow();
         assertThat(reloadedRole.getPermissions())
                 .extracting(PermissionEntity::getCode)
-                .containsExactly("WORK_EXECUTE");
-        assertThat(permissionRepository.findByCodeIgnoreCase("work_execute"))
+                .containsExactly("LEGACY_WORK_EXECUTE");
+        assertThat(permissionRepository.findByCodeIgnoreCase("legacy_work_execute"))
                 .isPresent();
         assertThat(permissionRepository.findGrantedCodesByRoleCodes(List.of("FIELD_WORKER")))
-                .containsExactly("WORK_EXECUTE");
+                .isEmpty();
     }
 }

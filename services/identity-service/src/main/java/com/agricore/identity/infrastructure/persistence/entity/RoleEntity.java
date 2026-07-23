@@ -23,6 +23,9 @@ public class RoleEntity {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    @Column(name = "permission_policy_version", nullable = false)
+    private long permissionPolicyVersion;
+
     @ManyToMany
     @JoinTable(
             name = "role_permissions",
@@ -61,6 +64,14 @@ public class RoleEntity {
 
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public long getPermissionPolicyVersion() {
+        return permissionPolicyVersion;
+    }
+
+    public void setPermissionPolicyVersion(long permissionPolicyVersion) {
+        this.permissionPolicyVersion = permissionPolicyVersion;
     }
 
     public Set<PermissionEntity> getPermissions() {

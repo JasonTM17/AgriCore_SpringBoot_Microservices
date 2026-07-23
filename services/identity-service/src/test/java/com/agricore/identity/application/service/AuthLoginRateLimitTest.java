@@ -58,6 +58,7 @@ class AuthLoginRateLimitTest {
                 mock(RefreshTokenJpaRepository.class),
                 mock(PasswordEncoder.class),
                 mock(JwtTokenService.class),
+                mock(EffectivePermissionService.class),
                 security,
                 limiter
         );

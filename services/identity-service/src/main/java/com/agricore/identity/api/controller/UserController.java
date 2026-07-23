@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -22,6 +23,18 @@ public class UserController {
     @GetMapping("/me")
     public UserResponse me(Authentication authentication) {
         UUID userId = UUID.fromString(authentication.getName());
-        return authService.me(userId);
+        List<String> roleSnapshot = snapshotAuthorities(authentication, "ROLE_");
+        List<String> permissionSnapshot = snapshotAuthorities(authentication, "PERMISSION_");
+        return authService.me(userId, roleSnapshot, permissionSnapshot);
+    }
+
+    private static List<String> snapshotAuthorities(Authentication authentication, String prefix) {
+        return authentication.getAuthorities().stream()
+                .map(authority -> authority.getAuthority())
+                .filter(authority -> authority.startsWith(prefix))
+                .map(authority -> authority.substring(prefix.length()))
+                .distinct()
+                .sorted()
+                .toList();
     }
 }

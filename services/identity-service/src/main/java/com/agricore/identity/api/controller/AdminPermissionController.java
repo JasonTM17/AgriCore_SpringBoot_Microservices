@@ -1,7 +1,6 @@
 package com.agricore.identity.api.controller;
 
 import com.agricore.common.api.PageResponse;
-import com.agricore.identity.api.request.CreatePermissionRequest;
 import com.agricore.identity.api.request.UpdateRolePermissionsRequest;
 import com.agricore.identity.api.response.PermissionResponse;
 import com.agricore.identity.api.response.RolePermissionsResponse;
@@ -11,12 +10,10 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -44,13 +41,6 @@ public class AdminPermissionController {
         );
     }
 
-    @PostMapping("/permissions")
-    public ResponseEntity<PermissionResponse> createPermission(
-            @Valid @RequestBody CreatePermissionRequest request
-    ) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(permissionService.createPermission(request));
-    }
-
     @GetMapping("/roles/{roleCode}/permissions")
     public RolePermissionsResponse getRolePermissions(@PathVariable RoleCode roleCode) {
         return permissionService.getRolePermissions(roleCode);
@@ -59,8 +49,15 @@ public class AdminPermissionController {
     @PutMapping("/roles/{roleCode}/permissions")
     public RolePermissionsResponse replaceRolePermissions(
             @PathVariable RoleCode roleCode,
-            @Valid @RequestBody UpdateRolePermissionsRequest request
+            @Valid @RequestBody UpdateRolePermissionsRequest request,
+            Authentication authentication
     ) {
-        return permissionService.replaceRolePermissions(roleCode, request.permissionCodes());
+        return permissionService.replaceRolePermissions(
+                roleCode,
+                request.permissionCodes(),
+                request.expectedVersion(),
+                request.reason(),
+                authentication.getName()
+        );
     }
 }

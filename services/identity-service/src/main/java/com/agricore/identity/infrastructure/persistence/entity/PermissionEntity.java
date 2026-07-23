@@ -27,6 +27,12 @@ public class PermissionEntity {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    @Column(nullable = false)
+    private boolean assignable;
+
+    @Column(name = "catalog_version")
+    private Integer catalogVersion;
+
     public UUID getId() {
         return id;
     }
@@ -65,5 +71,21 @@ public class PermissionEntity {
 
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public boolean isAssignable() {
+        return assignable;
+    }
+
+    public void setAssignable(boolean assignable) {
+        this.assignable = assignable;
+    }
+
+    public Integer getCatalogVersion() {
+        return catalogVersion;
+    }
+
+    public void setCatalogVersion(Integer catalogVersion) {
+        this.catalogVersion = catalogVersion;
     }
 }

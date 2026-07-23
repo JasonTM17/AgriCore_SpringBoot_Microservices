@@ -1,6 +1,10 @@
 package com.agricore.identity;
 
 import com.agricore.identity.infrastructure.persistence.PermissionJpaRepository;
+import com.agricore.identity.infrastructure.persistence.RoleJpaRepository;
+import com.agricore.identity.infrastructure.persistence.RolePermissionPolicyAuditJpaRepository;
+import com.agricore.identity.infrastructure.persistence.entity.PermissionEntity;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -12,8 +16,12 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.util.HashSet;
+import java.util.List;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -33,87 +41,160 @@ class AdminPermissionIntegrationTest {
     @Autowired
     private PermissionJpaRepository permissionRepository;
 
+    @Autowired
+    private RoleJpaRepository roleRepository;
+
+    @Autowired
+    private RolePermissionPolicyAuditJpaRepository auditRepository;
+
+    @Autowired
+    private EntityManager entityManager;
+
     @Test
     @WithMockUser(roles = "SYSTEM_ADMIN")
-    void systemAdminManagesPermissionAndAtomicallyReplacesRoleGrants() throws Exception {
-        String permissionCode = uniquePermissionCode();
-        String createBody = """
-                {
-                  "code":"%s",
-                  "name":"Execute work tasks",
-                  "description":"Complete field work with material usage"
-                }
-                """.formatted(permissionCode);
-
-        mockMvc.perform(post("/api/v1/admin/permissions")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(createBody))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.code").value(permissionCode))
-                .andExpect(jsonPath("$.name").value("Execute work tasks"));
-
-        mockMvc.perform(post("/api/v1/admin/permissions")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(createBody))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("PERMISSION_EXISTS"));
-
-        mockMvc.perform(get("/api/v1/admin/permissions"))
+    void catalogAndSeededRolePoliciesAreDeterministicAndSorted() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/permissions").queryParam("size", "100"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content[?(@.code == '%s')]".formatted(permissionCode)).exists())
-                .andExpect(jsonPath("$.size").value(20));
+                .andExpect(jsonPath("$.totalElements").value(32))
+                .andExpect(jsonPath("$.content[0].code").value("ASSISTANT_USE"))
+                .andExpect(jsonPath("$.content[0].catalogVersion").value(1))
+                .andExpect(jsonPath("$.content[31].code").value("WORK_WRITE"));
+
+        var assistant = permissionRepository.findByCodeIgnoreCase("ASSISTANT_USE").orElseThrow();
+        assertThat(assistant.getId())
+                .isEqualTo(UUID.fromString("22222222-2222-2222-2222-222222222032"));
+        assertThat(assistant.isAssignable()).isTrue();
+
+        mockMvc.perform(get("/api/v1/admin/roles/SYSTEM_ADMIN/permissions"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.version").value(1))
+                .andExpect(jsonPath("$.permissions.length()").value(32));
+
+        mockMvc.perform(get("/api/v1/admin/roles/AUDITOR/permissions"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.version").value(1))
+                .andExpect(jsonPath("$.permissions.length()").value(12));
+
+        var auditor = roleRepository.findByCode("AUDITOR").orElseThrow();
+        assertThat(auditor.getPermissions())
+                .filteredOn(permission -> permission.isAssignable())
+                .extracting(PermissionEntity::getCode)
+                .allMatch(code -> code.endsWith("_READ"));
+    }
+
+    @Test
+    @WithMockUser(username = "admin-subject", roles = "SYSTEM_ADMIN")
+    void versionedReplacementIsAtomicAuditedAndRejectsStaleWrites() throws Exception {
+        PermissionEntity legacyPermission = new PermissionEntity();
+        legacyPermission.setId(UUID.fromString("33333333-3333-3333-3333-333333333334"));
+        legacyPermission.setCode("LEGACY_RUNTIME_GRANT");
+        legacyPermission.setName("Legacy runtime grant");
+        legacyPermission.setCreatedAt(Instant.now());
+        permissionRepository.saveAndFlush(legacyPermission);
+        var roleWithLegacyGrant = roleRepository.findByCode("FIELD_WORKER").orElseThrow();
+        var grantsWithLegacy = new HashSet<>(roleWithLegacyGrant.getPermissions());
+        grantsWithLegacy.add(legacyPermission);
+        roleWithLegacyGrant.setPermissions(grantsWithLegacy);
+        roleRepository.saveAndFlush(roleWithLegacyGrant);
 
         mockMvc.perform(put("/api/v1/admin/roles/FIELD_WORKER/permissions")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"permissionCodes":["%s"]}
-                                """.formatted(permissionCode)))
+                                {
+                                  "permissionCodes":["WORK_USE","FARM_READ"],
+                                  "expectedVersion":1,
+                                  "reason":"Limit worker policy for seasonal contractors"
+                                }
+                                """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.role").value("FIELD_WORKER"))
-                .andExpect(jsonPath("$.permissions[0].code").value(permissionCode));
+                .andExpect(jsonPath("$.version").value(2))
+                .andExpect(jsonPath("$.permissions[0].code").value("FARM_READ"))
+                .andExpect(jsonPath("$.permissions[1].code").value("WORK_USE"));
+
+        var role = roleRepository.findByCode("FIELD_WORKER").orElseThrow();
+        var audits = auditRepository.findAllByRoleIdOrderByPolicyVersionAsc(role.getId());
+        assertThat(audits).hasSize(1);
+        var audit = audits.getFirst();
+        assertThat(audit.getPolicyVersion()).isEqualTo(2);
+        assertThat(audit.getActorSubject()).isEqualTo("admin-subject");
+        assertThat(audit.getReason()).isEqualTo("Limit worker policy for seasonal contractors");
+        assertThat(audit.getChangedAt()).isNotNull();
+        assertThat(audit.getBeforePermissions()).contains("\"ASSISTANT_USE\"", "\"WORK_USE\"");
+        assertThat(audit.getAfterPermissions()).isEqualTo("[\"FARM_READ\",\"WORK_USE\"]");
 
         mockMvc.perform(put("/api/v1/admin/roles/FIELD_WORKER/permissions")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"permissionCodes":["DOES_NOT_EXIST"]}
+                                {
+                                  "permissionCodes":["ASSISTANT_USE"],
+                                  "expectedVersion":1,
+                                  "reason":"Stale browser form"
+                                }
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("POLICY_VERSION_CONFLICT"));
+
+        mockMvc.perform(put("/api/v1/admin/roles/FIELD_WORKER/permissions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "permissionCodes":["LEGACY_RUNTIME_GRANT"],
+                                  "expectedVersion":2,
+                                  "reason":"Legacy non-assignable code must not partially apply"
+                                }
                                 """))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("PERMISSION_NOT_FOUND"));
 
         mockMvc.perform(get("/api/v1/admin/roles/FIELD_WORKER/permissions"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.permissions[0].code").value(permissionCode));
+                .andExpect(jsonPath("$.version").value(2))
+                .andExpect(jsonPath("$.permissions.length()").value(2))
+                .andExpect(jsonPath("$.permissions[0].code").value("FARM_READ"))
+                .andExpect(jsonPath("$.permissions[1].code").value("WORK_USE"));
+        assertThat(auditRepository.findAllByRoleIdOrderByPolicyVersionAsc(role.getId())).hasSize(1);
 
-        mockMvc.perform(put("/api/v1/admin/roles/FIELD_WORKER/permissions")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"permissionCodes":[]}
-                                """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.permissions").isEmpty());
+        entityManager.clear();
+        var reloadedRole = roleRepository.findByCode("FIELD_WORKER").orElseThrow();
+        assertThat(reloadedRole.getPermissions())
+                .extracting(PermissionEntity::getCode)
+                .contains("FARM_READ", "WORK_USE", "LEGACY_RUNTIME_GRANT");
+        assertThat(permissionRepository.findGrantedCodesByRoleCodes(List.of("FIELD_WORKER")))
+                .containsExactly("FARM_READ", "WORK_USE");
     }
 
     @Test
-    @WithMockUser(roles = "FARM_MANAGER")
-    void nonAdminCannotCreatePermissions() throws Exception {
-        String permissionCode = uniquePermissionCode();
+    @WithMockUser(roles = "SYSTEM_ADMIN")
+    void runtimePermissionCreationIsNotSupported() throws Exception {
+        long before = permissionRepository.count();
 
         mockMvc.perform(post("/api/v1/admin/permissions")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"code":"%s","name":"Forbidden permission"}
-                                """.formatted(permissionCode)))
-                .andExpect(status().isForbidden());
+                                {"code":"RUNTIME_INERT","name":"Runtime inert permission"}
+                                """))
+                .andExpect(status().isMethodNotAllowed());
 
-        org.assertj.core.api.Assertions.assertThat(
-                permissionRepository.findByCodeIgnoreCase(permissionCode)
-        ).isEmpty();
+        assertThat(permissionRepository.count()).isEqualTo(before);
+        assertThat(permissionRepository.findByCodeIgnoreCase("RUNTIME_INERT")).isEmpty();
     }
 
-    private static String uniquePermissionCode() {
-        return "WORK_EXECUTE_" + UUID.randomUUID().toString()
-                .replace("-", "")
-                .substring(0, 8)
-                .toUpperCase(java.util.Locale.ROOT);
+    @Test
+    @WithMockUser(roles = "FARM_MANAGER")
+    void nonAdminCannotReadOrReplacePermissionPolicy() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/permissions"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(put("/api/v1/admin/roles/FIELD_WORKER/permissions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "permissionCodes":["WORK_USE"],
+                                  "expectedVersion":1,
+                                  "reason":"Forbidden policy change"
+                                }
+                                """))
+                .andExpect(status().isForbidden());
     }
 }

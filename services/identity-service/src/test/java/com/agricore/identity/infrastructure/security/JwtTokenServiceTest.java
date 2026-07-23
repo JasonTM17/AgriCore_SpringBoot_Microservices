@@ -1,7 +1,6 @@
 package com.agricore.identity.infrastructure.security;
 
 import com.agricore.identity.infrastructure.configuration.SecurityProperties;
-import com.agricore.identity.infrastructure.persistence.PermissionJpaRepository;
 import com.agricore.identity.infrastructure.persistence.entity.UserEntity;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
@@ -15,8 +14,6 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 class JwtTokenServiceTest {
 
@@ -27,8 +24,7 @@ class JwtTokenServiceTest {
         keyProvider.init();
         JwtTokenService tokenService = new JwtTokenService(
                 keyProvider,
-                properties,
-                mock(PermissionJpaRepository.class)
+                properties
         );
         Instant now = Instant.now();
 
@@ -52,8 +48,7 @@ class JwtTokenServiceTest {
         keyProvider.init();
         JwtTokenService tokenService = new JwtTokenService(
                 keyProvider,
-                properties,
-                mock(PermissionJpaRepository.class)
+                properties
         );
         Instant now = Instant.now();
 
@@ -74,17 +69,17 @@ class JwtTokenServiceTest {
         SecurityProperties properties = securityProperties();
         RsaKeyProvider keyProvider = new RsaKeyProvider(properties);
         keyProvider.init();
-        PermissionJpaRepository permissionRepository = mock(PermissionJpaRepository.class);
-        JwtTokenService tokenService = new JwtTokenService(keyProvider, properties, permissionRepository);
+        JwtTokenService tokenService = new JwtTokenService(keyProvider, properties);
         UserEntity user = new UserEntity();
         user.setId(UUID.fromString("00000000-0000-0000-0000-000000000001"));
         user.setEmail("worker@agricore.test");
         user.setFullName("Field Worker");
         List<String> roles = List.of("FIELD_WORKER");
-        when(permissionRepository.findGrantedCodesByRoleCodes(roles))
-                .thenReturn(List.of("INVENTORY_VIEW", "WORK_EXECUTE"));
-
-        Claims claims = tokenService.parse(tokenService.createAccessToken(user, roles));
+        Claims claims = tokenService.parse(tokenService.createAccessToken(
+                user,
+                roles,
+                List.of("WORK_EXECUTE", "INVENTORY_VIEW", "WORK_EXECUTE")
+        ));
 
         assertThat(claims.get("roles")).isEqualTo(List.of("FIELD_WORKER"));
         assertThat(claims.get("permissions"))
