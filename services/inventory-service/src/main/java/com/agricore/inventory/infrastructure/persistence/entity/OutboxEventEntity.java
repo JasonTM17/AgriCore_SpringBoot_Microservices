@@ -42,6 +42,12 @@ public class OutboxEventEntity {
     @Column(name = "last_error", columnDefinition = "TEXT")
     private String lastError;
 
+    @Column(name = "next_attempt_at")
+    private Instant nextAttemptAt;
+
+    @Column(name = "quarantined_at")
+    private Instant quarantinedAt;
+
     public static OutboxEventEntity create(
             UUID eventId,
             String aggregateType,
@@ -72,16 +78,39 @@ public class OutboxEventEntity {
     public Instant getPublishedAt() { return publishedAt; }
     public int getPublishAttempts() { return publishAttempts; }
     public String getLastError() { return lastError; }
+    public Instant getNextAttemptAt() { return nextAttemptAt; }
+    public Instant getQuarantinedAt() { return quarantinedAt; }
 
     public void markPublished() {
         publishAttempts++;
         publishedAt = Instant.now();
+        nextAttemptAt = null;
+        quarantinedAt = null;
         lastError = null;
     }
 
-    public void markFailed(String error) {
+    public boolean isEligibleForPublish(Instant now) {
+        return publishedAt == null
+                && quarantinedAt == null
+                && (nextAttemptAt == null || !nextAttemptAt.isAfter(now));
+    }
+
+    public void markFailed(String error, Instant failedAt, long retryDelayMillis, int maxAttempts) {
         publishAttempts++;
-        String message = error == null ? "unknown" : error;
-        lastError = message.substring(0, Math.min(message.length(), 1000));
+        lastError = error == null ? "unknown" : error.substring(0, Math.min(error.length(), 1000));
+        if (publishAttempts >= maxAttempts) {
+            quarantinedAt = failedAt;
+            nextAttemptAt = null;
+        } else {
+            quarantinedAt = null;
+            nextAttemptAt = failedAt.plusMillis(retryDelayMillis);
+        }
+    }
+
+    public void markFailedWithoutRetryState(String error) {
+        publishAttempts++;
+        lastError = error == null ? "unknown" : error.substring(0, Math.min(error.length(), 1000));
+        nextAttemptAt = null;
+        quarantinedAt = null;
     }
 }

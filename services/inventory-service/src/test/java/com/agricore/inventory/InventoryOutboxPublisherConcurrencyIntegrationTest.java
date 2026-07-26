@@ -1,6 +1,7 @@
 package com.agricore.inventory;
 
 import com.agricore.inventory.infrastructure.messaging.OutboxPublisher;
+import com.agricore.inventory.infrastructure.messaging.OutboxRetryProperties;
 import com.agricore.inventory.infrastructure.persistence.OutboxJpaRepository;
 import com.agricore.inventory.infrastructure.persistence.entity.OutboxEventEntity;
 import org.junit.jupiter.api.Test;
@@ -81,6 +82,12 @@ class InventoryOutboxPublisherConcurrencyIntegrationTest {
     }
 
     private OutboxPublisher publisher(KafkaTemplate<String, String> kafkaTemplate) {
-        return new OutboxPublisher(outboxRepository, kafkaTemplate, transactionManager, 5_000);
+        return new OutboxPublisher(
+                outboxRepository,
+                kafkaTemplate,
+                transactionManager,
+                5_000,
+                new OutboxRetryProperties(100, 100, 10)
+        );
     }
 }
