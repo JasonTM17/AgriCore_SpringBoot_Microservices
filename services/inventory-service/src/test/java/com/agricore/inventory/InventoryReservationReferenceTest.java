@@ -74,9 +74,82 @@ class InventoryReservationReferenceTest {
         assertThat(inventoryService.getItem(item.id()).reservedQuantity()).isEqualByComparingTo("10.000");
     }
 
-    private InventoryItemResponse stockedItem(String suffix) {
+    @Test
+    void harvestForAnotherFarmCannotProjectIntoWarehouse() {
+        UUID warehouseFarmId = UUID.randomUUID();
         var warehouse = inventoryService.createWarehouse(new CreateWarehouseRequest(
+                warehouseFarmId,
+                "WH-HARVEST-SCOPE-" + System.nanoTime(),
+                "Harvest Scope Warehouse"
+        ));
+
+        assertThatThrownBy(() -> inventoryService.processHarvestCompleted(new HarvestCompletedCommand(
+                UUID.randomUUID().toString(),
                 UUID.randomUUID(),
+                UUID.randomUUID(),
+                warehouse.id(),
+                "PRODUCT-HARVEST-SCOPE",
+                new BigDecimal("100.000"),
+                "GRADE_A"
+        ))).isInstanceOfSatisfying(
+                InventoryException.class,
+                exception -> assertThat(exception.getCode()).isEqualTo("HARVEST_FARM_MISMATCH")
+        );
+    }
+
+    @Test
+    void farmScopedReservationCannotBeReadOrMutatedFromAnotherFarm() {
+        UUID ownerFarmId = UUID.randomUUID();
+        UUID otherFarmId = UUID.randomUUID();
+        InventoryItemResponse item = stockedItem(ownerFarmId, "FARM-SCOPE");
+        String referenceId = UUID.randomUUID().toString();
+        var request = new ReserveStockRequest(
+                item.id(),
+                new BigDecimal("15.000"),
+                "SalesOrder",
+                referenceId
+        );
+        var reservation = inventoryService.reserveForFarm(ownerFarmId, request);
+
+        assertThatThrownBy(() -> inventoryService.reserveForFarm(otherFarmId, request))
+                .isInstanceOfSatisfying(
+                        InventoryException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo("ITEM_NOT_FOUND")
+                );
+        assertThatThrownBy(() -> inventoryService.getReservationByReferenceForFarm(
+                otherFarmId,
+                "SalesOrder",
+                referenceId
+        )).isInstanceOfSatisfying(
+                InventoryException.class,
+                exception -> assertThat(exception.getCode()).isEqualTo("ITEM_NOT_FOUND")
+        );
+        assertThatThrownBy(() -> inventoryService.releaseForFarm(otherFarmId, reservation.id()))
+                .isInstanceOfSatisfying(
+                        InventoryException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo("ITEM_NOT_FOUND")
+                );
+        assertThatThrownBy(() -> inventoryService.confirmForFarm(otherFarmId, reservation.id()))
+                .isInstanceOfSatisfying(
+                        InventoryException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo("ITEM_NOT_FOUND")
+                );
+
+        assertThat(inventoryService.getItem(item.id()).reservedQuantity()).isEqualByComparingTo("15.000");
+        assertThat(inventoryService.getReservationByReferenceForFarm(
+                ownerFarmId,
+                "SalesOrder",
+                referenceId
+        )).isEqualTo(reservation);
+    }
+
+    private InventoryItemResponse stockedItem(String suffix) {
+        return stockedItem(UUID.randomUUID(), suffix);
+    }
+
+    private InventoryItemResponse stockedItem(UUID farmId, String suffix) {
+        var warehouse = inventoryService.createWarehouse(new CreateWarehouseRequest(
+                farmId,
                 "WH-REF-" + suffix + '-' + System.nanoTime(),
                 "Reservation Reference Warehouse"
         ));

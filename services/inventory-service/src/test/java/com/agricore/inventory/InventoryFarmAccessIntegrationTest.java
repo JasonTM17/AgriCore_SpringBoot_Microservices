@@ -141,12 +141,18 @@ class InventoryFarmAccessIntegrationTest {
                 .content("""
                         {
                           "eventId":"%s",
+                          "farmId":"%s",
                           "harvestBatchId":"%s",
                           "warehouseId":"%s",
                           "productCode":"DENIED",
                           "netWeightKg":1.000
                         }
-                        """.formatted(UUID.randomUUID(), UUID.randomUUID(), warehouse.id())));
+                        """.formatted(
+                        UUID.randomUUID(),
+                        farmId,
+                        UUID.randomUUID(),
+                        warehouse.id()
+                )));
 
         var unchanged = inventoryService.getItem(item.id());
         assertThat(unchanged.onHandQuantity()).isEqualByComparingTo("20.000");
