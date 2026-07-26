@@ -8,7 +8,8 @@ RUN --mount=type=cache,id=agricore-maven,target=/root/.m2,sharing=locked \
     mvn -q -pl services/notification-service -am package -DskipTests
 
 FROM eclipse-temurin:21-jre-alpine@sha256:3f08b13888f595cc49edabea7250ba69499ba25602b267da591720769400e08c
-RUN addgroup -S agricore && adduser -S agricore -G agricore \
+RUN apk upgrade --no-cache libexpat p11-kit p11-kit-trust \
+ && addgroup -S agricore && adduser -S agricore -G agricore \
  && apk add --no-cache wget
 WORKDIR /app
 COPY --from=build /workspace/services/notification-service/target/notification-service-*.jar app.jar

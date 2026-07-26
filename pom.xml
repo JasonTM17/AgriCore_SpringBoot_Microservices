@@ -34,8 +34,8 @@
         <java.version>21</java.version>
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <!-- 3.5.12 addresses Actuator auth bypass CVEs (CVE-2026-22731/22733) per Trivy -->
-        <spring-boot.version>3.5.12</spring-boot.version>
+        <!-- Keep the supported 3.5 line current for Spring Boot and managed Tomcat security fixes. -->
+        <spring-boot.version>3.5.16</spring-boot.version>
         <spring-cloud.version>2025.0.0</spring-cloud.version>
         <spring-ai.version>1.1.8</spring-ai.version>
         <testcontainers.version>1.20.6</testcontainers.version>
@@ -43,6 +43,8 @@
         <jjwt.version>0.12.6</jjwt.version>
         <!-- Align Jackson modules on the patched line for CVE-2026-54512/54513. -->
         <jackson-bom.version>2.21.4</jackson-bom.version>
+        <!-- Override Boot-managed Netty 4.1.135 for the patched 4.1 line. -->
+        <netty.version>4.1.136.Final</netty.version>
         <postgresql.version>42.7.12</postgresql.version>
         <!-- Override Boot-managed 3.3.14 (CVE-2026-41731 insecure deserialization) -->
         <spring-kafka.version>3.3.16</spring-kafka.version>
@@ -56,6 +58,13 @@
                 <groupId>com.fasterxml.jackson</groupId>
                 <artifactId>jackson-bom</artifactId>
                 <version>${jackson-bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-bom</artifactId>
+                <version>${netty.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
