@@ -39,7 +39,7 @@
         <spring-cloud.version>2025.0.2</spring-cloud.version>
         <spring-ai.version>1.1.8</spring-ai.version>
         <testcontainers.version>1.20.6</testcontainers.version>
-        <archunit.version>1.4.0</archunit.version>
+        <archunit.version>1.4.2</archunit.version>
         <jjwt.version>0.12.6</jjwt.version>
         <!-- Align Jackson modules on the patched line for CVE-2026-54512/54513. -->
         <jackson-bom.version>2.21.4</jackson-bom.version>
@@ -47,7 +47,7 @@
         <netty.version>4.1.136.Final</netty.version>
         <!-- Override Spring Cloud-managed 1.80 for CVE-2025-14813. -->
         <bouncycastle.version>1.84</bouncycastle.version>
-        <postgresql.version>42.7.12</postgresql.version>
+        <postgresql.version>42.7.13</postgresql.version>
         <!-- Override Boot-managed 3.3.14 (CVE-2026-41731 insecure deserialization) -->
         <spring-kafka.version>3.3.16</spring-kafka.version>
         <zxing.version>3.5.4</zxing.version>
@@ -182,7 +182,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
-                    <version>3.13.0</version>
+                    <version>3.15.0</version>
                     <configuration>
                         <release>${maven.compiler.release}</release>
                         <parameters>true</parameters>
@@ -191,12 +191,12 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.5.2</version>
+                    <version>3.5.6</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-failsafe-plugin</artifactId>
-                    <version>3.5.2</version>
+                    <version>3.5.6</version>
                 </plugin>
             </plugins>
         </pluginManagement>
