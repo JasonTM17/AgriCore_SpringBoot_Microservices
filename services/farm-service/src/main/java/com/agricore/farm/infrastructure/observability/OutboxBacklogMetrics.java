@@ -15,7 +15,7 @@ public class OutboxBacklogMetrics {
                 .register(registry);
         Gauge.builder("agricore.outbox.pending", repository,
                         OutboxJpaRepository::countByPublishedAtIsNullAndQuarantinedAtIsNull)
-                .description("Unpublished transactional outbox events eligible for retry")
+                .description("Unpublished non-quarantined transactional outbox events")
                 .register(registry);
         Gauge.builder("agricore.outbox.quarantined", repository,
                         OutboxJpaRepository::countByQuarantinedAtIsNotNull)
