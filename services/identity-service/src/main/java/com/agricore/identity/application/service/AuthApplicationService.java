@@ -38,6 +38,7 @@ public class AuthApplicationService {
     private final SecurityProperties securityProperties;
     private final LoginRateLimiter loginRateLimiter;
     private final IdentityOutboxWriter outboxWriter;
+    private final AuthFailureRecorder authFailureRecorder;
 
     public AuthApplicationService(
             UserJpaRepository userRepository,
@@ -47,7 +48,8 @@ public class AuthApplicationService {
             JwtTokenService jwtTokenService,
             SecurityProperties securityProperties,
             LoginRateLimiter loginRateLimiter,
-            IdentityOutboxWriter outboxWriter
+            IdentityOutboxWriter outboxWriter,
+            AuthFailureRecorder authFailureRecorder
     ) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
@@ -57,6 +59,7 @@ public class AuthApplicationService {
         this.securityProperties = securityProperties;
         this.loginRateLimiter = loginRateLimiter;
         this.outboxWriter = outboxWriter;
+        this.authFailureRecorder = authFailureRecorder;
     }
 
     @Transactional
@@ -112,7 +115,8 @@ public class AuthApplicationService {
         }
 
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
-            handleFailedLogin(user, now);
+            // Recorded in its own transaction: the throw below would otherwise roll the counter back.
+            authFailureRecorder.recordFailedLogin(user.getId(), now);
             throw new IdentityException("INVALID_CREDENTIALS", "Invalid email or password", 401);
         }
 
@@ -138,9 +142,10 @@ public class AuthApplicationService {
 
         Instant now = Instant.now();
 
-        // Reuse of a revoked token in a family → revoke entire family (theft detection)
+        // Reuse of a revoked token in a family → revoke entire family (theft detection).
+        // Revoked in its own transaction: the throw below would otherwise leave the stolen family live.
         if (existing.getRevokedAt() != null) {
-            refreshTokenRepository.revokeFamily(existing.getFamilyId(), now);
+            authFailureRecorder.revokeCompromisedFamily(existing.getFamilyId(), now);
             throw new IdentityException("REFRESH_TOKEN_REUSE", "Refresh token reuse detected. Session family revoked.", 401);
         }
 
@@ -201,17 +206,6 @@ public class AuthApplicationService {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new IdentityException("USER_NOT_FOUND", "User not found", 404));
         return toUserResponse(user);
-    }
-
-    private void handleFailedLogin(UserEntity user, Instant now) {
-        int failures = user.getFailedLoginCount() + 1;
-        user.setFailedLoginCount(failures);
-        if (failures >= securityProperties.maxFailedLogins()) {
-            user.setLockedUntil(now.plusSeconds(securityProperties.lockoutDurationMinutes() * 60L));
-            user.setStatus(UserStatus.LOCKED);
-        }
-        user.setUpdatedAt(now);
-        userRepository.save(user);
     }
 
     private AuthTokensResponse issueTokens(UserEntity user, String clientIp, String userAgent, UUID familyId) {
