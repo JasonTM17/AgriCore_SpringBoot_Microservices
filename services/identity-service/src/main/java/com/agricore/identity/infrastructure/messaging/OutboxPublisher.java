@@ -12,7 +12,6 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -27,24 +26,26 @@ public class OutboxPublisher {
     private static final Logger log = LoggerFactory.getLogger(OutboxPublisher.class);
     private static final long MAX_SEND_TIMEOUT_MILLIS = 60_000;
     private static final long MAX_CLAIM_LEASE_MILLIS = 300_000;
-    private static final int MAX_ERROR_LENGTH = 1_000;
 
     private final OutboxPublicationStore publicationStore;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final long sendTimeoutMillis;
     private final long claimLeaseMillis;
+    private final OutboxRetryProperties retryProperties;
 
     public OutboxPublisher(
             OutboxPublicationStore publicationStore,
             KafkaTemplate<String, String> kafkaTemplate,
             @Value("${agricore.outbox.publisher.send-timeout-ms:10000}") long sendTimeoutMillis,
-            @Value("${agricore.outbox.publisher.claim-lease-ms:30000}") long claimLeaseMillis
+            @Value("${agricore.outbox.publisher.claim-lease-ms:30000}") long claimLeaseMillis,
+            OutboxRetryProperties retryProperties
     ) {
         validateDurations(sendTimeoutMillis, claimLeaseMillis);
         this.publicationStore = publicationStore;
         this.kafkaTemplate = kafkaTemplate;
         this.sendTimeoutMillis = sendTimeoutMillis;
         this.claimLeaseMillis = claimLeaseMillis;
+        this.retryProperties = retryProperties;
     }
 
     @Scheduled(fixedDelayString = "${agricore.outbox.publisher.poll-ms:1000}")
@@ -83,15 +84,17 @@ public class OutboxPublisher {
             complete(event);
         } catch (TimeoutException exception) {
             sendResult.cancel(true);
-            fail(event, "Kafka send timed out after " + sendTimeoutMillis + " ms");
+            fail(event, OutboxPublishFailure.transientFailure(
+                    "Kafka send timed out after " + sendTimeoutMillis + " ms"
+            ));
         } catch (InterruptedException exception) {
             if (sendResult != null) {
                 sendResult.cancel(true);
             }
-            fail(event, "Kafka send interrupted");
+            fail(event, OutboxPublishFailure.transientFailure("Kafka send interrupted"));
             Thread.currentThread().interrupt();
         } catch (Exception exception) {
-            fail(event, failureMessage(exception));
+            fail(event, OutboxPublishFailure.from(exception));
         }
     }
 
@@ -111,32 +114,64 @@ public class OutboxPublisher {
         }
     }
 
-    private void fail(OutboxPublicationStore.ClaimedEvent event, String message) {
-        String boundedMessage = boundedError(message);
+    private void fail(
+            OutboxPublicationStore.ClaimedEvent event,
+            OutboxPublishFailure failure
+    ) {
+        java.time.Instant nextAttemptAt = null;
+        java.time.Instant quarantinedAt = null;
+        if (retryProperties.writeStateEnabled()) {
+            java.time.Instant failedAt = event.failureTime();
+            if (failure.permanent() && event.publishAttempts() >= retryProperties.maxAttempts()) {
+                quarantinedAt = failedAt;
+            } else {
+                long retryDelay = retryProperties.delayForFailure(event.publishAttempts());
+                nextAttemptAt = failedAt.plusMillis(retryDelay);
+            }
+        }
         try {
-            if (!publicationStore.fail(event, boundedMessage)) {
+            if (!publicationStore.fail(
+                    event,
+                    failure.diagnostic(),
+                    nextAttemptAt,
+                    quarantinedAt
+            )) {
                 log.warn("Identity outbox claim expired before failure persistence for event {}", event.id());
                 return;
             }
-            log.warn("Failed to publish identity outbox event {}: {}", event.id(), boundedMessage);
+            logFailure(event, failure, nextAttemptAt, quarantinedAt);
         } catch (RuntimeException exception) {
             log.error("Could not persist identity outbox failure for event {}", event.id(), exception);
         }
     }
 
-    private static String failureMessage(Exception exception) {
-        Throwable cause = exception instanceof ExecutionException && exception.getCause() != null
-                ? exception.getCause()
-                : exception;
-        String message = cause.getMessage();
-        return message == null || message.isBlank()
-                ? cause.getClass().getSimpleName()
-                : message;
-    }
-
-    private static String boundedError(String message) {
-        String normalized = message == null || message.isBlank() ? "unknown" : message;
-        return normalized.substring(0, Math.min(normalized.length(), MAX_ERROR_LENGTH));
+    private void logFailure(
+            OutboxPublicationStore.ClaimedEvent event,
+            OutboxPublishFailure failure,
+            java.time.Instant nextAttemptAt,
+            java.time.Instant quarantinedAt
+    ) {
+        if (!retryProperties.writeStateEnabled()) {
+            log.warn(
+                    "Failed to publish identity outbox event {} while retry-state writes are disabled: {}",
+                    event.id(),
+                    failure.diagnostic()
+            );
+        } else if (quarantinedAt != null) {
+            log.error(
+                    "Quarantined identity outbox event {} after {} attempts: {}",
+                    event.id(),
+                    event.publishAttempts(),
+                    failure.diagnostic()
+            );
+        } else {
+            log.warn(
+                    "Failed to publish identity outbox event {} (retry at {}): {}",
+                    event.id(),
+                    nextAttemptAt,
+                    failure.diagnostic()
+            );
+        }
     }
 
     private static void validateDurations(long sendTimeoutMillis, long claimLeaseMillis) {

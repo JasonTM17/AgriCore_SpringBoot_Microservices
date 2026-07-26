@@ -52,6 +52,12 @@ public class OutboxEventEntity {
     @Column(name = "claim_until")
     private Instant claimUntil;
 
+    @Column(name = "next_attempt_at")
+    private Instant nextAttemptAt;
+
+    @Column(name = "quarantined_at")
+    private Instant quarantinedAt;
+
     public static OutboxEventEntity create(
             String aggregateType,
             String aggregateId,
@@ -83,4 +89,6 @@ public class OutboxEventEntity {
     public String getLastError() { return lastError; }
     public UUID getClaimToken() { return claimToken; }
     public Instant getClaimUntil() { return claimUntil; }
+    public Instant getNextAttemptAt() { return nextAttemptAt; }
+    public Instant getQuarantinedAt() { return quarantinedAt; }
 }

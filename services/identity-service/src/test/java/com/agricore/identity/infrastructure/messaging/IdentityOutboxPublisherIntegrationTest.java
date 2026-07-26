@@ -114,7 +114,8 @@ class IdentityOutboxPublisherIntegrationTest {
                 new OutboxPublicationStore(outboxRepository, transactionManager),
                 kafkaTemplate,
                 timeoutMillis,
-                claimLeaseMillis
+                claimLeaseMillis,
+                new OutboxRetryProperties(100, 100, 10, false)
         );
     }
 

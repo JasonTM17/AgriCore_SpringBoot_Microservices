@@ -81,12 +81,39 @@ class IdentityOutboxPublisherConcurrencyIntegrationTest {
         }
     }
 
+    @Test
+    void expiredLeaseCannotLetTheOldClaimCompleteOverTheNewClaim() throws Exception {
+        outboxRepository.deleteAll();
+        OutboxEventEntity event = OutboxEventEntity.create(
+                "User",
+                UUID.randomUUID().toString(),
+                "UserRegistered.v1",
+                "agricore.identity.events",
+                "{\"eventType\":\"UserRegistered.v1\"}"
+        );
+        outboxRepository.saveAndFlush(event);
+        OutboxPublicationStore store = new OutboxPublicationStore(outboxRepository, transactionManager);
+
+        OutboxPublicationStore.ClaimedEvent oldClaim =
+                store.claim(event.getId(), UUID.randomUUID(), 50);
+        Thread.sleep(100);
+        OutboxPublicationStore.ClaimedEvent newClaim =
+                store.claim(event.getId(), UUID.randomUUID(), 30_000);
+
+        assertThat(oldClaim).isNotNull();
+        assertThat(newClaim).isNotNull();
+        assertThat(store.complete(oldClaim)).isFalse();
+        assertThat(store.complete(newClaim)).isTrue();
+        assertThat(outboxRepository.findById(event.getId()).orElseThrow().getPublishedAt()).isNotNull();
+    }
+
     private OutboxPublisher publisher(KafkaTemplate<String, String> kafkaTemplate) {
         return new OutboxPublisher(
                 new OutboxPublicationStore(outboxRepository, transactionManager),
                 kafkaTemplate,
                 5_000,
-                30_000
+                30_000,
+                new OutboxRetryProperties(100, 100, 10, false)
         );
     }
 }
