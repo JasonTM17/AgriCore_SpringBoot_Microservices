@@ -1,10 +1,7 @@
 name: trivy
 
 on:
-  push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
+  workflow_dispatch:
   schedule:
     - cron: "0 6 * * 1"
 
