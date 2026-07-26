@@ -12,6 +12,8 @@ import com.agricore.work.domain.model.TaskStatus;
 import com.agricore.work.domain.model.TaskType;
 import com.agricore.work.infrastructure.persistence.WorkTaskJpaRepository;
 import com.agricore.work.infrastructure.persistence.entity.WorkTaskEntity;
+import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -50,9 +52,6 @@ public class WorkApplicationService {
     public WorkTaskResponse create(CreateWorkTaskRequest request) {
         accessGuard.requirePlot(request.plotId());
         String code = request.code().trim().toUpperCase();
-        if (taskRepository.existsByCodeIgnoreCase(code)) {
-            throw new WorkException("TASK_CODE_EXISTS", "Task code already exists", 409);
-        }
         TaskType type;
         try {
             type = TaskType.valueOf(request.taskType().trim().toUpperCase());
@@ -75,7 +74,14 @@ public class WorkApplicationService {
         task.setStatus(TaskStatus.CREATED);
         task.setCreatedAt(now);
         task.setUpdatedAt(now);
-        taskRepository.save(task);
+        try {
+            taskRepository.saveAndFlush(task);
+        } catch (DataIntegrityViolationException exception) {
+            if (isTaskCodeConflict(exception)) {
+                throw new WorkException("TASK_CODE_EXISTS", "Task code already exists", 409);
+            }
+            throw exception;
+        }
         eventWriter.workTask(EventTypes.WORK_TASK_CREATED, task);
         return responseAssembler.toResponse(task);
     }
@@ -131,6 +137,22 @@ public class WorkApplicationService {
                 .orElseThrow(() -> new WorkException("TASK_NOT_FOUND", "Work task not found", 404));
         accessGuard.requirePlot(task.getPlotId());
         return task;
+    }
+
+    private static boolean isTaskCodeConflict(Throwable exception) {
+        Throwable cause = exception;
+        while (cause != null) {
+            if (cause instanceof ConstraintViolationException constraint
+                    && "uk_work_tasks_code".equalsIgnoreCase(constraint.getConstraintName())) {
+                return true;
+            }
+            String message = cause.getMessage();
+            if (message != null && message.toLowerCase().contains("uk_work_tasks_code")) {
+                return true;
+            }
+            cause = cause.getCause();
+        }
+        return false;
     }
 
 }
