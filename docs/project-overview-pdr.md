@@ -36,15 +36,17 @@ inside an independently owned service and database.
 3. Manage enterprise/farm/area/plot/soil/irrigation and agronomic catalog data.
 4. Track crop cycles, observations, stage history, work assignments, execution,
    materials, and private image evidence.
-5. Complete harvest batches and project events idempotently into inventory and
-   traceability.
+5. Complete farm-scoped harvest batches and project authoritative farm events
+   idempotently into Inventory and Traceability.
 6. Keep stock movements and expiry-aware lots; prevent negative and duplicate
    mutations under concurrency.
-7. Ingest authenticated MQTT telemetry, deduplicate readings, evaluate versioned
-   thresholds, suppress alert storms, and detect offline devices.
-8. Orchestrate sales inventory reservations without a distributed transaction.
-9. Persist notification delivery outcomes instead of reporting attempted sends as
-   successful.
+7. Ingest authenticated MQTT telemetry, enforce per-device admission quotas,
+   deduplicate readings, evaluate versioned thresholds, suppress alert storms,
+   and detect offline devices.
+8. Orchestrate farm-scoped Sales inventory reservations without a distributed
+   transaction.
+9. Persist email and in-app notification delivery outcomes instead of reporting
+   attempted sends as successful; provide an authorized administrative inbox.
 10. Publish a public-safe QR read model without cross-service database queries.
 11. Provide an authenticated, persisted, read-only assistant with replayable SSE,
     bounded tools, budgets, and safe provider-unavailable behavior.
@@ -84,7 +86,8 @@ inside an independently owned service and database.
 - Docs, diagrams, generated clients, and environment examples match the released
   revision.
 - Docker Hub and GitHub Packages publish immutable SHA images only after default
-  branch CI succeeds; signatures, SBOM, and provenance are verifiable.
+  branch CI succeeds. Only full and short SHA tags are promoted; signatures,
+  SBOM, and provenance are verifiable.
 - Production operators explicitly supply secrets, TLS, database backups, Kafka
   authorization, storage, SMTP, and observability retention.
 

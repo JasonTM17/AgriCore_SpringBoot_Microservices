@@ -28,13 +28,13 @@ Jaeger is not part of the delivered stack. Production object storage and log ret
 | Identity | 8081 | `agricore_identity` | Auth, users, roles, tokens, JWKS |
 | Farm | 8082 | `agricore_farm` | Farms, memberships, areas, plots |
 | Crop catalog | 8083 | `agricore_crop_catalog` | Crops, varieties, care specifications |
-| Crop cycle | 8084 | `agricore_crop_cycle` | Seasons, stages, lifecycle |
+| Crop cycle | 8084 | `agricore_crop_cycle` | Seasons, stages, lifecycle, overlap exclusion |
 | Work | 8085 | `agricore_work` | Field tasks and assignments |
 | Inventory | 8086 | `agricore_inventory` | Stock, expiry-aware batches, paged movements, reservations |
-| Harvest | 8087 | `agricore_harvest` | Harvest batches, lifecycle invariants, completion outbox, repair |
-| Notification | 8089 | `agricore_notification` | Requested/sent/failed notification delivery lifecycle |
+| Harvest | 8087 | `agricore_harvest` | Farm-scoped harvest batches, lifecycle invariants, completion outbox, repair |
+| Notification | 8089 | `agricore_notification` | Email/in-app requested/sent/failed lifecycle and administrative inbox |
 | IoT | 8090 | `agricore_iot` | Devices, readings, threshold alerts |
-| Sales | 8091 | `agricore_sales` | Orders and inventory saga orchestration |
+| Sales | 8091 | `agricore_sales` | Farm-scoped orders and inventory saga orchestration |
 | Traceability | 8092 | `agricore_traceability` | QR and public timeline read model with authoritative harvest facts |
 | Assistant | 8093 | `agricore_assistant` | Persisted assistant generations and bounded farm context |
 | React console | 3000 host | — | Same-origin browser experience and Nginx edge |
@@ -55,11 +55,18 @@ Farm membership boundaries, farms/plots, and seeded crop catalog.
 
 ### M3 — Crop cycle and work
 
-Lifecycle transitions, task workflows, and outbox-backed event publication.
+Lifecycle transitions, task workflows, outbox-backed event publication, and a
+PostgreSQL exclusion constraint that prevents concurrent overlapping
+`DRAFT`/`ACTIVE` cycles for one plot.
 
 ### M4 — Harvest and inventory
 
-Harvest completion, positive weight/status constraints, stock-in projection, optimistic concurrency, expiry-aware batch allocation, paged ledger queries, idempotent consumption, and outbox repair controls.
+Farm-scoped Harvest completion/events, positive weight/status constraints,
+farm-scoped Inventory reservations, stock-in projection, optimistic
+concurrency, expiry-aware batch allocation, paged ledger queries, idempotent
+consumption, and outbox repair controls. Additive scope migrations retain
+nullable legacy rows; runtime paths fail closed or re-authorize through
+authoritative stored relationships.
 
 ### M5 — Traceability
 
@@ -67,7 +74,17 @@ Idempotent public QR read model without internal identifiers or personal data; p
 
 ### M6 — IoT, sales, and notification (delivered)
 
-HTTP and QoS 1 MQTT sensor ingestion with stable reading-ID deduplication and alert cooldown, inventory-backed sales saga with price snapshots, order-item persistence, durable reservation reconciliation, bounded recovery leases/backoff, fulfillment milestones, transactional order lifecycle events, and idempotent Notification consumption of Sales, Traceability, and IoT events. Notification email uses bounded SMTP delivery, while in-app notifications persist locally; both produce truthful lifecycle events.
+HTTP and QoS 1 MQTT sensor ingestion with stable reading-ID deduplication,
+per-device token-bucket/in-flight admission, and alert cooldown; farm-scoped,
+Inventory-backed Sales saga with price snapshots, order-item persistence,
+durable reservation reconciliation, bounded recovery leases/backoff, fulfillment
+milestones, and transactional order lifecycle events; and idempotent
+Notification consumption of Sales, Traceability, and IoT events. Notification
+email uses bounded SMTP delivery, while in-app notifications persist locally
+and are available through authorized administrative list/mark-read endpoints.
+Contract-invalid Notification records bypass retries and reach the DLT without
+side effects. Current lifecycle outbox events use the v2 schemas retained
+alongside immutable historical v1 schemas.
 
 ### M7 — Gateway and observability
 
@@ -83,13 +100,21 @@ HTTP and QoS 1 MQTT sensor ingestion with stable reading-ID deduplication and al
 
 ### M8 — Production hardening
 
-Application Helm chart, security review, runbooks, bounded cross-service seed
-profiles, gateway happy path, Gitleaks, CodeQL, filesystem/built-image Trivy,
-Compose runtime-contract validation, and digest-gated dual-registry publishing.
+Application Helm chart with read-only application filesystems, bounded `/tmp`,
+portable gateway Service alias, configurable external egress, and Farm/Crop-cycle/
+Inventory dependency wiring; security review; runbooks; bounded cross-service
+seed profiles; gateway happy path; Gitleaks; CodeQL; filesystem/built-image
+Trivy; Compose runtime-contract validation; and digest-gated dual-registry
+publishing that promotes only full/short SHA tags.
 
 ### M9 — Console and assistant
 
 - React/Vite console with same-origin Nginx edge, generated API clients, browser tests, authenticated assistant chat, citations, refusal, and limited outcomes.
+- Session-epoch protection serializes logout/replacement login and rejects stale
+  refresh results; mobile navigation mounts only while open.
+- Dashboard and public traceability use repository-owned 240/480/960 pixel WebP
+  variants, route-specific responsive selection, lazy/eager priorities, fixed
+  geometry, and accessible broken-image fallbacks.
 - Assistant PostgreSQL persistence, replayable SSE, idempotency, redacted read-only tool evidence, provider-absence behavior, output screening, and Redis request/token budgets.
 - Compose and Helm integration, assistant database provisioning, container hardening, and release gates.
 
@@ -101,7 +126,11 @@ Compose runtime-contract validation, and digest-gated dual-registry publishing.
 - Re-check production operator inputs (JWT keys, database/Kafka/SMTP credentials, TLS, ACLs, observability backends) before deployment.
 
 Local Compose, JVM, frontend, browser, event-resilience, media, seed, and trace
-checks are recorded in [release verification 2026-07-26](evidence/release-verification-2026-07-26.md).
+checks for revision `5867b37` are recorded in
+[release verification 2026-07-26](evidence/release-verification-2026-07-26.md).
+That historical bundle does not cover the later remediation commits or merged
+dependency upgrades; Phase 11 must refresh the complete gate at the final clean
+revision.
 
 ## Release acceptance criteria
 
@@ -116,5 +145,6 @@ checks are recorded in [release verification 2026-07-26](evidence/release-verifi
   checksummed media through the Work attachment API.
 - Every implemented event producer has a transactional outbox path, versioned schema, AsyncAPI message, and focused contract test.
 - Kafka consumers validate the exact event type/version and route invalid envelopes through the documented DLT policy.
-- Docker images publish only from an eligible verified default-branch revision.
+- Docker images publish only full/short SHA tags from an eligible verified
+  default-branch revision; `latest` is never promoted.
 - Production operators supply secrets, infrastructure dependencies, ingress/TLS policy, Kafka authorization, and observability backends before deployment.

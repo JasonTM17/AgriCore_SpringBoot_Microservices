@@ -45,9 +45,19 @@ simulator, seed, verification, log, and cleanup commands.
 
 1. Provision external dependencies and databases.
 2. Create namespace-scoped Secrets outside Git.
-3. Copy `values.yaml` to an environment-owned file and set image full-SHA tags or
-   digests, endpoints, resources, ingress/TLS, and observability.
-4. Validate before applying:
+3. Copy `values.yaml` to an environment-owned file and set
+   `global.imageTag` to the full-SHA tag, then configure endpoints, resources,
+   ingress/TLS, and observability. The current chart renders `image:tag`;
+   deploy-by-digest requires an operator-owned manifest overlay.
+   The chart makes every application root filesystem read-only and supplies a
+   bounded writable `/tmp` `emptyDir`. Keep the `api-gateway` Service alias
+   because the Console image uses that portable upstream name.
+4. Decide egress policy. The default allows egress to operator-managed
+   dependencies. To restrict it, set `networkPolicy.restrictEgress=true` and
+   provide PostgreSQL, Redis, Kafka, SMTP, MQTT, object-storage, JWKS, and OTLP
+   rules through `networkPolicy.additionalEgress`; DNS and same-namespace
+   AgriCore traffic are included by the chart.
+5. Validate before applying:
 
    ```bash
    helm lint infrastructure/helm/agricore -f values-production.yaml
@@ -55,9 +65,9 @@ simulator, seed, verification, log, and cleanup commands.
      -f values-production.yaml > rendered.yaml
    ```
 
-5. Review rendered Secrets, service accounts, security contexts, NetworkPolicies,
+6. Review rendered Secrets, service accounts, security contexts, NetworkPolicies,
    Jobs, probes, PDBs, HPAs, and Ingress hosts.
-6. Deploy with an atomic timeout appropriate to migration duration:
+7. Deploy with an atomic timeout appropriate to migration duration:
 
    ```bash
    helm upgrade --install agricore infrastructure/helm/agricore \
@@ -65,7 +75,7 @@ simulator, seed, verification, log, and cleanup commands.
      -f values-production.yaml --atomic --timeout 15m
    ```
 
-7. Verify rollout, migrations, health, metrics, gateway JWT, public traceability,
+8. Verify rollout, migrations, health, metrics, gateway JWT, public traceability,
    Kafka lag/DLT, and object-storage access.
 
 ## Database change and rollback
@@ -78,15 +88,26 @@ simulator, seed, verification, log, and cleanup commands.
   undo schema or published events.
 - For a failed release, stop writers if data interpretation changed, restore the
   compatible application image, and follow the migration-specific runbook.
+- Harvest and Sales farm-scope migrations are additive: new rows persist
+  `farm_id`, while pre-scope rows remain nullable for upgrade compatibility.
+  Harvest can re-authorize a legacy row from its stored plot; mismatched stored
+  scope is masked as not found. Sales and Inventory fail closed when legacy
+  order/customer, warehouse, or processed-event scope is unavailable. Backfill
+  those rows from authoritative farm/plot/warehouse records before relying on
+  them after upgrade.
+- Crop-cycle PostgreSQL migration V5 installs `btree_gist` and an exclusion
+  constraint over inclusive planned date ranges for `DRAFT` and `ACTIVE` rows.
+  Resolve any pre-existing overlapping active rows before migration; otherwise
+  PostgreSQL will reject the constraint installation.
 
 ## Image verification
 
 After eligible default-branch CI, the release workflow builds each image once
 and pushes a candidate to Docker Hub and GitHub Packages. It scans the exact
-candidate digest, verifies registry parity, promotes that digest to `latest`,
-short SHA, and full SHA tags, re-verifies every promoted reference, and signs
-the immutable digest in both registries. Production should deploy a full SHA
-tag or digest.
+candidate digest, verifies registry parity, signs the digest in both registries,
+promotes only short-SHA and full-SHA tags, and re-verifies every promoted
+reference. It does not publish `latest`. Production should deploy a full SHA tag
+or digest.
 
 ```bash
 docker buildx imagetools inspect IMAGE@sha256:DIGEST
@@ -101,4 +122,4 @@ versions, and verification evidence with the release record.
 Docker Hub publishing requires `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` as
 repository secrets. GitHub Packages uses the workflow token's package write
 permission. If either registry, scan, parity check, promotion, or signing step
-fails, do not treat the other registry or a mutable tag as a complete release.
+fails, do not treat the other registry or a candidate tag as a complete release.

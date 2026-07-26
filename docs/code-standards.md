@@ -56,7 +56,11 @@ boundary exists; configuration, migrations, scripts, and prose are exceptions.
 - Forms use persistent labels, field errors, keyboard focus, and disabled/pending
   states. Do not rely on placeholder text as a label.
 - Lazy-load route modules and non-critical images. Give media fixed aspect ratios,
-  meaningful alt text, and a broken-image fallback.
+  meaningful alt text, a broken-image fallback, and width-based `srcset`/`sizes`
+  variants.
+- Serialize login behind an active logout and invalidate stale refresh results
+  with a session generation/epoch. A late authentication response must never
+  restore a cleared or replaced session.
 - Backend authorization remains authoritative; hiding a control is only a user
   experience aid.
 

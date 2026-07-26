@@ -130,7 +130,11 @@ Top bar contains breadcrumb, environment badge, global search affordance only wh
 
 ## API-Dependent Future Views
 
-Do not implement authoritative list/history views for harvest, inventory items, reservations, customers, orders, IoT devices/readings/alerts, notifications, or projection delivery until matching endpoints exist. Document them as future blueprints rather than presenting populated Stitch screens as current capabilities.
+Do not implement authoritative list/history views for harvest, inventory items,
+reservations, customers, orders, IoT devices/readings/alerts, or projection
+delivery until matching endpoints exist. The Notification service now has a
+persisted, paged administrative in-app inbox plus a mark-read operation; it is
+not a general user-scoped notification center.
 
 ## References
 

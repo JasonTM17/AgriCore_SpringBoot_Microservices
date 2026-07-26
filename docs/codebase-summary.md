@@ -1,6 +1,6 @@
 # AgriCore codebase summary
 
-**Last verified:** 2026-07-23
+**Last verified:** 2026-07-26
 
 ## Build roots
 
@@ -20,14 +20,14 @@
 | `identity-service` | Users, roles, permissions, tokens | PostgreSQL, Redis |
 | `farm-service` | Enterprise, farms, areas, plots, memberships | PostgreSQL, Kafka outbox |
 | `crop-catalog-service` | Crops, varieties, care knowledge | PostgreSQL |
-| `crop-cycle-service` | Cycles, stages, observations, history | PostgreSQL, Farm REST, Kafka outbox |
+| `crop-cycle-service` | Cycles, stages, observations, history, overlap exclusion | PostgreSQL, Farm REST, Kafka outbox |
 | `work-service` | Tasks, assignments, executions, materials, images | PostgreSQL, Farm/Inventory REST, MinIO, Kafka outbox |
 | `inventory-service` | Warehouses, lots, movements, reservations | PostgreSQL, Farm REST, Kafka |
-| `harvest-service` | Harvest batches and completion repair | PostgreSQL, Farm REST, Kafka outbox |
+| `harvest-service` | Farm-scoped harvest batches and completion repair | PostgreSQL, Farm/Crop-cycle REST, Kafka outbox |
 | `traceability-service` | Public QR read model | PostgreSQL, Kafka |
 | `iot-service` | Devices, telemetry, rules, alerts, offline detection | PostgreSQL time-series capability, MQTT, Kafka outbox |
-| `sales-service` | Customers, orders, inventory saga | PostgreSQL, Inventory REST, Kafka outbox |
-| `notification-service` | Delivery truth and event dedupe | PostgreSQL, SMTP, Kafka |
+| `sales-service` | Farm-scoped customers, orders, inventory saga | PostgreSQL, Farm/Inventory REST, Kafka outbox |
+| `notification-service` | Email and persisted in-app delivery truth, inbox administration, event dedupe | PostgreSQL, SMTP, Kafka |
 | `assistant-service` | Conversations, generations, replay, tools | PostgreSQL, Redis, allowlisted Farm REST |
 | `apps/agricore-console` | Same-origin React operations console | Gateway APIs and fetch-SSE |
 
@@ -56,6 +56,13 @@ Shared modules do not contain service JPA entities.
 - Transactional outbox for implemented producers.
 - At-least-once Kafka consumers with persistent idempotency and retry/DLT.
 - Sales-owned orchestration saga with Inventory as reservation authority.
+- Harvest events, Inventory reservation calls, and Sales saga recovery carry
+  authoritative farm scope; additive migrations leave legacy nulls fail-closed
+  until they are mapped.
+- PostgreSQL exclusion prevents concurrent overlapping active crop cycles per
+  plot.
+- MQTT ingress uses per-device token buckets/in-flight quotas before the bounded
+  processing queue.
 - Local public traceability projection; no scan-time cross-service SQL.
 - OpenTelemetry/Micrometer traces, Prometheus metrics, ECS logs, Tempo, Loki,
   Alloy, and Grafana in the local observability stack.
@@ -70,6 +77,11 @@ Shared modules do not contain service JPA entities.
 | `pnpm --filter @agricore/console e2e` | Playwright journeys |
 | `docker compose config --quiet` | Compose interpolation and structure |
 | `scripts/verify-platform.*` | Stack build, health, JWT, and business evidence |
+
+The 2026-07-26 evidence bundle predates the final farm-scope, crop-overlap,
+notification inbox, MQTT admission, Console auth/media, Helm, and dependency
+remediations. Focused tests exist for those changes, but the complete
+clean-revision gate is a pending release step.
 
 Architecture decisions live in [ADRs](adr/README.md); operational detail lives
 in [runbooks](runbooks/).

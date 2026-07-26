@@ -10,16 +10,20 @@ complete only after code, contract, migration, tests, operations, and docs agree
 | Area | Evidence state |
 |---|---|
 | Identity, JWT, roles, refresh security | Implemented; canonical permission guards and administration covered by tests |
-| Farm, catalog, crop-cycle, work | Core vertical slices implemented with farm boundary and optimistic/history evidence |
+| Farm, catalog, crop-cycle, work | Core vertical slices implemented with farm boundary, optimistic/history evidence, and PostgreSQL crop-cycle overlap exclusion |
 | Work image evidence | Private MinIO-compatible storage and validated attachments implemented |
-| Harvest, inventory, traceability | Broker-backed projections, duplicate protection, expiry-aware lot allocation, and DLT recovery implemented |
-| MQTT and IoT alerts | Authenticated ingestion, idempotency, cooldown, offline flow, and TimescaleDB migration implemented |
-| Sales saga | Reservation/compensation, bounded timeout, durable retry recovery, fulfillment milestones, and contract fields implemented |
-| Notification | Requested/sent/failed truth, SMTP adapter, idempotent event consumption implemented |
+| Harvest, inventory, traceability | Authoritative farm-scoped events/contracts, broker-backed projections, duplicate protection, expiry-aware lot allocation, and DLT recovery implemented |
+| MQTT and IoT alerts | Authenticated ingestion, per-device admission quotas, idempotency, cooldown, offline flow, and TimescaleDB migration implemented |
+| Sales saga | Farm-scoped reservation/compensation, bounded timeout, durable retry recovery, fulfillment milestones, and contract fields implemented |
+| Notification | Requested/sent/failed truth, SMTP and persisted in-app adapters, administrative inbox endpoints, invalid-payload DLT handling, and idempotent event consumption implemented |
 | Assistant | Persisted read-only boundary, budgets, SSE replay, safe provider-none behavior implemented |
-| Console | Core workflows, assistant, Inventory, Sales, IoT, identity administration, and permission-aware navigation implemented |
-| Platform | Compose, Helm, observability, security workflows, signed dual-registry publishing implemented; final clean-revision verification pending |
+| Console | Core workflows, assistant, Inventory, Sales, IoT, identity administration, permission-aware navigation, serialized auth/logout transitions, and responsive media variants implemented |
+| Platform | Compose and Helm tenant dependencies, read-only application filesystems, gateway Service alias, configurable egress policy, observability, security workflows, and signed SHA-only dual-registry publishing implemented; final clean-revision and remote execution pending |
 | Docs/demo | Repository media/GIF, regional seed, bounded cross-domain dataset, diagrams, ADRs, and release docs synchronized |
+
+Current checkpoint: implementation/remediation complete. Final pre-landing
+review, clean-revision gates, GitHub CI, merge, registry publication, and
+post-publication digest verification remain open.
 
 ## Post-1.0 candidates
 

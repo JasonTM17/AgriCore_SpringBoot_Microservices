@@ -26,7 +26,7 @@ operational path and a public-safe traceability view.
 
 ## Status
 
-Pre-release implementation: the repository contains 13 Spring applications, the React console, local Compose stacks, a Helm application chart, automated quality and security gates, and gated Docker Hub plus GitHub Packages publishing. The implemented event mesh currently covers 29 versioned Kafka events with transactional outboxes, idempotent consumers, bounded DLT recovery, and contract checks; this status does not claim a production installation.
+Pre-release implementation: the repository contains 13 Spring applications, the React console, local Compose stacks, a Helm application chart, automated quality and security gates, and gated Docker Hub plus GitHub Packages publishing. Implementation and remediation are complete at the current checkpoint; final clean-revision gates, pull-request review/merge, and registry publication remain pending. The implemented event mesh currently covers 29 versioned Kafka events with transactional outboxes, idempotent consumers, bounded DLT recovery, and contract checks; this status does not claim a production installation.
 
 ## Microservices
 
@@ -47,9 +47,10 @@ Pre-release implementation: the repository contains 13 Spring applications, the 
 | Assistant service | 8093, internal | `nguyenson1710/agricore-assistant` |
 | React console | 3000 on host | `nguyenson1710/agricore-console` |
 
-Eligible default-branch releases publish `latest`, the seven-character commit
-SHA, and the full commit SHA to Docker Hub and GitHub Packages. Candidate
-digests are scanned before those release tags are promoted.
+Eligible default-branch releases publish only the seven-character and full
+commit SHA tags to Docker Hub and GitHub Packages. Candidate digests are built
+once, scanned, parity-checked, and signed before those immutable tags are
+promoted. The workflow does not publish `latest`.
 
 ## Architecture
 
@@ -66,10 +67,15 @@ Sales ── bounded reserve/confirm ── durable recovery ── Notification
 - Database per service with PostgreSQL and Flyway.
 - Kafka event mesh: Harvest feeds Inventory and Traceability; Sales, Traceability, and IoT feed Notification; every event producer uses a transactional outbox.
 - Transactional outbox publishers across farm, crop-cycle, work, harvest, inventory, IoT, traceability, sales, and notification.
-- Idempotent `HarvestCompleted.v1` consumers in inventory and traceability, plus notification consumers for sales, traceability, and IoT events.
+- Farm-scoped `HarvestCompleted.v1` consumers in Inventory and Traceability,
+  plus Notification consumers for Sales, Traceability, and IoT events. Invalid
+  notification envelopes/payloads bypass retry topics and go to the DLT without
+  creating a delivery or processed marker.
 - Versioned JSON Schema and AsyncAPI contracts for 29 implemented domain events.
 - RS256 JWTs, JWKS validation, canonical permission guards, permission-aware console navigation, and farm membership authorization.
 - Persisted assistant with authenticated replayable SSE, read-only farm tools, and Redis-backed budgets.
+- PostgreSQL excludes overlapping `DRAFT`/`ACTIVE` crop-cycle date ranges for
+  one plot, closing the concurrent-insert race left by application checks alone.
 
 See [System Architecture](docs/architecture/SYSTEM_ARCHITECTURE.md), [ADRs](docs/adr/), and [local operations](docs/runbooks/local-operations.md).
 
@@ -170,7 +176,7 @@ hourly cleanup job exposes purged-record and failure counters. Review
 `ASSISTANT_*_RETENTION` and cleanup settings against the deployment's legal and
 operational requirements before production use.
 
-Local email delivery uses Mailpit. Notification state is persisted as `REQUESTED` before bounded delivery attempts and ends as `SENT` or `FAILED`; captured development email is visible in the Mailpit UI.
+Local email delivery uses Mailpit. Notification state is persisted as `REQUESTED` before bounded delivery attempts and ends as `SENT` or `FAILED`; captured development email is visible in the Mailpit UI. Event-driven `IN_APP` deliveries are persisted in the administrative inbox. A `SYSTEM_ADMIN` with `NOTIFICATION_ADMIN` can page `GET /api/v1/notifications/in-app` and mark an entry read with `PATCH /api/v1/notifications/in-app/{notificationId}/read`.
 
 For deterministic demo data, set a local-only `AGRICORE_SEED_PASSWORD`, preview
 with `.\scripts\seed-data.ps1 -Profile Large -DryRun`, then remove `-DryRun`.
@@ -182,7 +188,7 @@ assistant conversation. It checks free space throughout, throttles writes, and
 can be run repeatedly without duplicating authoritative records. See the
 [local operations runbook](docs/runbooks/local-operations.md#deterministic-development-dataset).
 
-IoT devices publish authenticated QoS 1 JSON to `agricore/telemetry/{deviceCode}/reading`. Every MQTT payload requires a stable `readingId`, and `iot-service` deduplicates redelivery by that ID while rejecting ID reuse with different telemetry. Local Mosquitto bootstraps non-anonymous service/device users from environment variables and restricts each device user to its own topic. Run a deterministic simulator with `./scripts/sensor-simulator.ps1 -DeviceCount 3 -Iterations 10 -FrequencySeconds 2 -MinimumValue 30 -MaximumValue 70 -AnomalyProbabilityPercent 20 -Seed 42`; the POSIX equivalent is the `iot-mqtt-simulator` Compose profile. Register the mapped device codes first. Production must provide authenticated TLS plus broker ACLs managed outside this repository.
+IoT devices publish authenticated QoS 1 JSON to `agricore/telemetry/{deviceCode}/reading`. Every MQTT payload requires a stable `readingId`, and `iot-service` deduplicates redelivery by that ID while rejecting ID reuse with different telemetry. Local Mosquitto bootstraps non-anonymous service/device users from environment variables and restricts each device user to its own topic. IoT admission also applies a per-device token bucket and in-flight limit before queued processing, with bounded tracked-device state. Run a deterministic simulator with `./scripts/sensor-simulator.ps1 -DeviceCount 3 -Iterations 10 -FrequencySeconds 2 -MinimumValue 30 -MaximumValue 70 -AnomalyProbabilityPercent 20 -Seed 42`; the POSIX equivalent is the `iot-mqtt-simulator` Compose profile. Register the mapped device codes first. Production must provide authenticated TLS plus broker ACLs managed outside this repository.
 
 For an existing PostgreSQL volume, follow the [assistant database provisioning runbook](docs/runbooks/assistant-database-provisioning.md).
 
@@ -287,9 +293,9 @@ New access tokens include `permissions`, the sorted distinct union granted throu
 
 ## Kubernetes deployment
 
-The chart at `infrastructure/helm/agricore` renders Deployments and Services for all 13 Spring applications and the console, plus an optional same-origin Ingress. It also includes an idempotent pre-install/pre-upgrade Job for the assistant database.
+The chart at `infrastructure/helm/agricore` renders Deployments and Services for all 13 Spring applications and the console, plus an optional same-origin Ingress. Spring containers run with read-only root filesystems and bounded writable `/tmp` volumes; an `api-gateway` Service alias keeps the immutable Console image portable between Compose and Kubernetes. It also includes an idempotent pre-install/pre-upgrade Job for the assistant database.
 
-The chart does not install PostgreSQL, Redis, Kafka, MinIO, Tempo, Prometheus, Loki, Alloy, or Grafana. Operators must provide those dependencies and create the database credential Secret named by `postgres.databaseSecretName`. Configure the notification chart's external SMTP host, TLS, and username/password Secret before enabling delivery; SMTP defaults are intentionally placeholders. OTLP trace export is disabled until `observability.otlpTracingEndpoint` is set; the chart's sampling default is `0.1`.
+The chart does not install PostgreSQL, Redis, Kafka, MinIO, Tempo, Prometheus, Loki, Alloy, or Grafana. Operators must provide those dependencies and create the database credential Secret named by `postgres.databaseSecretName`. NetworkPolicy denies unauthorized ingress by default; egress remains open unless `networkPolicy.restrictEgress=true`, in which case operators must supply external dependency rules through `networkPolicy.additionalEgress`. Configure the notification chart's external SMTP host, TLS, and username/password Secret before enabling delivery; SMTP defaults are intentionally placeholders. OTLP trace export is disabled until `observability.otlpTracingEndpoint` is set; the chart's sampling default is `0.1`.
 
 ## CI, security, and publishing
 
@@ -297,7 +303,7 @@ GitHub Actions define these release gates:
 
 - `ci.yml`: Maven `verify`; generated contract drift check; frontend lint, typecheck, unit tests, production build, and Playwright journeys; Gitleaks; filesystem Trivy; Java CodeQL; Compose runtime-contract validation; Helm lint/render; and build-plus-Trivy scans for all 14 application images.
 - `codeql.yml` and `trivy.yml`: scheduled and manual defense-in-depth scans in addition to the aggregate pull-request/default-branch gates.
-- `docker-publish.yml`: builds one candidate per image, pushes it to Docker Hub and GitHub Packages, scans the exact candidate digest, then promotes matching full-SHA, short-SHA, and `latest` tags only for an eligible successful default-branch CI revision.
+- `docker-publish.yml`: builds one candidate per image, pushes it to Docker Hub and GitHub Packages, scans and signs the exact candidate digest, then promotes matching full-SHA and short-SHA tags only for an eligible successful default-branch CI revision. It never promotes `latest`.
 
 Docker Hub credentials must be repository secrets named `DOCKERHUB_USERNAME`
 and `DOCKERHUB_TOKEN`; GHCR uses the workflow token with package write
