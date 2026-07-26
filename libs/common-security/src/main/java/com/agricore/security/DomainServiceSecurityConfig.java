@@ -66,6 +66,9 @@ public class DomainServiceSecurityConfig {
                                 "/actuator/prometheus",
                                 "/public/**"
                         ).permitAll()
+                        // Inventory validates this narrow service-to-service boundary
+                        // with a constant-time shared-token filter and controller check.
+                        .requestMatchers("/internal/api/v1/inventory/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .anyRequest().authenticated()
                 )

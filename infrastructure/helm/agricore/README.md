@@ -1,5 +1,21 @@
 # AgriCore Helm chart
 
+## Required internal Inventory credential
+
+Create the Secret named by `inventory.internalCredentialSecretName` before
+installing the chart. Its `inventory.internalCredentialTokenKey` entry must
+contain a cryptographically random token of at least 32 characters. The chart
+mounts the same value into Inventory, Work, and Sales so background operations
+can authenticate without storing an end-user JWT.
+
+```bash
+kubectl create secret generic agricore-inventory-internal \
+  --from-literal=token='<random-token-from-your-secret-manager>'
+```
+
+Do not commit the token in a values file. Rotate it by updating the Secret and
+rolling the three consuming Deployments.
+
 ## IoT TimescaleDB upgrades
 
 The chart requires an operator-provided `agricore_iot` database with the

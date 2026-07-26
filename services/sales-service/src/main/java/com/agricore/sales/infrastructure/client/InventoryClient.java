@@ -21,24 +21,26 @@ import java.util.function.Consumer;
 
 /**
  * Sync HTTP client to inventory-service for saga reserve/release steps.
- * Forwards the caller's Bearer JWT when present; falls back to X-Dev headers only in dev-mode.
+ * Uses an internal service credential so recovery jobs do not depend on a caller JWT.
  */
 @Component
 public class InventoryClient {
 
+    private static final String INTERNAL_BASE_PATH = "/internal/api/v1/inventory";
+
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
-    private final boolean securityDevMode;
+    private final String internalServiceToken;
 
     public InventoryClient(
             RestClient.Builder builder,
             ObjectMapper objectMapper,
             @Value("${agricore.inventory.base-url}") String baseUrl,
-            @Value("${agricore.security.dev-mode:false}") boolean securityDevMode
+            @Value("${agricore.inventory.internal-service-token:}") String internalServiceToken
     ) {
         this.restClient = builder.baseUrl(baseUrl).build();
         this.objectMapper = objectMapper;
-        this.securityDevMode = securityDevMode;
+        this.internalServiceToken = internalServiceToken == null ? "" : internalServiceToken.trim();
     }
 
     public UUID reserve(UUID inventoryItemId, BigDecimal quantity, String referenceId) {
@@ -50,7 +52,7 @@ public class InventoryClient {
             payload.put("referenceId", referenceId);
 
             String body = restClient.post()
-                    .uri("/api/v1/inventory/reservations")
+                    .uri(INTERNAL_BASE_PATH + "/reservations")
                     .contentType(MediaType.APPLICATION_JSON)
                     .headers(authHeaders())
                     .body(payload)
@@ -70,7 +72,7 @@ public class InventoryClient {
     public ReleaseOutcome release(UUID reservationId) {
         try {
             String body = restClient.post()
-                    .uri("/api/v1/inventory/reservations/{id}/release", reservationId)
+                    .uri(INTERNAL_BASE_PATH + "/reservations/{id}/release", reservationId)
                     .headers(authHeaders())
                     .retrieve()
                     .body(String.class);
@@ -94,7 +96,7 @@ public class InventoryClient {
     public void confirm(UUID reservationId) {
         try {
             restClient.post()
-                    .uri("/api/v1/inventory/reservations/{id}/confirm", reservationId)
+                    .uri(INTERNAL_BASE_PATH + "/reservations/{id}/confirm", reservationId)
                     .headers(authHeaders())
                     .retrieve()
                     .toBodilessEntity();
@@ -112,7 +114,7 @@ public class InventoryClient {
         try {
             String body = restClient.get()
                     .uri(uriBuilder -> uriBuilder
-                            .path("/api/v1/inventory/reservations/by-reference")
+                            .path(INTERNAL_BASE_PATH + "/reservations/by-reference")
                             .queryParam("referenceType", referenceType)
                             .queryParam("referenceId", referenceId)
                             .build())
@@ -169,15 +171,16 @@ public class InventoryClient {
 
     private Consumer<HttpHeaders> authHeaders() {
         return headers -> {
+            if (internalServiceToken.length() < 32) {
+                throw new InventoryReservationException(
+                        503,
+                        "Inventory internal service token is not configured"
+                );
+            }
+            headers.set("X-Internal-Service-Token", internalServiceToken);
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             if (authentication instanceof JwtAuthenticationToken jwtAuth) {
                 headers.setBearerAuth(jwtAuth.getToken().getTokenValue());
-                return;
-            }
-            // Dev/test only — never used when AGRICORE_DEV_MODE=false in production compose
-            if (securityDevMode) {
-                headers.set("X-Dev-User", "sales-service");
-                headers.set("X-Dev-Roles", "SALES_STAFF");
             }
         };
     }

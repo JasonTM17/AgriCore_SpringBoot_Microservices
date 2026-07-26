@@ -40,6 +40,7 @@ agricore:
     dev-mode: ${AGRICORE_DEV_MODE:false}
   inventory:
     base-url: ${INVENTORY_SERVICE_URL:http://localhost:8086}
+    internal-service-token: ${INVENTORY_INTERNAL_SERVICE_TOKEN:}
     connect-timeout: ${INVENTORY_CONNECT_TIMEOUT:PT2S}
     read-timeout: ${INVENTORY_READ_TIMEOUT:PT5S}
   outbox:

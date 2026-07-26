@@ -66,6 +66,8 @@ inventory:
   replicaCount: 1
   image: nguyenson1710/agricore-inventory
   port: 8086
+  internalCredentialSecretName: agricore-inventory-internal
+  internalCredentialTokenKey: token
 
 harvest:
   enabled: true

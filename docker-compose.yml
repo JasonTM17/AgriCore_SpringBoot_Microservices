@@ -44,6 +44,7 @@ x-farm-access-env: &farm-access-env
 x-inventory-access-env: &inventory-access-env
   INVENTORY_SERVICE_URL: http://inventory-service:8086
   INVENTORY_SERVICE_ALLOWED_HOSTS: inventory-service
+  INVENTORY_INTERNAL_SERVICE_TOKEN: ${INVENTORY_INTERNAL_SERVICE_TOKEN:-agricore_inventory_internal_dev_change_me_32_chars}
   # Local Compose has no service-mesh TLS; keep plaintext opt-in explicit.
   INVENTORY_SERVICE_ALLOW_INSECURE_HTTP: "true"
 
@@ -240,7 +241,7 @@ services:
       farm-service:
         condition: service_healthy
     environment:
-      <<: [*db-env, *security-env, *kafka-env, *farm-access-env, *observability-env]
+      <<: [*db-env, *security-env, *kafka-env, *farm-access-env, *inventory-access-env, *observability-env]
       INVENTORY_PORT: 8086
     ports:
       - "8086:8086"
@@ -352,9 +353,8 @@ services:
       inventory-service:
         condition: service_healthy
     environment:
-      <<: [*db-env, *security-env, *observability-env]
+      <<: [*db-env, *security-env, *inventory-access-env, *observability-env]
       SALES_PORT: 8091
-      INVENTORY_SERVICE_URL: http://inventory-service:8086
     ports:
       - "8091:8091"
     healthcheck:

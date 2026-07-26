@@ -16,6 +16,7 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.UUID;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -96,7 +97,7 @@ class InventoryStockOutApiIntegrationTest {
         mockMvc.perform(post("/internal/api/v1/inventory/stock-out")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isForbidden());
 
         mockMvc.perform(post("/internal/api/v1/inventory/stock-out")
                         .header(USER_HEADER, "worker")
@@ -145,6 +146,46 @@ class InventoryStockOutApiIntegrationTest {
                                   "referenceId":"TASK-API-NO-SERVICE-TOKEN"
                                 }
                                 """.formatted(farmId, itemId)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void internalServiceTokenSupportsReservationRecoveryWithoutAUserSession() throws Exception {
+        String itemId = createStockedItem(UUID.randomUUID());
+        String referenceId = "SO-" + UUID.randomUUID();
+        MvcResult reserved = mockMvc.perform(post("/internal/api/v1/inventory/reservations")
+                        .header(INTERNAL_TOKEN_HEADER, INTERNAL_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "inventoryItemId":"%s",
+                                  "quantity":2.500,
+                                  "referenceType":"SalesOrder",
+                                  "referenceId":"%s"
+                                }
+                                """.formatted(itemId, referenceId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACTIVE"))
+                .andReturn();
+        String reservationId = objectMapper.readTree(
+                reserved.getResponse().getContentAsString()
+        ).path("id").asText();
+
+        mockMvc.perform(get("/internal/api/v1/inventory/reservations/by-reference")
+                        .header(INTERNAL_TOKEN_HEADER, INTERNAL_TOKEN)
+                        .param("referenceType", "SalesOrder")
+                        .param("referenceId", referenceId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(reservationId));
+
+        mockMvc.perform(post("/internal/api/v1/inventory/reservations/{id}/confirm", reservationId)
+                        .header(INTERNAL_TOKEN_HEADER, INTERNAL_TOKEN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("FULFILLED"));
+
+        mockMvc.perform(get("/internal/api/v1/inventory/reservations/by-reference")
+                        .param("referenceType", "SalesOrder")
+                        .param("referenceId", referenceId))
                 .andExpect(status().isForbidden());
     }
 

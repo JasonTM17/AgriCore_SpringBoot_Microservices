@@ -20,6 +20,7 @@ import static com.agricore.sales.infrastructure.client.InventoryClient.ReleaseOu
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.springframework.test.web.client.ExpectedCount.once;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
@@ -28,6 +29,9 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 class InventoryClientTest {
 
     private static final String BASE_URL = "https://inventory-service";
+    private static final String INTERNAL_BASE_PATH = "/internal/api/v1/inventory";
+    private static final String INTERNAL_TOKEN =
+            "test-inventory-sales-service-token-012345678901234567890123";
 
     @AfterEach
     void clearSecurityContext() {
@@ -37,8 +41,9 @@ class InventoryClientTest {
     @Test
     void reserveClassifiesOnlyExplicitInsufficientStockCode() {
         TestClient fixture = client();
-        fixture.server().expect(once(), requestTo(BASE_URL + "/api/v1/inventory/reservations"))
+        fixture.server().expect(once(), requestTo(BASE_URL + INTERNAL_BASE_PATH + "/reservations"))
                 .andExpect(method(HttpMethod.POST))
+                .andExpect(header("X-Internal-Service-Token", INTERNAL_TOKEN))
                 .andRespond(withStatus(HttpStatus.CONFLICT)
                         .contentType(MediaType.APPLICATION_JSON)
                         .body("""
@@ -58,7 +63,7 @@ class InventoryClientTest {
     @Test
     void reserveReferenceConflictIsNotMisclassifiedAsInsufficientStock() {
         TestClient fixture = client();
-        fixture.server().expect(once(), requestTo(BASE_URL + "/api/v1/inventory/reservations"))
+        fixture.server().expect(once(), requestTo(BASE_URL + INTERNAL_BASE_PATH + "/reservations"))
                 .andExpect(method(HttpMethod.POST))
                 .andRespond(withStatus(HttpStatus.CONFLICT)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -83,7 +88,7 @@ class InventoryClientTest {
         String orderId = UUID.randomUUID().toString();
         TestClient fixture = client();
         fixture.server().expect(once(), requestTo(
-                        URI.create(BASE_URL + "/api/v1/inventory/reservations/by-reference"
+                        URI.create(BASE_URL + INTERNAL_BASE_PATH + "/reservations/by-reference"
                                 + "?referenceType=SalesOrder&referenceId=" + orderId)))
                 .andExpect(method(HttpMethod.GET))
                 .andRespond(withSuccess("""
@@ -112,7 +117,7 @@ class InventoryClientTest {
         String orderId = UUID.randomUUID().toString();
         TestClient fixture = client();
         fixture.server().expect(once(), requestTo(
-                        URI.create(BASE_URL + "/api/v1/inventory/reservations/by-reference"
+                        URI.create(BASE_URL + INTERNAL_BASE_PATH + "/reservations/by-reference"
                                 + "?referenceType=SalesOrder&referenceId=" + orderId)))
                 .andExpect(method(HttpMethod.GET))
                 .andRespond(withStatus(HttpStatus.NOT_FOUND)
@@ -128,7 +133,7 @@ class InventoryClientTest {
         UUID reservationId = UUID.randomUUID();
         TestClient fixture = client();
         fixture.server().expect(once(), requestTo(
-                        BASE_URL + "/api/v1/inventory/reservations/" + reservationId + "/release"))
+                        BASE_URL + INTERNAL_BASE_PATH + "/reservations/" + reservationId + "/release"))
                 .andExpect(method(HttpMethod.POST))
                 .andRespond(withSuccess("""
                         {"id":"%s","status":"FULFILLED"}
@@ -143,7 +148,7 @@ class InventoryClientTest {
         UUID reservationId = UUID.randomUUID();
         TestClient fixture = client();
         fixture.server().expect(once(), requestTo(
-                        BASE_URL + "/api/v1/inventory/reservations/" + reservationId + "/release"))
+                        BASE_URL + INTERNAL_BASE_PATH + "/reservations/" + reservationId + "/release"))
                 .andRespond(withSuccess("""
                         {"id":"%s","status":"RELEASED"}
                         """.formatted(reservationId), MediaType.APPLICATION_JSON));
@@ -157,7 +162,7 @@ class InventoryClientTest {
         UUID reservationId = UUID.randomUUID();
         TestClient fixture = client();
         fixture.server().expect(once(), requestTo(
-                        BASE_URL + "/api/v1/inventory/reservations/" + reservationId + "/release"))
+                        BASE_URL + INTERNAL_BASE_PATH + "/reservations/" + reservationId + "/release"))
                 .andRespond(withSuccess("""
                         {"id":"%s","status":"ACTIVE"}
                         """.formatted(reservationId), MediaType.APPLICATION_JSON));
@@ -173,7 +178,7 @@ class InventoryClientTest {
         UUID reservationId = UUID.randomUUID();
         TestClient fixture = client();
         fixture.server().expect(once(), requestTo(
-                        BASE_URL + "/api/v1/inventory/reservations/" + reservationId + "/release"))
+                        BASE_URL + INTERNAL_BASE_PATH + "/reservations/" + reservationId + "/release"))
                 .andRespond(withSuccess());
 
         assertThatExceptionOfType(InventoryClient.InventoryReservationException.class)
@@ -186,7 +191,7 @@ class InventoryClientTest {
     private static TestClient client() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        InventoryClient client = new InventoryClient(builder, new ObjectMapper(), BASE_URL, true);
+        InventoryClient client = new InventoryClient(builder, new ObjectMapper(), BASE_URL, INTERNAL_TOKEN);
         return new TestClient(client, server);
     }
 

@@ -102,6 +102,13 @@ spec:
             - name: FARM_SERVICE_ALLOW_INSECURE_HTTP
               value: {{ $.Values.farmAccess.allowInsecureHttp | quote }}
             {{- end }}
+            {{- if or (eq $name "work") (eq $name "inventory") (eq $name "sales") }}
+            - name: INVENTORY_INTERNAL_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.inventory.internalCredentialSecretName | quote }}
+                  key: {{ $.Values.inventory.internalCredentialTokenKey | default "token" | quote }}
+            {{- end }}
             {{- if eq $name "identity" }}
             - name: REDIS_HOST
               value: {{ $.Values.redis.host | default "redis" | quote }}
