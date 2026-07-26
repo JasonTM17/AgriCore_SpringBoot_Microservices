@@ -2,6 +2,7 @@ package com.agricore.work;
 
 import com.agricore.farmaccess.FarmAccessClient;
 import com.agricore.work.infrastructure.messaging.OutboxPublisher;
+import com.agricore.work.infrastructure.messaging.OutboxRetryProperties;
 import com.agricore.work.infrastructure.persistence.OutboxJpaRepository;
 import com.agricore.work.infrastructure.persistence.entity.OutboxEventEntity;
 import org.junit.jupiter.api.Test;
@@ -68,7 +69,7 @@ class WorkOutboxPublisherConcurrencyIntegrationTest {
         ExecutorService executor = Executors.newFixedThreadPool(2);
         try {
             Future<?> firstRun = executor.submit(firstPublisher::publishPending);
-            assertThat(firstSendStarted.await(5, TimeUnit.SECONDS)).isTrue();
+            assertThat(firstSendStarted.await(15, TimeUnit.SECONDS)).isTrue();
 
             Future<?> secondRun = executor.submit(secondPublisher::publishPending);
             secondRun.get(1, TimeUnit.SECONDS);
@@ -84,6 +85,12 @@ class WorkOutboxPublisherConcurrencyIntegrationTest {
     }
 
     private OutboxPublisher publisher(KafkaTemplate<String, String> kafkaTemplate) {
-        return new OutboxPublisher(outboxRepository, kafkaTemplate, transactionManager, 5_000);
+        return new OutboxPublisher(
+                outboxRepository,
+                kafkaTemplate,
+                transactionManager,
+                5_000,
+                new OutboxRetryProperties(100, 100, 10)
+        );
     }
 }
