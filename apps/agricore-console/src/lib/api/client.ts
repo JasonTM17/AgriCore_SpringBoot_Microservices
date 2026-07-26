@@ -51,6 +51,7 @@ export class ApiClient {
     epoch: number;
     promise: Promise<WebAuthTokensResponse>;
   } | null = null;
+  private logoutFlight: Promise<void> | null = null;
 
   constructor(options: ApiClientOptions) {
     this.baseUrl = options.baseUrl ?? "";
@@ -62,6 +63,7 @@ export class ApiClient {
   }
 
   async webLogin(credentials: LoginRequest, signal?: AbortSignal): Promise<WebAuthTokensResponse> {
+    await this.waitForLogout();
     const sessionEpoch = this.advanceSessionEpoch();
     const options: RequestOptions = {
       method: "POST",
@@ -121,7 +123,18 @@ export class ApiClient {
       skipAuthRefresh: true,
       ...(signal ? { signal } : {}),
     };
-    await this.request<void>("/api/v1/auth/web/logout", options);
+    const precedingLogout = this.logoutFlight;
+    const request = (precedingLogout
+      ? precedingLogout.catch(() => undefined)
+      : Promise.resolve()
+    ).then(() => this.request<void>("/api/v1/auth/web/logout", options));
+    const trackedRequest = request.finally(() => {
+      if (this.logoutFlight === trackedRequest) {
+        this.logoutFlight = null;
+      }
+    });
+    this.logoutFlight = trackedRequest;
+    await trackedRequest;
   }
 
   async getCurrentUser(signal?: AbortSignal): Promise<UserResponse> {
@@ -214,6 +227,19 @@ export class ApiClient {
       return this.isCurrentSession(sessionEpoch);
     } catch {
       return false;
+    }
+  }
+
+  private async waitForLogout(): Promise<void> {
+    while (this.logoutFlight) {
+      const activeLogout = this.logoutFlight;
+      try {
+        await activeLogout;
+      } catch {
+        // A replacement login can proceed after the logout request settles,
+        // even when the server reported an error. The ordering still prevents
+        // a late logout response from clearing the new login cookie.
+      }
     }
   }
 

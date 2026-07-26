@@ -259,6 +259,67 @@ describe("ApiClient", () => {
     expect(stored).toBe("new-login");
   });
 
+  it("waits for an active logout before sending a replacement login", async () => {
+    let stored: string | null = "old-access";
+    let resolveLogout: ((response: Response) => void) | undefined;
+    let resolveLogin: ((response: Response) => void) | undefined;
+    let markLoginStarted: (() => void) | undefined;
+    const order: string[] = [];
+    const loginStarted = new Promise<void>((resolve) => {
+      markLoginStarted = resolve;
+    });
+    const fetchImpl: FetchFn = vi.fn((input: RequestInfo | URL) => {
+      const url = requestUrl(input);
+      if (url.endsWith("/api/v1/auth/web/logout")) {
+        order.push("logout:request");
+        return new Promise<Response>((resolve) => {
+          resolveLogout = resolve;
+        });
+      }
+      if (url.endsWith("/api/v1/auth/web/login")) {
+        order.push("login:request");
+        markLoginStarted?.();
+        return new Promise<Response>((resolve) => {
+          resolveLogin = resolve;
+        });
+      }
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    const client = new ApiClient({
+      getAccessToken: () => stored,
+      setAccessToken: (token) => {
+        stored = token;
+      },
+      fetchImpl,
+    });
+
+    const logout = client.webLogout();
+    const login = client.webLogin({ email: "a@agricore.test", password: "Secret123!" });
+
+    expect(stored).toBeNull();
+    await vi.waitFor(() => expect(order).toEqual(["logout:request"]));
+
+    order.push("logout:response");
+    resolveLogout?.(new Response(null, { status: 204 }));
+    await loginStarted;
+
+    expect(order).toEqual(["logout:request", "logout:response", "login:request"]);
+    expect(stored).toBeNull();
+
+    order.push("login:response");
+    resolveLogin?.(authTokensResponse("replacement-access"));
+    const [, tokens] = await Promise.all([logout, login]);
+
+    expect(tokens.accessToken).toBe("replacement-access");
+    expect(stored).toBe("replacement-access");
+    expect(order).toEqual([
+      "logout:request",
+      "logout:response",
+      "login:request",
+      "login:response",
+    ]);
+  });
+
   it("maps API error bodies", async () => {
     const fetchImpl: FetchFn = () =>
       Promise.resolve(

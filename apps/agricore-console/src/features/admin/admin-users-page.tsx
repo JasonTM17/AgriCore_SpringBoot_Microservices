@@ -126,7 +126,59 @@ export function AdminUsersPage() {
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(20rem,0.75fr)]">
           <section className="overflow-hidden rounded-card border border-border bg-surface shadow-sm">
             <div className="border-b border-border p-4"><h2 className="text-lg font-semibold text-ink">Danh sách người dùng</h2><p className="mt-1 text-xs text-muted">{usersQuery.data?.totalElements ?? users.length} tài khoản · trang {(usersQuery.data?.page ?? page) + 1}</p></div>
-            <div className="overflow-x-auto"><table className="w-full min-w-[38rem] text-left text-sm"><thead className="bg-canvas text-xs uppercase tracking-wide text-muted"><tr><th className="px-4 py-3">Người dùng</th><th className="px-4 py-3">Trạng thái</th><th className="px-4 py-3">Vai trò</th></tr></thead><tbody>{filteredUsers.map((user) => <tr key={user.id} className={`cursor-pointer border-t border-border transition-colors hover:bg-forest-50 ${selectedUser?.id === user.id ? "bg-forest-100" : ""}`} onClick={() => selectUser(user)}><td className="px-4 py-3"><p className="font-semibold text-ink">{user.fullName}</p><p className="mt-1 text-xs text-muted">{user.email}</p></td><td className="px-4 py-3"><span className={`rounded px-2 py-1 text-xs font-semibold ${user.status === "ACTIVE" ? "bg-green-50 text-success" : user.status === "LOCKED" ? "bg-harvest-100 text-warning" : "bg-red-50 text-danger"}`}>{userStatus(user.status)}</span></td><td className="px-4 py-3 font-mono text-xs text-muted">{user.roles.join(" · ") || "—"}</td></tr>)}</tbody></table></div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[38rem] text-left text-sm">
+                <thead className="bg-canvas text-xs uppercase tracking-wide text-muted">
+                  <tr>
+                    <th className="px-4 py-3">Người dùng</th>
+                    <th className="px-4 py-3">Trạng thái</th>
+                    <th className="px-4 py-3">Vai trò</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredUsers.map((user) => {
+                    const selected = selectedUser?.id === user.id;
+                    return (
+                      <tr
+                        key={user.id}
+                        className={`border-t border-border transition-colors hover:bg-forest-50 ${
+                          selected ? "bg-forest-100" : ""
+                        }`}
+                      >
+                        <td className="p-0">
+                          <button
+                            type="button"
+                            className="block w-full cursor-pointer px-4 py-3 text-left"
+                            aria-label={`Chọn người dùng ${user.fullName}`}
+                            aria-pressed={selected}
+                            onClick={() => selectUser(user)}
+                          >
+                            <span className="block font-semibold text-ink">{user.fullName}</span>
+                            <span className="mt-1 block text-xs text-muted">{user.email}</span>
+                          </button>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`rounded px-2 py-1 text-xs font-semibold ${
+                              user.status === "ACTIVE"
+                                ? "bg-green-50 text-success"
+                                : user.status === "LOCKED"
+                                  ? "bg-harvest-100 text-warning"
+                                  : "bg-red-50 text-danger"
+                            }`}
+                          >
+                            {userStatus(user.status)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 font-mono text-xs text-muted">
+                          {user.roles.join(" · ") || "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
             {filteredUsers.length === 0 ? <p className="p-6 text-sm text-muted">Không có kết quả trong trang hiện tại.</p> : null}
             <div className="flex items-center justify-between border-t border-border p-4 text-sm"><span className="text-muted">Hiển thị {filteredUsers.length} tài khoản</span><div className="flex gap-2"><Button variant="secondary" disabled={page === 0 || usersQuery.isFetching} onClick={() => setPage((current) => Math.max(0, current - 1))}>Trước</Button><Button variant="secondary" disabled={Boolean(usersQuery.data?.last) || usersQuery.isFetching} onClick={() => setPage((current) => current + 1)}>Sau</Button></div></div>
           </section>

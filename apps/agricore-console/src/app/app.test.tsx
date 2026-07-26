@@ -99,4 +99,47 @@ describe("App auth shell", () => {
     expect(screen.getByLabelText("Email")).toHaveFocus();
     expect(screen.getByText("Email không hợp lệ")).toBeInTheDocument();
   });
+
+  it("does not mount the mobile navigation while it is closed", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = requestUrl(input);
+        if (url.includes("/api/v1/auth/web/refresh")) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                accessToken: "authenticated-access",
+                tokenType: "Bearer",
+                expiresIn: 900,
+                user: {
+                  id: "11111111-1111-1111-1111-111111111111",
+                  email: "manager@agricore.local",
+                  fullName: "Quản lý nông trại",
+                  status: "ACTIVE",
+                  roles: ["FARM_MANAGER"],
+                  permissions: [],
+                  lastLoginAt: null,
+                  createdAt: "2026-07-18T00:00:00Z",
+                },
+              }),
+              { status: 200, headers: { "Content-Type": "application/json" } },
+            ),
+          );
+        }
+        return Promise.resolve(new Response("not found", { status: 404 }));
+      }),
+    );
+    window.history.pushState({}, "", "/");
+    render(<App />);
+
+    const menuButton = await screen.findByRole("button", { name: "Menu" });
+    expect(document.getElementById("mobile-nav")).toBeNull();
+
+    fireEvent.click(menuButton);
+    expect(document.getElementById("mobile-nav")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Đóng menu" }));
+    expect(document.getElementById("mobile-nav")).toBeNull();
+  });
 });
