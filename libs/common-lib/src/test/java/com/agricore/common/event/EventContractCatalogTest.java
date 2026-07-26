@@ -69,7 +69,7 @@ class EventContractCatalogTest {
                     set("harvestId", "harvestBatchId", "cropCycleId", "plotId", "warehouseId", "productCode",
                             "code", "status", "startedAt")),
             new Contract(EventTypes.HARVEST_COMPLETED, "harvest-service", "agricore.harvest.events",
-                    set("harvestId", "harvestBatchId", "cropCycleId", "plotId", "warehouseId", "productCode",
+                    set("harvestId", "harvestBatchId", "farmId", "cropCycleId", "plotId", "warehouseId", "productCode",
                             "grossWeightKg", "netWeightKg", "qualityGrade", "harvestDate", "productName"),
                     set("farmName", "plotCode", "careSummary")),
             contract(EventTypes.SENSOR_READING_RECEIVED, "iot-service", "agricore.iot.events",

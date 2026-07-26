@@ -13,6 +13,7 @@ final class HarvestResponseMapper {
                 batch.getId(),
                 batch.getCode(),
                 batch.getCropCycleId(),
+                batch.getFarmId(),
                 batch.getPlotId(),
                 batch.getWarehouseId(),
                 batch.getProductCode(),

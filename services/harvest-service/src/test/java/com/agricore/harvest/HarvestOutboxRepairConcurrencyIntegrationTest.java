@@ -85,7 +85,10 @@ class HarvestOutboxRepairConcurrencyIntegrationTest {
         clearInvocations(farmAccessClient);
         doAnswer(invocation -> {
             repairPassedAccessCheck.countDown();
-            return null;
+            return new com.agricore.farmaccess.FarmResourceAccess(
+                    HarvestTestAccessSupport.FARM_ID,
+                    plotId
+            );
         }).when(farmAccessClient).requirePlot(plotId);
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -180,6 +183,7 @@ class HarvestOutboxRepairConcurrencyIntegrationTest {
     }
 
     private JsonNode completeHarvest() throws Exception {
+        HarvestTestAccessSupport.authorizeAllPlots(farmAccessClient);
         String response = mockMvc.perform(post("/api/v1/harvests/complete")
                         .header("X-Dev-User", "manager")
                         .header("X-Dev-Roles", "FARM_MANAGER")

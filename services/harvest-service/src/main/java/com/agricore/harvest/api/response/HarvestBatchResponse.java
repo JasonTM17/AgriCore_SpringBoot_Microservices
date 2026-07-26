@@ -8,6 +8,7 @@ public record HarvestBatchResponse(
         UUID id,
         String code,
         UUID cropCycleId,
+        UUID farmId,
         UUID plotId,
         UUID warehouseId,
         String productCode,

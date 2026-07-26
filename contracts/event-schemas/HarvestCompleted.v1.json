@@ -15,6 +15,7 @@
           "required": [
             "harvestId",
             "harvestBatchId",
+            "farmId",
             "cropCycleId",
             "plotId",
             "warehouseId",
@@ -28,6 +29,7 @@
           "properties": {
             "harvestId": { "type": "string", "format": "uuid" },
             "harvestBatchId": { "type": "string", "format": "uuid" },
+            "farmId": { "type": "string", "format": "uuid" },
             "cropCycleId": { "type": "string", "format": "uuid" },
             "plotId": { "type": "string", "format": "uuid" },
             "warehouseId": { "type": "string", "format": "uuid" },

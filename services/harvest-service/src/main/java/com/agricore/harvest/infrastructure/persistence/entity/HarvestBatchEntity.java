@@ -16,6 +16,8 @@ public class HarvestBatchEntity {
     private String code;
     @Column(name = "crop_cycle_id", nullable = false)
     private UUID cropCycleId;
+    @Column(name = "farm_id")
+    private UUID farmId;
     @Column(name = "plot_id", nullable = false)
     private UUID plotId;
     @Column(name = "warehouse_id", nullable = false)
@@ -52,6 +54,8 @@ public class HarvestBatchEntity {
     public void setCode(String code) { this.code = code; }
     public UUID getCropCycleId() { return cropCycleId; }
     public void setCropCycleId(UUID cropCycleId) { this.cropCycleId = cropCycleId; }
+    public UUID getFarmId() { return farmId; }
+    public void setFarmId(UUID farmId) { this.farmId = farmId; }
     public UUID getPlotId() { return plotId; }
     public void setPlotId(UUID plotId) { this.plotId = plotId; }
     public UUID getWarehouseId() { return warehouseId; }

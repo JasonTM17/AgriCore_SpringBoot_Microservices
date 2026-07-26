@@ -310,6 +310,7 @@ components:
         - id
         - code
         - cropCycleId
+        - farmId
         - plotId
         - warehouseId
         - productCode
@@ -327,6 +328,10 @@ components:
         id: { type: string, format: uuid }
         code: { type: string, maxLength: 64 }
         cropCycleId: { type: string, format: uuid }
+        farmId:
+          type: [string, 'null']
+          format: uuid
+          description: Authoritative plot farm; null only for legacy records created before farm scoping.
         plotId: { type: string, format: uuid }
         warehouseId: { type: string, format: uuid }
         productCode: { type: string, maxLength: 64 }

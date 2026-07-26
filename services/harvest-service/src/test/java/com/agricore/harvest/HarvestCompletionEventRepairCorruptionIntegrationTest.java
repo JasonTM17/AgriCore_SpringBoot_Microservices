@@ -8,6 +8,7 @@ import com.agricore.harvest.infrastructure.persistence.entity.HarvestBatchEntity
 import com.agricore.harvest.infrastructure.persistence.entity.OutboxEventEntity;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -47,6 +48,11 @@ class HarvestCompletionEventRepairCorruptionIntegrationTest {
     private JdbcTemplate jdbcTemplate;
     @MockitoBean
     private FarmAccessClient farmAccessClient;
+
+    @BeforeEach
+    void authorizePlots() {
+        HarvestTestAccessSupport.authorizeAllPlots(farmAccessClient);
+    }
 
     @Test
     void republish_rejectsWrongTopicWithoutRequeueing() throws Exception {

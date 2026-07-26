@@ -154,6 +154,7 @@ class HarvestAccessFailureIntegrationTest {
     }
 
     private UUID createAccepted(String code, UUID plotId) throws Exception {
+        HarvestTestAccessSupport.authorizePlot(farmAccessClient, plotId);
         String body = mockMvc.perform(post("/api/v1/harvests/complete")
                         .header("X-Dev-User", "manager")
                         .header("X-Dev-Roles", "FARM_MANAGER")

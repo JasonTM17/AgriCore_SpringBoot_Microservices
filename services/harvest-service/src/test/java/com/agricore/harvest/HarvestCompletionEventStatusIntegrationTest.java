@@ -8,6 +8,7 @@ import com.agricore.harvest.infrastructure.persistence.entity.HarvestBatchEntity
 import com.agricore.harvest.infrastructure.persistence.entity.OutboxEventEntity;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -48,6 +49,11 @@ class HarvestCompletionEventStatusIntegrationTest {
     private JdbcTemplate jdbcTemplate;
     @MockitoBean
     private FarmAccessClient farmAccessClient;
+
+    @BeforeEach
+    void authorizePlots() {
+        HarvestTestAccessSupport.authorizeAllPlots(farmAccessClient);
+    }
 
     @Test
     void status_reportsEnqueuedAndPublishedStateUsingStableEventIdentity() throws Exception {

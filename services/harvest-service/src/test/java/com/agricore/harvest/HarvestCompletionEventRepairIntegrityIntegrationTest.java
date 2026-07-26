@@ -6,6 +6,7 @@ import com.agricore.harvest.infrastructure.persistence.HarvestBatchJpaRepository
 import com.agricore.harvest.infrastructure.persistence.OutboxJpaRepository;
 import com.agricore.harvest.infrastructure.persistence.entity.HarvestBatchEntity;
 import com.agricore.harvest.infrastructure.persistence.entity.OutboxEventEntity;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -41,6 +42,11 @@ class HarvestCompletionEventRepairIntegrityIntegrationTest {
     private JdbcTemplate jdbcTemplate;
     @MockitoBean
     private FarmAccessClient farmAccessClient;
+
+    @BeforeEach
+    void authorizePlots() {
+        HarvestTestAccessSupport.authorizeAllPlots(farmAccessClient);
+    }
 
     @Test
     void republish_rejectsMissingOutboxWithoutRecreatingIt() throws Exception {

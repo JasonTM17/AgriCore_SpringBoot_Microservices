@@ -96,6 +96,7 @@ class HarvestCompletedKafkaListenerTest {
                 valid.replace("\"eventVersion\":1", "\"eventVersion\":2"),
                 valid.replace("HarvestCompleted.v1", "HarvestCompleted.v9"),
                 valid.replace("\"producer\":\"harvest-service\"", "\"producer\":\"other-service\""),
+                valid.replaceAll("\\s*\"farmId\":\"[^\"]+\",", ""),
                 valid.replace("\"harvestDate\":\"2026-07-22\",", ""),
                 valid.replace("\"producer\":\"harvest-service\"", "\"producer\":\"harvest-service\",\"unknown\":true"),
                 valid.replace("\"productName\":\"Robusta coffee\"", "\"productName\":\"Robusta coffee\",\"unknown\":true"),
@@ -114,6 +115,7 @@ class HarvestCompletedKafkaListenerTest {
                   "payload":{
                     "harvestId":"%s",
                     "harvestBatchId":"%s",
+                    "farmId":"%s",
                     "cropCycleId":"%s",
                     "plotId":"%s",
                     "warehouseId":"%s",
@@ -129,6 +131,7 @@ class HarvestCompletedKafkaListenerTest {
                 eventId,
                 harvestId,
                 harvestId,
+                UUID.randomUUID(),
                 UUID.randomUUID(),
                 UUID.randomUUID(),
                 UUID.randomUUID()

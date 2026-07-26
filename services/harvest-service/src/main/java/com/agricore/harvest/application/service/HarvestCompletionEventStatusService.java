@@ -35,7 +35,7 @@ public class HarvestCompletionEventStatusService {
                         "Harvest batch not found",
                         404
                 ));
-        accessGuard.requireExistingHarvestPlot(harvest.getPlotId());
+        accessGuard.requireExistingHarvest(harvest, false);
 
         UUID eventId = harvest.getLastOutboxEventId();
         if (eventId == null) {

@@ -4,6 +4,7 @@ import com.agricore.farmaccess.FarmAccessClient;
 import com.agricore.harvest.domain.model.HarvestStatus;
 import com.agricore.harvest.infrastructure.persistence.HarvestBatchJpaRepository;
 import com.agricore.harvest.infrastructure.persistence.entity.HarvestBatchEntity;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -35,6 +36,11 @@ class HarvestCompletionEventIntegrityIntegrationTest {
     private JdbcTemplate jdbcTemplate;
     @MockitoBean
     private FarmAccessClient farmAccessClient;
+
+    @BeforeEach
+    void authorizePlots() {
+        HarvestTestAccessSupport.authorizeAllPlots(farmAccessClient);
+    }
 
     @Test
     void status_rejectsMissingOutboxRowForCurrentHarvest() throws Exception {

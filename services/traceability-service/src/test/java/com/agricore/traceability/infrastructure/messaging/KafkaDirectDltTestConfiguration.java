@@ -72,6 +72,7 @@ class KafkaDirectDltTestConfiguration {
                   "payload":{
                     "harvestId":"%s",
                     "harvestBatchId":"%s",
+                    "farmId":"%s",
                     "cropCycleId":"%s",
                     "plotId":"%s",
                     "warehouseId":"%s",
@@ -87,6 +88,7 @@ class KafkaDirectDltTestConfiguration {
                 UUID.randomUUID(),
                 harvestId,
                 harvestId,
+                UUID.randomUUID(),
                 UUID.randomUUID(),
                 UUID.randomUUID(),
                 UUID.randomUUID()

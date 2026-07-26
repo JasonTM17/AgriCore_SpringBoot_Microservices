@@ -44,6 +44,8 @@ final class HarvestCompletionEventValidator {
 
         require(harvest.getId().equals(uuid(payload, "harvestId")));
         require(harvest.getId().equals(uuid(payload, "harvestBatchId")));
+        require(harvest.getFarmId() != null);
+        require(harvest.getFarmId().equals(uuid(payload, "farmId")));
         require(harvest.getCropCycleId().equals(uuid(payload, "cropCycleId")));
         require(harvest.getPlotId().equals(uuid(payload, "plotId")));
         require(harvest.getWarehouseId().equals(uuid(payload, "warehouseId")));

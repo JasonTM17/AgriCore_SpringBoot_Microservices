@@ -47,6 +47,14 @@ public class HarvestEventOutboxWriter {
             String careSummary
     ) {
         ObjectNode payload = basePayload(batch);
+        if (batch.getFarmId() == null) {
+            throw new HarvestException(
+                    "HARVEST_SCOPE_UNAVAILABLE",
+                    "Harvest farm scope is unavailable",
+                    503
+            );
+        }
+        payload.put("farmId", batch.getFarmId().toString());
         payload.put("grossWeightKg", batch.getGrossWeightKg());
         payload.put("netWeightKg", batch.getNetWeightKg());
         payload.put("qualityGrade", batch.getQualityGrade());
