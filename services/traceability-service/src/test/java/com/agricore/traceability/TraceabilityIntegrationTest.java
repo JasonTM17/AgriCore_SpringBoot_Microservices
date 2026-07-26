@@ -113,6 +113,50 @@ class TraceabilityIntegrationTest {
                 .andExpect(jsonPath("$.message").value("Event processed but batch missing"));
     }
 
+    /**
+     * The traceability code is derived from the product name and the harvest id, and nothing checks
+     * it against the table before inserting. A harvest republished under a fresh event id therefore
+     * regenerates the identical code and collides with {@code uk_traceability_code}.
+     *
+     * <p>That used to answer 500 — "the server is broken, retry" — for a request that can never
+     * succeed. The distinction matters most on the Kafka path, where the listener wraps the failure
+     * and the batch lands in the DLT as an opaque server error rather than a recognisable duplicate.
+     */
+    @Test
+    void republishedHarvestUnderANewEventId_reportsDuplicateNotServerError() throws Exception {
+        UUID sameHarvestBatch = UUID.randomUUID();
+
+        mockMvc.perform(postBatch(UUID.randomUUID().toString(), sameHarvestBatch))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(postBatch(UUID.randomUUID().toString(), sameHarvestBatch))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.code").value("DUPLICATE_RESOURCE"));
+    }
+
+    /**
+     * The constraint name identifies the index and so the schema. It belongs in the log, where an
+     * operator can act on it, not in a body served to whoever made the request.
+     */
+    @Test
+    void duplicateResponse_doesNotNameTheConstraint() throws Exception {
+        UUID sameHarvestBatch = UUID.randomUUID();
+        mockMvc.perform(postBatch(UUID.randomUUID().toString(), sameHarvestBatch))
+                .andExpect(status().isCreated());
+
+        String body = mockMvc.perform(postBatch(UUID.randomUUID().toString(), sameHarvestBatch))
+                .andExpect(status().isConflict())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        assertThat(body)
+                .doesNotContain("uk_traceability_code")
+                .doesNotContain("traceability_batches")
+                .doesNotContain("23505");
+    }
+
     private static org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder postBatch(
             String eventId,
             UUID harvestBatchId

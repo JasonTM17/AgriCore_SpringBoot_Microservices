@@ -83,12 +83,18 @@ Partly done. `crop-catalog`, `notification`, and `traceability` had no `@RestCon
 returned. All eleven servlet services now emit it. The gateway is excluded and stays excluded: it is
 WebFlux, so servlet advice does not apply to it.
 
-Still open, and still better done in one pass than piecemeal: no `DataIntegrityViolationException`
-handler in any service, so a duplicate-code race returns 500 where the single-threaded path returns
-409; `@NotBlank` without `@Size` on fields backed by length-limited columns; `@DecimalMin` without
-`@Digits` on numeric columns; and `...IgnoreCase` finders that emit `upper(col) = upper(?)`, which
-the plain unique indexes cannot serve — the values are already uppercased before insert, so the
-`IgnoreCase` is not load-bearing.
+Duplicate keys are also done. All eleven advices now map a unique violation to 409
+`DUPLICATE_RESOURCE`; a foreign-key or not-null violation stays 500, because it is a service defect
+rather than a caller conflict. Classification is by SQLState, in `common-lib`'s
+`ConstraintViolations` — a probe run before any handler existed showed Hibernate's JPA dialect
+collapses every class 23 failure into one `DataIntegrityViolationException` and never narrows it to
+`DuplicateKeyException`, so narrowing by subtype was not available. `23505` is verified against a
+real PostgreSQL server, not only against H2 in PostgreSQL mode.
+
+Still open, and still better done in one pass than piecemeal: `@NotBlank` without `@Size` on fields
+backed by length-limited columns; `@DecimalMin` without `@Digits` on numeric columns; and
+`...IgnoreCase` finders that emit `upper(col) = upper(?)`, which the plain unique indexes cannot
+serve — the values are already uppercased before insert, so the `IgnoreCase` is not load-bearing.
 
 Note on what an advice cannot reach: a 401 is produced by the security filter chain's
 authentication entry point, before the DispatcherServlet, so it is not shaped by

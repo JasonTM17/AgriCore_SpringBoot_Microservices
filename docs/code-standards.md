@@ -70,7 +70,20 @@ com.agricore.<service>
 - Domain failures throw a service-local exception carrying a stable code and HTTP status
   (`IdentityException("EMAIL_ALREADY_EXISTS", ..., 409)`).
 - Error codes are part of the public contract — renaming one is a breaking change.
-- Responses use the shared `ApiError` envelope from `common-lib`.
+- Responses use the shared `ApiError` envelope from `common-lib`. Every servlet service has a
+  `@RestControllerAdvice`; the gateway does not, because it is WebFlux.
+- Platform-wide codes every service emits: `VALIDATION_FAILED` (400), `ACCESS_DENIED` (403),
+  `DUPLICATE_RESOURCE` (409), `INTERNAL_ERROR` (500).
+- A duplicate unique key is `DUPLICATE_RESOURCE`, not a 500. Pre-insert existence checks are not
+  locks, so two concurrent requests can both pass one and the database rejects the loser.
+  `ConstraintViolations` in `common-lib` classifies by SQLState (`23505` unique, `23503` foreign key,
+  `23502` not null) rather than by exception subtype — Hibernate's JPA dialect collapses all three
+  into one `DataIntegrityViolationException` and never narrows to `DuplicateKeyException`. Only a
+  unique violation becomes 409; the other two stay 500, because they are service defects.
+- Error bodies never carry a constraint name, table name, or SQLState. Those identify the schema and
+  go to the log, where an operator can act on them.
+- A 401 is not `ApiError`-shaped anywhere: it comes from the security filter chain's authentication
+  entry point, which runs before the DispatcherServlet and so before any advice.
 
 ## Configuration
 

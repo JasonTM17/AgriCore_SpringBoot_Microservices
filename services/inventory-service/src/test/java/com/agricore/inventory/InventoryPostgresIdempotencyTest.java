@@ -1,16 +1,20 @@
 package com.agricore.inventory;
 
+import com.agricore.common.persistence.ConstraintViolations;
 import com.agricore.inventory.api.request.CreateWarehouseRequest;
 import com.agricore.inventory.api.request.HarvestCompletedCommand;
 import com.agricore.inventory.api.request.ReserveStockRequest;
 import com.agricore.inventory.api.response.InventoryItemResponse;
 import com.agricore.inventory.application.service.InventoryApplicationService;
+import com.agricore.inventory.infrastructure.persistence.WarehouseJpaRepository;
+import com.agricore.inventory.infrastructure.persistence.entity.WarehouseEntity;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -19,6 +23,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 
 import java.math.BigDecimal;
 import java.sql.DriverManager;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -29,6 +34,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
 /**
  * Real PostgreSQL integration:
@@ -134,6 +140,70 @@ class InventoryPostgresIdempotencyTest {
 
     @Autowired
     private InventoryApplicationService inventoryService;
+
+    @Autowired
+    private WarehouseJpaRepository warehouseRepository;
+
+    /**
+     * Pins the SQLState the duplicate-key handler keys on against a real PostgreSQL server.
+     *
+     * <p>The handler classifies by SQLState rather than by exception subtype, because Hibernate's
+     * JPA dialect collapses every class 23 failure into one {@code DataIntegrityViolationException}
+     * and never narrows it to {@code DuplicateKeyException}. Every other test in the suite runs on
+     * H2 in PostgreSQL mode, which is not proof of what PostgreSQL itself reports — so this asserts
+     * it directly.
+     *
+     * <p>Goes through the repository rather than the application service on purpose: the service
+     * checks for an existing code first, and that check is exactly what a concurrent request slips
+     * past. Bypassing it reproduces the losing side of that race deterministically.
+     */
+    @Test
+    void duplicateWarehouseCode_reportsUniqueViolationSqlState_onPostgres() {
+        String sharedCode = "WH-DUP-" + System.nanoTime();
+        warehouseRepository.saveAndFlush(warehouse(sharedCode));
+
+        DataIntegrityViolationException thrown = catchThrowableOfType(
+                () -> warehouseRepository.saveAndFlush(warehouse(sharedCode)),
+                DataIntegrityViolationException.class
+        );
+
+        assertThat(thrown).as("uk_warehouses_code must reject the second insert").isNotNull();
+        assertThat(ConstraintViolations.sqlState(thrown))
+                .as("PostgreSQL reports unique_violation as SQLState 23505")
+                .isEqualTo("23505");
+        assertThat(ConstraintViolations.isUniqueViolation(thrown)).isTrue();
+        assertThat(ConstraintViolations.isForeignKeyViolation(thrown)).isFalse();
+        assertThat(ConstraintViolations.isNotNullViolation(thrown)).isFalse();
+    }
+
+    /**
+     * The other half of the classification: a missing required value must not be reported as a
+     * duplicate, or the handler would answer "already exists" to a service-side defect.
+     */
+    @Test
+    void missingRequiredColumn_isNotReportedAsDuplicate_onPostgres() {
+        WarehouseEntity noName = warehouse("WH-NULL-" + System.nanoTime());
+        noName.setName(null);
+
+        DataIntegrityViolationException thrown = catchThrowableOfType(
+                () -> warehouseRepository.saveAndFlush(noName),
+                DataIntegrityViolationException.class
+        );
+
+        assertThat(thrown).isNotNull();
+        assertThat(ConstraintViolations.isUniqueViolation(thrown))
+                .as("a not-null violation is a server fault, not a caller conflict")
+                .isFalse();
+    }
+
+    private static WarehouseEntity warehouse(String code) {
+        WarehouseEntity entity = new WarehouseEntity();
+        entity.setId(UUID.randomUUID());
+        entity.setCode(code);
+        entity.setName("Constraint Probe WH");
+        entity.setCreatedAt(Instant.now());
+        return entity;
+    }
 
     @Test
     void harvestCompleted_twice_addsStockOnce_onPostgres() {

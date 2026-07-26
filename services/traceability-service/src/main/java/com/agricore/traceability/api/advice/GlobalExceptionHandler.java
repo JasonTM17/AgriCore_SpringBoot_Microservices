@@ -1,9 +1,11 @@
 package com.agricore.traceability.api.advice;
 
 import com.agricore.common.api.ApiError;
+import com.agricore.common.persistence.ConstraintViolations;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
@@ -46,6 +48,33 @@ public class GlobalExceptionHandler {
                 ex.getReason(),
                 request.getRequestURI(),
                 null
+        ));
+    }
+
+    /**
+     * The traceability code is derived from the product name and harvest id rather than checked
+     * against the table, so nothing guards {@code uk_traceability_code} before the insert. A harvest
+     * republished under a fresh event id regenerates the identical code and collides — which used
+     * to surface as a 500 and, on the Kafka path, as an opaque DLT entry.
+     *
+     * <p>Only unique violations become 409. A foreign-key or not-null failure reaching this point
+     * is a defect in this service and stays a 500 via the catch-all below.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiError> handleDataIntegrity(
+            DataIntegrityViolationException ex,
+            HttpServletRequest request
+    ) {
+        if (!ConstraintViolations.isUniqueViolation(ex)) {
+            return handleGeneric(ex, request);
+        }
+        // The constraint name identifies the index and therefore the schema. Operators need it,
+        // callers do not: the response says only that the value is taken.
+        log.warn("Duplicate key on {}: {}", request.getRequestURI(), ex.getMostSpecificCause().getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.of(
+                409, "Conflict", "DUPLICATE_RESOURCE",
+                "A record with the supplied identifier already exists",
+                request.getRequestURI(), null
         ));
     }
 
