@@ -235,6 +235,8 @@ read-only dashboards:
 | Family | Meaning |
 |---|---|
 | `agricore_outbox_backlog` | Unpublished transactional outbox rows across event-producing services |
+| `agricore_outbox_pending` | Unpublished, non-quarantined outbox rows, including scheduled backoff |
+| `agricore_outbox_quarantined` | Terminal outbox rows awaiting reviewed repair |
 | `agricore_kafka_dlq_attempts_total{consumer=...}` | Records handed to DLT recovery; not DLT depth or confirmed publish success |
 | `agricore_harvest_processing_seconds_*` | Harvest completion latency histogram and timer series by outcome |
 | `agricore_inventory_reservations_total` | Reservation outcomes |

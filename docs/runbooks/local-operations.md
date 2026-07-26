@@ -143,6 +143,8 @@ Loki local retention is 72 hours and Docker's `json-file` logs are bounded to th
 | Metric family | Labels/notes |
 |---|---|
 | `agricore_outbox_backlog` | Gauge for unpublished transactional outbox rows across event-producing services |
+| `agricore_outbox_pending` | Active unpublished retry queue, including rows deferred by scheduled backoff |
+| `agricore_outbox_quarantined` | Terminal publisher failures requiring reviewed operator repair |
 | `agricore_kafka_dlq_attempts_total` | `consumer=inventory-service|traceability-service|notification-service`; DLT recovery attempts, not topic depth or confirmed success |
 | `agricore_harvest_processing_seconds_*` | `outcome=success|failure`; timer/histogram series |
 | `agricore_inventory_reservations_total` | `outcome=success|insufficient_stock` |
