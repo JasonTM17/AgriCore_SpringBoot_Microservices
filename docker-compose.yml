@@ -39,8 +39,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
     environment:
-      <<: [*db-env]
+      <<: [*db-env, *kafka-env]
       REDIS_HOST: redis
       REDIS_PORT: 6379
       IDENTITY_PORT: 8081

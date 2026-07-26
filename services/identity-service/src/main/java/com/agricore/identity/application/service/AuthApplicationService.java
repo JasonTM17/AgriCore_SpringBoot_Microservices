@@ -37,6 +37,7 @@ public class AuthApplicationService {
     private final JwtTokenService jwtTokenService;
     private final SecurityProperties securityProperties;
     private final LoginRateLimiter loginRateLimiter;
+    private final IdentityOutboxWriter outboxWriter;
 
     public AuthApplicationService(
             UserJpaRepository userRepository,
@@ -45,7 +46,8 @@ public class AuthApplicationService {
             PasswordEncoder passwordEncoder,
             JwtTokenService jwtTokenService,
             SecurityProperties securityProperties,
-            LoginRateLimiter loginRateLimiter
+            LoginRateLimiter loginRateLimiter,
+            IdentityOutboxWriter outboxWriter
     ) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
@@ -54,6 +56,7 @@ public class AuthApplicationService {
         this.jwtTokenService = jwtTokenService;
         this.securityProperties = securityProperties;
         this.loginRateLimiter = loginRateLimiter;
+        this.outboxWriter = outboxWriter;
     }
 
     @Transactional
@@ -86,6 +89,7 @@ public class AuthApplicationService {
         user.setRoles(Set.of(defaultRole));
 
         userRepository.save(user);
+        outboxWriter.enqueueUserRegistered(user);
         return toUserResponse(user);
     }
 

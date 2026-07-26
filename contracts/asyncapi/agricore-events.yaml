@@ -12,6 +12,18 @@ channels:
         name: HarvestCompleted.v1
         payload:
           $ref: ../event-schemas/DomainEventEnvelope.v1.json
+  agricore.identity.events:
+    address: agricore.identity.events
+    messages:
+      UserRegistered:
+        name: UserRegistered.v1
+        summary: >-
+          Emitted by identity-service when a registration is accepted. Payload carries
+          userId, email, fullName, sorted role codes, and registeredAt. Credential
+          material (password hash, tokens) is never included; email and fullName are
+          present because the consumer addresses a welcome notification.
+        payload:
+          $ref: ../event-schemas/DomainEventEnvelope.v1.json
   agricore.farm.events:
     address: agricore.farm.events
   agricore.crop-cycle.events:
@@ -27,3 +39,11 @@ operations:
     action: receive
     channel:
       $ref: '#/channels/agricore.harvest.events'
+  publishUserRegistered:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.identity.events'
+  consumeUserRegistered:
+    action: receive
+    channel:
+      $ref: '#/channels/agricore.identity.events'

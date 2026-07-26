@@ -50,7 +50,8 @@ class AuthRegistrationGateTest {
                 mock(PasswordEncoder.class),
                 mock(JwtTokenService.class),
                 security,
-                mock(LoginRateLimiter.class)
+                mock(LoginRateLimiter.class),
+                mock(IdentityOutboxWriter.class)
         );
     }
 

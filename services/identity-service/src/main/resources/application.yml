@@ -26,6 +26,14 @@ spring:
   jackson:
     serialization:
       write-dates-as-timestamps: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
 
 management:
   endpoints:
@@ -58,6 +66,10 @@ agricore:
     rate-limit-fail-open: ${AGRICORE_RATE_LIMIT_FAIL_OPEN:false}
     # Only enable behind trusted reverse proxy / gateway
     trust-forwarded-headers: ${AGRICORE_TRUST_FORWARDED_HEADERS:false}
+  outbox:
+    publisher:
+      enabled: true
+      poll-ms: 1000
 
 logging:
   level:

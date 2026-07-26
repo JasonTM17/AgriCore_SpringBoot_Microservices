@@ -34,3 +34,7 @@ agricore:
     registration-enabled: true
     rate-limit-fail-open: true
     trust-forwarded-headers: false
+  # No broker in unit/integration tests; outbox rows are asserted directly
+  outbox:
+    publisher:
+      enabled: false
