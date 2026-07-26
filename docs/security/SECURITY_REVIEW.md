@@ -22,12 +22,12 @@
 | S12 | High | Durable generation replay could duplicate work or leak another user's conversation | Owner/farm scope checks, idempotency key and request hash, generation lease/versioning, ordered SSE replay, and redacted tool evidence are persisted in the assistant database |
 | S13 | Medium | Assistant traffic could bypass per-user limits | Redis-backed request/token budgets key by authenticated user and source IP, return explicit 429 errors, and fail closed when Redis is unavailable |
 | S14 | High | Permission catalog or role grants could be changed by a non-admin, duplicated, or partially replaced | Identity restricts all permission administration to `SYSTEM_ADMIN`; permission codes are database-unique; replacement locks the role and validates every requested code before changing grants |
+| S15 | Medium | Live gateway-to-service JWT enforcement was not exercised | The full Compose release gate now proves invalid-token rejection at both gateway and direct farm-service boundaries before running the authenticated E2E path |
 
 ## Open / deferred
 
 | ID | Severity | Finding | Plan |
 |----|----------|---------|------|
-| O1 | Medium | Live gateway-to-service JWT enforcement was not exercised by this review | The verification script now sends invalid Bearer tokens to both the gateway and direct farm-service endpoint; retain this check in the Compose evidence bundle |
 | O2 | Medium | Kafka ACLs not configured in compose | Define and verify production Kafka authentication/authorization before deployment; none is claimed here |
 | O3 | Low | File upload was not present in the original review | Work attachments are now private, size/type/hash validated, object-storage-host allowlisted, and covered by integration tests |
 | O4 | Medium | Provider egress TLS/Kafka ACLs remain deployment controls | Configure TLS/ACL policy in the target environment; local Compose intentionally uses an internal network and no provider by default |
@@ -43,7 +43,7 @@
 - [x] Cross-farm plot substitution returns masked 404; `SYSTEM_ADMIN` is the explicit membership override
 - [x] Farm-access denial, masked not-found, and unavailable responses prevent crop-cycle/work/harvest/IoT writes
 - [x] Caller JWT forwarding, destination allowlisting, strict response decoding, and fail-closed client behavior have focused tests
-- [x] Live compose verification of invalid JWT rejection at both gateway and a downstream service (scripted; retain runtime evidence)
+- [x] Live Compose verification of invalid JWT rejection at both gateway and farm-service; runtime evidence retained on 2026-07-26
 - [x] Assistant output, citation, sensitive-data, refusal, idempotency, replay, tool-allowlist, and budget failure paths have focused tests
 - [x] Permission creation and role-grant replacement require `SYSTEM_ADMIN`; duplicate codes and unknown-code atomic failure have focused tests
 - [x] Fine-grained `PERMISSION_*` endpoint enforcement and permission-aware console navigation
@@ -53,12 +53,13 @@
 - Farm boundary and membership: `FarmAccessBoundaryIntegrationTest`, `FarmMembershipIntegrationTest`, `FarmMembershipConcurrencyIntegrationTest`.
 - Client propagation and hardening: `DefaultFarmAccessClientTest`, `DefaultFarmAccessClientSecurityTest`, `FarmAccessPropertiesTest`.
 - Downstream no-write and data-masking checks: `CropCycleAccessFailureIntegrationTest`, `CropCycleListAccessIntegrationTest`, `WorkAccessFailureIntegrationTest`, `WorkListAccessIntegrationTest`, `HarvestAccessFailureIntegrationTest`, `IotAccessFailureIntegrationTest`.
-- JWT issuer/audience policy: `GatewaySecurityConfig`, `DomainServiceSecurityConfig`, and `AgricoreJwtValidatorsTest`. Gateway runtime security has only a context-load test in this repository, so no end-to-end claim is made.
+- JWT issuer/audience policy: `GatewaySecurityConfig`, `DomainServiceSecurityConfig`, and `AgricoreJwtValidatorsTest`. The 2026-07-26 release evidence also proves live gateway and direct-service invalid-token rejection.
 - Permission persistence, administration, token claims, and authority conversion: `PermissionPersistenceIntegrationTest`, `AdminPermissionIntegrationTest`, `JwtTokenServiceTest`, `JwtAuthenticationFilterTest`, `JwtRolesConverterTest`, and the gateway `ApiGatewayApplicationTest` context load.
+- Consolidated local evidence: [release verification 2026-07-26](../evidence/release-verification-2026-07-26.md).
 
 ## Evidence boundary
 
-All 13 Spring applications include the Micrometer OpenTelemetry bridge and OTLP exporter. Local Compose configures OTLP/HTTP trace export to Tempo, Prometheus scraping, Grafana provisioning, ECS JSON stdout, and Alloy/Loki collection with bounded local retention. This is repository and local Compose evidence only; the review does not claim that a production collector/backend is configured or that production trace delivery has been exercised.
+All 13 Spring applications include the Micrometer OpenTelemetry bridge and OTLP exporter. Local Compose configures OTLP/HTTP trace export to Tempo, Prometheus scraping, Grafana provisioning, ECS JSON stdout, and Alloy/Loki collection with bounded local retention. Gateway-to-Tempo delivery was exercised locally on 2026-07-26. This does not claim that a production collector/backend is configured.
 
 This review does not prove runtime mTLS, Kafka ACL enforcement, production log tenancy/retention, or a deployed production environment. Alloy's read-only Docker socket remains a local host trust boundary.
 

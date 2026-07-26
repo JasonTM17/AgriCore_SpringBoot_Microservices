@@ -1,6 +1,6 @@
 # AgriCore Implementation Plan
 
-**Status:** Implementation complete; release verification, external registry publication, and repository metadata remain
+**Status:** Implementation and local release verification complete; external registry publication remains
 **Created:** 2026-07-16
 **Last updated:** 2026-07-26
 
@@ -92,9 +92,11 @@ Application Helm chart, security review, runbooks, seed scripts, gateway happy p
 
 ## Remaining pre-release work
 
-- Run full Compose verification on a host with a healthy Docker engine and retain the generated evidence bundle.
 - Push the verified default-branch revision to Docker Hub/GHCR through the gated workflow and publish GitHub package metadata.
 - Re-check production operator inputs (JWT keys, database/Kafka/SMTP credentials, TLS, ACLs, observability backends) before deployment.
+
+Local Compose, JVM, frontend, browser, event-resilience, media, seed, and trace
+checks are recorded in [release verification 2026-07-26](evidence/release-verification-2026-07-26.md).
 
 ## Release acceptance criteria
 
