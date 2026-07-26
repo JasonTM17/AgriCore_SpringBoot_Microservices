@@ -2,7 +2,7 @@
   "name": "@agricore/workspace",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "pnpm@11.0.9",
+  "packageManager": "pnpm@11.17.0",
   "engines": {
     "node": ">=22.13.0",
     "pnpm": ">=11.0.0"
