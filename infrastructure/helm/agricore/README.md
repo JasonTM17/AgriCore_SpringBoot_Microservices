@@ -1,5 +1,12 @@
 # AgriCore Helm chart
 
+## Immutable images
+
+Set `global.imageTag` to a full or short commit SHA when each service `image`
+value is a repository. For deploy-by-digest, set a service `image` directly to
+`repository@sha256:<64-hex-digest>`; the chart validates and renders that digest
+without appending `global.imageTag`. The `latest` tag is rejected.
+
 ## Required internal Inventory credential
 
 Create the Secret named by `inventory.internalCredentialSecretName` before

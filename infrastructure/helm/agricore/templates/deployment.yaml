@@ -19,7 +19,6 @@
 -}}
 {{- range $name, $svc := $services }}
 {{- if and $svc $svc.enabled }}
-{{- if or (empty $.Values.global.imageTag) (eq (lower $.Values.global.imageTag) "latest") }}{{ fail "global.imageTag must be a non-empty immutable release tag or commit SHA; latest is not allowed" }}{{ end }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -63,7 +62,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: {{ $name }}
-          image: "{{ $svc.image }}:{{ $.Values.global.imageTag }}"
+          image: {{ include "agricore.imageRef" (dict "image" $svc.image "tag" $.Values.global.imageTag) | quote }}
           imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
           ports:
             - containerPort: {{ $svc.port }}
