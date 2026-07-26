@@ -133,10 +133,11 @@ if (-not $SkipMaven) {
   if (-not (Select-String -Path $mvnLog -Pattern "BUILD SUCCESS" -Quiet)) {
     throw "mvn-test.log missing BUILD SUCCESS"
   }
-  # Gate: concurrent + idempotency tests must not be skipped (Tests run: 0)
+  # Gate: all PostgreSQL idempotency cases must execute and pass.
   $pgLine = Select-String -Path $mvnLog -Pattern "InventoryPostgresIdempotencyTest" | Select-Object -Last 1
-  if (-not $pgLine -or $pgLine.Line -notmatch "Tests run: 2") {
-    throw "InventoryPostgresIdempotencyTest must show Tests run: 2 (got: $($pgLine.Line))"
+  $expectedPgSummary = "Tests run: 3, Failures: 0, Errors: 0, Skipped: 0"
+  if (-not $pgLine -or $pgLine.Line -notmatch [regex]::Escape($expectedPgSummary)) {
+    throw "InventoryPostgresIdempotencyTest must show '$expectedPgSummary' (got: $($pgLine.Line))"
   }
   Write-Host "InventoryPostgresIdempotencyTest: $($pgLine.Line.Trim())"
 }

@@ -55,7 +55,16 @@ done
 
 docker compose -f docker-compose.yml ps >"$EVIDENCE_DIR/compose-ps.txt"
 git log --oneline -40 >"$EVIDENCE_DIR/git-log.txt"
-./mvnw test -DskipITs | tee "$EVIDENCE_DIR/mvn-test.log"
+MVN_LOG="$EVIDENCE_DIR/mvn-test.log"
+./mvnw test -DskipITs | tee "$MVN_LOG"
+
+EXPECTED_PG_SUMMARY="Tests run: 3, Failures: 0, Errors: 0, Skipped: 0"
+PG_LINE="$(grep "InventoryPostgresIdempotencyTest" "$MVN_LOG" | tail -n 1 || true)"
+if [[ "$PG_LINE" != *"$EXPECTED_PG_SUMMARY"* ]]; then
+  echo "InventoryPostgresIdempotencyTest must show '$EXPECTED_PG_SUMMARY' (got: $PG_LINE)" >&2
+  exit 1
+fi
+echo "InventoryPostgresIdempotencyTest: $PG_LINE"
 
 # PowerShell e2e preferred on Windows; on Unix run via pwsh if available
 if command -v pwsh >/dev/null 2>&1; then

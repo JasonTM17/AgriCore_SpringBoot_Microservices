@@ -1,1 +1,2 @@
 /apps/agricore-console/src/lib/api/generated/*.ts text eol=lf
+*.sh text eol=lf
