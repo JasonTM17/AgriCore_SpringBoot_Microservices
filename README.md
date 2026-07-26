@@ -75,7 +75,7 @@ See [System Architecture](docs/architecture/SYSTEM_ARCHITECTURE.md), [ADRs](docs
 
 ## Technology stack
 
-- Java 21, Spring Boot 3.5.12, Spring Cloud 2025.0.0, Maven, JUnit,
+- Java 21, Spring Boot 3.5.16, Spring Cloud 2025.0.0, Maven, JUnit,
   Testcontainers, Mockito, AssertJ, and ArchUnit.
 - PostgreSQL 16/TimescaleDB, Flyway, Redis 7, Kafka, MQTT, and
   MinIO-compatible object storage.
