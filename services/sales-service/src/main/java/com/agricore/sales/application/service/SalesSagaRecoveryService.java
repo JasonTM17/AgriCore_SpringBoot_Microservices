@@ -222,9 +222,6 @@ public class SalesSagaRecoveryService {
     }
 
     private static String failureMessage(Exception failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank()
-                ? "Inventory saga recovery failed"
-                : message;
+        return SalesSagaFailureMessage.from(failure, "Inventory saga recovery failed");
     }
 }

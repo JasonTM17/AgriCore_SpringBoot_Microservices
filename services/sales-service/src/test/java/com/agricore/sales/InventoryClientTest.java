@@ -32,6 +32,8 @@ class InventoryClientTest {
     private static final String INTERNAL_BASE_PATH = "/internal/api/v1/inventory";
     private static final String INTERNAL_TOKEN =
             "test-inventory-sales-service-token-012345678901234567890123";
+    private static final String SAFE_DOWNSTREAM_FAILURE =
+            "Inventory request failed (status=503, code=INVENTORY_DOWNSTREAM_ERROR)";
 
     @AfterEach
     void clearSecurityContext() {
@@ -58,7 +60,12 @@ class InventoryClientTest {
                         new BigDecimal("5.000"),
                         UUID.randomUUID().toString()
                 ))
-                .satisfies(exception -> assertThat(exception.isInsufficientStock()).isTrue());
+                .satisfies(exception -> {
+                    assertThat(exception.isInsufficientStock()).isTrue();
+                    assertThat(exception.getMessage())
+                            .isEqualTo("Inventory request failed (status=409, code=INSUFFICIENT_STOCK)")
+                            .doesNotContain("Not enough available stock");
+                });
         fixture.server().verify();
     }
 
@@ -82,6 +89,61 @@ class InventoryClientTest {
                         UUID.randomUUID().toString()
                 ))
                 .satisfies(exception -> assertThat(exception.isInsufficientStock()).isFalse());
+        fixture.server().verify();
+    }
+
+    @Test
+    void reserveRedactsLargeJsonErrorBody() {
+        String sensitiveValue = "inventory-db-password=super-secret";
+        String responseBody = """
+                {"code":"UNTRUSTED_ERROR","message":"%s","details":"%s"}
+                """.formatted(sensitiveValue, "x".repeat(8_192));
+        TestClient fixture = client();
+        fixture.server().expect(once(), requestTo(BASE_URL + INTERNAL_BASE_PATH + "/reservations"))
+                .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(responseBody));
+
+        assertThatExceptionOfType(InventoryClient.InventoryReservationException.class)
+                .isThrownBy(() -> fixture.client().reserve(
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        new BigDecimal("5.000"),
+                        UUID.randomUUID().toString()
+                ))
+                .satisfies(exception -> {
+                    assertThat(exception.getMessage())
+                            .isEqualTo(SAFE_DOWNSTREAM_FAILURE)
+                            .doesNotContain(sensitiveValue, responseBody)
+                            .hasSizeLessThanOrEqualTo(160);
+                    assertThat(exception.getStatus()).isEqualTo(503);
+                });
+        fixture.server().verify();
+    }
+
+    @Test
+    void confirmRedactsLargeHtmlErrorBody() {
+        UUID farmId = UUID.randomUUID();
+        UUID reservationId = UUID.randomUUID();
+        String sensitiveValue = "session-token=top-secret";
+        String responseBody = "<html><body>" + sensitiveValue + "x".repeat(8_192) + "</body></html>";
+        TestClient fixture = client();
+        fixture.server().expect(once(), requestTo(
+                        BASE_URL + INTERNAL_BASE_PATH + "/reservations/" + reservationId
+                                + "/confirm?farmId=" + farmId))
+                .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE)
+                        .contentType(MediaType.TEXT_HTML)
+                        .body(responseBody));
+
+        assertThatExceptionOfType(InventoryClient.InventoryReservationException.class)
+                .isThrownBy(() -> fixture.client().confirm(farmId, reservationId))
+                .satisfies(exception -> {
+                    assertThat(exception.getMessage())
+                            .isEqualTo(SAFE_DOWNSTREAM_FAILURE)
+                            .doesNotContain(sensitiveValue, responseBody)
+                            .hasSizeLessThanOrEqualTo(160);
+                    assertThat(exception.getStatus()).isEqualTo(503);
+                });
         fixture.server().verify();
     }
 
@@ -199,7 +261,7 @@ class InventoryClientTest {
 
         assertThatExceptionOfType(InventoryClient.InventoryReservationException.class)
                 .isThrownBy(() -> fixture.client().release(farmId, reservationId))
-                .withMessage("Inventory release response was empty")
+                .withMessage("Inventory request failed (status=502, code=INVALID_INVENTORY_RESPONSE)")
                 .satisfies(exception -> assertThat(exception.getStatus()).isEqualTo(502));
         fixture.server().verify();
     }

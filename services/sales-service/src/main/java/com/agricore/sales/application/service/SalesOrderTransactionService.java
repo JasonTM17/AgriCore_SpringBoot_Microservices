@@ -186,11 +186,12 @@ public class SalesOrderTransactionService {
         if (isTerminal(order)) {
             return;
         }
+        String safeFailureMessage = SalesSagaFailureMessage.bounded(failureMessage);
         order.setStatus(insufficientStock ? OrderStatus.OUT_OF_STOCK : OrderStatus.CANCELLED);
-        order.setFailureReason(failureMessage);
+        order.setFailureReason(safeFailureMessage);
         order.setUpdatedAt(Instant.now());
         saga.setStatus("FAILED");
-        saga.setLastError(failureMessage);
+        saga.setLastError(safeFailureMessage);
         saga.setCurrentStep("COMPENSATED");
         saga.setExecutionStartedAt(null);
         saga.setNextAttemptAt(null);
@@ -214,12 +215,13 @@ public class SalesOrderTransactionService {
         if (isTerminal(order)) {
             return;
         }
+        String safeFailureMessage = SalesSagaFailureMessage.bounded(failureMessage);
         order.setReservationId(reservationId);
         order.setStatus(OrderStatus.CANCELLED);
-        order.setFailureReason(reconciliation ? "reconciled:RELEASE" : failureMessage);
+        order.setFailureReason(reconciliation ? "reconciled:RELEASE" : safeFailureMessage);
         order.setUpdatedAt(Instant.now());
         saga.setStatus(reconciliation ? "RECONCILED" : "FAILED");
-        saga.setLastError(reconciliation ? null : failureMessage);
+        saga.setLastError(reconciliation ? null : safeFailureMessage);
         saga.setCurrentStep(reconciliation ? "RELEASED" : "COMPENSATED");
         if (reconciliation) {
             saga.setRetryCount(saga.getRetryCount() + 1);
@@ -246,12 +248,13 @@ public class SalesOrderTransactionService {
         if (isTerminal(order)) {
             return;
         }
+        String safeFailureMessage = SalesSagaFailureMessage.bounded(compensationFailure);
         order.setReservationId(reservationId);
         order.setStatus(OrderStatus.STOCK_RESERVED);
-        order.setFailureReason(compensationFailure);
+        order.setFailureReason(safeFailureMessage);
         order.setUpdatedAt(Instant.now());
         saga.setStatus("RETRY_SCHEDULED");
-        saga.setLastError(compensationFailure);
+        saga.setLastError(safeFailureMessage);
         saga.setCurrentStep("COMPENSATION_PENDING");
         saga.setNextAttemptAt(nextAttemptAt);
         saga.setExecutionStartedAt(null);
@@ -270,7 +273,9 @@ public class SalesOrderTransactionService {
         if (isTerminal(order) || isTerminalSaga(saga)) {
             return;
         }
-        saga.setLastError("reconcile " + action + " failed: " + failureMessage);
+        saga.setLastError(SalesSagaFailureMessage.bounded(
+                "reconcile " + action + " failed: " + failureMessage
+        ));
         saga.setRetryCount(saga.getRetryCount() + 1);
         saga.setStatus("RETRY_SCHEDULED");
         saga.setNextAttemptAt(nextAttemptAt);
@@ -290,11 +295,14 @@ public class SalesOrderTransactionService {
             return;
         }
         Instant now = Instant.now();
+        String safeFailureMessage = SalesSagaFailureMessage.bounded(failureMessage);
         order.setStatus(OrderStatus.PENDING_CONFIRMATION);
-        order.setFailureReason("reservation outcome unknown: " + failureMessage);
+        order.setFailureReason(SalesSagaFailureMessage.bounded(
+                "reservation outcome unknown: " + safeFailureMessage
+        ));
         order.setUpdatedAt(now);
         saga.setStatus("RETRY_SCHEDULED");
-        saga.setLastError(failureMessage);
+        saga.setLastError(safeFailureMessage);
         saga.setCurrentStep("RESERVATION_OUTCOME_UNKNOWN");
         saga.setRetryCount(saga.getRetryCount() + 1);
         saga.setNextAttemptAt(nextAttemptAt);
@@ -314,12 +322,13 @@ public class SalesOrderTransactionService {
         if (isTerminal(order)) {
             return;
         }
+        String safeFailureMessage = SalesSagaFailureMessage.bounded(failureMessage);
         order.setReservationId(reservationId);
         order.setStatus(OrderStatus.STOCK_RESERVED);
-        order.setFailureReason(failureMessage);
+        order.setFailureReason(safeFailureMessage);
         order.setUpdatedAt(Instant.now());
         saga.setStatus("RETRY_SCHEDULED");
-        saga.setLastError(failureMessage);
+        saga.setLastError(safeFailureMessage);
         saga.setCurrentStep("CONFIRM_INVENTORY");
         saga.setRetryCount(saga.getRetryCount() + 1);
         saga.setNextAttemptAt(nextAttemptAt);

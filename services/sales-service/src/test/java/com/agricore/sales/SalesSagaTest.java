@@ -4,6 +4,9 @@ import com.agricore.farmaccess.FarmAccessClient;
 import com.agricore.sales.infrastructure.client.InventoryClient;
 import com.agricore.sales.infrastructure.persistence.OrderSagaJpaRepository;
 import com.agricore.sales.infrastructure.persistence.SalesOrderItemJpaRepository;
+import com.agricore.sales.infrastructure.persistence.SalesOrderJpaRepository;
+import com.agricore.sales.infrastructure.persistence.entity.OrderSagaEntity;
+import com.agricore.sales.infrastructure.persistence.entity.SalesOrderEntity;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,6 +50,8 @@ class SalesSagaTest {
     private SalesOrderItemJpaRepository itemRepository;
     @Autowired
     private OrderSagaJpaRepository sagaRepository;
+    @Autowired
+    private SalesOrderJpaRepository orderRepository;
 
     @MockBean
     private InventoryClient inventoryClient;
@@ -144,6 +149,37 @@ class SalesSagaTest {
                 .andExpect(jsonPath("$.sagaStep").value("CONFIRM_INVENTORY"));
 
         verify(inventoryClient, never()).release(FARM_ID, reservationId);
+    }
+
+    @Test
+    void placeOrder_doesNotPersistOrReturnDownstreamFailureBody() throws Exception {
+        UUID reservationId = UUID.randomUUID();
+        String sensitiveValue = "inventory-api-key=super-secret";
+        String responseBody = """
+                {"code":"UNTRUSTED_ERROR","message":"%s","details":"%s"}
+                """.formatted(sensitiveValue, "x".repeat(8_192));
+        when(inventoryClient.reserve(any(), any(), any(), anyString())).thenReturn(reservationId);
+        doThrow(new InventoryClient.InventoryReservationException(503, responseBody))
+                .when(inventoryClient).confirm(FARM_ID, reservationId);
+
+        MvcResult result = placeOrder("SAFE-FAILURE", createCustomer("SAFE-FAILURE"), 25)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.failureReason")
+                        .value("Inventory request failed (status=503, code=INVENTORY_DOWNSTREAM_ERROR)"))
+                .andReturn();
+
+        String responseContent = result.getResponse().getContentAsString();
+        UUID orderId = UUID.fromString(objectMapper.readTree(responseContent).path("id").asText());
+        SalesOrderEntity order = orderRepository.findById(orderId).orElseThrow();
+        OrderSagaEntity saga = sagaRepository.findBySalesOrderId(orderId).orElseThrow();
+
+        assertThat(responseContent).doesNotContain(sensitiveValue, responseBody);
+        assertThat(order.getFailureReason())
+                .doesNotContain(sensitiveValue, responseBody)
+                .hasSizeLessThanOrEqualTo(160);
+        assertThat(saga.getLastError())
+                .doesNotContain(sensitiveValue, responseBody)
+                .hasSizeLessThanOrEqualTo(160);
     }
 
     @Test

@@ -32,6 +32,7 @@ import static com.agricore.sales.infrastructure.client.InventoryClient.ReleaseOu
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -162,6 +163,40 @@ class SalesReconcileTest {
         verify(inventoryClient).confirm(FARM_ID, fixture.reservationId());
         assertThat(orderRepository.findById(fixture.orderId()).orElseThrow().getStatus())
                 .isEqualTo(OrderStatus.CONFIRMED);
+    }
+
+    @Test
+    void reconcileFailureDoesNotPersistOrReturnDownstreamFailureBody() throws Exception {
+        ReservedOrder fixture = persistReservedOrder("SO-SAFE-FAILURE", "5.000");
+        OrderSagaEntity pendingSaga = sagaRepository.findBySalesOrderId(fixture.orderId()).orElseThrow();
+        pendingSaga.setStatus("RETRY_SCHEDULED");
+        sagaRepository.saveAndFlush(pendingSaga);
+        String sensitiveValue = "inventory-session=super-secret";
+        String responseBody = "<html><body>" + sensitiveValue + "x".repeat(8_192) + "</body></html>";
+        doThrow(new InventoryClient.InventoryReservationException(503, responseBody))
+                .when(inventoryClient).confirm(FARM_ID, fixture.reservationId());
+
+        MvcResult result = mockMvc.perform(post("/api/v1/sales/orders/" + fixture.orderId() + "/reconcile")
+                        .param("action", "CONFIRM")
+                        .header("X-Dev-User", "ops")
+                        .header("X-Dev-Roles", "WAREHOUSE_MANAGER"))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.code").value("RECONCILE_FAILED"))
+                .andExpect(jsonPath("$.message")
+                        .value("Inventory request failed (status=503, code=INVENTORY_DOWNSTREAM_ERROR)"))
+                .andReturn();
+
+        String responseContent = result.getResponse().getContentAsString();
+        SalesOrderEntity order = orderRepository.findById(fixture.orderId()).orElseThrow();
+        OrderSagaEntity saga = sagaRepository.findBySalesOrderId(fixture.orderId()).orElseThrow();
+
+        assertThat(responseContent).doesNotContain(sensitiveValue, responseBody);
+        assertThat(order.getFailureReason())
+                .doesNotContain(sensitiveValue, responseBody)
+                .hasSizeLessThanOrEqualTo(160);
+        assertThat(saga.getLastError())
+                .doesNotContain(sensitiveValue, responseBody)
+                .hasSizeLessThanOrEqualTo(160);
     }
 
     @Test

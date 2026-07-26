@@ -47,7 +47,7 @@ public class SalesEventOutboxWriter {
         ObjectNode payload = commonPayload(order);
         payload.put("finalStatus", order.getStatus().name());
         payload.put("reasonCode", reasonCode);
-        payload.put("reason", order.getFailureReason());
+        payload.put("reason", SalesSagaFailureMessage.publicMessage(order.getFailureReason()));
         payload.put("cancelledAt", order.getUpdatedAt().toString());
         if (order.getReservationId() != null) {
             payload.put("reservationId", order.getReservationId().toString());

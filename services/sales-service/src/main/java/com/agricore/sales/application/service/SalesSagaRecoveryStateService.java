@@ -83,10 +83,10 @@ public class SalesSagaRecoveryStateService {
             return;
         }
         Instant now = Instant.now();
-        order.setFailureReason(bounded(failureMessage));
+        order.setFailureReason(SalesSagaFailureMessage.bounded(failureMessage, "Saga recovery failed"));
         order.setUpdatedAt(now);
         saga.setStatus("RETRY_SCHEDULED");
-        saga.setLastError(bounded(failureMessage));
+        saga.setLastError(SalesSagaFailureMessage.bounded(failureMessage, "Saga recovery failed"));
         saga.setExecutionStartedAt(null);
         saga.setNextAttemptAt(nextAttemptAt);
         saga.setUpdatedAt(now);
@@ -108,7 +108,7 @@ public class SalesSagaRecoveryStateService {
             String failureMessage,
             Instant now
     ) {
-        String message = bounded(failureMessage);
+        String message = SalesSagaFailureMessage.bounded(failureMessage, "Saga recovery failed");
         order.setFailureReason(message);
         order.setUpdatedAt(now);
         saga.setStatus("TIMED_OUT");
@@ -154,11 +154,6 @@ public class SalesSagaRecoveryStateService {
         return order.getStatus() == OrderStatus.CONFIRMED
                 || order.getStatus() == OrderStatus.CANCELLED
                 || order.getStatus() == OrderStatus.OUT_OF_STOCK;
-    }
-
-    private static String bounded(String value) {
-        String normalized = value == null || value.isBlank() ? "Saga recovery failed" : value.trim();
-        return normalized.length() <= 1_000 ? normalized : normalized.substring(0, 1_000);
     }
 
     public record RecoveryClaim(UUID orderId, String step, int attempt) {

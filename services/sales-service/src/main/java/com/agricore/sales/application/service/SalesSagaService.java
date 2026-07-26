@@ -342,8 +342,7 @@ public class SalesSagaService {
     }
 
     private static String failureMessage(Exception failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? "Inventory saga failed" : message;
+        return SalesSagaFailureMessage.from(failure, "Inventory saga failed");
     }
 
     private SalesOrderResponse toResponse(SalesOrderEntity order, OrderSagaEntity saga) {
@@ -351,7 +350,7 @@ public class SalesSagaService {
                 order.getId(), order.getOrderNumber(), order.getFarmId(), order.getCustomerId(),
                 order.getStatus().name(),
                 order.getInventoryItemId(), order.getQuantity(), order.getReservationId(), order.getCorrelationId(),
-                order.getFailureReason(),
+                SalesSagaFailureMessage.publicMessage(order.getFailureReason()),
                 saga == null ? null : saga.getStatus(),
                 saga == null ? null : saga.getCurrentStep(),
                 saga == null ? null : saga.getRetryCount(),

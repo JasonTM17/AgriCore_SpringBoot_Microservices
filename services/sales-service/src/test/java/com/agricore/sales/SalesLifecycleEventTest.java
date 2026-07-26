@@ -118,6 +118,9 @@ class SalesLifecycleEventTest {
         JsonNode cancelled = objectMapper.readTree(events.get(1).getPayload());
         assertThat(cancelled.path("payload").path("finalStatus").asText()).isEqualTo("OUT_OF_STOCK");
         assertThat(cancelled.path("payload").path("reasonCode").asText()).isEqualTo("INSUFFICIENT_STOCK");
+        assertThat(cancelled.path("payload").path("reason").asText())
+                .isEqualTo("Inventory request failed (status=409, code=INSUFFICIENT_STOCK)")
+                .doesNotContain("Not enough available stock");
     }
 
     @Test

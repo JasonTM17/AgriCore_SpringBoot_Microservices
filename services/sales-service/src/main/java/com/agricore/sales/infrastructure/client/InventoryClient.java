@@ -10,12 +10,14 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 
@@ -27,6 +29,16 @@ import java.util.function.Consumer;
 public class InventoryClient {
 
     private static final String INTERNAL_BASE_PATH = "/internal/api/v1/inventory";
+    private static final int MAX_ERROR_BODY_INSPECTION_BYTES = 4_096;
+    private static final int MAX_SAFE_FAILURE_MESSAGE_LENGTH = 160;
+    private static final String DOWNSTREAM_ERROR_CODE = "INVENTORY_DOWNSTREAM_ERROR";
+    private static final String INVALID_RESPONSE_CODE = "INVALID_INVENTORY_RESPONSE";
+    private static final String UNAVAILABLE_CODE = "INVENTORY_UNAVAILABLE";
+    private static final String CONFIGURATION_ERROR_CODE = "INVENTORY_CLIENT_CONFIGURATION_ERROR";
+    private static final Set<String> ALLOWED_DOWNSTREAM_ERROR_CODES = Set.of(
+            "INSUFFICIENT_STOCK",
+            "RESERVATION_REFERENCE_CONFLICT"
+    );
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
@@ -64,14 +76,19 @@ public class InventoryClient {
                     .body(payload)
                     .retrieve()
                     .body(String.class);
+            if (body == null || body.isBlank()) {
+                throw invalidResponse();
+            }
             JsonNode json = objectMapper.readTree(body);
-            return UUID.fromString(json.get("id").asText());
+            return UUID.fromString(requiredText(json, "id"));
         } catch (RestClientResponseException ex) {
             throw responseFailure(ex);
         } catch (InventoryReservationException ex) {
             throw ex;
+        } catch (RestClientException ex) {
+            throw unavailable();
         } catch (Exception ex) {
-            throw new InventoryReservationException(500, ex.getMessage() == null ? "inventory call failed" : ex.getMessage());
+            throw invalidResponse();
         }
     }
 
@@ -86,7 +103,7 @@ public class InventoryClient {
                     .retrieve()
                     .body(String.class);
             if (body == null || body.isBlank()) {
-                throw new InventoryReservationException(502, "Inventory release response was empty");
+                throw invalidResponse();
             }
             JsonNode response = objectMapper.readTree(body);
             return ReleaseOutcome.fromInventoryStatus(response.path("status").asText());
@@ -94,11 +111,10 @@ public class InventoryClient {
             throw responseFailure(ex);
         } catch (InventoryReservationException ex) {
             throw ex;
+        } catch (RestClientException ex) {
+            throw unavailable();
         } catch (Exception ex) {
-            throw new InventoryReservationException(
-                    502,
-                    ex.getMessage() == null ? "Invalid inventory release response" : ex.getMessage()
-            );
+            throw invalidResponse();
         }
     }
 
@@ -114,6 +130,12 @@ public class InventoryClient {
                     .toBodilessEntity();
         } catch (RestClientResponseException ex) {
             throw responseFailure(ex);
+        } catch (InventoryReservationException ex) {
+            throw ex;
+        } catch (RestClientException ex) {
+            throw unavailable();
+        } catch (Exception ex) {
+            throw invalidResponse();
         }
     }
 
@@ -139,7 +161,7 @@ public class InventoryClient {
                     .retrieve()
                     .body(String.class);
             if (body == null || body.isBlank()) {
-                throw new InventoryReservationException(502, "Inventory reservation lookup response was empty");
+                throw invalidResponse();
             }
             JsonNode response = objectMapper.readTree(body);
             UUID id = UUID.fromString(requiredText(response, "id"));
@@ -148,7 +170,7 @@ public class InventoryClient {
             JsonNode quantityNode = response.get("quantity");
             if (quantityNode == null || !quantityNode.isNumber()
                     || quantityNode.decimalValue().signum() <= 0) {
-                throw new InventoryReservationException(502, "Inventory response missing valid quantity");
+                throw invalidResponse();
             }
             BigDecimal quantity = quantityNode.decimalValue();
             return Optional.of(new ReservationState(id, inventoryItemId, quantity, status));
@@ -159,39 +181,56 @@ public class InventoryClient {
             throw responseFailure(ex);
         } catch (InventoryReservationException ex) {
             throw ex;
+        } catch (RestClientException ex) {
+            throw unavailable();
         } catch (Exception ex) {
-            throw new InventoryReservationException(
-                    502,
-                    ex.getMessage() == null ? "Invalid inventory reservation lookup response" : ex.getMessage()
-            );
+            throw invalidResponse();
         }
     }
 
     private InventoryReservationException responseFailure(RestClientResponseException failure) {
-        String body = failure.getResponseBodyAsString();
-        String errorCode = null;
-        try {
-            errorCode = objectMapper.readTree(body).path("code").textValue();
-        } catch (Exception ignored) {
-            // Malformed bodies are retained for diagnostics but never classified by status alone.
+        String errorCode = DOWNSTREAM_ERROR_CODE;
+        byte[] responseBody = failure.getResponseBodyAsByteArray();
+        HttpHeaders responseHeaders = failure.getResponseHeaders();
+        MediaType contentType = responseHeaders == null ? null : responseHeaders.getContentType();
+        if (responseBody != null
+                && responseBody.length <= MAX_ERROR_BODY_INSPECTION_BYTES
+                && contentType != null
+                && MediaType.APPLICATION_JSON.isCompatibleWith(contentType)) {
+            try {
+                String candidate = objectMapper.readTree(responseBody).path("code").textValue();
+                if (ALLOWED_DOWNSTREAM_ERROR_CODES.contains(candidate)) {
+                    errorCode = candidate;
+                }
+            } catch (Exception ignored) {
+                // Untrusted or malformed error bodies are intentionally discarded.
+            }
         }
-        return new InventoryReservationException(failure.getStatusCode().value(), body, errorCode);
+        return InventoryReservationException.trusted(failure.getStatusCode().value(), errorCode);
     }
 
     private static String requiredText(JsonNode response, String field) {
         String value = response.path(field).textValue();
         if (value == null || value.isBlank()) {
-            throw new InventoryReservationException(502, "Inventory response missing " + field);
+            throw invalidResponse();
         }
         return value;
+    }
+
+    private static InventoryReservationException invalidResponse() {
+        return InventoryReservationException.trusted(502, INVALID_RESPONSE_CODE);
+    }
+
+    private static InventoryReservationException unavailable() {
+        return InventoryReservationException.trusted(503, UNAVAILABLE_CODE);
     }
 
     private Consumer<HttpHeaders> authHeaders() {
         return headers -> {
             if (internalServiceToken.length() < 32) {
-                throw new InventoryReservationException(
+                throw InventoryReservationException.trusted(
                         503,
-                        "Inventory internal service token is not configured"
+                        CONFIGURATION_ERROR_CODE
                 );
             }
             headers.set("X-Internal-Service-Token", internalServiceToken);
@@ -210,10 +249,7 @@ public class InventoryClient {
             return switch (status) {
                 case "RELEASED" -> RELEASED;
                 case "FULFILLED" -> FULFILLED;
-                default -> throw new InventoryReservationException(
-                        502,
-                        "Unexpected inventory release status: " + status
-                );
+                default -> throw invalidResponse();
             };
         }
     }
@@ -230,14 +266,34 @@ public class InventoryClient {
         private final int status;
         private final String errorCode;
 
-        public InventoryReservationException(int status, String body) {
-            this(status, body, "INSUFFICIENT_STOCK".equals(body) ? body : null);
+        public InventoryReservationException(int status, String downstreamCode) {
+            this(
+                    ALLOWED_DOWNSTREAM_ERROR_CODES.contains(downstreamCode)
+                            ? downstreamCode
+                            : DOWNSTREAM_ERROR_CODE,
+                    normalizeStatus(status)
+            );
         }
 
-        private InventoryReservationException(int status, String body, String errorCode) {
-            super(body);
+        private InventoryReservationException(String errorCode, int status) {
+            super(safeMessage(status, errorCode));
             this.status = status;
             this.errorCode = errorCode;
+        }
+
+        private static InventoryReservationException trusted(int status, String errorCode) {
+            return new InventoryReservationException(errorCode, normalizeStatus(status));
+        }
+
+        private static int normalizeStatus(int status) {
+            return status >= 100 && status <= 599 ? status : 502;
+        }
+
+        private static String safeMessage(int status, String errorCode) {
+            String message = "Inventory request failed (status=" + status + ", code=" + errorCode + ")";
+            return message.length() <= MAX_SAFE_FAILURE_MESSAGE_LENGTH
+                    ? message
+                    : message.substring(0, MAX_SAFE_FAILURE_MESSAGE_LENGTH);
         }
 
         public int getStatus() {
