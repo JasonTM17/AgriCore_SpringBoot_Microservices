@@ -2,7 +2,7 @@
 # contracts. Direct database access is limited to local role bootstrap,
 # idempotent entity lookup where no read API exists, and final evidence counts.
 param(
-  [ValidateSet("Quick", "Showcase", "Large")]
+  [ValidateSet("Quick", "Showcase", "Large", "Smoke", "Demo")]
   [string]$Profile = "Showcase",
   [string]$Gateway = $(if ($env:GATEWAY_URL) { $env:GATEWAY_URL } else { "http://localhost:3000" }),
   [string]$Identity = $(if ($env:IDENTITY_URL) { $env:IDENTITY_URL } else { "http://localhost:8081" }),
@@ -39,6 +39,11 @@ $profileDefaults = @{
     Farms = 32; Plots = 24; DomainFarms = 32; Tasks = 4
     Readings = 20; SalesOrders = 16; Delay = 25
   }
+}
+$Profile = switch ($Profile) {
+  "Smoke" { "Quick" }
+  "Demo" { "Showcase" }
+  default { $Profile }
 }
 $selectedProfile = $profileDefaults[$Profile]
 if ($FarmLimit -eq 0) { $FarmLimit = $selectedProfile.Farms }
