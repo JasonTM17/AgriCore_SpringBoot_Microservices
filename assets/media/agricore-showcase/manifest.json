@@ -36,8 +36,12 @@
       "width": 960,
       "height": 540,
       "frames": 3,
-      "bytes": 660723,
-      "sha256": "7AEFDB475EDE138B43D575A54795FC323CBBD23F91AD68D3E2F4B0D9F5295D36",
+      "frameDelayCentiseconds": 120,
+      "durationSeconds": 3.6,
+      "framesPerSecond": 0.8333,
+      "loopCount": 0,
+      "bytes": 648358,
+      "sha256": "7D81F16920CDFB0467A67B802695609181C87213A337759191E1AC91B8E7F524",
       "role": "bounded three-frame farm story preview"
     }
   ]
