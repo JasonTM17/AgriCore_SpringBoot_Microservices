@@ -82,6 +82,7 @@ class InventoryReservationReferenceTest {
         ));
         return inventoryService.processHarvestCompleted(new HarvestCompletedCommand(
                 UUID.randomUUID().toString(),
+                warehouse.farmId(),
                 UUID.randomUUID(),
                 warehouse.id(),
                 "PRODUCT-" + suffix,

@@ -22,6 +22,7 @@ final class HarvestCompletedEventParser {
     private static final Set<String> PAYLOAD_FIELDS = Set.of(
             "harvestId",
             "harvestBatchId",
+            "farmId",
             "cropCycleId",
             "plotId",
             "warehouseId",
@@ -62,6 +63,7 @@ final class HarvestCompletedEventParser {
         if (!harvestId.equals(harvestBatchId)) {
             throw invalid("harvestId and harvestBatchId must match");
         }
+        UUID farmId = requiredUuid(payload, "farmId");
         requiredUuid(payload, "cropCycleId");
         requiredUuid(payload, "plotId");
         UUID warehouseId = requiredUuid(payload, "warehouseId");
@@ -77,6 +79,7 @@ final class HarvestCompletedEventParser {
 
         return Optional.of(new HarvestCompletedCommand(
                 envelope.eventId().toString(),
+                farmId,
                 harvestBatchId,
                 warehouseId,
                 productCode,

@@ -156,6 +156,7 @@ class InventoryPostgresIdempotencyTest {
 
         HarvestCompletedCommand cmd = new HarvestCompletedCommand(
                 eventId,
+                warehouse.farmId(),
                 UUID.randomUUID(),
                 warehouse.id(),
                 "COFFEE-ROBUSTA",
@@ -179,6 +180,7 @@ class InventoryPostgresIdempotencyTest {
                 ));
         var stocked = inventoryService.processHarvestCompleted(new HarvestCompletedCommand(
                 UUID.randomUUID().toString(),
+                warehouse.farmId(),
                 UUID.randomUUID(),
                 warehouse.id(),
                 "RICE-ST25",
@@ -228,8 +230,10 @@ class InventoryPostgresIdempotencyTest {
                 new CreateWarehouseRequest(
                         UUID.randomUUID(), "WH-REF-RACE-" + System.nanoTime(), "Reference Race WH"
                 ));
-        InventoryItemResponse firstItem = stockedItem(warehouse.id(), "REF-RACE-A");
-        InventoryItemResponse secondItem = stockedItem(warehouse.id(), "REF-RACE-B");
+        InventoryItemResponse firstItem = stockedItem(
+                warehouse.farmId(), warehouse.id(), "REF-RACE-A");
+        InventoryItemResponse secondItem = stockedItem(
+                warehouse.farmId(), warehouse.id(), "REF-RACE-B");
         String referenceId = UUID.randomUUID().toString();
         CountDownLatch start = new CountDownLatch(1);
         AtomicInteger successes = new AtomicInteger();
@@ -262,9 +266,10 @@ class InventoryPostgresIdempotencyTest {
         assertThat(reservationSuccessMetric() - successMetricBefore).isEqualTo(1.0d);
     }
 
-    private InventoryItemResponse stockedItem(UUID warehouseId, String productCode) {
+    private InventoryItemResponse stockedItem(UUID farmId, UUID warehouseId, String productCode) {
         return inventoryService.processHarvestCompleted(new HarvestCompletedCommand(
                 UUID.randomUUID().toString(),
+                farmId,
                 UUID.randomUUID(),
                 warehouseId,
                 productCode,

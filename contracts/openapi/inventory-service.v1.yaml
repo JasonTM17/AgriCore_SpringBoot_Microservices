@@ -152,6 +152,119 @@ paths:
                 $ref: '#/components/schemas/ReservationResponse'
         '409':
           description: Insufficient stock or reference conflict
+  /internal/api/v1/inventory/reservations:
+    post:
+      summary: Reserve stock for an explicit authoritative farm
+      description: >-
+        Internal Sales contract. Inventory locks the item and verifies its warehouse belongs
+        to farmId before creating or replaying the business-reference reservation.
+      parameters:
+        - in: header
+          name: X-Internal-Service-Token
+          required: true
+          schema: { type: string, minLength: 32 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InternalReserveStockRequest'
+      responses:
+        '200':
+          description: Existing scoped reservation replay
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationResponse'
+        '201':
+          description: Reservation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationResponse'
+        '403': { description: Internal service authentication failed }
+        '404': { description: Item or reservation absent from the supplied farm }
+        '409': { description: Insufficient stock or reference conflict }
+  /internal/api/v1/inventory/reservations/by-reference:
+    get:
+      summary: Resolve a reservation only within an explicit farm
+      parameters:
+        - in: header
+          name: X-Internal-Service-Token
+          required: true
+          schema: { type: string, minLength: 32 }
+        - in: query
+          name: farmId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: referenceType
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 64 }
+        - in: query
+          name: referenceId
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 100 }
+      responses:
+        '200':
+          description: Current scoped reservation state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationResponse'
+        '403': { description: Internal service authentication failed }
+        '404': { description: Reservation absent from the supplied farm }
+  /internal/api/v1/inventory/reservations/{id}/release:
+    post:
+      summary: Release a reservation only within an explicit farm
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: farmId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: X-Internal-Service-Token
+          required: true
+          schema: { type: string, minLength: 32 }
+      responses:
+        '200':
+          description: Current scoped reservation state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationReleaseResponse'
+        '403': { description: Internal service authentication failed }
+        '404': { description: Reservation absent from the supplied farm }
+  /internal/api/v1/inventory/reservations/{id}/confirm:
+    post:
+      summary: Confirm a reservation only within an explicit farm
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: farmId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: X-Internal-Service-Token
+          required: true
+          schema: { type: string, minLength: 32 }
+      responses:
+        '200':
+          description: Fulfilled scoped reservation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationResponse'
+        '403': { description: Internal service authentication failed }
+        '404': { description: Reservation absent from the supplied farm }
+        '409': { description: Reservation is not active or stock is inconsistent }
   /api/v1/inventory/reservations/by-reference:
     get:
       summary: Resolve the authoritative reservation for a business reference
@@ -411,6 +524,16 @@ components:
         referenceType: { type: string, minLength: 1, maxLength: 64 }
         referenceId: { type: string, minLength: 1, maxLength: 100 }
         note: { type: [string, 'null'], maxLength: 1000 }
+    InternalReserveStockRequest:
+      type: object
+      additionalProperties: false
+      required: [farmId, inventoryItemId, quantity, referenceType, referenceId]
+      properties:
+        farmId: { type: string, format: uuid }
+        inventoryItemId: { type: string, format: uuid }
+        quantity: { type: number, minimum: 0.001, maximum: 999999999999999.999, multipleOf: 0.001 }
+        referenceType: { type: string, minLength: 1, maxLength: 64 }
+        referenceId: { type: string, minLength: 1, maxLength: 100 }
     InventoryItemResponse:
       type: object
       additionalProperties: false
@@ -515,9 +638,10 @@ components:
     HarvestCompletedCommand:
       type: object
       additionalProperties: false
-      required: [eventId, harvestBatchId, warehouseId, productCode, netWeightKg]
+      required: [eventId, farmId, harvestBatchId, warehouseId, productCode, netWeightKg]
       properties:
         eventId: { type: string, minLength: 1 }
+        farmId: { type: string, format: uuid }
         harvestBatchId: { type: string, format: uuid }
         warehouseId: { type: string, format: uuid }
         productCode: { type: string, minLength: 1 }

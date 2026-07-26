@@ -1,7 +1,7 @@
 package com.agricore.inventory.api.controller;
 
 import com.agricore.inventory.api.request.InternalStockOutRequest;
-import com.agricore.inventory.api.request.ReserveStockRequest;
+import com.agricore.inventory.api.request.InternalReserveStockRequest;
 import com.agricore.inventory.api.response.InventoryItemResponse;
 import com.agricore.inventory.api.response.ReservationResponse;
 import com.agricore.inventory.application.service.InventoryApplicationService;
@@ -51,38 +51,41 @@ public class InventoryInternalController {
     @PostMapping("/reservations")
     public ReservationResponse reserve(
             @RequestHeader(value = "X-Internal-Service-Token", required = false) String serviceToken,
-            @Valid @RequestBody ReserveStockRequest request
+            @Valid @RequestBody InternalReserveStockRequest request
     ) {
         requireServiceToken(serviceToken);
-        return inventoryService.reserve(request);
+        return inventoryService.reserveForFarm(request.farmId(), request.toReserveStockRequest());
     }
 
     @GetMapping("/reservations/by-reference")
     public ReservationResponse getReservationByReference(
             @RequestHeader(value = "X-Internal-Service-Token", required = false) String serviceToken,
+            @RequestParam UUID farmId,
             @RequestParam @NotBlank @Size(max = 64) String referenceType,
             @RequestParam @NotBlank @Size(max = 100) String referenceId
     ) {
         requireServiceToken(serviceToken);
-        return inventoryService.getReservationByReference(referenceType, referenceId);
+        return inventoryService.getReservationByReferenceForFarm(farmId, referenceType, referenceId);
     }
 
     @PostMapping("/reservations/{reservationId}/release")
     public ReservationResponse release(
             @RequestHeader(value = "X-Internal-Service-Token", required = false) String serviceToken,
+            @RequestParam UUID farmId,
             @PathVariable UUID reservationId
     ) {
         requireServiceToken(serviceToken);
-        return inventoryService.release(reservationId);
+        return inventoryService.releaseForFarm(farmId, reservationId);
     }
 
     @PostMapping("/reservations/{reservationId}/confirm")
     public ReservationResponse confirm(
             @RequestHeader(value = "X-Internal-Service-Token", required = false) String serviceToken,
+            @RequestParam UUID farmId,
             @PathVariable UUID reservationId
     ) {
         requireServiceToken(serviceToken);
-        return inventoryService.confirm(reservationId);
+        return inventoryService.confirmForFarm(farmId, reservationId);
     }
 
     private void requireServiceToken(String serviceToken) {

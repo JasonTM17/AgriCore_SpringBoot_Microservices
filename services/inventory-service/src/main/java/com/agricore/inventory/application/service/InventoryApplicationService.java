@@ -213,6 +213,13 @@ public class InventoryApplicationService {
                     503
             );
         }
+        if (!warehouse.getFarmId().equals(command.farmId())) {
+            throw new InventoryException(
+                    "HARVEST_FARM_MISMATCH",
+                    "Harvest farm does not match the destination warehouse",
+                    409
+            );
+        }
 
         if (processedEventRepository.existsByEventIdAndConsumerName(command.eventId(), HARVEST_CONSUMER)) {
             metrics.recordDuplicateHarvestEvent();
@@ -264,20 +271,42 @@ public class InventoryApplicationService {
 
     @Transactional
     public ReservationResponse reserve(ReserveStockRequest request) {
+        return reserve(request, null);
+    }
+
+    @Transactional
+    public ReservationResponse reserveForFarm(UUID farmId, ReserveStockRequest request) {
+        if (farmId == null) {
+            throw itemNotFound();
+        }
+        return reserve(request, farmId);
+    }
+
+    private ReservationResponse reserve(ReserveStockRequest request, UUID requiredFarmId) {
         String referenceType = request.referenceType().trim();
         String referenceId = request.referenceId().trim();
         InventoryReservationEntity existing = reservationRepository
-                .findByReferenceTypeAndReferenceId(referenceType, referenceId)
+                .findByReferenceForUpdate(referenceType, referenceId)
                 .orElse(null);
         if (existing != null) {
+            if (requiredFarmId != null) {
+                requireItemForFarmForUpdate(existing.getInventoryItemId(), requiredFarmId);
+            }
             return validateReplay(existing, request);
         }
 
         InventoryItemEntity item = requireItemForUpdate(request.inventoryItemId());
+        if (requiredFarmId != null) {
+            requireItemFarm(item, requiredFarmId);
+        }
         existing = reservationRepository
-                .findByReferenceTypeAndReferenceId(referenceType, referenceId)
+                .findByReferenceForUpdate(referenceType, referenceId)
                 .orElse(null);
         if (existing != null) {
+            if (requiredFarmId != null
+                    && !existing.getInventoryItemId().equals(item.getId())) {
+                throw itemNotFound();
+            }
             return validateReplay(existing, request);
         }
         if (item.availableQuantity().compareTo(request.quantity()) < 0) {
@@ -327,17 +356,38 @@ public class InventoryApplicationService {
         return toReservationResponse(reservation);
     }
 
+    @Transactional(readOnly = true)
+    public ReservationResponse getReservationByReferenceForFarm(
+            UUID farmId,
+            String referenceType,
+            String referenceId
+    ) {
+        InventoryReservationEntity reservation = reservationRepository
+                .findByReferenceTypeAndReferenceId(referenceType.trim(), referenceId.trim())
+                .orElseThrow(InventoryApplicationService::reservationNotFound);
+        requireItemForFarm(reservation.getInventoryItemId(), farmId);
+        return toReservationResponse(reservation);
+    }
+
     @Transactional
     public ReservationResponse release(UUID reservationId) {
-        InventoryReservationEntity reservation = reservationRepository.findById(reservationId)
-                .orElseThrow(() -> new InventoryException("RESERVATION_NOT_FOUND", "Reservation not found", 404));
+        return release(reservationId, null);
+    }
+
+    @Transactional
+    public ReservationResponse releaseForFarm(UUID farmId, UUID reservationId) {
+        return release(reservationId, farmId);
+    }
+
+    private ReservationResponse release(UUID reservationId, UUID requiredFarmId) {
+        InventoryReservationEntity reservation = reservationRepository.findByIdForUpdate(reservationId)
+                .orElseThrow(InventoryApplicationService::reservationNotFound);
+        InventoryItemEntity item = requiredFarmId == null
+                ? requireItemForUpdate(reservation.getInventoryItemId())
+                : requireItemForFarmForUpdate(reservation.getInventoryItemId(), requiredFarmId);
         if ("RELEASED".equals(reservation.getStatus()) || "FULFILLED".equals(reservation.getStatus())) {
-            return new ReservationResponse(
-                    reservation.getId(), reservation.getInventoryItemId(), reservation.getQuantity(),
-                    reservation.getStatus(), reservation.getReferenceType(), reservation.getReferenceId()
-            );
+            return toReservationResponse(reservation);
         }
-        InventoryItemEntity item = requireItemForUpdate(reservation.getInventoryItemId());
         Instant now = Instant.now();
         batchAllocationService.release(reservation.getId(), item.getId(), now);
         item.setReservedQuantity(item.getReservedQuantity().subtract(reservation.getQuantity()));
@@ -364,13 +414,22 @@ public class InventoryApplicationService {
      */
     @Transactional
     public ReservationResponse confirm(UUID reservationId) {
-        InventoryReservationEntity reservation = reservationRepository.findById(reservationId)
-                .orElseThrow(() -> new InventoryException("RESERVATION_NOT_FOUND", "Reservation not found", 404));
+        return confirm(reservationId, null);
+    }
+
+    @Transactional
+    public ReservationResponse confirmForFarm(UUID farmId, UUID reservationId) {
+        return confirm(reservationId, farmId);
+    }
+
+    private ReservationResponse confirm(UUID reservationId, UUID requiredFarmId) {
+        InventoryReservationEntity reservation = reservationRepository.findByIdForUpdate(reservationId)
+                .orElseThrow(InventoryApplicationService::reservationNotFound);
+        InventoryItemEntity item = requiredFarmId == null
+                ? requireItemForUpdate(reservation.getInventoryItemId())
+                : requireItemForFarmForUpdate(reservation.getInventoryItemId(), requiredFarmId);
         if ("FULFILLED".equals(reservation.getStatus())) {
-            return new ReservationResponse(
-                    reservation.getId(), reservation.getInventoryItemId(), reservation.getQuantity(),
-                    reservation.getStatus(), reservation.getReferenceType(), reservation.getReferenceId()
-            );
+            return toReservationResponse(reservation);
         }
         if (!"ACTIVE".equals(reservation.getStatus())) {
             throw new InventoryException(
@@ -379,7 +438,6 @@ public class InventoryApplicationService {
                     409
             );
         }
-        InventoryItemEntity item = requireItemForUpdate(reservation.getInventoryItemId());
         if (item.getOnHandQuantity().compareTo(reservation.getQuantity()) < 0) {
             throw new InventoryException("INSUFFICIENT_ON_HAND", "On-hand stock below reserved quantity", 409);
         }
@@ -469,8 +527,32 @@ public class InventoryApplicationService {
                 .orElseThrow(InventoryApplicationService::itemNotFound);
     }
 
+    private InventoryItemEntity requireItemForFarm(UUID itemId, UUID farmId) {
+        InventoryItemEntity item = requireItem(itemId);
+        requireItemFarm(item, farmId);
+        return item;
+    }
+
+    private InventoryItemEntity requireItemForFarmForUpdate(UUID itemId, UUID farmId) {
+        InventoryItemEntity item = requireItemForUpdate(itemId);
+        requireItemFarm(item, farmId);
+        return item;
+    }
+
+    private void requireItemFarm(InventoryItemEntity item, UUID farmId) {
+        WarehouseEntity warehouse = warehouseRepository.findById(item.getWarehouseId())
+                .orElseThrow(InventoryApplicationService::itemNotFound);
+        if (farmId == null || !farmId.equals(warehouse.getFarmId())) {
+            throw itemNotFound();
+        }
+    }
+
     private static InventoryException itemNotFound() {
         return new InventoryException("ITEM_NOT_FOUND", "Inventory item not found", 404);
+    }
+
+    private static InventoryException reservationNotFound() {
+        return new InventoryException("RESERVATION_NOT_FOUND", "Reservation not found", 404);
     }
 
     private static void validateExpiry(Instant expiresAt, Instant receivedAt) {
