@@ -1,102 +1,134 @@
-# Release Verification Evidence — 2026-07-26
+# Release Verification Evidence - 2026-07-26
 
 ## Scope
 
 - Branch: `feature/agricore-web-assistant-ck`
-- Reviewed revision: `49a2614`
-- Environment: Windows host, Docker Desktop 29.5.3, local Compose network
-- Evidence bundle: `compose-ps.txt`, `mvn-test.log`, `e2e-flow.log`,
-  `core-slice.http.log`, and `traceability.json`
+- Reviewed source revision: `5867b37`
+- Runtime image content revision: `2c8c339`; the later `5867b37` commit
+  changes only the GitHub Actions frontend toolchain.
+- Environment: Windows host, Docker Desktop 29.5.3, local Compose network.
+- Runtime evidence: `D:\agricore-evidence\final-5867b37`.
+- Security evidence: `D:\agricore-evidence\security`.
 
-This is local release evidence. It does not claim a production deployment,
-production TLS/mTLS, Kafka ACL enforcement, or production observability
-retention.
+This is local release-candidate evidence. It does not claim a production
+deployment, production TLS/mTLS, Kafka ACL enforcement, external persistence,
+or production retention policy.
 
 ## Quality gates
 
 | Gate | Result | Evidence |
 |---|---|---|
-| Full Maven reactor | PASS | 684 tests, 0 failures, 0 errors, 0 skipped; `BUILD SUCCESS` |
-| PostgreSQL idempotency gate | PASS | `InventoryPostgresIdempotencyTest`: 3/3 cases executed |
-| Assistant focused suite | PASS | 171 tests, 0 failures/errors/skips |
-| Work focused suite | PASS | 69 tests, 0 failures/errors/skips |
+| Full Maven reactor | PASS | Exit 0 after 431 seconds; 247 current reports, 738 tests, 0 failures, 0 errors, 1 skipped |
 | Frontend contracts | PASS | Generated Identity, Gateway, and Assistant clients have no drift |
-| Frontend static gates | PASS | TypeScript, ESLint, production build, CSP, and same-origin script policy |
-| Frontend tests | PASS | 85 files, 299 tests |
-| Playwright journeys | PASS | 3/3: refresh rotation/headers, SSE reconnect, durable cancellation |
-| Full Compose release gate | PASS | All 13 Spring applications, console, and required infrastructure healthy |
-| Docker builds | PASS | All 14 application images built; affected Assistant, Work, and console images rebuilt after fixes |
-| OTLP trace delivery | PASS | Gateway container exported to `tempo:4318`; Tempo returned 2 gateway traces |
-| Frontend production image | PASS | Console image rebuilt, recreated, and health-checked |
+| Frontend static gates | PASS | pnpm 11.17.0; ESLint, TypeScript, production build, CSP, and same-origin script policy |
+| Frontend unit tests | PASS | 85 files, 299 tests |
+| Playwright journeys | PASS | 3/3: refresh rotation/headers, SSE reconnect, durable assistant cancellation |
+| Compose release gate | PASS | 13 Spring applications, console, and required infrastructure healthy |
+| Runtime acceptance | PASS | JWT, CRUD, Kafka projections, public QR, idempotency, dedupe, and DLT |
+| Public read load profile | PASS | 1,273 requests, 0 failures, p95 38.79 ms, p99 57.37 ms |
+| Observability | PASS | Prometheus 13/13 UP; Grafana database OK; Tempo/Loki ready; Alloy healthy |
+| Runtime image scans | PASS | 14 images, 27 OS/JAR targets, 0 HIGH/CRITICAL; no unfixed-vulnerability exception |
+| Console build-stage scan | PASS | Node/pnpm build stage, 2 targets, 0 HIGH/CRITICAL |
+| Filesystem scan | PASS | 18 dependency manifests, 0 HIGH/CRITICAL |
+| Secret history scan | PASS | Gitleaks scanned 427 reachable commits with no leaks |
+| Deployment/config gates | PASS | actionlint, Compose config, runtime contracts, Helm lint and render |
+| Showcase media | PASS | 4 tracked assets, 1,262,468 bytes, manifest and checksums verified |
 
-The full Maven run predates only release-script, frontend, and Compose endpoint
-changes in the final reviewed revision. No backend source changed after that
-successful reactor run.
+The Maven run includes Spring Boot 3.5.16, Spring Cloud 2025.0.2, Gateway
+4.3.4, Netty 4.1.136.Final, and Bouncy Castle 1.84. Only frontend container,
+media packaging, and CI files changed after that reactor run; no Maven source,
+POM, migration, or backend configuration changed.
 
 ## Runtime acceptance path
 
-The release gate exercised real JWTs, PostgreSQL, Kafka, Redis, and service
-boundaries:
+The final Compose run used the locally built and scanned application images.
+It exercised real JWTs, PostgreSQL, Kafka, Redis, MinIO, and service boundaries:
 
-1. Invalid bearer tokens returned 401 at both gateway and direct farm-service.
-2. Registration/login issued an RS256 access token.
+1. Missing credentials returned 401 at the edge and direct Farm API.
+2. Registration and login issued an RS256 access token.
 3. Farm, plot, crop cycle, and legal stage transitions succeeded through the
-   gateway; the illegal `PLANNED → COMPLETED` jump returned 409.
-4. Work followed `CREATED → ASSIGNED → IN_PROGRESS → COMPLETED`.
-5. Harvest completion wrote an outbox event and the Inventory consumer increased
-   aggregate `COFFEE-ROBUSTA` stock by exactly 90 kg.
-6. Traceability projected the deterministic full-UUID code and returned the
-   public product, farm, and plot facts.
+   gateway; an illegal `PLANNED -> COMPLETED` transition returned 409.
+4. Work followed `CREATED -> ASSIGNED -> IN_PROGRESS -> COMPLETED`.
+5. Harvest completion wrote an outbox event and Inventory increased
+   `COFFEE-ROBUSTA` stock by exactly 90 kg.
+6. Traceability projected the deterministic full-UUID code and returned public
+   product, farm, and plot facts.
 7. Republished `HarvestCompleted.v1` did not change stock; Inventory and
    Traceability processed-event ledgers each remained at one.
-8. Two copies of a Sales event created one notification.
-9. A wrong-version Harvest event was routed to the shared DLT by both projection
+8. Two copies of one Sales event created one notification.
+9. A wrong-version Harvest event reached the shared DLT for both projection
    consumers.
 
-The final successful run reported:
+The successful final run reported:
 
 ```text
-Inventory stocked sku=COFFEE-ROBUSTA before=6990.000 onHand=7080.000
-Duplicate projection OK onHand=7080.000 inventoryLedger=1 traceabilityLedger=1
+Inventory stocked sku=COFFEE-ROBUSTA before=14206.000 onHand=14296.000
+Duplicate projection OK onHand=14296.000 inventoryLedger=1 traceabilityLedger=1
 Notification dedupe OK count=1
 Harvest DLT OK dltRecords=2
 VERIFY PLATFORM OK
 ```
 
-## Security and supply-chain checks
+The evidence bundle contains `compose-ps.txt`, `e2e-flow.log`,
+`core-slice.http.log`, `traceability.json`, `k6-summary.json`, and
+`git-log.txt`.
 
-- Tracked-file scans found zero OpenAI-style keys, AWS access-key IDs, or private
-  key PEM headers.
-- Production frontend dependency audit reported no known vulnerabilities.
-- Local JWT keys and `.env` remained ignored and untracked.
-- Gitleaks, CodeQL, and Trivy remain mandatory CI gates. This report does not
-  claim a local Trivy or CodeQL run.
+## Security and supply chain
 
-## Seed and media checks
+- Trivy scanned all 14 final runtime tags and the final Console build stage.
+  Every report contains zero HIGH or CRITICAL findings.
+- The Console build stage uses Node 22.23.1 and Corepack-managed pnpm 11.17.0;
+  npm is removed after tool activation to reduce the build-stage surface.
+- The Console runtime uses Nginx 1.30.2 on Alpine 3.23 with patched `c-ares`,
+  `curl`, `libcurl`, and `libexpat`.
+- Gitleaks full-history mode reported no leaks. The worktree has no tracked or
+  non-ignored uncommitted files.
+- Local `.env`, JWT private keys, build outputs, and test reports remain ignored
+  and untracked.
+- CodeQL remains a required remote CI gate; this local report does not claim a
+  local CodeQL run.
 
-- Large seed dry-run: 32 farms, 24 plots per farm, 768 plots, no API or database
-  writes.
-- Repository media verifier: 4 assets, 1,274,833 bytes.
-- Assets include three optimized WebP images and one 660,723-byte GIF; SHA-256
-  values match `assets/media/agricore-showcase/manifest.json`.
+## Seed and media
+
+The large connected seed ran twice to prove idempotency:
+
+- 32 farms and 768 plots
+- 32 crop cycles and 128 work tasks
+- 32 harvests, inventory batches, and IoT devices
+- 640 telemetry readings
+- 16 sales orders and 16 notifications
+- 1 assistant conversation
+- 32 MinIO attachment prefixes
+
+The showcase verifier confirmed three WebP images and one bounded GIF. The GIF
+is 648,358 bytes, 960x540, three frames, 3.6 seconds, and has SHA-256:
+
+```text
+7d81f16920cdfb0467a67b802695609181c87213a337759191e1ac91b8e7f524
+```
+
+The same GIF hash was verified inside the production Console image, together
+with all three WebP assets and `manifest.json`.
 
 ## Disk and cache discipline
 
 | Checkpoint | C: free | D: free |
 |---|---:|---:|
-| Before final image/test gates | 8.98 GB | 20.00 GB |
-| After release verification | 8.04 GB | 19.96 GB |
+| Before final dependency/image gates | 8.70 GB | 25.97 GB |
+| After final runtime and evidence gates | 8.42 GB | 27.18 GB |
 
-Maven evidence and temporary files used `D:\caches`; Playwright browsers used
-`D:\caches\ms-playwright`. Docker reported 21.49 GB of reclaimable images and
-3.66 GB of reclaimable build cache, but no global prune was performed because
-other user projects share the Docker engine.
+Playwright browsers and Trivy databases used bounded caches on `D:`. Temporary
+CI and builder image tags were removed by exact name. No global Docker prune
+was run because other user projects share the engine. Docker still reports
+reclaimable shared images, volumes, and build cache; those were intentionally
+left untouched.
 
 ## Remaining release boundary
 
-- Push the feature branch and let GitHub CI rerun Maven `verify`, frontend,
-  Gitleaks, Compose/Helm, CodeQL, and Trivy gates.
-- Merge without squashing the focused commit history.
-- Verify Docker Hub and GHCR package publication by digest.
-- Production operators must still provide rotated secrets, TLS/mTLS policy,
-  Kafka authentication/ACLs, external persistence, and retention policy.
+- Push the feature branch and require all GitHub checks, including CodeQL,
+  Gitleaks, Trivy, container matrix, Compose/Helm, frontend, and Maven.
+- Merge the focused commit history after review.
+- Verify Docker Hub and GHCR packages by tag and digest after publication.
+- Verify GitHub About, topics, homepage, license, and package links.
+- Production operators must provide rotated secrets, TLS/mTLS, Kafka
+  authentication/ACLs, external persistence, backups, and retention policy.
