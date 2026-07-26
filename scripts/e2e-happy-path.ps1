@@ -31,6 +31,23 @@ function GetJson([string]$Url, [hashtable]$Headers = @{}) {
   return Invoke-RestMethod -Method Get -Uri $Url -Headers $Headers
 }
 
+function PublishKafkaJson([string]$Topic, [string]$Payload) {
+  $Payload | docker exec -i agricore-kafka /opt/kafka/bin/kafka-console-producer.sh `
+    --bootstrap-server kafka:19092 --topic $Topic
+  if ($LASTEXITCODE -ne 0) {
+    throw "Kafka publish failed for topic=$Topic exit=$LASTEXITCODE"
+  }
+}
+
+function ReadKafkaTopic([string]$Topic, [int]$TimeoutMs = 2000) {
+  $output = docker exec agricore-kafka /opt/kafka/bin/kafka-console-consumer.sh `
+    --bootstrap-server kafka:19092 --topic $Topic --from-beginning --timeout-ms $TimeoutMs 2>&1 | Out-String
+  if ($LASTEXITCODE -ne 0 -and $output -notmatch "Processed a total") {
+    throw "Kafka consume failed for topic=$Topic exit=$LASTEXITCODE output=$output"
+  }
+  return $output
+}
+
 if ($EvidenceDir) {
   New-Item -ItemType Directory -Path $EvidenceDir -Force | Out-Null
 }
@@ -236,7 +253,109 @@ if ($publicObj.plotCode -ne $plotObj.code) {
 }
 
 Log "Public QR code=$traceCode product=$($publicObj.productName) farm=$($publicObj.farmName) plot=$($publicObj.plotCode)"
-Log "E2E happy path OK (gateway JWT + legal stages + harvest outbox/Kafka projection)"
+
+Log "== 8. Republish duplicate HarvestCompleted (Kafka idempotency) =="
+$baselineOnHand = [decimal]$onHand
+$republishResponse = Invoke-RestMethod -Method Post `
+  -Uri "$Gateway/api/v1/harvests/$($harvestObj.id)/completion-event/republish" `
+  -Headers $Auth
+Log "Republish accepted eventId=$($republishResponse.eventId)"
+
+$duplicateDeadline = (Get-Date).AddSeconds(45)
+$duplicateStable = $false
+while ((Get-Date) -lt $duplicateDeadline) {
+  try {
+    $afterRepublish = (docker exec agricore-postgres psql -U agricore -d agricore_inventory -t -A -c `
+      "SELECT on_hand_quantity FROM inventory_items WHERE upper(sku)='COFFEE-ROBUSTA' ORDER BY created_at DESC LIMIT 1;").Trim()
+    if ($afterRepublish -and [decimal]$afterRepublish -eq $baselineOnHand) {
+      $duplicateStable = $true
+      break
+    }
+  } catch {}
+  Start-Sleep -Seconds 2
+}
+if (-not $duplicateStable) {
+  throw "Duplicate HarvestCompleted changed inventory stock: before=$baselineOnHand after='$afterRepublish'"
+}
+$inventoryProcessedCount = (docker exec agricore-postgres psql -U agricore -d agricore_inventory -t -A -c `
+  "SELECT count(*) FROM processed_events WHERE event_id='$($harvestObj.lastOutboxEventId)' AND consumer_name='inventory-harvest-completed';").Trim()
+$traceabilityProcessedCount = (docker exec agricore-postgres psql -U agricore -d agricore_traceability -t -A -c `
+  "SELECT count(*) FROM processed_events WHERE event_id='$($harvestObj.lastOutboxEventId)' AND consumer_name='traceability-harvest-completed';").Trim()
+if ($inventoryProcessedCount -ne "1" -or $traceabilityProcessedCount -ne "1") {
+  throw "Duplicate projection ledger mismatch: inventory=$inventoryProcessedCount traceability=$traceabilityProcessedCount"
+}
+Log "Duplicate projection OK onHand=$baselineOnHand inventoryLedger=$inventoryProcessedCount traceabilityLedger=$traceabilityProcessedCount"
+
+Log "== 9. Notification event dedupe (real Kafka consumer) =="
+$notificationEventId = [guid]::NewGuid().ToString()
+$notificationCorrelationId = [guid]::NewGuid().ToString()
+$notificationCustomerId = [guid]::NewGuid().ToString()
+$notificationReservationId = [guid]::NewGuid().ToString()
+$notificationOrderId = [guid]::NewGuid().ToString()
+$notificationNow = [DateTime]::UtcNow.ToString("o")
+$notificationPayload = @{
+  eventId = $notificationEventId
+  eventType = "SalesOrderConfirmed.v1"
+  eventVersion = 1
+  occurredAt = $notificationNow
+  correlationId = $notificationCorrelationId
+  producer = "sales-service"
+  payload = @{
+    salesOrderId = $notificationOrderId
+    orderNumber = "E2E-NOTIFICATION"
+    customerId = $notificationCustomerId
+    inventoryItemId = [guid]::NewGuid().ToString()
+    quantity = 1
+    status = "CONFIRMED"
+    reservationId = $notificationReservationId
+    confirmedAt = $notificationNow
+  }
+} | ConvertTo-Json -Depth 8 -Compress
+PublishKafkaJson "agricore.sales.events" $notificationPayload
+PublishKafkaJson "agricore.sales.events" $notificationPayload
+
+$notificationDeadline = (Get-Date).AddSeconds(45)
+$notificationCount = "0"
+while ((Get-Date) -lt $notificationDeadline) {
+  try {
+    $notificationCount = (docker exec agricore-postgres psql -U agricore -d agricore_notification -t -A -c `
+      "SELECT count(*) FROM notifications WHERE source_event_id='$notificationEventId';").Trim()
+    if ($notificationCount -eq "1") { break }
+  } catch {}
+  Start-Sleep -Seconds 2
+}
+if ($notificationCount -ne "1") {
+  throw "Notification event dedupe failed: expected one notification for eventId=$notificationEventId, got=$notificationCount"
+}
+Log "Notification dedupe OK eventId=$notificationEventId count=$notificationCount"
+
+Log "== 10. Invalid HarvestCompleted.v1 -> DLT =="
+$invalidEventId = [guid]::NewGuid().ToString()
+$invalidHarvestPayload = @{
+  eventId = $invalidEventId
+  eventType = "HarvestCompleted.v1"
+  eventVersion = 2
+  occurredAt = [DateTime]::UtcNow.ToString("o")
+  correlationId = [guid]::NewGuid().ToString()
+  producer = "harvest-service"
+  payload = @{}
+} | ConvertTo-Json -Depth 8 -Compress
+PublishKafkaJson "agricore.harvest.events" $invalidHarvestPayload
+
+$dltDeadline = (Get-Date).AddSeconds(45)
+$dltMatches = 0
+while ((Get-Date) -lt $dltDeadline) {
+  $dltOutput = ReadKafkaTopic "agricore.harvest.events.DLT" 2000
+  $dltMatches = [regex]::Matches($dltOutput, [regex]::Escape($invalidEventId)).Count
+  if ($dltMatches -ge 2) { break }
+  Start-Sleep -Seconds 2
+}
+if ($dltMatches -lt 2) {
+  throw "Invalid HarvestCompleted event did not reach both projection DLT deliveries: matches=$dltMatches eventId=$invalidEventId"
+}
+Log "Harvest DLT OK eventId=$invalidEventId dltRecords=$dltMatches"
+
+Log "E2E resilience path OK (duplicate projections + notification dedupe + Harvest DLT)"
 
 if ($EvidenceDir) {
   $flowPath = Join-Path $EvidenceDir "e2e-flow.log"
