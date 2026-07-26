@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main, master]
 
+# The repository default is already read-only, but pinning it here means a later change to
+# that org/repo setting cannot silently hand write access to the build and secret-scan jobs.
+permissions:
+  contents: read
+
 jobs:
   build-test:
     runs-on: ubuntu-latest
@@ -71,5 +76,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # docker-compose.yml include:s the infrastructure file, so that one is covered here too.
       - name: Validate docker compose (microservices stack)
         run: docker compose -f docker-compose.yml config --quiet
+      # The observability stack is a separate compose project and was never validated, so a
+      # syntax break there landed green and only surfaced at `docker compose up`.
+      - name: Validate docker compose (observability stack)
+        run: docker compose -f docker-compose.observability.yml config --quiet
