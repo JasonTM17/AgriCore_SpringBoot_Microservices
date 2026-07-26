@@ -24,12 +24,14 @@ paths:
       responses:
         '200': { description: Auth response from identity }
         '201': { description: Registered }
+        default: { $ref: '#/components/responses/UnexpectedError' }
   /.well-known/jwks.json:
     get:
       summary: JWKS published by identity (public)
       security: []
       responses:
         '200': { description: JWK set }
+        default: { $ref: '#/components/responses/UnexpectedError' }
   /api/v1/users/{proxy+}:
     parameters:
       - name: proxy+
@@ -41,6 +43,7 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         '200': { description: OK }
+        default: { $ref: '#/components/responses/UnexpectedError' }
   /api/v1/admin/{proxy+}:
     parameters:
       - name: proxy+
@@ -52,6 +55,7 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         '200': { description: OK }
+        default: { $ref: '#/components/responses/UnexpectedError' }
   /api/v1/farms/{proxy+}:
     parameters:
       - name: proxy+
@@ -63,11 +67,13 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         '200': { description: OK }
+        default: { $ref: '#/components/responses/UnexpectedError' }
     post:
       summary: Create farm/plot
       security: [{ bearerAuth: [] }]
       responses:
         '201': { description: Created }
+        default: { $ref: '#/components/responses/UnexpectedError' }
   /api/v1/plots/{proxy+}:
     parameters:
       - name: proxy+
@@ -79,6 +85,7 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         '200': { description: OK }
+        default: { $ref: '#/components/responses/UnexpectedError' }
   /api/v1/crops/{proxy+}:
     parameters:
       - name: proxy+
@@ -90,6 +97,7 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         '200': { description: OK }
+        default: { $ref: '#/components/responses/UnexpectedError' }
   /api/v1/crop-cycles/{proxy+}:
     parameters:
       - name: proxy+
@@ -101,13 +109,15 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         '200': { description: OK }
+        default: { $ref: '#/components/responses/UnexpectedError' }
     post:
       summary: Create cycle or change stage
       security: [{ bearerAuth: [] }]
       responses:
         '200': { description: OK }
         '201': { description: Created }
-        '409': { description: Illegal stage or overlap }
+        '409': { $ref: '#/components/responses/Conflict' }
+        default: { $ref: '#/components/responses/UnexpectedError' }
   /api/v1/work-tasks/{proxy+}:
     parameters:
       - name: proxy+
@@ -119,6 +129,7 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         '200': { description: OK }
+        default: { $ref: '#/components/responses/UnexpectedError' }
   /api/v1/inventory/{proxy+}:
     parameters:
       - name: proxy+
@@ -130,6 +141,7 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         '200': { description: OK }
+        default: { $ref: '#/components/responses/UnexpectedError' }
   /api/v1/harvests/{proxy+}:
     parameters:
       - name: proxy+
@@ -141,6 +153,7 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         '201': { description: Created }
+        default: { $ref: '#/components/responses/UnexpectedError' }
   /api/v1/traceability/{proxy+}:
     parameters:
       - name: proxy+
@@ -152,7 +165,8 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         '201': { description: Created }
-        '403': { description: Forbidden }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        default: { $ref: '#/components/responses/UnexpectedError' }
   /public/api/v1/traceability/{traceabilityCode}:
     get:
       summary: Public QR lookup (no auth)
@@ -164,7 +178,8 @@ paths:
           schema: { type: string }
       responses:
         '200': { description: Public batch projection }
-        '404': { description: Not found }
+        '404': { $ref: '#/components/responses/NotFound' }
+        default: { $ref: '#/components/responses/UnexpectedError' }
   /api/v1/iot/{proxy+}:
     parameters:
       - name: proxy+
@@ -176,6 +191,7 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         '200': { description: OK }
+        default: { $ref: '#/components/responses/UnexpectedError' }
   /api/v1/sales/{proxy+}:
     parameters:
       - name: proxy+
@@ -187,12 +203,14 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         '200': { description: OK }
+        default: { $ref: '#/components/responses/UnexpectedError' }
     post:
       summary: Place order or reconcile stuck reservation
       security: [{ bearerAuth: [] }]
       responses:
         '200': { description: Reconciled }
         '201': { description: Order created }
+        default: { $ref: '#/components/responses/UnexpectedError' }
   /api/v1/notifications/{proxy+}:
     parameters:
       - name: proxy+
@@ -204,12 +222,14 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         '200': { description: OK }
+        default: { $ref: '#/components/responses/UnexpectedError' }
   /actuator/health:
     get:
       summary: Gateway health
       security: []
       responses:
         '200': { description: Health }
+        default: { $ref: '#/components/responses/UnexpectedError' }
 components:
   securitySchemes:
     bearerAuth:
@@ -217,3 +237,55 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: RS256 access token from identity; aud=agricore-api, iss=JWT_ISSUER
+  schemas:
+    ApiError:
+      type: object
+      description: |
+        Uniform error body for every AgriCore service, defined by ApiError in common-lib.
+        `code` is the stable machine-readable discriminator and is part of the public contract.
+        Null fields are omitted, so `violations`, `details`, and `traceId` are absent unless set.
+      required: [timestamp, status, error, code, message, path]
+      properties:
+        timestamp: { type: string, format: date-time }
+        status: { type: integer }
+        error: { type: string, description: HTTP reason phrase }
+        code: { type: string, example: DUPLICATE_RESOURCE }
+        message: { type: string }
+        path: { type: string }
+        traceId: { type: string }
+        violations:
+          type: array
+          description: Present only when code is VALIDATION_FAILED.
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field: { type: string }
+              message: { type: string }
+              rejectedValue: { description: Whatever the caller sent; untyped by design }
+        details:
+          type: object
+          additionalProperties: true
+  responses:
+    Conflict:
+      description: |
+        The request collides with existing state. A losing race on a unique index reports
+        DUPLICATE_RESOURCE; services also use 409 for their own domain conflicts.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    Forbidden:
+      description: Authenticated but lacking the required role (code ACCESS_DENIED).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    NotFound:
+      description: No such resource. The code is service-specific.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    UnexpectedError:
+      description: Any other failure, including 500 INTERNAL_ERROR and 405 METHOD_NOT_ALLOWED.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }

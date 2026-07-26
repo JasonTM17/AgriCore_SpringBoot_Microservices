@@ -27,8 +27,11 @@ paths:
       responses:
         '201':
           description: Created
-        '409':
-          description: Customer code exists
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        default: { $ref: '#/components/responses/UnexpectedError' }
   /api/v1/sales/orders:
     post:
       summary: Place order (saga reserve + confirm inventory)
@@ -49,6 +52,12 @@ paths:
       responses:
         '201':
           description: Terminal saga outcome (CONFIRMED, OUT_OF_STOCK, or CANCELLED)
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        default: { $ref: '#/components/responses/UnexpectedError' }
   /api/v1/sales/orders/{orderId}:
     get:
       summary: Get order and saga status
@@ -62,8 +71,10 @@ paths:
       responses:
         '200':
           description: Order detail
-        '404':
-          description: Not found
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        default: { $ref: '#/components/responses/UnexpectedError' }
   /api/v1/sales/orders/{orderId}/reconcile:
     post:
       summary: Reconcile a stuck inventory hold
@@ -91,17 +102,85 @@ paths:
       responses:
         '200':
           description: Order after reconciliation
-        '400':
-          description: action missing or blank
-        '404':
-          description: Order not found
-        '409':
-          description: Order has no inventory reservation to reconcile
-        '502':
-          description: Inventory service could not complete the reconciliation
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '502': { $ref: '#/components/responses/UpstreamFailure' }
+        default: { $ref: '#/components/responses/UnexpectedError' }
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  schemas:
+    ApiError:
+      type: object
+      description: |
+        Uniform error body for every AgriCore service, defined by ApiError in common-lib.
+        `code` is the stable machine-readable discriminator and is part of the public contract.
+        Null fields are omitted, so `violations`, `details`, and `traceId` are absent unless set.
+      required: [timestamp, status, error, code, message, path]
+      properties:
+        timestamp: { type: string, format: date-time }
+        status: { type: integer }
+        error: { type: string, description: HTTP reason phrase }
+        code: { type: string, example: DUPLICATE_RESOURCE }
+        message: { type: string }
+        path: { type: string }
+        traceId: { type: string }
+        violations:
+          type: array
+          description: Present only when code is VALIDATION_FAILED.
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field: { type: string }
+              message: { type: string }
+              rejectedValue: { description: Whatever the caller sent; untyped by design }
+        details:
+          type: object
+          additionalProperties: true
+  responses:
+    Conflict:
+      description: |
+        The request collides with existing state. A losing race on a unique index reports
+        DUPLICATE_RESOURCE; services also use 409 for their own domain conflicts.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    Forbidden:
+      description: Authenticated but lacking the required role (code ACCESS_DENIED).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    NotFound:
+      description: No such resource. The code is service-specific.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    Unauthorized:
+      description: |
+        Bearer credential missing, expired, or invalid. Produced by the security filter chain
+        before the DispatcherServlet, so this is the one error on the platform that is NOT
+        ApiError-shaped and carries no body.
+    UnexpectedError:
+      description: Any other failure, including 500 INTERNAL_ERROR and 405 METHOD_NOT_ALLOWED.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    UpstreamFailure:
+      description: A downstream service could not complete the request.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    ValidationFailed:
+      description: |
+        Request body failed validation (code VALIDATION_FAILED, with violations populated), or a
+        path variable or query parameter would not convert (code INVALID_PARAMETER).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }

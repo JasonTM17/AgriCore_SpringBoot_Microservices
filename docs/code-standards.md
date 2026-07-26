@@ -93,6 +93,10 @@ com.agricore.<service>
 - `MethodArgumentTypeMismatchException` needs its own handler: it does **not** implement
   `ErrorResponse`, so a malformed path variable or query parameter would still land on the catch-all.
   It maps to 400 `INVALID_PARAMETER`, naming the parameter and not repeating the rejected value.
+- The envelope is declared in the contract, not only in code. Every file under `contracts/openapi/`
+  carries an identical `ApiError` schema and references it from each error response. Adding a status
+  to a service means adding it to that service's contract in the same change — CI enforces the paths
+  match and the schema copies are identical.
 
 ## Configuration
 
