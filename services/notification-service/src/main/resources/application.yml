@@ -13,6 +13,9 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+    locations: classpath:db/migration,classpath:db/postgresql-migration
+    postgresql:
+      transactional-lock: false
   jackson:
     deserialization:
       fail-on-unknown-properties: true
@@ -94,8 +97,14 @@ agricore:
       enabled: ${NOTIFICATION_OUTBOX_PUBLISHER_ENABLED:true}
       poll-ms: 1000
       send-timeout-ms: ${OUTBOX_PUBLISHER_SEND_TIMEOUT_MS:10000}
+      retry:
+        write-state-enabled: ${OUTBOX_PUBLISHER_RETRY_WRITE_STATE_ENABLED:false}
+        base-delay-ms: ${OUTBOX_PUBLISHER_RETRY_BASE_DELAY_MS:1000}
+        max-delay-ms: ${OUTBOX_PUBLISHER_RETRY_MAX_DELAY_MS:60000}
+        max-attempts: ${OUTBOX_PUBLISHER_MAX_ATTEMPTS:10}
     cleanup:
       enabled: ${NOTIFICATION_OUTBOX_CLEANUP_ENABLED:true}
       poll-ms: 3600000
       retention: ${OUTBOX_RETENTION:P7D}
+      quarantine-retention: ${OUTBOX_QUARANTINE_RETENTION:P7D}
       batch-size: 500

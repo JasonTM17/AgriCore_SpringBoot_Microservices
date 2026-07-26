@@ -13,14 +13,48 @@ import java.util.UUID;
 
 public interface OutboxJpaRepository extends JpaRepository<OutboxEventEntity, UUID> {
 
-    @Query("SELECT event.id FROM OutboxEventEntity event WHERE event.publishedAt IS NULL ORDER BY event.createdAt ASC")
-    List<UUID> findUnpublishedEventIds(Pageable pageable);
+    @Query(value = "SELECT CURRENT_TIMESTAMP", nativeQuery = true)
+    Instant currentTimestamp();
 
-    @Query(value = "SELECT * FROM outbox_events WHERE id = :eventId FOR UPDATE SKIP LOCKED", nativeQuery = true)
-    Optional<OutboxEventEntity> findByIdForPublish(@Param("eventId") UUID eventId);
+    @Query("""
+            SELECT event.id FROM OutboxEventEntity event
+            WHERE event.publishedAt IS NULL
+              AND event.quarantinedAt IS NULL
+              AND (event.nextAttemptAt IS NULL OR event.nextAttemptAt <= :now)
+            ORDER BY event.createdAt ASC
+            """)
+    List<UUID> findUnpublishedEventIds(@Param("now") Instant now, Pageable pageable);
 
-    @Query("SELECT event.id FROM OutboxEventEntity event WHERE event.publishedAt < :cutoff ORDER BY event.publishedAt ASC")
-    List<UUID> findPublishedEventIdsBefore(@Param("cutoff") Instant cutoff, Pageable pageable);
+    @Query(value = """
+            SELECT * FROM outbox_events
+            WHERE id = :eventId
+              AND published_at IS NULL
+              AND quarantined_at IS NULL
+              AND (next_attempt_at IS NULL OR next_attempt_at <= :now)
+            FOR UPDATE SKIP LOCKED
+            """, nativeQuery = true)
+    Optional<OutboxEventEntity> findByIdForPublish(
+            @Param("eventId") UUID eventId,
+            @Param("now") java.time.Instant now
+    );
+
+    @Query(value = """
+            SELECT * FROM outbox_events
+            WHERE (published_at IS NOT NULL AND published_at < :publishedCutoff)
+               OR (quarantined_at IS NOT NULL AND quarantined_at < :quarantineCutoff)
+            ORDER BY created_at ASC
+            LIMIT :batchSize
+            FOR UPDATE SKIP LOCKED
+            """, nativeQuery = true)
+    List<OutboxEventEntity> findTerminalEventsForCleanup(
+            @Param("publishedCutoff") Instant publishedCutoff,
+            @Param("quarantineCutoff") Instant quarantineCutoff,
+            @Param("batchSize") int batchSize
+    );
 
     long countByPublishedAtIsNull();
+
+    long countByPublishedAtIsNullAndQuarantinedAtIsNull();
+
+    long countByQuarantinedAtIsNotNull();
 }
