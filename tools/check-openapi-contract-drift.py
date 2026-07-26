@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Fail the build when the OpenAPI contracts stop describing the code.
 
-`CLAUDE.md` makes OpenAPI 3.1 the single source of truth for the API. Nothing enforced
-that, and by 2026-07-26 the contracts had drifted in both directions: four endpoints
-declared that no controller implemented, four implemented that no contract declared, and
-no service documenting the error envelope every service returns.
+`contracts/openapi/` is the single source of truth for the API, as recorded in
+`docs/code-standards.md`. Nothing enforced that, and by 2026-07-26 the contracts had
+drifted in both directions: four endpoints declared that no controller implemented, four
+implemented that no contract declared, and no service documenting the error envelope
+every service returns.
 
 Checks, in order of how badly each one bites:
 

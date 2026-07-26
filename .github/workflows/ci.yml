@@ -72,11 +72,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         # Hard fail on secret findings (portfolio security gate)
 
-  # CLAUDE.md makes OpenAPI the single source of truth for the API and asks for a check that
-  # the implementation matches it. Without one the contracts drifted in both directions —
-  # endpoints declared that no controller implemented, and vice versa. Strict from the first
-  # commit rather than advisory: the same change that added this cleared the whole backlog,
-  # so there is nothing to grandfather.
+  # contracts/openapi is the single source of truth for the API (docs/code-standards.md), and
+  # nothing enforced that. The contracts drifted in both directions — endpoints declared that no
+  # controller implemented, and vice versa. Strict from the first commit rather than advisory:
+  # the same change that added this cleared the whole backlog, so there is nothing to grandfather.
   contracts:
     runs-on: ubuntu-latest
     steps:
