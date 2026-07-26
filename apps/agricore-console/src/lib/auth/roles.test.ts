@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { hasAnyRole, visibleNavItems } from "./roles";
+import { hasAnyPermission, hasAnyRole, visibleNavItems } from "./roles";
 
 describe("roles", () => {
   it("grants SYSTEM_ADMIN all role-gated items", () => {
@@ -24,5 +24,17 @@ describe("roles", () => {
 
   it("shows IoT ingestion to field workers", () => {
     expect(visibleNavItems(["FIELD_WORKER"]).some((item) => item.id === "iot")).toBe(true);
+  });
+
+  it("uses effective permissions when the session provides them", () => {
+    const items = visibleNavItems(["SYSTEM_ADMIN"], ["FARM_READ", "ASSISTANT_USE"]);
+
+    expect(items.map((item) => item.id)).toEqual(["dashboard", "farms", "assistant"]);
+    expect(hasAnyPermission(["FARM_READ"], ["FARM_READ"])).toBe(true);
+    expect(hasAnyPermission([], ["FARM_READ"])).toBe(false);
+  });
+
+  it("does not expose role-matched navigation after a permission is revoked", () => {
+    expect(visibleNavItems(["WAREHOUSE_MANAGER"], []).map((item) => item.id)).toEqual(["dashboard"]);
   });
 });

@@ -10,7 +10,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const items = useMemo(() => visibleNavItems(user?.roles ?? []), [user?.roles]);
+  const items = useMemo(
+    () => visibleNavItems(user?.roles ?? [], user?.permissions),
+    [user?.permissions, user?.roles],
+  );
 
   return (
     <div className="min-h-screen bg-canvas text-ink md:grid md:grid-cols-[264px_1fr]">
