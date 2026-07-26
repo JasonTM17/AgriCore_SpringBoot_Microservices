@@ -3,13 +3,18 @@ import { useCallback, useRef, useState } from "react";
 
 import type { ApiClient } from "../../lib/api/client";
 import type { CompleteTaskRequest, CropCycleResponse } from "../../lib/api/types";
-import { assignWorkTask, completeWorkTask, createWorkTask } from "./work-task-api";
+import {
+  assignWorkTask,
+  completeWorkTask,
+  createWorkTask,
+  startWorkTask,
+} from "./work-task-api";
 import type { WorkTaskCreateDraft } from "./work-task-create-form";
 import { isWorkTaskUnavailable } from "./work-task-error-policy";
 import { workTaskQueryKeys } from "./work-task-query-keys";
 
 type ActionSuccess = {
-  type: "create" | "assign" | "complete";
+  type: "create" | "assign" | "start" | "complete";
   resourceId: string;
   message: string;
 };
@@ -80,6 +85,18 @@ export function useWorkTaskActions({ api, cycle, subject, onTaskCreated }: WorkT
       await invalidateCycleTasks();
     },
   });
+  const startMutation = useMutation({
+    mutationFn: ({ taskId }: { taskId: string }) => startWorkTask(api, taskId),
+    onMutate: clearSuccess,
+    onSuccess: async (startedTask) => {
+      recordSuccess({
+        type: "start",
+        resourceId: startedTask.id,
+        message: `Đã bắt đầu công việc ${startedTask.code}.`,
+      });
+      await invalidateCycleTasks();
+    },
+  });
   const completeMutation = useMutation({
     mutationFn: ({ taskId, draft }: { taskId: string; draft: CompleteTaskRequest }) =>
       completeWorkTask(api, taskId, draft),
@@ -93,9 +110,18 @@ export function useWorkTaskActions({ api, cycle, subject, onTaskCreated }: WorkT
       await invalidateCycleTasks();
     },
   });
-  const unavailableError = [createMutation.error, assignMutation.error, completeMutation.error]
+  const unavailableError = [
+    createMutation.error,
+    assignMutation.error,
+    startMutation.error,
+    completeMutation.error,
+  ]
     .find(isWorkTaskUnavailable) ?? null;
-  const blockingUnavailableError = [assignMutation.error, completeMutation.error]
+  const blockingUnavailableError = [
+    assignMutation.error,
+    startMutation.error,
+    completeMutation.error,
+  ]
     .find(isWorkTaskUnavailable) ?? null;
 
   return {
@@ -105,6 +131,7 @@ export function useWorkTaskActions({ api, cycle, subject, onTaskCreated }: WorkT
     resetUnavailableMutations: () => {
       createMutation.reset();
       assignMutation.reset();
+      startMutation.reset();
       completeMutation.reset();
     },
     create: {
@@ -122,6 +149,16 @@ export function useWorkTaskActions({ api, cycle, subject, onTaskCreated }: WorkT
       mutate: assignMutation.mutate,
       reset: assignMutation.reset,
       success: success?.type === "assign"
+        ? { taskId: success.resourceId, message: success.message }
+        : null,
+    },
+    start: {
+      error: startMutation.error,
+      taskId: startMutation.variables?.taskId ?? null,
+      isPending: startMutation.isPending,
+      mutate: startMutation.mutate,
+      reset: startMutation.reset,
+      success: success?.type === "start"
         ? { taskId: success.resourceId, message: success.message }
         : null,
     },

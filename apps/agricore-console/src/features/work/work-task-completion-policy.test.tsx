@@ -10,7 +10,7 @@ import {
   page,
   requestUrl,
 } from "../crop-cycle/crop-cycle-test-fixtures";
-import { taskA } from "./work-task-test-fixtures";
+import { inProgressTaskA as taskA } from "./work-task-test-fixtures";
 
 const detailPath = `/api/v1/crop-cycles/${cycleA.id}`;
 const workPath = "/api/v1/work-tasks";

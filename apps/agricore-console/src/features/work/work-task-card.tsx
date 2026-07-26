@@ -1,3 +1,4 @@
+import { Button } from "../../components/ui/button";
 import type { WorkTaskResponse } from "../../lib/api/types";
 import { WorkTaskAssignmentForm } from "./work-task-assignment-form";
 import { WorkTaskCompletionForm, type WorkTaskCompletionDraft } from "./work-task-completion-form";
@@ -7,7 +8,8 @@ import {
   formatTaskStatus,
   formatTaskType,
 } from "./work-task-formatters";
-import { canAssignTask, canCompleteTask } from "./work-task-policy";
+import { WorkTaskMutationError } from "./work-task-mutation-error";
+import { canAssignTask, canCompleteTask, canStartTask } from "./work-task-policy";
 
 export interface WorkTaskAssignmentActions {
   canAssign: boolean;
@@ -29,13 +31,25 @@ export interface WorkTaskCompletionActions {
   onRecoverError: () => void;
 }
 
+export interface WorkTaskStartActions {
+  canStart: boolean;
+  error: Error | null;
+  isPending: boolean;
+  isDisabled: boolean;
+  successMessage: string | null;
+  onStart: () => void;
+  onRecoverError: () => void;
+}
+
 export function WorkTaskCard({
   task,
   assignment,
+  start,
   completion,
 }: {
   task: WorkTaskResponse;
   assignment: WorkTaskAssignmentActions;
+  start: WorkTaskStartActions;
   completion: WorkTaskCompletionActions;
 }) {
   return (
@@ -90,6 +104,16 @@ export function WorkTaskCard({
           {completion.successMessage}
         </p>
       ) : null}
+      {start.successMessage ? (
+        <p
+          className="mt-4 rounded-control border border-forest-200 bg-forest-50 px-3 py-2 text-sm font-medium text-forest-900"
+          role="status"
+          aria-label="Bắt đầu công việc thành công"
+          aria-live="polite"
+        >
+          {start.successMessage}
+        </p>
+      ) : null}
       {assignment.canAssign && canAssignTask(task.status) ? (
         <WorkTaskAssignmentForm
           key={`assign-${task.id}-${task.version}`}
@@ -102,6 +126,30 @@ export function WorkTaskCard({
           onSubmit={assignment.onAssign}
           onRecoverError={assignment.onRecoverError}
         />
+      ) : null}
+      {start.canStart && canStartTask(task.status) ? (
+        <section className="mt-4 border-t border-border pt-4" aria-busy={start.isPending}>
+          <h4 className="text-sm font-semibold text-ink">Thực hiện công việc</h4>
+          <p className="mt-1 text-xs leading-5 text-muted">
+            Ghi nhận thời điểm bắt đầu thực tế trước khi hoàn tất công việc.
+          </p>
+          {start.error ? (
+            <WorkTaskMutationError
+              actionLabel="bắt đầu công việc"
+              error={start.error}
+              isRecovering={start.isPending}
+              onRecover={start.onRecoverError}
+            />
+          ) : null}
+          <Button
+            className="mt-3 min-h-11 w-full sm:w-auto"
+            aria-label={`Bắt đầu ${task.code}`}
+            disabled={start.isPending || start.isDisabled}
+            onClick={start.onStart}
+          >
+            {start.isPending ? "Đang bắt đầu…" : "Bắt đầu công việc"}
+          </Button>
+        </section>
       ) : null}
       {completion.canComplete && canCompleteTask(task.status) ? (
         <WorkTaskCompletionForm

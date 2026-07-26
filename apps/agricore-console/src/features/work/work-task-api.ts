@@ -76,6 +76,20 @@ export function assignWorkTask(
   );
 }
 
+export function startWorkTask(
+  api: ApiClient,
+  taskId: string,
+  signal?: AbortSignal,
+): Promise<WorkTaskResponse> {
+  return api.request<WorkTaskResponse>(
+    `/api/v1/work-tasks/${encodeURIComponent(taskId)}/start`,
+    {
+      method: "POST",
+      ...(signal ? { signal } : {}),
+    },
+  );
+}
+
 export function completeWorkTask(
   api: ApiClient,
   taskId: string,

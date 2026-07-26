@@ -1,25 +1,18 @@
 import { describe, expect, it } from "vitest";
 
 import type { TaskStatus } from "../../lib/api/types";
-import { canAssignTask, canCompleteTask } from "./work-task-policy";
+import { canAssignTask, canCompleteTask, canStartTask } from "./work-task-policy";
 
-const activeStatuses: readonly TaskStatus[] = [
-  "CREATED",
-  "ASSIGNED",
-  "IN_PROGRESS",
-  "OVERDUE",
+const allStatuses: readonly TaskStatus[] = [
+  "CREATED", "ASSIGNED", "IN_PROGRESS", "COMPLETED", "CANCELLED", "OVERDUE",
 ];
 
 describe("work-task action policy", () => {
-  it.each(activeStatuses)("allows assign and complete for backend-active status %s", (status) => {
-    expect(canAssignTask(status)).toBe(true);
-    expect(canCompleteTask(status)).toBe(true);
-  });
-
-  it("hides no-op or forbidden actions for terminal statuses", () => {
-    expect(canAssignTask("COMPLETED")).toBe(false);
-    expect(canAssignTask("CANCELLED")).toBe(false);
-    expect(canCompleteTask("COMPLETED")).toBe(false);
-    expect(canCompleteTask("CANCELLED")).toBe(false);
+  it.each(allStatuses)("matches the backend lifecycle for %s", (status) => {
+    expect(canAssignTask(status)).toBe(
+      status === "CREATED" || status === "ASSIGNED" || status === "OVERDUE",
+    );
+    expect(canStartTask(status)).toBe(status === "ASSIGNED" || status === "OVERDUE");
+    expect(canCompleteTask(status)).toBe(status === "IN_PROGRESS");
   });
 });

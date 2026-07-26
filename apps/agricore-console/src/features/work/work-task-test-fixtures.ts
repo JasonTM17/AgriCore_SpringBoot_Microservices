@@ -22,3 +22,10 @@ export const taskA = {
   materials: [],
   attachments: [],
 } satisfies WorkTaskResponse;
+
+export const inProgressTaskA = {
+  ...taskA,
+  actualStart: "2026-07-20T01:15:00Z",
+  status: "IN_PROGRESS",
+  version: 2,
+} satisfies WorkTaskResponse;

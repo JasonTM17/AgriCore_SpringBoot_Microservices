@@ -1,13 +1,13 @@
 import type { TaskStatus } from "../../lib/api/types";
 
-function isTerminal(status: TaskStatus): boolean {
-  return status === "COMPLETED" || status === "CANCELLED";
+export function canAssignTask(status: TaskStatus): boolean {
+  return status === "CREATED" || status === "ASSIGNED" || status === "OVERDUE";
 }
 
-export function canAssignTask(status: TaskStatus): boolean {
-  return !isTerminal(status);
+export function canStartTask(status: TaskStatus): boolean {
+  return status === "ASSIGNED" || status === "OVERDUE";
 }
 
 export function canCompleteTask(status: TaskStatus): boolean {
-  return !isTerminal(status);
+  return status === "IN_PROGRESS";
 }

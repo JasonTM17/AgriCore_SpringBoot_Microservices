@@ -12,7 +12,7 @@ import { workTaskQueryKeys } from "./work-task-query-keys";
 
 const PAGE_SIZE = 20;
 const WORK_MANAGER_ROLES = ["SYSTEM_ADMIN", "FARM_MANAGER", "AGRONOMIST"] as const;
-const WORK_COMPLETION_ROLES = [...WORK_MANAGER_ROLES, "FIELD_WORKER"] as const;
+const WORK_EXECUTION_ROLES = [...WORK_MANAGER_ROLES, "FIELD_WORKER"] as const;
 
 export function WorkTaskWorkspace({ cycle }: { cycle: CropCycleResponse }) {
   const { api, user } = useSession();
@@ -87,6 +87,7 @@ export function WorkTaskWorkspace({ cycle }: { cycle: CropCycleResponse }) {
         || tasksQuery.isFetching
         || tasksQuery.error !== null
         || actions.assignment.isPending
+        || actions.start.isPending
         || actions.completion.isPending}
       assignment={{
         canAssign: hasAnyRole(user?.roles ?? [], WORK_MANAGER_ROLES),
@@ -97,6 +98,7 @@ export function WorkTaskWorkspace({ cycle }: { cycle: CropCycleResponse }) {
           || tasksQuery.isFetching
           || tasksQuery.error !== null
           || actions.create.isPending
+          || actions.start.isPending
           || actions.completion.isPending,
         success: accessLost ? null : actions.assignment.success,
         onAssign: (taskId, assignedEmployeeId) => actions.assignment.mutate({ taskId, assignedEmployeeId }),
@@ -105,8 +107,26 @@ export function WorkTaskWorkspace({ cycle }: { cycle: CropCycleResponse }) {
           void tasksQuery.refetch();
         },
       }}
+      start={{
+        canStart: hasAnyRole(user?.roles ?? [], WORK_EXECUTION_ROLES),
+        error: actions.start.error,
+        taskId: actions.start.taskId,
+        isPending: actions.start.isPending,
+        isDisabled: accessLost
+          || tasksQuery.isFetching
+          || tasksQuery.error !== null
+          || actions.create.isPending
+          || actions.assignment.isPending
+          || actions.completion.isPending,
+        success: accessLost ? null : actions.start.success,
+        onStart: (taskId) => actions.start.mutate({ taskId }),
+        onRecoverError: () => {
+          actions.start.reset();
+          void tasksQuery.refetch();
+        },
+      }}
       completion={{
-        canComplete: hasAnyRole(user?.roles ?? [], WORK_COMPLETION_ROLES),
+        canComplete: hasAnyRole(user?.roles ?? [], WORK_EXECUTION_ROLES),
         error: actions.completion.error,
         taskId: actions.completion.taskId,
         isPending: actions.completion.isPending,
@@ -114,7 +134,8 @@ export function WorkTaskWorkspace({ cycle }: { cycle: CropCycleResponse }) {
           || tasksQuery.isFetching
           || tasksQuery.error !== null
           || actions.create.isPending
-          || actions.assignment.isPending,
+          || actions.assignment.isPending
+          || actions.start.isPending,
         success: accessLost ? null : actions.completion.success,
         onComplete: (taskId, draft) => actions.completion.mutate({ taskId, draft }),
         onRecoverError: () => {

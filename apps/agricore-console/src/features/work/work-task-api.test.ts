@@ -12,6 +12,7 @@ import {
   createWorkTask,
   getWorkTask,
   listWorkTasks,
+  startWorkTask,
 } from "./work-task-api";
 
 type FetchFn = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -83,7 +84,7 @@ describe("work-task API", () => {
     expect(init?.body).toBe(JSON.stringify(request));
   });
 
-  it("encodes mutation IDs and forwards assign and complete bodies", async () => {
+  it("encodes mutation IDs and forwards lifecycle requests", async () => {
     const fetchImpl: FetchFn = vi.fn(() => jsonResponse({}));
     const api = client(fetchImpl);
     const signal = new AbortController().signal;
@@ -93,14 +94,20 @@ describe("work-task API", () => {
     const completeRequest: CompleteTaskRequest = { notes: "Đã hoàn thành" };
 
     await assignWorkTask(api, "task/id", assignRequest, signal);
+    await startWorkTask(api, "task/id", signal);
     await completeWorkTask(api, "task/id", completeRequest, signal);
 
     const [assignInput, assignInit] = vi.mocked(fetchImpl).mock.calls[0] ?? [];
-    const [completeInput, completeInit] = vi.mocked(fetchImpl).mock.calls[1] ?? [];
+    const [startInput, startInit] = vi.mocked(fetchImpl).mock.calls[1] ?? [];
+    const [completeInput, completeInit] = vi.mocked(fetchImpl).mock.calls[2] ?? [];
     expect(assignInput).toBe("/api/v1/work-tasks/task%2Fid/assign");
     expect(assignInit?.method).toBe("POST");
     expect(assignInit?.body).toBe(JSON.stringify(assignRequest));
     expect(assignInit?.signal).toBeInstanceOf(AbortSignal);
+    expect(startInput).toBe("/api/v1/work-tasks/task%2Fid/start");
+    expect(startInit?.method).toBe("POST");
+    expect(startInit?.body).toBeUndefined();
+    expect(startInit?.signal).toBeInstanceOf(AbortSignal);
     expect(completeInput).toBe("/api/v1/work-tasks/task%2Fid/complete");
     expect(completeInit?.method).toBe("POST");
     expect(completeInit?.body).toBe(JSON.stringify(completeRequest));

@@ -27,6 +27,17 @@ interface WorkTaskCompletionState {
   onRecoverError: () => void;
 }
 
+interface WorkTaskStartState {
+  canStart: boolean;
+  error: Error | null;
+  taskId: string | null;
+  isPending: boolean;
+  isDisabled: boolean;
+  success: { taskId: string; message: string } | null;
+  onStart: (taskId: string) => void;
+  onRecoverError: () => void;
+}
+
 interface WorkTaskListPanelProps {
   cycleCode: string;
   data: WorkTaskPageResponse | undefined;
@@ -41,6 +52,7 @@ interface WorkTaskListPanelProps {
   isCreating: boolean;
   isCreateDisabled: boolean;
   assignment: WorkTaskAssignmentState;
+  start: WorkTaskStartState;
   completion: WorkTaskCompletionState;
   onCreate: (draft: WorkTaskCreateDraft) => void;
   onRecoverCreateError: () => void;
@@ -63,6 +75,7 @@ export function WorkTaskListPanel({
   isCreating,
   isCreateDisabled,
   assignment,
+  start,
   completion,
   onCreate,
   onRecoverCreateError,
@@ -141,6 +154,18 @@ export function WorkTaskListPanel({
                   : null,
                 onAssign: (assignedEmployeeId) => assignment.onAssign(task.id, assignedEmployeeId),
                 onRecoverError: assignment.onRecoverError,
+              }}
+              start={{
+                canStart: start.canStart,
+                error: start.taskId === task.id ? start.error : null,
+                isPending: start.isPending && start.taskId === task.id,
+                isDisabled: start.isDisabled
+                  || (start.isPending && start.taskId !== task.id),
+                successMessage: start.success?.taskId === task.id
+                  ? start.success.message
+                  : null,
+                onStart: () => start.onStart(task.id),
+                onRecoverError: start.onRecoverError,
               }}
               completion={{
                 canComplete: completion.canComplete,
