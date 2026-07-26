@@ -2,7 +2,7 @@
 # Optional: -EvidenceDir <path> writes UTF-8 logs + traceability.json for verifier gating.
 param(
   [string]$EvidenceDir = "",
-  [string]$Gateway = $(if ($env:GATEWAY_URL) { $env:GATEWAY_URL } else { "http://localhost:8080" }),
+  [string]$Gateway = $(if ($env:GATEWAY_URL) { $env:GATEWAY_URL } else { "http://localhost:3000" }),
   [string]$Identity = $(if ($env:IDENTITY_URL) { $env:IDENTITY_URL } else { "http://localhost:8081" }),
   [string]$TraceDirect = $(if ($env:TRACEABILITY_URL) { $env:TRACEABILITY_URL } else { "http://localhost:8092" }),
   [string]$FarmDirect = $(if ($env:FARM_URL) { $env:FARM_URL } else { "http://localhost:8082" })

@@ -48,7 +48,7 @@ for u in \
   http://localhost:8086/actuator/health \
   http://localhost:8087/actuator/health \
   http://localhost:8092/actuator/health \
-  http://localhost:8080/actuator/health
+  http://localhost:3000/healthz
 do
   wait_up "$u" 600
 done

@@ -479,8 +479,8 @@ services:
       ASSISTANT_SERVICE_URL: http://assistant-service:8093
       JWT_ISSUER: https://agricore.local/identity
       IDENTITY_JWKS_URI: http://identity-service:8081/.well-known/jwks.json
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
     healthcheck:
       <<: *app-healthcheck
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/actuator/health | grep -q UP || exit 1"]

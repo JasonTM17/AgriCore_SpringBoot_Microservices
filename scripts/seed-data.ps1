@@ -4,7 +4,7 @@
 param(
   [ValidateSet("Quick", "Showcase", "Large")]
   [string]$Profile = "Showcase",
-  [string]$Gateway = $(if ($env:GATEWAY_URL) { $env:GATEWAY_URL } else { "http://localhost:8080" }),
+  [string]$Gateway = $(if ($env:GATEWAY_URL) { $env:GATEWAY_URL } else { "http://localhost:3000" }),
   [string]$Identity = $(if ($env:IDENTITY_URL) { $env:IDENTITY_URL } else { "http://localhost:8081" }),
   [ValidateRange(0, 32)]
   [int]$FarmLimit = 0,
