@@ -2,7 +2,7 @@
 
 **Status:** Active pre-release
 
-**Last verified:** 2026-07-23
+**Last verified:** 2026-07-26
 
 ## Product problem
 
@@ -63,6 +63,8 @@ inside an independently owned service and database.
 - Versioned OpenAPI, AsyncAPI, and JSON Schema contracts.
 - Structured logs, metrics, traces, health probes, bounded retries, DLT repair,
   and no committed secret.
+- Explicit assistant retention/cleanup controls; telemetry deletion remains
+  unset until a product-owned retention horizon and storage budget are approved.
 - Docker Compose for local evidence and a hardened Helm application chart for
   operator-provided clusters.
 - Focused conventional commits and reproducible verification from a clean
@@ -75,6 +77,10 @@ inside an independently owned service and database.
 - Full Maven, frontend, browser, Compose, Helm, secret, dependency, and container
   gates pass.
 - A gateway JWT path and broker-backed harvest projection are reproducible.
+- The bounded Large dataset is idempotent at 32 farms, 768 plots, 32
+  production flows, 128 work tasks, 640 readings, and 16 confirmed sales
+  orders, with repository-owned media stored through the Work attachment
+  boundary.
 - Docs, diagrams, generated clients, and environment examples match the released
   revision.
 - Docker Hub and GitHub Packages publish immutable SHA images only after default

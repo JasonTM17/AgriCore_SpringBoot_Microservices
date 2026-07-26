@@ -1,6 +1,6 @@
 # AgriCore Implementation Plan
 
-**Status:** Implementation and local release verification complete; external registry publication remains
+**Status:** Implementation complete; final clean-revision verification and external publication remain
 **Created:** 2026-07-16
 **Last updated:** 2026-07-26
 
@@ -74,15 +74,18 @@ HTTP and QoS 1 MQTT sensor ingestion with stable reading-ID deduplication and al
 - Gateway routing, RS256/JWKS validation, and caller-token propagation.
 - Micrometer OpenTelemetry bridge and OTLP exporter in all 13 Spring applications.
 - Local OTLP/HTTP export to Tempo at `http://tempo:4318/v1/traces`, sampling probability `1.0`.
-- Prometheus scrape jobs for all 13 applications.
+- Prometheus scrape jobs for all 13 applications, with the internal gateway and
+  assistant on the Compose network.
 - Prometheus, Tempo, and Loki Grafana datasources with seven provisioned read-only dashboards.
-- ECS JSON stdout collected by Alloy into Loki with 72-hour local retention and bounded Docker log files, plus custom outbox, DLT recovery, harvest, inventory, IoT, sales, and assistant metrics.
+- ECS JSON stdout collected by Alloy into Loki with 72-hour local retention and bounded Docker log files, plus custom outbox, DLT recovery, harvest, inventory, IoT, sales, assistant generation, and assistant retention metrics.
 - MinIO local object storage with loopback-only API and console bindings.
 - Helm trace endpoint opt-in with sampling default `0.1`; observability and object-storage backends remain operator-provided in clusters.
 
 ### M8 — Production hardening
 
-Application Helm chart, security review, runbooks, seed scripts, gateway happy path, Gitleaks, CodeQL, Trivy, Compose validation, and gated Docker publishing.
+Application Helm chart, security review, runbooks, bounded cross-service seed
+profiles, gateway happy path, Gitleaks, CodeQL, filesystem/built-image Trivy,
+Compose runtime-contract validation, and digest-gated dual-registry publishing.
 
 ### M9 — Console and assistant
 
@@ -92,6 +95,8 @@ Application Helm chart, security review, runbooks, seed scripts, gateway happy p
 
 ## Remaining pre-release work
 
+- Re-run the complete backend, frontend, browser, Compose, Helm, media,
+  performance, and security gates from the final clean revision.
 - Push the verified default-branch revision to Docker Hub/GHCR through the gated workflow and publish GitHub package metadata.
 - Re-check production operator inputs (JWT keys, database/Kafka/SMTP credentials, TLS, ACLs, observability backends) before deployment.
 
@@ -105,7 +110,10 @@ checks are recorded in [release verification 2026-07-26](evidence/release-verifi
 - Compose configuration validates; Helm chart lints and renders.
 - Gitleaks, CodeQL, and Trivy workflows remain enforced.
 - Gateway and service JWT negative-path checks, the authenticated happy path, duplicate projection, notification dedupe, and Harvest DLT routing are reproducible through the verification scripts.
-- Bounded seed profiles are repeatable, avoid cross-service database writes except the documented local bootstrap, and include repository-owned media checksums.
+- Bounded `Smoke`/`Quick`, `Demo`/`Showcase`, and `Large` seed profiles are
+  repeatable, avoid cross-service database writes except the documented local
+  bootstrap, wait for event projections, and upload repository-owned
+  checksummed media through the Work attachment API.
 - Every implemented event producer has a transactional outbox path, versioned schema, AsyncAPI message, and focused contract test.
 - Kafka consumers validate the exact event type/version and route invalid envelopes through the documented DLT policy.
 - Docker images publish only from an eligible verified default-branch revision.

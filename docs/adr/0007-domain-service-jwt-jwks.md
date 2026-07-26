@@ -41,6 +41,14 @@ Identity and API Gateway keep service-specific security configurations but apply
 - Gateway continues to validate JWT for external clients; service-level validation is defense in depth.
 - Permission authorities are active at domain controller boundaries. The console also filters navigation using the effective permission snapshot; farm membership remains a separate resource-scope check.
 
+## Trade-offs
+
+Every protected service performs signature and claim validation, adding JWKS
+cache/network configuration and a small amount of request CPU. That cost is
+accepted so a reachable internal service does not have to trust that every
+caller traversed the gateway. Short token lifetime bounds stale permission
+snapshots without requiring a synchronous authorization call on every request.
+
 ## Alternatives considered
 
 1. **Gateway-only trust with internal mTLS** — stronger mesh model, but not yet present in local compose; unsigned payload decode was not an acceptable interim.

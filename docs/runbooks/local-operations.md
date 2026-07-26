@@ -29,7 +29,7 @@ docker compose up -d --build
 | Component | Local endpoint |
 |---|---|
 | Console | `http://localhost:3000` |
-| Gateway | `http://localhost:8080` |
+| API and JWKS through the same-origin edge | `http://localhost:3000` |
 | Kafka UI | `http://localhost:8088` |
 | Mailpit captured email | `http://localhost:8025` |
 | MQTT broker | `tcp://localhost:1883` |
@@ -66,14 +66,17 @@ MQTT_DEVICE_COUNT=3 MQTT_DEVICE_USERS='SIM-001,SIM-002,SIM-003' MQTT_ITERATIONS=
 docker compose ps
 docker compose -f docker-compose.observability.yml ps
 
-Invoke-RestMethod http://localhost:8080/actuator/health
+Invoke-RestMethod http://localhost:3000/healthz
+docker inspect --format '{{json .State.Health.Status}}' agricore-gateway
 Invoke-RestMethod http://localhost:9090/-/ready
 Invoke-RestMethod http://localhost:3200/ready
 Invoke-RestMethod http://localhost:8025/readyz
 Invoke-RestMethod http://localhost:9000/minio/health/live
 ```
 
-Open Prometheus targets and confirm all 13 application jobs are `UP`. Twelve targets use host-published ports; assistant-service is scraped on the shared Compose network.
+Open Prometheus targets and confirm all 13 application jobs are `UP`. Gateway
+and assistant-service are scraped on the shared Compose network; the other 11
+applications use development-published ports through the host bridge.
 
 Grafana provisions these dashboards in the read-only `AgriCore` folder:
 
@@ -92,7 +95,7 @@ Dashboard and datasource edits must be made in `infrastructure/monitoring/grafan
 Generate a gateway request, then query Tempo for recent gateway traces:
 
 ```powershell
-Invoke-RestMethod http://localhost:8080/.well-known/jwks.json | Out-Null
+Invoke-RestMethod http://localhost:3000/.well-known/jwks.json | Out-Null
 
 $query = [uri]::EscapeDataString('{ resource.service.name = "api-gateway" }')
 $result = Invoke-RestMethod "http://localhost:3200/api/search?q=$query&limit=5"
@@ -150,6 +153,8 @@ Loki local retention is 72 hours and Docker's `json-file` logs are bounded to th
 | `agricore_sales_sagas_total` | Terminal saga outcome |
 | `agricore_notification_deliveries_total` | `outcome=sent|failed|duplicate`; notification delivery outcomes |
 | `agricore_assistant_generations_total` | `outcome=completed|failed|cancelled` |
+| `agricore_assistant_retention_purged_total` | `dataset=generation_events|conversations|audit_events`; physically deleted expired records |
+| `agricore_assistant_retention_cleanup_failures_total` | Retention cleanup failures |
 
 Example Prometheus API query:
 
@@ -178,11 +183,11 @@ pnpm build
 The seed tool is deterministic and reuses farms/plots by code. Choose a bounded
 profile before running it:
 
-| Profile | Farms | Plots per farm | Total plots |
-|---|---:|---:|---:|
-| `Quick` | 2 | 3 | 6 |
-| `Showcase` (default) | 8 | 6 | 48 |
-| `Large` | 32 | 24 | 768 |
+| Profile | Farms | Plots | Production flows | Tasks | Readings | Sales orders |
+|---|---:|---:|---:|---:|---:|---:|
+| `Smoke` / `Quick` | 2 | 6 | 1 | 1 | 2 | 1 |
+| `Demo` / `Showcase` (default) | 8 | 48 | 4 | 8 | 20 | 4 |
+| `Large` | 32 | 768 | 32 | 128 | 640 | 16 |
 
 ```powershell
 $env:AGRICORE_SEED_PASSWORD = "<local-only-password>"
@@ -191,18 +196,42 @@ $env:AGRICORE_SEED_PASSWORD = "<local-only-password>"
 Remove-Item Env:AGRICORE_SEED_PASSWORD
 ```
 
-`FarmLimit` and `PlotsPerFarm` may override a profile but are hard-capped at 32
-and 24. The script checks C: and the repository drive before work and after
-every 100 mutations, stops below `MinimumFreeSpaceGb` (2 GB by default), and
-throttles larger runs. `DryRun` performs no API or database calls.
+`FarmLimit`, `PlotsPerFarm`, `DomainFarmLimit`, `TasksPerFarm`,
+`ReadingsPerDevice`, and `SalesOrderLimit` may override a profile within their
+hard caps. The script checks C: and the repository drive before work and after
+every 100 synchronized calls, stops below `MinimumFreeSpaceGb` (2 GB by
+default), and throttles larger runs. `DryRun` performs no API or database calls.
 
 The script registers seven local personas, grants their roles through the
-Compose identity database, then creates all farm and plot data through the
-authenticated gateway contracts used by the console. The identity bootstrap is
-the only direct database write because public registration intentionally cannot
-grant privileged roles. The password is read from
-`AGRICORE_SEED_PASSWORD`, never stored or printed. `seed-data.sh` delegates to
-the same implementation and requires PowerShell 7 (`pwsh`).
+Compose identity database, then drives authenticated farm, crop-cycle, work,
+attachment, warehouse, harvest, IoT, sales, notification, traceability, and
+assistant contracts. Harvest projection and notification arrival are verified
+before completion. Direct database writes are limited to local role bootstrap;
+read-only SQL fills idempotency gaps where a service has no list endpoint and
+produces authoritative final counts. Work evidence uses the checksummed
+repository WebP files and is uploaded idempotently to MinIO.
+
+The password is read from `AGRICORE_SEED_PASSWORD`, never stored or printed.
+Keep the same local value for repeat runs against an existing volume; changing
+it does not silently reset existing accounts. `seed-data.sh` delegates to the
+same implementation and requires PowerShell 7 (`pwsh`).
+
+### Public traceability read smoke profile
+
+Use a real code from the persisted Traceability projection:
+
+```powershell
+$env:TRACEABILITY_CODE = "<persisted-code>"
+$env:VUS = "10"
+$env:DURATION = "15s"
+k6 run .\scripts\load\public-traceability-read-smoke.js
+Remove-Item Env:TRACEABILITY_CODE, Env:VUS, Env:DURATION
+```
+
+The default thresholds require more than 99% successful checks, less than 1%
+HTTP failures, p95 below 750 ms, and p99 below 1,500 ms. Override
+`P95_MS`, `P99_MS`, or `PACING_SECONDS` only for an explicitly documented
+environment target.
 
 ## Console and assistant
 
@@ -211,6 +240,16 @@ the same implementation and requires PowerShell 7 (`pwsh`).
 - Provider settings are `ASSISTANT_PROVIDER`, `ASSISTANT_PROVIDER_MODEL`, `ASSISTANT_PROVIDER_BASE_URL`, and `ASSISTANT_PROVIDER_API_KEY`.
 - Provider `none` keeps the API available with a safe limited/unavailable outcome.
 - Tool calls are read-only farm reads, carry the caller JWT, and enforce host, row, response-size, and timeout bounds.
+- Archived conversations, audit events, and generation replay events carry
+  explicit expiry timestamps. Defaults are `P90D`, `P365D`, and `PT24H`;
+  `ASSISTANT_RETENTION_CLEANUP_*` controls a bounded cleanup job.
+
+Retention cleanup order is generation events, archived conversations, then
+audit events, each capped by the configured batch size per run. Monitor
+`agricore_assistant_retention_purged_total` and
+`agricore_assistant_retention_cleanup_failures_total`. Set
+`ASSISTANT_RETENTION_CLEANUP_ENABLED=false` only for a controlled maintenance
+window; expired rows otherwise remain physically stored.
 
 ## Notification delivery
 

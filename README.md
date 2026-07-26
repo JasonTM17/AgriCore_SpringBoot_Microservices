@@ -1,14 +1,38 @@
 # AgriCore – Agricultural Enterprise Management Platform
 
+## Project overview
+
 AgriCore is a Java 21 and Spring Boot microservices platform for farm operations: farms, crop catalog, crop cycles, field work, harvest, inventory, IoT, sales, notifications, QR traceability, and a bounded assistant. A React console provides the browser interface through a same-origin Nginx edge.
+
+## Problem
+
+Agricultural enterprises often split farm maps, crop plans, field evidence,
+stock, telemetry, sales, and origin records across disconnected tools. AgriCore
+keeps those capabilities independently owned while providing one authenticated
+operational path and a public-safe traceability view.
+
+## Features
+
+- Farm-scoped identity, roles, permissions, plots, crop cycles, and field work.
+- Private image evidence, expiry-aware inventory, harvest projection, and QR
+  traceability.
+- Authenticated MQTT/HTTP telemetry, deduplication, alerts, and offline
+  detection.
+- Durable sales reservation saga, truthful notifications, and compensation.
+- Persisted read-only assistant with replayable SSE, bounded farm tools,
+  budgets, retention, and provider-unavailable behavior.
+- Accessible React console, deterministic cross-service demo data, generated
+  media/GIF, observability, Compose, Helm, and supply-chain gates.
 
 ## Status
 
-Pre-release implementation: the repository contains 13 Spring applications, the React console, local Compose stacks, a Helm application chart, automated quality and security gates, and a gated Docker Hub publishing workflow. The implemented event mesh currently covers 29 versioned Kafka events with transactional outboxes, idempotent consumers, bounded DLT recovery, and contract checks; this status does not claim a production installation.
+Pre-release implementation: the repository contains 13 Spring applications, the React console, local Compose stacks, a Helm application chart, automated quality and security gates, and gated Docker Hub plus GitHub Packages publishing. The implemented event mesh currently covers 29 versioned Kafka events with transactional outboxes, idempotent consumers, bounded DLT recovery, and contract checks; this status does not claim a production installation.
+
+## Microservices
 
 | Application | Port | Image |
 |---|---:|---|
-| API gateway | 8080 | `nguyenson1710/agricore-gateway` |
+| API gateway | 8080, internal in Compose | `nguyenson1710/agricore-gateway` |
 | Identity service | 8081 | `nguyenson1710/agricore-identity` |
 | Farm service | 8082 | `nguyenson1710/agricore-farm` |
 | Crop catalog service | 8083 | `nguyenson1710/agricore-crop-catalog` |
@@ -23,7 +47,9 @@ Pre-release implementation: the repository contains 13 Spring applications, the 
 | Assistant service | 8093, internal | `nguyenson1710/agricore-assistant` |
 | React console | 3000 on host | `nguyenson1710/agricore-console` |
 
-Published image tags are `latest`, the seven-character commit SHA, and the full commit SHA.
+Eligible default-branch releases publish `latest`, the seven-character commit
+SHA, and the full commit SHA to Docker Hub and GitHub Packages. Candidate
+digests are scanned before those release tags are promoted.
 
 ## Architecture
 
@@ -47,6 +73,27 @@ Sales ── bounded reserve/confirm ── durable recovery ── Notification
 
 See [System Architecture](docs/architecture/SYSTEM_ARCHITECTURE.md), [ADRs](docs/adr/), and [local operations](docs/runbooks/local-operations.md).
 
+## Technology stack
+
+- Java 21, Spring Boot 3.5.12, Spring Cloud 2025.0.0, Maven, JUnit,
+  Testcontainers, Mockito, AssertJ, and ArchUnit.
+- PostgreSQL 16/TimescaleDB, Flyway, Redis 7, Kafka, MQTT, and
+  MinIO-compatible object storage.
+- React 19, TypeScript 5.9, Vite 8, pnpm 11, Vitest, Testing Library, and
+  Playwright.
+- Docker Compose, Helm, GitHub Actions, Trivy, Gitleaks, CodeQL, Cosign,
+  Prometheus, Tempo, Loki, Alloy, and Grafana.
+
+## Event documentation
+
+Async event channels and messages are defined in
+[`contracts/asyncapi`](contracts/asyncapi/), with JSON Schema payloads under
+[`contracts/event-schemas`](contracts/event-schemas/) and compatibility checks
+in the Maven reactor. The
+[service dependency diagram](docs/diagrams/service-dependencies.md) and
+[Kafka retry/DLT runbook](docs/runbooks/kafka-dlq.md) describe the implemented
+topology and repair boundary.
+
 ## Visual showcase
 
 The repository includes a small, optimized media set for demos and product
@@ -55,13 +102,15 @@ production data or scannable identifiers.
 
 ![AgriCore farm at sunrise](assets/media/agricore-showcase/agricore-farm-sunrise.webp)
 
+![AgriCore three-frame farm story](assets/media/agricore-showcase/agricore-farm-story.gif)
+
 - [Farm sunrise hero](assets/media/agricore-showcase/agricore-farm-sunrise.webp)
 - [Harvest packing workflow](assets/media/agricore-showcase/agricore-harvest-packing.webp)
 - [Public traceability produce](assets/media/agricore-showcase/agricore-traceability-produce.webp)
 - [Three-frame farm story GIF](assets/media/agricore-showcase/agricore-farm-story.gif)
 - [Asset manifest and checksums](assets/media/agricore-showcase/manifest.json)
 
-## Prerequisites
+## System requirements
 
 - JDK 21+
 - Maven 3.9+ or the included Maven wrapper
@@ -69,6 +118,15 @@ production data or scannable identifiers.
 - pnpm 11+
 - Docker with Docker Compose
 - OpenSSL for local JWT key generation
+
+## Environment variables
+
+Copy [`.env.example`](.env.example) only for local development. It documents
+database, Redis, Kafka, MQTT, SMTP, MinIO, JWT, observability, assistant
+provider, budget, and retention settings. Keep `.env`, RSA private keys,
+registry tokens, database credentials, and provider keys outside Git. Helm
+consumes environment-owned values and pre-created Kubernetes Secrets instead
+of the local template.
 
 ## Quick start
 
@@ -90,7 +148,7 @@ docker compose up -d --build
 | Endpoint | URL |
 |---|---|
 | Console | `http://localhost:3000` |
-| Gateway | `http://localhost:8080` |
+| API and JWKS through the same-origin edge | `http://localhost:3000` |
 | Kafka UI | `http://localhost:8088` |
 | Mailpit | `http://localhost:8025` |
 | MQTT broker | `tcp://localhost:1883` |
@@ -100,21 +158,35 @@ docker compose up -d --build
 | Prometheus | `http://localhost:9090` |
 | Tempo | `http://localhost:3200` |
 
-The assistant is not published directly. Use the console or gateway route `/api/v1/assistant/**`. `ASSISTANT_PROVIDER=none` is the safe default; provider type, model, base URL, and API key belong only in a local `.env`, secret manager, or Kubernetes Secret.
+The gateway and assistant are not host-published by Compose. Use the console
+edge at `http://localhost:3000`; it proxies `/api`, `/public/api`, and
+`/.well-known/jwks.json`. `ASSISTANT_PROVIDER=none` is the safe default;
+provider type, model, base URL, and API key belong only in a local `.env`,
+secret manager, or Kubernetes Secret.
+
+Assistant data has explicit retention controls: archived conversations default
+to 90 days, audit events to 365 days, and replay events to 24 hours. A bounded
+hourly cleanup job exposes purged-record and failure counters. Review
+`ASSISTANT_*_RETENTION` and cleanup settings against the deployment's legal and
+operational requirements before production use.
 
 Local email delivery uses Mailpit. Notification state is persisted as `REQUESTED` before bounded delivery attempts and ends as `SENT` or `FAILED`; captured development email is visible in the Mailpit UI.
 
 For deterministic demo data, set a local-only `AGRICORE_SEED_PASSWORD`, preview
 with `.\scripts\seed-data.ps1 -Profile Large -DryRun`, then remove `-DryRun`.
-The bounded Large profile creates or reuses 32 farms and 768 plots while
-checking free space and throttling writes. See the
+`Smoke`/`Quick`, `Demo`/`Showcase`, and `Large` are bounded aliases. Large
+creates or reuses 32 farms, 768 plots, 32 production flows, 128 tasks with
+repository WebP evidence, 32 harvest-to-inventory/traceability projections,
+640 IoT readings, 16 confirmed sales sagas with notifications, and one
+assistant conversation. It checks free space throughout, throttles writes, and
+can be run repeatedly without duplicating authoritative records. See the
 [local operations runbook](docs/runbooks/local-operations.md#deterministic-development-dataset).
 
 IoT devices publish authenticated QoS 1 JSON to `agricore/telemetry/{deviceCode}/reading`. Every MQTT payload requires a stable `readingId`, and `iot-service` deduplicates redelivery by that ID while rejecting ID reuse with different telemetry. Local Mosquitto bootstraps non-anonymous service/device users from environment variables and restricts each device user to its own topic. Run a deterministic simulator with `./scripts/sensor-simulator.ps1 -DeviceCount 3 -Iterations 10 -FrequencySeconds 2 -MinimumValue 30 -MaximumValue 70 -AnomalyProbabilityPercent 20 -Seed 42`; the POSIX equivalent is the `iot-mqtt-simulator` Compose profile. Register the mapped device codes first. Production must provide authenticated TLS plus broker ACLs managed outside this repository.
 
 For an existing PostgreSQL volume, follow the [assistant database provisioning runbook](docs/runbooks/assistant-database-provisioning.md).
 
-## Build and verification
+## Testing
 
 Backend:
 
@@ -152,6 +224,16 @@ For an already-running stack:
 .\scripts\e2e-happy-path.ps1 -EvidenceDir C:\path\to\evidence
 ```
 
+For a bounded public traceability read profile, install
+[k6](https://grafana.com/docs/k6/latest/set-up/install-k6/) and use a real
+persisted projection code:
+
+```powershell
+$env:TRACEABILITY_CODE = "<persisted-code>"
+k6 run .\scripts\load\public-traceability-read-smoke.js
+Remove-Item Env:TRACEABILITY_CODE
+```
+
 ## Observability
 
 ```text
@@ -162,23 +244,31 @@ For an already-running stack:
 Application logs ── ECS JSON ── container stdout ── Alloy ── Loki ── Grafana
 ```
 
-Local Compose exports traces to `http://tempo:4318/v1/traces` with sampling probability `1.0`. Prometheus scrapes all 13 Spring applications. Grafana provisions Prometheus, Tempo, and Loki datasources plus seven read-only dashboards. Custom meters cover transactional outbox backlog, Kafka dead-letter recovery attempts, harvest processing latency, inventory outcomes, IoT ingestion and alerts, sales sagas, notification delivery, and assistant generations.
+Local Compose exports traces to `http://tempo:4318/v1/traces` with sampling probability `1.0`. Prometheus scrapes the internal gateway and assistant over the Compose network and the 11 development-published services over the host bridge. Grafana provisions Prometheus, Tempo, and Loki datasources plus seven read-only dashboards. Custom meters cover transactional outbox backlog, Kafka dead-letter recovery attempts, harvest processing latency, inventory outcomes, IoT ingestion and alerts, sales sagas, notification delivery, assistant generations, and assistant retention cleanup.
 
 Alloy discovers only this project's Docker containers, enriches their structured stdout, and forwards it to persistent local Loki storage. Loki keeps 72 hours of local logs, while Docker files are independently bounded to three 10 MiB files per container by default. MinIO provides persistent, loopback-bound local object storage; application media integration is documented separately as it is delivered. See [local operations](docs/runbooks/local-operations.md) for verification commands and the exact metric catalog.
 
-## Authentication example
+## API documentation
+
+Versioned OpenAPI contracts for the gateway and services live in
+[`contracts/openapi`](contracts/openapi/). The console clients are generated
+from those files and `pnpm contracts:check` fails on drift. Protected browser
+requests use the same-origin `/api` path; the public traceability contract uses
+`/public/api`.
+
+### Authentication example
 
 ```bash
-curl -s -X POST http://localhost:8080/api/v1/auth/register \
+curl -s -X POST http://localhost:3000/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"manager@agricore.local","password":"Secret123!","fullName":"Farm Manager"}'
 
-curl -s -X POST http://localhost:8080/api/v1/auth/login \
+curl -s -X POST http://localhost:3000/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"manager@agricore.local","password":"Secret123!"}'
 ```
 
-JWKS: `GET /.well-known/jwks.json`
+JWKS: `GET http://localhost:3000/.well-known/jwks.json`
 
 Default roles: `SYSTEM_ADMIN`, `FARM_MANAGER`, `AGRONOMIST`, `FIELD_WORKER`, `WAREHOUSE_MANAGER`, `SALES_STAFF`, and `AUDITOR`. New users receive `FIELD_WORKER`; administrators manage roles through `PATCH /api/v1/admin/users/{id}/roles`.
 
@@ -195,7 +285,7 @@ Identity owns the permission catalog and role grants. The Identity OpenAPI 1.3.0
 
 New access tokens include `permissions`, the sorted distinct union granted through the user's roles. Tokens are snapshots: a grant change appears only in a newly issued access token, such as after login or refresh; the old token keeps its previous claims until it expires (900 seconds by default). Identity, the gateway, and servlet domain services map valid claim entries to `ROLE_*` and `PERMISSION_*` authorities, and domain controllers enforce the canonical permission guards. The console uses the same effective permission snapshot to hide unauthorized navigation. See the [authorization model](docs/security/microservices-authz.md) and [Identity contract](contracts/openapi/identity-service.v1.yaml).
 
-## Helm deployment scope
+## Kubernetes deployment
 
 The chart at `infrastructure/helm/agricore` renders Deployments and Services for all 13 Spring applications and the console, plus an optional same-origin Ingress. It also includes an idempotent pre-install/pre-upgrade Job for the assistant database.
 
@@ -205,12 +295,13 @@ The chart does not install PostgreSQL, Redis, Kafka, MinIO, Tempo, Prometheus, L
 
 GitHub Actions define these release gates:
 
-- `ci.yml`: Maven `verify`; generated contract drift check; frontend lint, typecheck, unit tests, production build, and Playwright journeys; Gitleaks; Compose validation; Helm lint and render.
-- `codeql.yml`: scheduled and push/PR Java CodeQL analysis.
-- `trivy.yml`: scheduled and push/PR filesystem scan that fails on fixable high or critical findings.
-- `docker-publish.yml`: publishes the 13 Spring images and console image only for an eligible successful default-branch CI revision, or an eligible manual default-branch dispatch.
+- `ci.yml`: Maven `verify`; generated contract drift check; frontend lint, typecheck, unit tests, production build, and Playwright journeys; Gitleaks; filesystem Trivy; Java CodeQL; Compose runtime-contract validation; Helm lint/render; and build-plus-Trivy scans for all 14 application images.
+- `codeql.yml` and `trivy.yml`: scheduled and manual defense-in-depth scans in addition to the aggregate pull-request/default-branch gates.
+- `docker-publish.yml`: builds one candidate per image, pushes it to Docker Hub and GitHub Packages, scans the exact candidate digest, then promotes matching full-SHA, short-SHA, and `latest` tags only for an eligible successful default-branch CI revision.
 
-Docker Hub credentials must be repository secrets named `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`; never put them in `.env`, Compose, or Helm values.
+Docker Hub credentials must be repository secrets named `DOCKERHUB_USERNAME`
+and `DOCKERHUB_TOKEN`; GHCR uses the workflow token with package write
+permission. Never put registry credentials in `.env`, Compose, or Helm values.
 
 ## Project layout
 
@@ -226,13 +317,38 @@ docs/                       Architecture, ADRs, evidence, and runbooks
 scripts/                    Local setup, verification, and seed tools
 ```
 
-## Security notes
+## Security
 
 - Passwords use BCrypt; production cost is 12.
 - Access tokens are short-lived RS256 JWTs.
 - Refresh tokens are opaque, hashed, rotated, and family-revoked on reuse.
 - Login rate limiting uses Redis and fails closed in the local stack.
 - Never commit `.env`, private keys, tokens, provider credentials, or production secrets.
+
+## Project roadmap
+
+See the [evidence-based roadmap](docs/project-roadmap.md) for release status and
+post-1.0 decisions. A capability is complete only when implementation,
+contracts, migrations, tests, operations, and documentation agree.
+
+## Contributing
+
+Follow [CONTRIBUTING.md](CONTRIBUTING.md) for branch, commit, test, contract,
+security, and pull-request expectations. Keep commits focused and never include
+AI references or secrets in commit messages or source.
+
+## Known limitations
+
+- The repository does not provision or claim a hosted production cluster.
+  Production PostgreSQL, Kafka, Redis, MQTT, object storage, SMTP,
+  observability, TLS, backups, and access policy are operator responsibilities.
+- Assistant tools are read-only; autonomous writes, arbitrary URLs, and RAG
+  ingestion are intentionally out of scope.
+- Raw/aggregate telemetry deletion, certification authority, tax/invoice,
+  payment, and multi-region disaster-recovery policy require product or
+  operations decisions.
+- Compose publishes domain service ports for development, but browser traffic
+  is supported only through the same-origin console edge.
 
 ## License
 

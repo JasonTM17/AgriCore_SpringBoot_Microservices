@@ -21,6 +21,8 @@ backends.
 - Private MinIO/S3-compatible object storage and bucket policy.
 - SMTP credentials and sender/domain configuration.
 - RSA signing key Secret, provider key Secret when enabled, and database Secret.
+- Assistant archived-conversation, audit, replay-event, and cleanup retention
+  policy approved for the deployment's legal and recovery requirements.
 - Ingress/TLS/DNS policy and trusted proxy configuration.
 - OTLP/metrics/log endpoints, sampling, storage, access, and retention.
 
@@ -79,9 +81,12 @@ simulator, seed, verification, log, and cleanup commands.
 
 ## Image verification
 
-Release workflows publish `latest`, short SHA, and full SHA tags to Docker Hub
-and GitHub Packages after eligible default-branch CI. Production should deploy a
-full SHA tag or digest.
+After eligible default-branch CI, the release workflow builds each image once
+and pushes a candidate to Docker Hub and GitHub Packages. It scans the exact
+candidate digest, verifies registry parity, promotes that digest to `latest`,
+short SHA, and full SHA tags, re-verifies every promoted reference, and signs
+the immutable digest in both registries. Production should deploy a full SHA
+tag or digest.
 
 ```bash
 docker buildx imagetools inspect IMAGE@sha256:DIGEST
@@ -92,3 +97,8 @@ cosign verify IMAGE@sha256:DIGEST \
 
 Store the merged revision, image digests, rendered values checksum, migration
 versions, and verification evidence with the release record.
+
+Docker Hub publishing requires `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` as
+repository secrets. GitHub Packages uses the workflow token's package write
+permission. If either registry, scan, parity check, promotion, or signing step
+fails, do not treat the other registry or a mutable tag as a complete release.
