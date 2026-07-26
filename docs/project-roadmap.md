@@ -1,6 +1,6 @@
 # AgriCore roadmap
 
-**Last updated:** 2026-07-23
+**Last updated:** 2026-07-26
 
 This roadmap records evidence gates, not delivery dates. A capability moves to
 complete only after code, contract, migration, tests, operations, and docs agree.
@@ -9,17 +9,17 @@ complete only after code, contract, migration, tests, operations, and docs agree
 
 | Area | Evidence state |
 |---|---|
-| Identity, JWT, roles, refresh security | Implemented; fine-grained policy enforcement/admin completion in progress |
+| Identity, JWT, roles, refresh security | Implemented; canonical permission guards and administration covered by tests |
 | Farm, catalog, crop-cycle, work | Core vertical slices implemented with farm boundary and optimistic/history evidence |
 | Work image evidence | Private MinIO-compatible storage and validated attachments implemented |
-| Harvest, inventory, traceability | Broker-backed foundations and expiry-aware lot allocation implemented; final fulfillment audit in progress |
-| MQTT and IoT alerts | Authenticated ingestion, idempotency, cooldown, offline flow implemented; time-series migration evidence in progress |
-| Sales saga | Reservation/compensation foundation implemented; full lifecycle and durable retry audit remains release-blocking |
+| Harvest, inventory, traceability | Broker-backed projections, duplicate protection, expiry-aware lot allocation, and DLT recovery implemented |
+| MQTT and IoT alerts | Authenticated ingestion, idempotency, cooldown, offline flow, and TimescaleDB migration implemented |
+| Sales saga | Reservation/compensation, bounded timeout, durable retry recovery, fulfillment milestones, and contract fields implemented |
 | Notification | Requested/sent/failed truth, SMTP adapter, idempotent event consumption implemented |
 | Assistant | Persisted read-only boundary, budgets, SSE replay, safe provider-none behavior implemented |
-| Console | Core workflows and assistant implemented; Inventory, Sales, IoT, and policy-admin route completion remains release-blocking |
+| Console | Core workflows, assistant, Inventory, Sales, IoT, identity administration, and permission-aware navigation implemented |
 | Platform | Compose, Helm, observability, security workflows, signed dual-registry publishing implemented; final clean-revision verification pending |
-| Docs/demo | Repository media/GIF, regional seed, diagrams, ADRs in progress; bounded cross-domain dataset and final docs sync pending |
+| Docs/demo | Repository media/GIF, regional seed, bounded cross-domain dataset, diagrams, ADRs, and release docs synchronized |
 
 ## Post-1.0 candidates
 

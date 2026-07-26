@@ -1,6 +1,6 @@
 # AgriCore System Architecture
 
-**Last updated:** 2026-07-23
+**Last updated:** 2026-07-26
 **Status:** Active
 
 ## 1. Purpose
@@ -53,11 +53,11 @@ The browser uses a same-origin edge: Nginx serves `/` and forwards `/api` and `/
 | Inventory | Stock, expiry-aware lots, reservations, movements | Consumes `HarvestCompleted.v1`, idempotent with DLT recovery; publishes stock events |
 | Traceability | Public QR timeline/read model | Consumes `HarvestCompleted.v1`, idempotent with DLT recovery; publishes QR lifecycle events |
 | IoT | Devices, readings, threshold alerts | Publishes reading, threshold, and offline events through outbox |
-| Sales | Orders and inventory saga state | Synchronous reserve/confirm/release calls to inventory; publishes order lifecycle events |
+| Sales | Orders, order items, and inventory saga state | Bounded synchronous reserve/confirm attempt plus durable retry/timeout recovery; publishes order lifecycle events |
 | Notification | Truthful delivery lifecycle and event dedupe | Consumes Sales, Traceability, and IoT events; delivers email through SMTP; publishes requested, sent, and failed events |
 | Assistant | Conversations, messages, generations, event replay, redacted tool evidence | No Kafka event path implemented |
 
-Implemented consumer topology includes `HarvestCompleted.v1` from harvest to inventory and traceability, plus Sales order, Traceability QR, and IoT alert/offline events into notification-service. All consumers persist a stable event marker before acknowledging a side effect; contract-invalid records use bounded retry and `<topic>.DLT` recovery.
+Implemented consumer topology includes `HarvestCompleted.v1` from harvest to inventory and traceability, plus Sales order, Traceability QR, and IoT alert/offline events into notification-service. All consumers persist a stable event marker before acknowledging a side effect; contract-invalid records use bounded retry and `<topic>.DLT` recovery. The repository E2E script also republishes a harvest event, publishes a duplicate notification event, and injects a wrong-version harvest event to prove idempotency and DLT routing on a real broker.
 
 ### Assistant boundary
 
@@ -95,7 +95,7 @@ recreate so old writers cannot race a schema conversion.
 | Cross-service farm authorization | Authenticated REST to farm-service with the caller bearer token |
 | Implemented domain event | Kafka |
 | Atomic database change and event publication | Transactional outbox |
-| Cross-service order transaction | Sales orchestration saga with inventory compensation |
+| Cross-service order transaction | Sales orchestration saga with bounded request latency, persistent recovery lease/backoff, compensation, and manual-reconciliation timeout |
 | Public aggregated view | Traceability local read model |
 
 ## 6. Internal layers
@@ -115,7 +115,7 @@ api → application → domain ← infrastructure
 - Identity resolves the sorted distinct union of permissions granted through a user's roles when it issues an access token. The resulting `roles` and `permissions` claims are token-lifetime snapshots.
 - Identity, the API gateway, and servlet domain services map string role entries to `ROLE_*` and string permission entries to `PERMISSION_*`. Malformed or blank entries are ignored and authorities are deduplicated.
 - Permission catalog reads and role-grant mutation use canonical identity permissions; mutation still requires the `SYSTEM_ADMIN` role as a second administrative boundary. Role grant replacement uses a pessimistic role lock and validates all requested codes before changing the grant set.
-- Canonical `PERMISSION_*` authorities are enforced at the Identity, Work, Harvest, Inventory, Sales, Traceability, IoT, Assistant, and Notification controller boundaries. Farm membership and internal service-token checks remain separate scope boundaries.
+- Canonical `PERMISSION_*` authorities are enforced at the Identity, Work, Harvest, Inventory, Sales, Traceability, IoT, Assistant, and Notification controller boundaries. The React console filters navigation by the effective permission snapshot as well as role metadata. Farm membership and internal service-token checks remain separate scope boundaries.
 - Gateway routes preserve the caller bearer token. `libs/farm-access-client` forwards it from crop-cycle, work, harvest, and IoT to farm-service.
 - `farm_memberships` maps JWT subjects to farm scope. `ROLE_SYSTEM_ADMIN` is the explicit global override.
 - Plot resolution masks missing, inaccessible, and mismatched plots as `404`.

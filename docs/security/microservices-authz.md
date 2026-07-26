@@ -9,7 +9,7 @@
 
 ## Permission plumbing and enforcement boundary
 
-Identity owns the permission catalog and role-to-permission grants in its `permissions` and `role_permissions` tables. Permission codes are unique. Flyway V2 creates the schema but does not seed a catalog.
+Identity owns the permission catalog and role-to-permission grants in its `permissions` and `role_permissions` tables. Permission codes are unique and the canonical development catalog is seeded by the identity migrations.
 
 The Identity OpenAPI 1.3.0 contract exposes these `SYSTEM_ADMIN`-only operations:
 
@@ -28,7 +28,7 @@ When Identity issues an access token, it queries the effective union of permissi
 
 The claim is a snapshot, not a live permission lookup. Updated grants appear only in a newly issued access token, such as after login or refresh. Existing tokens keep their previous grants until expiry; the default access-token TTL is 900 seconds.
 
-This capability supplies administration, token issuance, and authority mapping only. Current production endpoint policies remain role-based and no production code uses `hasAuthority("PERMISSION_*")`; fine-grained permission enforcement is not active. A permission catalog seed and console UI are also not implemented.
+The permission snapshot is now an enforcement boundary. Domain controllers use `hasAuthority("PERMISSION_*")` for operation access, while resource-specific farm membership checks remain a separate scope boundary. The console filters sidebar navigation by the same effective permission snapshot; direct routes still render a forbidden state when a user loses access.
 
 ## Farm ownership authority
 

@@ -39,7 +39,7 @@ Identity and API Gateway keep service-specific security configurations but apply
 ### Neutral
 
 - Gateway continues to validate JWT for external clients; service-level validation is defense in depth.
-- Authority mapping enables future fine-grained checks, but current production endpoint policies remain role-based and no `hasAuthority("PERMISSION_*")` guard is active.
+- Permission authorities are active at domain controller boundaries. The console also filters navigation using the effective permission snapshot; farm membership remains a separate resource-scope check.
 
 ## Alternatives considered
 

@@ -1,6 +1,6 @@
 # AgriCore Security Review Notes
 
-**Date:** 2026-07-22
+**Date:** 2026-07-26
 
 **Scope:** Repository code, tests, configuration, and local Compose posture; production runtime deployment controls were not assessed
 
@@ -27,12 +27,12 @@
 
 | ID | Severity | Finding | Plan |
 |----|----------|---------|------|
-| O1 | Medium | Live gateway-to-service JWT enforcement was not exercised by this review | Add a compose/e2e negative-token check; code config already validates JWKS signature, issuer, and audience at gateway and domain services |
+| O1 | Medium | Live gateway-to-service JWT enforcement was not exercised by this review | The verification script now sends invalid Bearer tokens to both the gateway and direct farm-service endpoint; retain this check in the Compose evidence bundle |
 | O2 | Medium | Kafka ACLs not configured in compose | Define and verify production Kafka authentication/authorization before deployment; none is claimed here |
-| O3 | Low | File upload not present | N/A until attachments ship |
+| O3 | Low | File upload was not present in the original review | Work attachments are now private, size/type/hash validated, object-storage-host allowlisted, and covered by integration tests |
 | O4 | Medium | Provider egress TLS/Kafka ACLs remain deployment controls | Configure TLS/ACL policy in the target environment; local Compose intentionally uses an internal network and no provider by default |
 | O5 | Medium | Role-grant changes do not invalidate permission snapshots in already-issued access tokens | Updated grants appear only in a newly issued token, such as after login or refresh; the old token remains valid until expiry. Default access-token TTL is 900 seconds. Evaluate immediate revocation if incident-response requirements demand it. |
-| O6 | Medium | Permission authorities exist but no production endpoint enforces `PERMISSION_*` | Define and seed the catalog, add explicit `hasAuthority("PERMISSION_*")` policies with compatibility tests, then expose permission administration in the console. Until then, roles and farm membership remain the enforcement boundary. |
+| O6 | Medium | Permission authorities existed before endpoint enforcement was completed | Resolved: canonical permission catalog, controller guards, identity administration UI, and permission-aware console navigation are implemented and covered by focused tests |
 
 ## Red-team checklist (sample)
 
@@ -43,10 +43,10 @@
 - [x] Cross-farm plot substitution returns masked 404; `SYSTEM_ADMIN` is the explicit membership override
 - [x] Farm-access denial, masked not-found, and unavailable responses prevent crop-cycle/work/harvest/IoT writes
 - [x] Caller JWT forwarding, destination allowlisting, strict response decoding, and fail-closed client behavior have focused tests
-- [ ] Live compose verification of invalid/expired JWT rejection at both gateway and a downstream service
+- [x] Live compose verification of invalid JWT rejection at both gateway and a downstream service (scripted; retain runtime evidence)
 - [x] Assistant output, citation, sensitive-data, refusal, idempotency, replay, tool-allowlist, and budget failure paths have focused tests
 - [x] Permission creation and role-grant replacement require `SYSTEM_ADMIN`; duplicate codes and unknown-code atomic failure have focused tests
-- [ ] Fine-grained `PERMISSION_*` endpoint enforcement (no production permission guard exists yet)
+- [x] Fine-grained `PERMISSION_*` endpoint enforcement and permission-aware console navigation
 
 ## Evidence
 

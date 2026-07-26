@@ -1,8 +1,8 @@
 # AgriCore Implementation Plan
 
-**Status:** In progress; assistant, observability, event producers, contracts, canonical permissions, bounded inventory/harvest ledgers, Sales reconciliation, and Notification consumption delivered; release verification remains
+**Status:** Implementation complete; release verification, external registry publication, and repository metadata remain
 **Created:** 2026-07-16
-**Last updated:** 2026-07-23
+**Last updated:** 2026-07-26
 
 ## Delivered scope
 
@@ -67,7 +67,7 @@ Idempotent public QR read model without internal identifiers or personal data; p
 
 ### M6 — IoT, sales, and notification (delivered)
 
-HTTP and QoS 1 MQTT sensor ingestion with stable reading-ID deduplication and alert cooldown, inventory-backed sales saga with price snapshots, order-item persistence, durable reservation reconciliation, transactional order lifecycle events, and idempotent Notification consumption of Sales, Traceability, and IoT events. Notification email uses bounded SMTP delivery, while in-app notifications persist locally; both produce truthful lifecycle events.
+HTTP and QoS 1 MQTT sensor ingestion with stable reading-ID deduplication and alert cooldown, inventory-backed sales saga with price snapshots, order-item persistence, durable reservation reconciliation, bounded recovery leases/backoff, fulfillment milestones, transactional order lifecycle events, and idempotent Notification consumption of Sales, Traceability, and IoT events. Notification email uses bounded SMTP delivery, while in-app notifications persist locally; both produce truthful lifecycle events.
 
 ### M7 — Gateway and observability
 
@@ -92,12 +92,9 @@ Application Helm chart, security review, runbooks, seed scripts, gateway happy p
 
 ## Remaining pre-release work
 
-- Reject malformed or wrong-version `HarvestCompleted.v1` envelopes to DLT instead of acknowledging them silently.
-- Bring farm, crop-cycle, and work publishers to the harvest publisher's locking, bounded-send, index, metric, and test standard.
-- Prove the full broker-backed harvest → inventory → traceability → notification flow with duplicate delivery and DLT assertions.
-- Add durable Sales timeout/retry/fulfillment milestones beyond the current synchronous reserve/confirm adapter.
-- Finish gateway/OpenAPI regeneration for additive inventory, Sales, and traceability response fields, then keep frontend contracts drift-free.
-- Replace role-only console navigation hints with permission-aware hints once the session exposes the canonical permission snapshot.
+- Run full Compose verification on a host with a healthy Docker engine and retain the generated evidence bundle.
+- Push the verified default-branch revision to Docker Hub/GHCR through the gated workflow and publish GitHub package metadata.
+- Re-check production operator inputs (JWT keys, database/Kafka/SMTP credentials, TLS, ACLs, observability backends) before deployment.
 
 ## Release acceptance criteria
 
@@ -105,7 +102,7 @@ Application Helm chart, security review, runbooks, seed scripts, gateway happy p
 - Generated frontend contracts have no drift; lint, typecheck, unit tests, build, and Playwright journeys pass.
 - Compose configuration validates; Helm chart lints and renders.
 - Gitleaks, CodeQL, and Trivy workflows remain enforced.
-- Gateway JWT happy path and Kafka-backed harvest projection are reproducible through the verification scripts.
+- Gateway and service JWT negative-path checks, the authenticated happy path, duplicate projection, notification dedupe, and Harvest DLT routing are reproducible through the verification scripts.
 - Bounded seed profiles are repeatable, avoid cross-service database writes except the documented local bootstrap, and include repository-owned media checksums.
 - Every implemented event producer has a transactional outbox path, versioned schema, AsyncAPI message, and focused contract test.
 - Kafka consumers validate the exact event type/version and route invalid envelopes through the documented DLT policy.
