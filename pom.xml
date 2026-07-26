@@ -41,6 +41,7 @@
         <postgresql.version>42.7.13</postgresql.version>
         <!-- Override Boot-managed 3.3.14 (CVE-2026-41731 insecure deserialization) -->
         <spring-kafka.version>3.3.16</spring-kafka.version>
+        <jacoco.version>0.8.13</jacoco.version>
     </properties>
 
     <dependencyManagement>
@@ -141,6 +142,11 @@
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <version>3.5.6</version>
                 </plugin>
+                <plugin>
+                    <groupId>org.jacoco</groupId>
+                    <artifactId>jacoco-maven-plugin</artifactId>
+                    <version>${jacoco.version}</version>
+                </plugin>
             </plugins>
         </pluginManagement>
         <plugins>
@@ -151,6 +157,27 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+            <!-- Coverage is measured and reported; thresholds are not enforced yet.
+                 Binding jacoco:check before a real baseline exists would fail every build. -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
