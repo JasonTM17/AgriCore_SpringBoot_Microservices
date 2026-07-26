@@ -1,7 +1,8 @@
 name: docker-publish
 
-# Promote only the exact default-branch revision accepted by the aggregate CI gate.
-# Candidate images are scanned by digest before immutable release tags are created.
+# Build, scan, and sign every candidate before any immutable release tag is
+# promoted. Only the exact default-branch revision accepted by aggregate CI is
+# eligible. A failed candidate or signature blocks the complete release.
 on:
   workflow_run:
     workflows: [ci]
@@ -25,6 +26,8 @@ jobs:
   resolve-sha:
     runs-on: ubuntu-latest
     outputs:
+      default_branch: ${{ steps.sha.outputs.default_branch }}
+      matrix: ${{ steps.sha.outputs.matrix }}
       publish_sha: ${{ steps.sha.outputs.publish_sha }}
       should_publish: ${{ steps.sha.outputs.should_publish }}
     steps:
@@ -47,6 +50,26 @@ jobs:
           should=false
           publish_sha=""
           default_branch="$(gh api "repos/$THIS_REPO" --jq '.default_branch')"
+          matrix="$(
+            jq -cn '{
+              include: [
+                {service: "identity", file: "services/identity-service/Dockerfile", image: "agricore-identity"},
+                {service: "farm", file: "services/farm-service/Dockerfile", image: "agricore-farm"},
+                {service: "crop-catalog", file: "services/crop-catalog-service/Dockerfile", image: "agricore-crop-catalog"},
+                {service: "crop-cycle", file: "services/crop-cycle-service/Dockerfile", image: "agricore-crop-cycle"},
+                {service: "work", file: "services/work-service/Dockerfile", image: "agricore-work"},
+                {service: "inventory", file: "services/inventory-service/Dockerfile", image: "agricore-inventory"},
+                {service: "harvest", file: "services/harvest-service/Dockerfile", image: "agricore-harvest"},
+                {service: "notification", file: "services/notification-service/Dockerfile", image: "agricore-notification"},
+                {service: "iot", file: "services/iot-service/Dockerfile", image: "agricore-iot"},
+                {service: "sales", file: "services/sales-service/Dockerfile", image: "agricore-sales"},
+                {service: "traceability", file: "services/traceability-service/Dockerfile", image: "agricore-traceability"},
+                {service: "assistant", file: "services/assistant-service/Dockerfile", image: "agricore-assistant"},
+                {service: "gateway", file: "services/api-gateway/Dockerfile", image: "agricore-gateway"},
+                {service: "console", file: "apps/agricore-console/Dockerfile", image: "agricore-console"}
+              ]
+            }'
+          )"
 
           if [[ "$EVENT_NAME" == "workflow_run" ]]; then
             if [[ "$WR_REPO" == "$THIS_REPO" \
@@ -81,11 +104,15 @@ jobs:
             fi
           fi
 
-          echo "should_publish=$should" >> "$GITHUB_OUTPUT"
-          echo "publish_sha=$publish_sha" >> "$GITHUB_OUTPUT"
+          {
+            echo "default_branch=$default_branch"
+            echo "matrix=$matrix"
+            echo "should_publish=$should"
+            echo "publish_sha=$publish_sha"
+          } >> "$GITHUB_OUTPUT"
           echo "default_branch=$default_branch should_publish=$should publish_sha=$publish_sha"
 
-  publish:
+  candidates:
     needs: resolve-sha
     if: needs.resolve-sha.outputs.should_publish == 'true'
     runs-on: ubuntu-latest
@@ -95,64 +122,7 @@ jobs:
       packages: write
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - service: identity
-            context: .
-            file: services/identity-service/Dockerfile
-            image: agricore-identity
-          - service: farm
-            context: .
-            file: services/farm-service/Dockerfile
-            image: agricore-farm
-          - service: crop-catalog
-            context: .
-            file: services/crop-catalog-service/Dockerfile
-            image: agricore-crop-catalog
-          - service: crop-cycle
-            context: .
-            file: services/crop-cycle-service/Dockerfile
-            image: agricore-crop-cycle
-          - service: work
-            context: .
-            file: services/work-service/Dockerfile
-            image: agricore-work
-          - service: inventory
-            context: .
-            file: services/inventory-service/Dockerfile
-            image: agricore-inventory
-          - service: harvest
-            context: .
-            file: services/harvest-service/Dockerfile
-            image: agricore-harvest
-          - service: notification
-            context: .
-            file: services/notification-service/Dockerfile
-            image: agricore-notification
-          - service: iot
-            context: .
-            file: services/iot-service/Dockerfile
-            image: agricore-iot
-          - service: sales
-            context: .
-            file: services/sales-service/Dockerfile
-            image: agricore-sales
-          - service: traceability
-            context: .
-            file: services/traceability-service/Dockerfile
-            image: agricore-traceability
-          - service: assistant
-            context: .
-            file: services/assistant-service/Dockerfile
-            image: agricore-assistant
-          - service: gateway
-            context: .
-            file: services/api-gateway/Dockerfile
-            image: agricore-gateway
-          - service: console
-            context: .
-            file: apps/agricore-console/Dockerfile
-            image: agricore-console
+      matrix: ${{ fromJSON(needs.resolve-sha.outputs.matrix) }}
     steps:
       - name: Checkout verified revision
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -176,7 +146,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Resolve immutable image metadata
+      - name: Resolve candidate metadata
         id: meta
         shell: bash
         env:
@@ -203,7 +173,7 @@ jobs:
         id: build
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
-          context: ${{ matrix.context }}
+          context: .
           file: ${{ matrix.file }}
           push: true
           tags: |
@@ -227,17 +197,19 @@ jobs:
           image-ref: ${{ steps.meta.outputs.dockerhub_repository }}@${{ steps.build.outputs.digest }}
           severity: CRITICAL,HIGH
           exit-code: "1"
-          ignore-unfixed: true
+          ignore-unfixed: false
           format: table
 
-      - name: Verify candidate parity and immutable SHA availability
+      - name: Verify candidate parity and immutable tag availability
         shell: bash
         env:
           EXPECTED_DIGEST: ${{ steps.build.outputs.digest }}
           DOCKERHUB_CANDIDATE: ${{ steps.meta.outputs.dockerhub_candidate }}
           GHCR_CANDIDATE: ${{ steps.meta.outputs.ghcr_candidate }}
           DOCKERHUB_FULL: ${{ steps.meta.outputs.dockerhub_repository }}:${{ steps.meta.outputs.full }}
+          DOCKERHUB_SHORT: ${{ steps.meta.outputs.dockerhub_repository }}:${{ steps.meta.outputs.short }}
           GHCR_FULL: ${{ steps.meta.outputs.ghcr_repository }}:${{ steps.meta.outputs.full }}
+          GHCR_SHORT: ${{ steps.meta.outputs.ghcr_repository }}:${{ steps.meta.outputs.short }}
         run: |
           set -euo pipefail
 
@@ -271,65 +243,184 @@ jobs:
           require_digest "$DOCKERHUB_CANDIDATE"
           require_digest "$GHCR_CANDIDATE"
           require_immutable_or_absent "$DOCKERHUB_FULL"
+          require_immutable_or_absent "$DOCKERHUB_SHORT"
           require_immutable_or_absent "$GHCR_FULL"
-
-      - name: Promote the scanned digest to release tags
-        shell: bash
-        env:
-          EXPECTED_DIGEST: ${{ steps.build.outputs.digest }}
-          DOCKERHUB_CANDIDATE: ${{ steps.meta.outputs.dockerhub_candidate }}
-          GHCR_CANDIDATE: ${{ steps.meta.outputs.ghcr_candidate }}
-          DOCKERHUB_REPOSITORY: ${{ steps.meta.outputs.dockerhub_repository }}
-          GHCR_REPOSITORY: ${{ steps.meta.outputs.ghcr_repository }}
-          FULL_TAG: ${{ steps.meta.outputs.full }}
-          SHORT_TAG: ${{ steps.meta.outputs.short }}
-        run: |
-          set -euo pipefail
-          docker buildx imagetools create \
-            --tag "$DOCKERHUB_REPOSITORY:$FULL_TAG" \
-            --tag "$DOCKERHUB_REPOSITORY:$SHORT_TAG" \
-            --tag "$DOCKERHUB_REPOSITORY:latest" \
-            "$DOCKERHUB_CANDIDATE@$EXPECTED_DIGEST"
-          docker buildx imagetools create \
-            --tag "$GHCR_REPOSITORY:$FULL_TAG" \
-            --tag "$GHCR_REPOSITORY:$SHORT_TAG" \
-            --tag "$GHCR_REPOSITORY:latest" \
-            "$GHCR_CANDIDATE@$EXPECTED_DIGEST"
-
-      - name: Verify promoted release digests
-        shell: bash
-        env:
-          EXPECTED_DIGEST: ${{ steps.build.outputs.digest }}
-          DOCKERHUB_REPOSITORY: ${{ steps.meta.outputs.dockerhub_repository }}
-          GHCR_REPOSITORY: ${{ steps.meta.outputs.ghcr_repository }}
-          FULL_TAG: ${{ steps.meta.outputs.full }}
-          SHORT_TAG: ${{ steps.meta.outputs.short }}
-        run: |
-          set -euo pipefail
-          for repository in "$DOCKERHUB_REPOSITORY" "$GHCR_REPOSITORY"; do
-            for tag in "$FULL_TAG" "$SHORT_TAG" latest; do
-              actual="$(
-                docker buildx imagetools inspect "$repository:$tag" |
-                  awk '/^Digest:/ { print $2; exit }'
-              )"
-              if [[ "$actual" != "$EXPECTED_DIGEST" ]]; then
-                echo "Promotion verification failed for $repository:$tag"
-                exit 1
-              fi
-            done
-          done
+          require_immutable_or_absent "$GHCR_SHORT"
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@1aa8e0f2454b781fbf0fbf306a4c9533a0c57409 # v3.7.0
-      - name: Sign Docker Hub immutable image digest
+
+      - name: Sign both candidate repository digests
         env:
           COSIGN_EXPERIMENTAL: "1"
-        run: >-
-          cosign sign --yes
-          ${{ steps.meta.outputs.dockerhub_repository }}@${{ steps.build.outputs.digest }}
-      - name: Sign GitHub Packages immutable image digest
+          DIGEST: ${{ steps.build.outputs.digest }}
+          DOCKERHUB_REPOSITORY: ${{ steps.meta.outputs.dockerhub_repository }}
+          GHCR_REPOSITORY: ${{ steps.meta.outputs.ghcr_repository }}
+        run: |
+          set -euo pipefail
+          cosign sign --yes "$DOCKERHUB_REPOSITORY@$DIGEST"
+          cosign sign --yes "$GHCR_REPOSITORY@$DIGEST"
+
+  promotion-gate:
+    needs: [resolve-sha, candidates]
+    if: needs.resolve-sha.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse promotion when the default branch advanced
+        shell: bash
         env:
-          COSIGN_EXPERIMENTAL: "1"
-        run: >-
-          cosign sign --yes
-          ${{ steps.meta.outputs.ghcr_repository }}@${{ steps.build.outputs.digest }}
+          GH_TOKEN: ${{ github.token }}
+          PUBLISH_SHA: ${{ needs.resolve-sha.outputs.publish_sha }}
+          DEFAULT_BRANCH: ${{ needs.resolve-sha.outputs.default_branch }}
+          THIS_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          branch_tip="$(gh api "repos/$THIS_REPO/commits/$DEFAULT_BRANCH" --jq '.sha')"
+          if [[ "$PUBLISH_SHA" != "$branch_tip" ]]; then
+            echo "Refusing stale revision $PUBLISH_SHA; $DEFAULT_BRANCH is now $branch_tip"
+            exit 1
+          fi
+
+  promote:
+    needs: [resolve-sha, promotion-gate]
+    if: needs.resolve-sha.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.resolve-sha.outputs.matrix) }}
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ${{ env.DOCKERHUB_REGISTRY }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@1aa8e0f2454b781fbf0fbf306a4c9533a0c57409 # v3.7.0
+
+      - name: Verify signatures and promote immutable SHA tags
+        shell: bash
+        env:
+          PUBLISH_SHA: ${{ needs.resolve-sha.outputs.publish_sha }}
+          DEFAULT_BRANCH: ${{ needs.resolve-sha.outputs.default_branch }}
+        run: |
+          set -euo pipefail
+          full="$PUBLISH_SHA"
+          short="${full:0:7}"
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          dockerhub_repository="${{ env.DOCKERHUB_REGISTRY }}/${{ env.DOCKERHUB_NAMESPACE }}/${{ matrix.image }}"
+          ghcr_repository="${{ env.GHCR_REGISTRY }}/$owner/${{ matrix.image }}"
+          candidate="candidate-$full-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          identity="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/.github/workflows/docker-publish.yml@refs/heads/$DEFAULT_BRANCH"
+
+          digest_of() {
+            docker buildx imagetools inspect "$1" |
+              awk '/^Digest:/ { print $2; exit }'
+          }
+
+          dockerhub_digest="$(digest_of "$dockerhub_repository:$candidate")"
+          ghcr_digest="$(digest_of "$ghcr_repository:$candidate")"
+          if [[ -z "$dockerhub_digest" || "$dockerhub_digest" != "$ghcr_digest" ]]; then
+            echo "Candidate parity failed: dockerhub=$dockerhub_digest ghcr=$ghcr_digest"
+            exit 1
+          fi
+
+          for repository in "$dockerhub_repository" "$ghcr_repository"; do
+            cosign verify \
+              --certificate-identity "$identity" \
+              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+              "$repository@$dockerhub_digest"
+          done
+
+          docker buildx imagetools create \
+            --tag "$dockerhub_repository:$full" \
+            --tag "$dockerhub_repository:$short" \
+            "$dockerhub_repository@$dockerhub_digest"
+          docker buildx imagetools create \
+            --tag "$ghcr_repository:$full" \
+            --tag "$ghcr_repository:$short" \
+            "$ghcr_repository@$dockerhub_digest"
+
+  verify-release:
+    needs: [resolve-sha, promote]
+    if: needs.resolve-sha.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.resolve-sha.outputs.matrix) }}
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ${{ env.DOCKERHUB_REGISTRY }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@1aa8e0f2454b781fbf0fbf306a4c9533a0c57409 # v3.7.0
+
+      - name: Verify release digests and signatures
+        shell: bash
+        env:
+          PUBLISH_SHA: ${{ needs.resolve-sha.outputs.publish_sha }}
+          DEFAULT_BRANCH: ${{ needs.resolve-sha.outputs.default_branch }}
+        run: |
+          set -euo pipefail
+          full="$PUBLISH_SHA"
+          short="${full:0:7}"
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          dockerhub_repository="${{ env.DOCKERHUB_REGISTRY }}/${{ env.DOCKERHUB_NAMESPACE }}/${{ matrix.image }}"
+          ghcr_repository="${{ env.GHCR_REGISTRY }}/$owner/${{ matrix.image }}"
+          identity="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/.github/workflows/docker-publish.yml@refs/heads/$DEFAULT_BRANCH"
+
+          digest_of() {
+            docker buildx imagetools inspect "$1" |
+              awk '/^Digest:/ { print $2; exit }'
+          }
+
+          expected="$(digest_of "$dockerhub_repository:$full")"
+          if [[ -z "$expected" ]]; then
+            echo "Missing Docker Hub full-SHA release tag"
+            exit 1
+          fi
+
+          for repository in "$dockerhub_repository" "$ghcr_repository"; do
+            for tag in "$full" "$short"; do
+              actual="$(digest_of "$repository:$tag")"
+              if [[ "$actual" != "$expected" ]]; then
+                echo "Release verification failed for $repository:$tag: expected=$expected actual=$actual"
+                exit 1
+              fi
+            done
+            cosign verify \
+              --certificate-identity "$identity" \
+              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+              "$repository@$expected"
+          done
