@@ -33,10 +33,12 @@ flowchart LR
     cycle -->|"Bearer-forwarded farm/plot access check"| farm
     work -->|"Bearer-forwarded plot access check"| farm
     harvest -->|"Bearer-forwarded plot access check"| farm
+    harvest -->|"Verify farm/plot crop-cycle scope"| cycle
     inventory -->|"Bearer-forwarded farm access check"| farm
     iot -->|"Bearer-forwarded plot access check"| farm
+    sales -->|"Bearer-forwarded farm access check"| farm
     assistant -->|"Allowlisted read-only farm tools"| farm
-    sales -->|"Reserve, confirm, release"| inventory
+    sales -->|"Farm-scoped reserve, lookup, confirm, release"| inventory
 
     farm --> kafka
     cycle --> kafka

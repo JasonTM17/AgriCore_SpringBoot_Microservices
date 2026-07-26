@@ -47,17 +47,38 @@ The browser uses a same-origin edge: Nginx serves `/` and forwards `/api` and `/
 | Identity | Users, roles, permission catalog and role grants, access and refresh tokens, JWKS | None; outbox table is unused |
 | Farm | Farms, areas, plots, memberships | Publishes farm events through outbox |
 | Crop catalog | Crops, varieties, care specifications | None |
-| Crop cycle | Cycles, stages, lifecycle | Publishes crop-cycle events through outbox |
+| Crop cycle | Cycles, stages, lifecycle, PostgreSQL overlap exclusion | Publishes crop-cycle events through outbox |
 | Work | Tasks, assignments, and private task attachments | Publishes work events through outbox; attachments use the bounded MinIO-compatible storage adapter |
-| Harvest | Harvest batches and completion repair | Publishes `HarvestCompleted.v1` through outbox |
-| Inventory | Stock, expiry-aware lots, reservations, movements | Consumes `HarvestCompleted.v1`, idempotent with DLT recovery; publishes stock events |
+| Harvest | Farm-scoped harvest batches and completion repair | Verifies Farm and Crop-cycle scope; publishes farm-scoped `HarvestCompleted.v1` through outbox |
+| Inventory | Stock, expiry-aware lots, farm-scoped reservations, movements | Consumes farm-scoped `HarvestCompleted.v1`, idempotent with DLT recovery; publishes stock events |
 | Traceability | Public QR timeline/read model | Consumes `HarvestCompleted.v1`, idempotent with DLT recovery; publishes QR lifecycle events |
-| IoT | Devices, readings, threshold alerts | Publishes reading, threshold, and offline events through outbox |
-| Sales | Orders, order items, and inventory saga state | Bounded synchronous reserve/confirm attempt plus durable retry/timeout recovery; publishes order lifecycle events |
-| Notification | Truthful delivery lifecycle and event dedupe | Consumes Sales, Traceability, and IoT events; delivers email through SMTP; publishes requested, sent, and failed events |
+| IoT | Devices, readings, threshold alerts, per-device MQTT admission | Publishes reading, threshold, and offline events through outbox |
+| Sales | Farm-scoped customers, orders, order items, and inventory saga state | Verifies Farm scope; bounded farm-scoped reserve/confirm attempt plus durable retry/timeout recovery; publishes order lifecycle events |
+| Notification | Truthful email/in-app delivery lifecycle, administrative inbox, and event dedupe | Consumes Sales, Traceability, and IoT events; invalid payloads bypass retries; publishes requested, sent, and failed v2 events |
 | Assistant | Conversations, messages, generations, event replay, redacted tool evidence | No Kafka event path implemented |
 
-Implemented consumer topology includes `HarvestCompleted.v1` from harvest to inventory and traceability, plus Sales order, Traceability QR, and IoT alert/offline events into notification-service. All consumers persist a stable event marker before acknowledging a side effect; contract-invalid records use bounded retry and `<topic>.DLT` recovery. The repository E2E script also republishes a harvest event, publishes a duplicate notification event, and injects a wrong-version harvest event to prove idempotency and DLT routing on a real broker.
+Implemented consumer topology includes `HarvestCompleted.v1` from Harvest to
+Inventory and Traceability, plus Sales order, Traceability QR, and IoT
+alert/offline events into Notification. Consumers persist a stable event marker
+with each side effect. Transient failures use bounded retry topics; contract
+failures raise `IllegalArgumentException` and route directly to `<topic>.DLT`
+without retry churn or persisted side effects. The repository E2E script also
+republishes a harvest event, publishes a duplicate notification event, and
+injects a wrong-version harvest event to prove idempotency and DLT routing on a
+real broker.
+
+### Farm-scope upgrade boundary
+
+- Harvest V6 and Sales V6 add nullable `farm_id` columns so older databases can
+  migrate without fabricating ownership. New records always persist
+  authoritative farm scope.
+- Harvest derives scope from the stored plot and verifies any non-null stored
+  farm before reads/repair. Its completion event requires `farmId`.
+- Sales requires stored farm scope for reads and recovery, and passes it to
+  Inventory reserve, business-reference lookup, confirm, and release calls.
+- Inventory checks that the requested farm owns the reservation's item
+  warehouse. Legacy warehouses or processed markers without scope fail closed
+  until an operator maps them.
 
 ### Assistant boundary
 
@@ -80,6 +101,24 @@ lots in FEFO order (earliest expiry first, then receipt time). Expired batches a
 never newly reserved or dispatched. The V6 migration backfills one non-expiring
 legacy lot per existing item and preserves reservation balances through allocation
 rows, so the aggregate and lot ledger can be reconciled after deployment.
+
+### Crop-cycle overlap invariant
+
+Application checks provide a friendly `409 CROP_CYCLE_OVERLAP`, while
+PostgreSQL remains authoritative under concurrency. Migration V5 installs
+`btree_gist` and excludes intersecting inclusive planned date ranges for the
+same plot when either row is `DRAFT` or `ACTIVE`. Terminal rows do not block
+plot reuse. Existing overlaps must be resolved before applying the migration.
+
+### Console session and media boundaries
+
+- A session epoch prevents a late refresh from restoring a logged-out or
+  replaced session. New login waits for any active logout request to settle.
+- Desktop and mobile navigation are separate render paths; the mobile drawer is
+  absent from the DOM while closed.
+- Showcase images use fixed aspect-ratio frames, deterministic accessible
+  fallbacks, and 240/480/960 pixel WebP `srcset` variants with route-specific
+  `sizes` and loading priority.
 
 ### IoT time-series persistence
 
@@ -123,7 +162,9 @@ api → application → domain ← infrastructure
 - Identity, the API gateway, and servlet domain services map string role entries to `ROLE_*` and string permission entries to `PERMISSION_*`. Malformed or blank entries are ignored and authorities are deduplicated.
 - Permission catalog reads and role-grant mutation use canonical identity permissions; mutation still requires the `SYSTEM_ADMIN` role as a second administrative boundary. Role grant replacement uses a pessimistic role lock and validates all requested codes before changing the grant set.
 - Canonical `PERMISSION_*` authorities are enforced at the Identity, Work, Harvest, Inventory, Sales, Traceability, IoT, Assistant, and Notification controller boundaries. The React console filters navigation by the effective permission snapshot as well as role metadata. Farm membership and internal service-token checks remain separate scope boundaries.
-- Gateway routes preserve the caller bearer token. `libs/farm-access-client` forwards it from crop-cycle, work, harvest, and IoT to farm-service.
+- Gateway routes preserve the caller bearer token. `libs/farm-access-client`
+  forwards it from Crop-cycle, Work, Harvest, Inventory, IoT, and Sales to
+  Farm.
 - `farm_memberships` maps JWT subjects to farm scope. `ROLE_SYSTEM_ADMIN` is the explicit global override.
 - Plot resolution masks missing, inaccessible, and mismatched plots as `404`.
 - Farm-access network errors, unexpected statuses, invalid responses, and missing request authentication fail closed as `503 FARM_ACCESS_UNAVAILABLE`.
@@ -199,10 +240,23 @@ Alloy discovers only containers carrying this repository's Compose project label
 | Environment | Repository mechanism | Scope |
 |---|---|---|
 | Local | `docker-compose.yml` plus `docker-compose.observability.yml` | Infrastructure, Mailpit, MinIO, 13 applications, console, Tempo, Prometheus, Alloy, Loki, Grafana |
-| Cluster | `infrastructure/helm/agricore` | 13 application Deployments/Services, console, optional Ingress, assistant database Job |
-| CI | GitHub Actions | Build/test, frontend, secret, Compose, Helm, CodeQL, filesystem and built-image Trivy, plus digest-gated dual-registry publishing |
+| Cluster | `infrastructure/helm/agricore` | 13 application Deployments/Services, console, gateway Service alias, optional Ingress, assistant database Job |
+| CI | GitHub Actions | Build/test, frontend, secret, Compose, Helm, CodeQL, filesystem and built-image Trivy, plus digest-gated full/short-SHA dual-registry publishing |
 
-The Helm chart expects external PostgreSQL, Redis, Kafka, MinIO-compatible object storage, SMTP, and observability services plus pre-created database and SMTP credential Secrets. It does not install Tempo, Prometheus, Loki, Alloy, Grafana, or MinIO. These repository mechanisms do not prove a production cluster is deployed.
+All application containers use a read-only root filesystem and a bounded
+writable `/tmp` `emptyDir`. Harvest receives Farm and Crop-cycle access
+configuration; Sales receives Farm access, Inventory URL, and the internal
+Inventory credential. The Console uses the `api-gateway` alias in both Compose
+and Kubernetes.
+
+The chart expects external PostgreSQL, Redis, Kafka, MinIO-compatible object
+storage, SMTP, and observability services plus pre-created database and SMTP
+credential Secrets. NetworkPolicy denies non-AgriCore ingress by default.
+Egress is unrestricted unless `networkPolicy.restrictEgress=true`; restricted
+deployments must add their external dependency destinations through
+`networkPolicy.additionalEgress`. The chart does not install Tempo, Prometheus,
+Loki, Alloy, Grafana, or MinIO. These repository mechanisms do not prove a
+production cluster is deployed.
 
 ## 10. Non-goals
 

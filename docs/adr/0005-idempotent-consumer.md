@@ -17,6 +17,12 @@ key includes the consumer identity and, where needed, authoritative farm or
 warehouse scope. Replaying an exact processed event returns the stored outcome
 without repeating the mutation.
 
+`HarvestCompleted.v1` carries required `farmId` and `warehouseId`. Inventory
+stores both on new processed markers and checks the caller-supplied warehouse
+farm before exposing acknowledgement state. Nullable scope columns preserve
+upgrade compatibility for older markers, but legacy rows fail closed until an
+operator maps them.
+
 Invalid types, unsupported versions, and malformed envelopes do not create a
 processed marker; they follow the bounded retry/DLT policy.
 

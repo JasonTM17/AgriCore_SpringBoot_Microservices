@@ -28,8 +28,9 @@ sequenceDiagram
     User->>GW: Start and complete harvest batch
     GW->>Harvest: Authenticated lifecycle requests
     Harvest->>Farm: Verify plot access
-    Harvest->>Harvest: Persist completed batch and outbox event
-    Harvest->>Kafka: Publish HarvestCompleted.v1
+    Harvest->>Cycle: Verify cycle belongs to farm and plot
+    Harvest->>Harvest: Persist farm-scoped batch and outbox event
+    Harvest->>Kafka: Publish HarvestCompleted.v1 with farmId
     Kafka->>Inventory: Project stock idempotently
     Kafka->>Trace: Build public traceability read model idempotently
 ```

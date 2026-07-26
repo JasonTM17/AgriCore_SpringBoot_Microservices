@@ -14,7 +14,7 @@ flowchart LR
     traceDb[("Traceability read model + processed event")]
     dlt[("Harvest topic DLT")]
 
-    request --> transaction
+    request -->|"farm/plot/cycle verified"| transaction
     transaction --> harvest
     transaction --> outbox
     outbox --> publisher --> kafka
@@ -24,6 +24,8 @@ flowchart LR
     trace -->|"Invalid envelope or exhausted retry"| dlt
 ```
 
-The harvest aggregate and outbox row commit atomically. Consumer transactions
-make duplicate delivery safe; wrong event types, wrong versions, and malformed
-envelopes follow the bounded retry/DLT policy documented in the Kafka runbook.
+The harvest aggregate and outbox row commit atomically, and
+`HarvestCompleted.v1` carries authoritative `farmId` and `warehouseId`.
+Consumer transactions make duplicate delivery safe; wrong event types, wrong
+versions, and malformed envelopes skip transient retry topics and follow the
+DLT policy documented in the Kafka runbook.

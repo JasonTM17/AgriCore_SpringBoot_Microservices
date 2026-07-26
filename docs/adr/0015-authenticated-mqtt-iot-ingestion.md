@@ -18,6 +18,10 @@ Use MQTT QoS 1 for device ingress and a bounded IoT ingestion worker.
 - Devices publish JSON to `agricore/telemetry/{deviceCode}/reading`.
 - Broker authentication and ACLs restrict a device user to its own topic.
 - Payload `deviceCode` must match the topic and a registered device.
+- Before shared-queue submission, each normalized device code has an independent
+  token bucket and in-flight cap. The number of tracked buckets and their idle
+  lifetime are bounded. Invalid topics share one bounded bucket instead of
+  allocating attacker-controlled state.
 - A stable `readingId` is the global idempotency key. Exact redelivery is ignored;
   reuse with different canonical telemetry is rejected.
 - IoT persists readings in its own time-series-capable PostgreSQL database,
@@ -34,6 +38,7 @@ Use MQTT QoS 1 for device ingress and a bounded IoT ingestion worker.
 - QoS 1 avoids silent best-effort loss while application idempotency makes
   redelivery safe.
 - Per-device ACLs and topic/payload matching reduce spoofing scope.
+- One noisy device cannot consume another device's admission capacity.
 - Cooldowns suppress notification storms from repeated abnormal readings.
 
 ### Negative
@@ -42,6 +47,8 @@ Use MQTT QoS 1 for device ingress and a bounded IoT ingestion worker.
   responsibilities.
 - QoS 1 does not guarantee exactly-once processing.
 - Telemetry growth needs explicit capacity, retention, and backup policy.
+- A rate-limited record is acknowledged and counted rather than retried; global
+  worker-queue saturation disconnects so broker redelivery can apply backpressure.
 
 ### Trade-offs
 

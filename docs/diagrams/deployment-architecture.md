@@ -13,10 +13,12 @@ flowchart TB
 
     subgraph cluster["Kubernetes application chart"]
         ingress["Operator Ingress / TLS"]
-        workloads["Application Deployments + Services"]
-        policies["NetworkPolicies, HPA, PDB, probes, security contexts"]
+        workloads["Application Deployments + Services\nread-only root + bounded /tmp"]
+        gatewayAlias["api-gateway Service alias"]
+        policies["NetworkPolicies, configurable external egress,\nHPA, PDB, probes, security contexts"]
         dbJob["Assistant database provisioning Job"]
         ingress --> workloads
+        gatewayAlias --> workloads
         policies --- workloads
         dbJob --> workloads
     end
@@ -32,4 +34,6 @@ flowchart TB
 
 The Helm chart deploys applications, not stateful platform dependencies. Secrets,
 TLS, Kafka authorization, database backups, storage classes, and observability
-retention remain production operator responsibilities.
+retention remain production operator responsibilities. Egress is open by default
+for those external dependencies; restricted deployments must supply explicit
+`additionalEgress` rules.

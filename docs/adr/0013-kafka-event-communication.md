@@ -20,6 +20,8 @@ Use Kafka for implemented cross-service domain events.
 - Producers write a transactional outbox before publication.
 - Consumers validate exact event type and version, persist processed-event
   markers with side effects, and route exhausted or invalid records to a DLT.
+  Contract-invalid records are non-retryable and skip retry-topic churn; only
+  transient failures traverse the bounded retry stages.
 - Topic creation, retry topology, and local broker configuration remain explicit
   infrastructure assets.
 - REST remains appropriate for synchronous authorization and reservation
