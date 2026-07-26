@@ -15,4 +15,10 @@ catalog:
   zod: 4.3.6
 
 catalogMode: strict
+minimumReleaseAgeExclude:
+  - js-yaml@4.3.0
+  - brace-expansion@5.0.8
+overrides:
+  brace-expansion@<=5.0.7: ^5.0.8
+  js-yaml@>=4.0.0 <4.3.0: ^4.3.0
 preferWorkspacePackages: true
