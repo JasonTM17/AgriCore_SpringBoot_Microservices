@@ -14,6 +14,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.Instant;
+import java.time.Duration;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -65,7 +66,8 @@ class MqttTelemetryIngestionIntegrationTest {
         MqttTelemetryMessageProcessor processor = new MqttTelemetryMessageProcessor(
                 iotApplicationService, metrics, payloadParser);
         return new MqttTelemetryListener(
-                metrics, processor, "tcp://localhost:1883", true,
+                metrics, processor, new MqttDeviceIngressGate(
+                100, 100, 4, 100, Duration.ofMinutes(1)), "tcp://localhost:1883", true,
                 "integration-test", "agricore/telemetry/+/reading", 1, 1, 1, "user", "password");
     }
 

@@ -10,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
@@ -38,6 +39,7 @@ class MqttTelemetryListenerTest {
         listener = new MqttTelemetryListener(
                 metrics,
                 messageProcessor,
+                ingressGate(),
                 "tcp://localhost:1883",
                 true,
                 "test-client",
@@ -164,7 +166,7 @@ class MqttTelemetryListenerTest {
                 iotService, metrics, payloadParser);
 
         assertThatThrownBy(() -> new MqttTelemetryListener(
-                metrics, messageProcessor, "tcp://broker.example:1883", false,
+                metrics, messageProcessor, ingressGate(), "tcp://broker.example:1883", false,
                 "test-client", "agricore/telemetry/+/reading", 1, 1, 1, "user", "password"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("must use TLS");
@@ -174,5 +176,9 @@ class MqttTelemetryListenerTest {
         MqttMessage message = new MqttMessage(payload.getBytes());
         message.setQos(1);
         return message;
+    }
+
+    private static MqttDeviceIngressGate ingressGate() {
+        return new MqttDeviceIngressGate(100, 100, 4, 100, Duration.ofMinutes(1));
     }
 }

@@ -49,6 +49,12 @@ agricore:
     reconnect-delay-seconds: ${IOT_MQTT_RECONNECT_DELAY_SECONDS:10}
     max-reading-age: ${IOT_MQTT_MAX_READING_AGE:P30D}
     max-future-skew: ${IOT_MQTT_MAX_FUTURE_SKEW:PT5M}
+    ingress:
+      rate-per-second: ${IOT_MQTT_RATE_PER_SECOND:10}
+      burst-capacity: ${IOT_MQTT_BURST_CAPACITY:16}
+      max-in-flight-per-device: ${IOT_MQTT_MAX_IN_FLIGHT_PER_DEVICE:4}
+      tracked-device-capacity: ${IOT_MQTT_TRACKED_DEVICE_CAPACITY:10000}
+      device-idle-ttl: ${IOT_MQTT_DEVICE_IDLE_TTL:PT10M}
     username: ${IOT_MQTT_USERNAME:}
     password: ${IOT_MQTT_PASSWORD:}
   security:

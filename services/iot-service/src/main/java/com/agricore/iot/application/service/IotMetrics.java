@@ -15,6 +15,7 @@ public class IotMetrics {
     private final Counter mqttAccepted;
     private final Counter mqttRejected;
     private final Counter mqttOversized;
+    private final Counter mqttRateLimited;
     private final Counter mqttConnectionFailures;
     private final Counter mqttProcessingFailures;
 
@@ -27,6 +28,7 @@ public class IotMetrics {
         mqttAccepted = mqttCounter(registry, "accepted");
         mqttRejected = mqttCounter(registry, "rejected");
         mqttOversized = mqttCounter(registry, "oversized");
+        mqttRateLimited = mqttCounter(registry, "rate_limited");
         mqttConnectionFailures = mqttCounter(registry, "connection_failed");
         mqttProcessingFailures = mqttCounter(registry, "processing_failed");
         Gauge.builder("agricore.iot.open.alerts", alertRepository,
@@ -52,6 +54,7 @@ public class IotMetrics {
             case "accepted" -> mqttAccepted.increment();
             case "rejected" -> mqttRejected.increment();
             case "oversized" -> mqttOversized.increment();
+            case "rate_limited" -> mqttRateLimited.increment();
             case "connection_failed" -> mqttConnectionFailures.increment();
             case "processing_failed" -> mqttProcessingFailures.increment();
             default -> throw new IllegalArgumentException("Unsupported MQTT metric outcome");

@@ -23,6 +23,7 @@ class IotMetricsTest {
         metrics.recordMqttOutcome("accepted");
         metrics.recordMqttOutcome("rejected");
         metrics.recordMqttOutcome("oversized");
+        metrics.recordMqttOutcome("rate_limited");
         metrics.recordMqttOutcome("connection_failed");
         metrics.recordMqttOutcome("processing_failed");
 
@@ -35,6 +36,8 @@ class IotMetricsTest {
         assertThat(registry.get("agricore.iot.mqtt.messages").tag("outcome", "rejected").counter().count())
                 .isEqualTo(1);
         assertThat(registry.get("agricore.iot.mqtt.messages").tag("outcome", "oversized").counter().count())
+                .isEqualTo(1);
+        assertThat(registry.get("agricore.iot.mqtt.messages").tag("outcome", "rate_limited").counter().count())
                 .isEqualTo(1);
         assertThat(registry.get("agricore.iot.mqtt.messages").tag("outcome", "connection_failed").counter().count())
                 .isEqualTo(1);

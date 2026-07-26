@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 import java.net.URI;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Executors;
+import java.util.Optional;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -30,6 +31,7 @@ public class MqttTelemetryListener implements SmartLifecycle {
     private static final Logger log = LoggerFactory.getLogger(MqttTelemetryListener.class);
     private final IotMetrics metrics;
     private final MqttTelemetryMessageProcessor messageProcessor;
+    private final MqttDeviceIngressGate ingressGate;
     private final String broker;
     private final String brokerScheme;
     private final String configuredClientId;
@@ -58,6 +60,7 @@ public class MqttTelemetryListener implements SmartLifecycle {
     public MqttTelemetryListener(
             IotMetrics metrics,
             MqttTelemetryMessageProcessor messageProcessor,
+            MqttDeviceIngressGate ingressGate,
             @Value("${agricore.mqtt.broker:tcp://localhost:1883}") String broker,
             @Value("${agricore.mqtt.allow-insecure:false}") boolean allowInsecure,
             @Value("${agricore.mqtt.client-id:agricore-iot-service}") String clientId,
@@ -90,6 +93,7 @@ public class MqttTelemetryListener implements SmartLifecycle {
         }
         this.metrics = metrics;
         this.messageProcessor = messageProcessor;
+        this.ingressGate = ingressGate;
         this.broker = broker;
         this.brokerScheme = scheme;
         this.configuredClientId = clientId;
@@ -148,9 +152,21 @@ public class MqttTelemetryListener implements SmartLifecycle {
     }
 
     private void dispatchMessage(String topicName, MqttMessage message) {
+        Optional<MqttDeviceIngressGate.Permit> permit = ingressGate.tryAcquire(topicName);
+        if (permit.isEmpty()) {
+            metrics.recordMqttOutcome("rate_limited");
+            log.debug("mqtt_telemetry_rate_limited reason=per_device_ingress");
+            acknowledge(message);
+            return;
+        }
         try {
-            processor.execute(() -> onMessage(topicName, message));
+            processor.execute(() -> {
+                try (MqttDeviceIngressGate.Permit ignored = permit.get()) {
+                    onMessage(topicName, message);
+                }
+            });
         } catch (RejectedExecutionException exception) {
+            permit.get().close();
             metrics.recordMqttOutcome("processing_failed");
             log.warn("mqtt_telemetry_backpressure queueCapacity=64");
             disconnectForRetry();
