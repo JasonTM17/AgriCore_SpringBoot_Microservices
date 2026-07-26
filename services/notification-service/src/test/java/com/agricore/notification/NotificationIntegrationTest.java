@@ -60,6 +60,35 @@ class NotificationIntegrationTest {
                                   "correlationId":"corr-2"
                                 }
                                 """))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+    }
+
+    /**
+     * The request record carries {@code @NotBlank} and {@code @Size}, and the controller carries
+     * {@code @Valid}, but with no advice the rejection was rendered by Boot's default error
+     * controller — a 400 with no {@code code} and no per-field detail. Clients cannot tell the
+     * caller which field to fix from that.
+     */
+    @Test
+    void invalidRequest_returnsFieldViolationsInPlatformContract() throws Exception {
+        mockMvc.perform(post("/api/v1/notifications")
+                        .header("X-Dev-User", "system")
+                        .header("X-Dev-Roles", "SYSTEM_ADMIN")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "channel":"",
+                                  "recipient":"manager@agricore.local",
+                                  "subject":"Harvest completed",
+                                  "body":"Batch HB-1 ready"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.violations").isArray())
+                .andExpect(jsonPath("$.violations[?(@.field=='channel')]").exists());
     }
 }

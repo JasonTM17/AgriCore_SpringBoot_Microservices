@@ -76,4 +76,67 @@ class TraceabilityIntegrationTest {
                 .andExpect(jsonPath("$.productName").value("Ca phe Robusta"))
                 .andExpect(jsonPath("$.qualityGrade").value("GRADE_A"));
     }
+
+    /**
+     * The QR lookup is the one endpoint on the platform an end consumer reaches directly, so a
+     * miss must answer in the documented {@code ApiError} shape rather than Boot's default error
+     * body, which carries neither a code nor a message.
+     */
+    @Test
+    void unknownPublicCode_returnsPlatformErrorContract() throws Exception {
+        mockMvc.perform(get("/public/api/v1/traceability/NOSUCH-CODE"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Traceability code not found"))
+                .andExpect(jsonPath("$.path").value("/public/api/v1/traceability/NOSUCH-CODE"));
+    }
+
+    /**
+     * A redelivery whose event id was already consumed short-circuits to the stored projection.
+     * When the projection is missing for the batch the event names, the service reports CONFLICT —
+     * not NOT_FOUND. The advice must forward the status the caller threw instead of flattening
+     * every {@code ResponseStatusException} to 404.
+     */
+    @Test
+    void replayedEventWithMissingBatch_keepsConflictStatus() throws Exception {
+        String eventId = UUID.randomUUID().toString();
+
+        mockMvc.perform(postBatch(eventId, UUID.randomUUID()))
+                .andExpect(status().isCreated());
+
+        // Same event id, different batch: the idempotency guard fires, the lookup finds nothing.
+        mockMvc.perform(postBatch(eventId, UUID.randomUUID()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.code").value("CONFLICT"))
+                .andExpect(jsonPath("$.message").value("Event processed but batch missing"));
+    }
+
+    private static org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder postBatch(
+            String eventId,
+            UUID harvestBatchId
+    ) {
+        return post("/api/v1/traceability/batches")
+                .header("X-Dev-User", "system")
+                .header("X-Dev-Roles", "SYSTEM_ADMIN")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {
+                          "eventId":"%s",
+                          "harvestBatchId":"%s",
+                          "cropCycleId":"%s",
+                          "plotId":"%s",
+                          "farmName":"Nong trai Lam Dong",
+                          "plotCode":"LD-B02",
+                          "productName":"Tra Oolong",
+                          "varietyName":"Kim Tuyen",
+                          "plantingDate":"2025-04-01",
+                          "harvestDate":"2026-04-20",
+                          "qualityGrade":"GRADE_A",
+                          "netWeightKg":1200,
+                          "careSummary":"Shade grown"
+                        }
+                        """.formatted(eventId, harvestBatchId, UUID.randomUUID(), UUID.randomUUID()));
+    }
 }

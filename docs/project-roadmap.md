@@ -78,13 +78,22 @@ deployment-shape decisions rather than code fixes, so neither was guessed at her
 
 ### API robustness sweep
 
-Systemic, low-blast-radius, and better done in one pass than piecemeal: no
-`DataIntegrityViolationException` handler in any service, so a duplicate-code race returns 500 where
-the single-threaded path returns 409; `@NotBlank` without `@Size` on fields backed by
-length-limited columns; `@DecimalMin` without `@Digits` on numeric columns; three services with no
-`@RestControllerAdvice`, so their errors do not match the platform `ApiError` shape; and
-`...IgnoreCase` finders that emit `upper(col) = upper(?)`, which the plain unique indexes cannot
-serve — the values are already uppercased before insert, so the `IgnoreCase` is not load-bearing.
+Partly done. `crop-catalog`, `notification`, and `traceability` had no `@RestControllerAdvice`, so
+`ApiError` — documented as the uniform error body for all services — was not what those three
+returned. All eleven servlet services now emit it. The gateway is excluded and stays excluded: it is
+WebFlux, so servlet advice does not apply to it.
+
+Still open, and still better done in one pass than piecemeal: no `DataIntegrityViolationException`
+handler in any service, so a duplicate-code race returns 500 where the single-threaded path returns
+409; `@NotBlank` without `@Size` on fields backed by length-limited columns; `@DecimalMin` without
+`@Digits` on numeric columns; and `...IgnoreCase` finders that emit `upper(col) = upper(?)`, which
+the plain unique indexes cannot serve — the values are already uppercased before insert, so the
+`IgnoreCase` is not load-bearing.
+
+Note on what an advice cannot reach: a 401 is produced by the security filter chain's
+authentication entry point, before the DispatcherServlet, so it is not shaped by
+`@RestControllerAdvice` in any service. That is uniform across the platform rather than a gap in
+these three.
 
 ### Concurrency invariants that rely on check-then-act
 
