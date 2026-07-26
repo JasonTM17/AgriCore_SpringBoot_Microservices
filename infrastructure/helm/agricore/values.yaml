@@ -163,6 +163,12 @@ assistant:
   toolAllowedHosts: agricore-farm
   toolAllowInsecureHttp: true
   trustForwardedHeaders: true
+  archivedConversationRetention: P90D
+  auditRetention: P365D
+  generationEventRetention: PT24H
+  retentionCleanupEnabled: true
+  retentionCleanupInterval: PT1H
+  retentionCleanupBatchSize: 250
   resources:
     requests: { cpu: 100m, memory: 256Mi }
     limits: { cpu: 750m, memory: 768Mi }

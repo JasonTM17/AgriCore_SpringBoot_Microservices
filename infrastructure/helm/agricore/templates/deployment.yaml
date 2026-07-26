@@ -239,6 +239,18 @@ spec:
               value: {{ $svc.toolAllowInsecureHttp | default false | quote }}
             - name: ASSISTANT_BUDGET_TRUST_FORWARDED_HEADERS
               value: {{ $svc.trustForwardedHeaders | default false | quote }}
+            - name: ASSISTANT_ARCHIVED_CONVERSATION_RETENTION
+              value: {{ $svc.archivedConversationRetention | quote }}
+            - name: ASSISTANT_AUDIT_RETENTION
+              value: {{ $svc.auditRetention | quote }}
+            - name: ASSISTANT_GENERATION_EVENT_RETENTION
+              value: {{ $svc.generationEventRetention | quote }}
+            - name: ASSISTANT_RETENTION_CLEANUP_ENABLED
+              value: {{ $svc.retentionCleanupEnabled | quote }}
+            - name: ASSISTANT_RETENTION_CLEANUP_INTERVAL
+              value: {{ $svc.retentionCleanupInterval | quote }}
+            - name: ASSISTANT_RETENTION_CLEANUP_BATCH_SIZE
+              value: {{ $svc.retentionCleanupBatchSize | quote }}
             {{- end }}
             {{- if eq $name "gateway" }}
             - name: IDENTITY_SERVICE_URL
