@@ -16,6 +16,10 @@ paths:
   /api/v1/notifications:
     post:
       summary: Send/log notification
+      description: |
+        Restricted to SYSTEM_ADMIN: the caller chooses both the recipient and the entire message
+        body. Event-driven notifications do not come through here — the Kafka listener calls the
+        application service directly.
       security:
         - bearerAuth: []
       requestBody:
@@ -33,13 +37,6 @@ paths:
       responses:
         '201':
           description: Accepted
-    get:
-      summary: List recent notifications
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Notification list
 components:
   securitySchemes:
     bearerAuth:

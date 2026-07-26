@@ -28,14 +28,45 @@ paths:
       responses:
         '201':
           description: Created
-  /api/v1/work-tasks/{id}/assign:
+    get:
+      summary: List work tasks
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: cropCycleId
+          schema: { type: string, format: uuid }
+        - in: query
+          name: page
+          schema: { type: integer, default: 0 }
+        - in: query
+          name: size
+          description: Clamped to 100 by the service
+          schema: { type: integer, default: 20 }
+      responses:
+        '200':
+          description: Paged work tasks
+  /api/v1/work-tasks/{taskId}:
+    get:
+      summary: Get work task
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: taskId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Work task detail
+  /api/v1/work-tasks/{taskId}/assign:
     post:
       summary: Assign task to employee
       security:
         - bearerAuth: []
       parameters:
         - in: path
-          name: id
+          name: taskId
           required: true
           schema: { type: string, format: uuid }
       requestBody:
@@ -50,14 +81,14 @@ paths:
       responses:
         '200':
           description: Assigned
-  /api/v1/work-tasks/{id}/complete:
+  /api/v1/work-tasks/{taskId}/complete:
     post:
       summary: Complete task
       security:
         - bearerAuth: []
       parameters:
         - in: path
-          name: id
+          name: taskId
           required: true
           schema: { type: string, format: uuid }
       requestBody:

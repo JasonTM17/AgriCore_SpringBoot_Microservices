@@ -223,6 +223,22 @@ decision, not a wiring gap. Documented as unproduced everywhere it appears.
 needs threshold configuration per crop/device class plus a delivery channel, and the notification
 service has no real delivery adapter yet.
 
+### Endpoints the contract advertised but nobody built
+
+Removed from `contracts/openapi/` on 2026-07-26 so the contract stops describing an API that does not
+exist. Kept here because deleting the declaration should not also delete the intent:
+
+| Endpoint | Note |
+|----------|------|
+| `POST /api/v1/crops` | Crops are seeded by Flyway migration; no write API exists. A generated client would have offered this call and received 405. |
+| `GET /api/v1/crops/{cropId}/varieties` | The `crop_varieties` table and `uk_variety_crop_code` index exist; nothing reads them. The schema is ready, the endpoint was never written. |
+| `GET /api/v1/iot/devices` | `IotController` registers devices and ingests readings; there is no way to list what is registered. |
+| `GET /api/v1/notifications` | Notifications are written and read straight from the database. |
+
+All four are small and none is blocked. They were removed rather than implemented because inventing
+functionality to satisfy a stale document is the wrong direction — the code is the reference, and
+these are now features to decide on rather than promises the contract was quietly breaking.
+
 ### Notification delivery adapter
 
 Notifications are recorded, never actually sent. A real channel (SMTP, webhook, or n8n workflow) goes

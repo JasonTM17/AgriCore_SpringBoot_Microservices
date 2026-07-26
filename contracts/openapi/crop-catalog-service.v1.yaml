@@ -21,19 +21,6 @@ paths:
       responses:
         '200':
           description: Paged crops
-    post:
-      summary: Create crop
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateCropRequest'
-      responses:
-        '201':
-          description: Created
   /api/v1/crops/{cropId}:
     get:
       summary: Get crop
@@ -47,33 +34,24 @@ paths:
       responses:
         '200':
           description: Crop detail
-  /api/v1/crops/{cropId}/varieties:
+  /api/v1/crops/by-code/{code}:
     get:
-      summary: List varieties for crop
+      summary: Get crop by catalog code
+      description: Lookup is case-insensitive; codes are stored uppercase.
       security:
         - bearerAuth: []
       parameters:
         - in: path
-          name: cropId
+          name: code
           required: true
-          schema: { type: string, format: uuid }
+          description: Catalog code such as RICE_ST25
+          schema: { type: string }
       responses:
         '200':
-          description: Varieties
+          description: Crop detail
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-  schemas:
-    CreateCropRequest:
-      type: object
-      required: [code, name]
-      properties:
-        code: { type: string }
-        name: { type: string }
-        scientificName: { type: string }
-        category: { type: string }
-        growthDaysMin: { type: integer }
-        growthDaysMax: { type: integer }
