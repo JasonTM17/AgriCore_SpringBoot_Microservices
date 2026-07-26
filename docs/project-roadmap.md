@@ -100,6 +100,27 @@ so a poisoned row retries forever, and listeners match event types with `contain
 equality. Worth one ADR-backed pass across all five publishers and three consumers, not five
 divergent fixes.
 
+### Event contracts are declared but not specified
+
+A completeness scan on 2026-07-26 quantified the gap. Twelve event types are produced; three of the
+five AsyncAPI channels (farm, crop-cycle, work) carry no `messages:` block at all, so ten of the
+twelve are undeclared. The two that are declared resolve to an envelope schema whose business
+`payload` is a bare `{type: object}`, so no per-event shape exists for a consumer to validate
+against. `EventTypes` declares 32 constants and 20 of them are never produced.
+
+Related and worth deciding together: `DomainEventEnvelope` in `common-lib` is dead code — its only
+reference is its own test, because all five producers hand-roll an `ObjectNode`. Either the
+producers adopt it and the AsyncAPI schemas are generated from one definition, or it should be
+deleted rather than left looking like the contract.
+
+### Kafka paths have no end-to-end test
+
+Every service's "integration" test is MockMvc over H2 with Kafka autoconfiguration excluded. There
+is no produce-to-consume test anywhere, and the five `OutboxPublisher` copies have no tests at all.
+The idempotency tests call the application service directly, so the listener, the error handler, and
+the DLT routing are only exercised by unit tests with a mocked service. Closing this means an
+embedded or containerised broker, which the disk budget currently rules out.
+
 ### Spring Boot 4 migration
 
 Dependabot proposed Spring Boot 4.1.0, Spring Cloud 2025.1.2, and spring-kafka 4.1.0. All three were
@@ -165,7 +186,12 @@ API client from the committed OpenAPI contracts.
 2. Enable branch protection on `main` (owner decision), and gate image publication on `trivy` and
    `codeql` rather than `ci` alone.
 3. API robustness sweep — the `DataIntegrityViolationException` handler first, since it converts a
-   whole class of 500s into correct 409s across eight services.
-4. Lift `common-lib` / `common-security` coverage, then flip the coverage gate strict.
-5. Spring Boot 4 compat audit + ADR, then the coordinated migration.
-6. Notification delivery adapter, which unblocks IoT alerting.
+   whole class of 500s into correct 409s across eight services. No service handles it today. Note
+   that a shared advice module is not the obvious win it looks like: `farm` already has an
+   `Exception.class` catch-all, so cross-advice ordering would be undefined, and the gateway is
+   WebFlux while `common-security` carries servlet web.
+4. Decide `DomainEventEnvelope`: adopt it in the five producers and generate the AsyncAPI schemas
+   from it, or delete it. Leaving dead code that looks like the event contract is the worst option.
+5. Lift `common-lib` / `common-security` coverage, then flip the coverage gate strict.
+6. Spring Boot 4 compat audit + ADR, then the coordinated migration.
+7. Notification delivery adapter, which unblocks IoT alerting.
