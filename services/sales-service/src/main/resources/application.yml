@@ -29,3 +29,7 @@ agricore:
     dev-mode: ${AGRICORE_DEV_MODE:false}
   inventory:
     base-url: ${INVENTORY_SERVICE_URL:http://localhost:8086}
+    # Bounds the saga's reserve/confirm/release calls. Read timeout is the one that matters:
+    # a stalled inventory would otherwise hold the request thread and the reservation open.
+    connect-timeout-ms: ${INVENTORY_CONNECT_TIMEOUT_MS:2000}
+    read-timeout-ms: ${INVENTORY_READ_TIMEOUT_MS:5000}
