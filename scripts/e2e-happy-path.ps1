@@ -4,7 +4,8 @@ param(
   [string]$EvidenceDir = "",
   [string]$Gateway = $(if ($env:GATEWAY_URL) { $env:GATEWAY_URL } else { "http://localhost:8080" }),
   [string]$Identity = $(if ($env:IDENTITY_URL) { $env:IDENTITY_URL } else { "http://localhost:8081" }),
-  [string]$TraceDirect = $(if ($env:TRACEABILITY_URL) { $env:TRACEABILITY_URL } else { "http://localhost:8092" })
+  [string]$TraceDirect = $(if ($env:TRACEABILITY_URL) { $env:TRACEABILITY_URL } else { "http://localhost:8092" }),
+  [string]$FarmDirect = $(if ($env:FARM_URL) { $env:FARM_URL } else { "http://localhost:8082" })
 )
 
 $ErrorActionPreference = "Stop"
@@ -31,6 +32,23 @@ function GetJson([string]$Url, [hashtable]$Headers = @{}) {
   return Invoke-RestMethod -Method Get -Uri $Url -Headers $Headers
 }
 
+function AssertUnauthorized([string]$Url) {
+  $statusCode = $null
+  try {
+    $response = Invoke-WebRequest -Method Get -Uri $Url `
+      -Headers @{ "Authorization" = "Bearer invalid-e2e-token" } -UseBasicParsing
+    $statusCode = [int]$response.StatusCode
+  } catch {
+    if ($_.Exception.Response) {
+      $statusCode = [int]$_.Exception.Response.StatusCode
+    }
+  }
+  if ($statusCode -ne 401) {
+    throw "Expected HTTP 401 for unauthenticated request to $Url, got $statusCode"
+  }
+  Log "UNAUTHORIZED_OK url=$Url status=401"
+}
+
 function PublishKafkaJson([string]$Topic, [string]$Payload) {
   $Payload | docker exec -i agricore-kafka /opt/kafka/bin/kafka-console-producer.sh `
     --bootstrap-server kafka:19092 --topic $Topic
@@ -53,6 +71,8 @@ if ($EvidenceDir) {
 }
 
 Log "== 0. Register + login (JWT) =="
+AssertUnauthorized "$Gateway/api/v1/farms?size=1"
+AssertUnauthorized "$FarmDirect/api/v1/farms?size=1"
 $email = "e2e-mgr-$(Get-Random)@agricore.local"
 $password = "Password1!"
 try {
