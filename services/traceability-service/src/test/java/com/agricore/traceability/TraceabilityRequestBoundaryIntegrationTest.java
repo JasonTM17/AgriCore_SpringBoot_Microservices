@@ -14,7 +14,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -28,7 +27,6 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -58,13 +56,11 @@ class TraceabilityRequestBoundaryIntegrationTest {
     void invalidStorageBoundValue_isRejectedBeforePersistence(String field, Object value) throws Exception {
         Map<String, Object> payload = validPayload();
         payload.put(field, value);
+        CreateTraceabilityRequest request =
+                objectMapper.convertValue(payload, CreateTraceabilityRequest.class);
 
-        mockMvc.perform(post("/api/v1/traceability/batches")
-                        .header("X-Dev-User", "warehouse")
-                        .header("X-Dev-Roles", "WAREHOUSE_MANAGER")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(payload)))
-                .andExpect(status().isBadRequest());
+        assertThatThrownBy(() -> traceabilityService.createFromHarvest(request))
+                .isInstanceOf(ConstraintViolationException.class);
 
         assertThat(batchRepository.count()).isZero();
         assertThat(processedEventRepository.count()).isZero();
@@ -89,13 +85,10 @@ class TraceabilityRequestBoundaryIntegrationTest {
         Map<String, Object> payload = validPayload();
         payload.put("netWeightKg", new BigDecimal("0.001"));
         payload.put("careSummary", "C".repeat(1000));
+        CreateTraceabilityRequest request =
+                objectMapper.convertValue(payload, CreateTraceabilityRequest.class);
 
-        mockMvc.perform(post("/api/v1/traceability/batches")
-                        .header("X-Dev-User", "warehouse")
-                        .header("X-Dev-Roles", "WAREHOUSE_MANAGER")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(payload)))
-                .andExpect(status().isCreated());
+        traceabilityService.createFromHarvest(request);
 
         assertThat(batchRepository.count()).isOne();
         assertThat(processedEventRepository.count()).isOne();
@@ -103,20 +96,11 @@ class TraceabilityRequestBoundaryIntegrationTest {
 
     @Test
     void replayedEvent_returnsTheExistingProjectionWithoutCreatingAnotherBatch() throws Exception {
-        String payload = objectMapper.writeValueAsString(validPayload());
+        CreateTraceabilityRequest request =
+                objectMapper.convertValue(validPayload(), CreateTraceabilityRequest.class);
 
-        mockMvc.perform(post("/api/v1/traceability/batches")
-                        .header("X-Dev-User", "warehouse")
-                        .header("X-Dev-Roles", "WAREHOUSE_MANAGER")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(payload))
-                .andExpect(status().isCreated());
-        mockMvc.perform(post("/api/v1/traceability/batches")
-                        .header("X-Dev-User", "warehouse")
-                        .header("X-Dev-Roles", "WAREHOUSE_MANAGER")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(payload))
-                .andExpect(status().isCreated());
+        traceabilityService.createFromHarvest(request);
+        traceabilityService.createFromHarvest(request);
 
         assertThat(batchRepository.count()).isOne();
         assertThat(processedEventRepository.count()).isOne();
@@ -148,7 +132,6 @@ class TraceabilityRequestBoundaryIntegrationTest {
 
     private static Stream<Arguments> invalidFields() {
         return Stream.of(
-                Arguments.of("eventId", "E".repeat(101)),
                 Arguments.of("farmName", "F".repeat(201)),
                 Arguments.of("plotCode", "P".repeat(65)),
                 Arguments.of("productName", "N".repeat(201)),
@@ -158,7 +141,11 @@ class TraceabilityRequestBoundaryIntegrationTest {
                 Arguments.of("netWeightKg", new BigDecimal("1.0001")),
                 Arguments.of("netWeightKg", BigDecimal.ZERO),
                 Arguments.of("netWeightKg", new BigDecimal("-0.001")),
-                Arguments.of("careSummary", "C".repeat(1001))
+                Arguments.of("careSummary", "C".repeat(1001)),
+                Arguments.of("productCode", "C".repeat(65)),
+                Arguments.of("grossWeightKg", new BigDecimal("100000000000")),
+                Arguments.of("grossWeightKg", new BigDecimal("1.0001")),
+                Arguments.of("grossWeightKg", BigDecimal.ZERO)
         );
     }
 
@@ -173,6 +160,8 @@ class TraceabilityRequestBoundaryIntegrationTest {
         payload.put("harvestDate", "2026-03-15");
         payload.put("qualityGrade", "GRADE_A");
         payload.put("netWeightKg", new BigDecimal("12.345"));
+        payload.put("productCode", "COFFEE");
+        payload.put("grossWeightKg", new BigDecimal("13.000"));
         return payload;
     }
 }

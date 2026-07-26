@@ -1,6 +1,9 @@
 package com.agricore.traceability;
 
-import org.junit.jupiter.api.Test;
+import com.agricore.traceability.infrastructure.persistence.OutboxJpaRepository;
+import com.agricore.traceability.infrastructure.persistence.ProcessedEventJpaRepository;
+import com.agricore.traceability.infrastructure.persistence.TraceabilityBatchJpaRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,12 +15,13 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Proves POST /api/v1/traceability/batches is role-gated on the shipped controller.
+ * Proves public provenance cannot be written through a caller-authenticated HTTP boundary.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -26,6 +30,19 @@ class TraceabilityBatchAuthzTest {
 
     @Autowired
     private MockMvc mockMvc;
+    @Autowired
+    private TraceabilityBatchJpaRepository batchRepository;
+    @Autowired
+    private ProcessedEventJpaRepository processedEventRepository;
+    @Autowired
+    private OutboxJpaRepository outboxRepository;
+
+    @BeforeEach
+    void clearPersistence() {
+        outboxRepository.deleteAll();
+        processedEventRepository.deleteAll();
+        batchRepository.deleteAll();
+    }
 
     private static String body() {
         return """
@@ -56,23 +73,18 @@ class TraceabilityBatchAuthzTest {
                 .andExpect(status().isForbidden());
     }
 
-    @Test
-    void fieldWorker_cannotWriteBatch() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"FIELD_WORKER", "WAREHOUSE_MANAGER", "SYSTEM_ADMIN"})
+    void authenticatedCaller_cannotSubmitRandomOrCrossFarmProvenance(String role) throws Exception {
         mockMvc.perform(post("/api/v1/traceability/batches")
-                        .header("X-Dev-User", "worker")
-                        .header("X-Dev-Roles", "FIELD_WORKER")
+                        .header("X-Dev-User", "caller")
+                        .header("X-Dev-Roles", role)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body()))
-                .andExpect(status().isForbidden());
-    }
+                .andExpect(status().isNotFound());
 
-    @Test
-    void warehouseManager_canWriteBatch() throws Exception {
-        mockMvc.perform(post("/api/v1/traceability/batches")
-                        .header("X-Dev-User", "wh")
-                        .header("X-Dev-Roles", "WAREHOUSE_MANAGER")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body()))
-                .andExpect(status().isCreated());
+        assertThat(batchRepository.count()).isZero();
+        assertThat(processedEventRepository.count()).isZero();
+        assertThat(outboxRepository.count()).isZero();
     }
 }

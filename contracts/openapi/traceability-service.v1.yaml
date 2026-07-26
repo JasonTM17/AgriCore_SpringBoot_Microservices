@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: AgriCore Traceability Service API
-  version: 1.4.0
-  description: Verified public-safe traceability lookup, QR image, and privileged projection read/write contract.
+  version: 1.5.0
+  description: Verified public-safe traceability lookup, QR image, and protected projection acknowledgement contract. Projection writes are owned by the HarvestCompleted.v1 event boundary.
 servers:
   - url: http://localhost:8092
     description: Direct local service endpoint
@@ -61,35 +61,6 @@ paths:
               schema: { type: string, format: binary }
         '404':
           description: Traceability code not found or projection not yet available.
-  /api/v1/traceability/batches:
-    post:
-      tags: [Traceability Projection]
-      operationId: createTraceabilityBatch
-      summary: Create or replay a traceability projection
-      description: Privileged backfill/event-adapter endpoint for SYSTEM_ADMIN or WAREHOUSE_MANAGER.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateTraceabilityRequest'
-      responses:
-        '201':
-          description: Projection created, or the existing idempotent projection returned.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PublicTraceabilityResponse'
-        '400':
-          description: Invalid JSON or validation input.
-        '401':
-          description: Authentication is required or the bearer token is invalid.
-        '403':
-          description: SYSTEM_ADMIN or WAREHOUSE_MANAGER role is required.
-        '409':
-          description: The event was recorded previously but its projection row is missing.
-        '415':
-          description: Content-Type is not supported.
   /api/v1/traceability/events/harvest-completed/{eventId}/acknowledgement:
     get:
       tags: [Traceability Projection]
@@ -127,33 +98,6 @@ components:
         projection: { type: string, enum: [TRACEABILITY] }
         state: { type: string, enum: [ACKNOWLEDGED, NOT_ACKNOWLEDGED] }
         acknowledgedAt: { type: [string, 'null'], format: date-time }
-    CreateTraceabilityRequest:
-      type: object
-      required: [eventId, harvestBatchId, productName, harvestDate]
-      properties:
-        eventId: { type: string, format: uuid }
-        harvestBatchId: { type: string, format: uuid }
-        cropCycleId: { type: [string, 'null'], format: uuid }
-        plotId: { type: [string, 'null'], format: uuid }
-        farmName: { type: [string, 'null'], maxLength: 200 }
-        plotCode: { type: [string, 'null'], maxLength: 64 }
-        productName: { type: string, minLength: 1, maxLength: 200 }
-        varietyName: { type: [string, 'null'], maxLength: 200 }
-        plantingDate: { type: [string, 'null'], format: date }
-        harvestDate: { type: string, format: date }
-        qualityGrade: { type: [string, 'null'], maxLength: 32 }
-        netWeightKg:
-          type: [number, 'null']
-          minimum: 0.001
-          maximum: 99999999999.999
-          multipleOf: 0.001
-        careSummary: { type: [string, 'null'], maxLength: 1000 }
-        productCode: { type: [string, 'null'], maxLength: 64 }
-        grossWeightKg:
-          type: [number, 'null']
-          minimum: 0.001
-          maximum: 99999999999.999
-          multipleOf: 0.001
     PublicTraceabilityResponse:
       type: object
       additionalProperties: false

@@ -1,5 +1,8 @@
 package com.agricore.traceability;
 
+import com.agricore.traceability.api.request.CreateTraceabilityRequest;
+import com.agricore.traceability.api.response.PublicTraceabilityResponse;
+import com.agricore.traceability.application.service.TraceabilityApplicationService;
 import com.google.zxing.BinaryBitmap;
 import com.google.zxing.MultiFormatReader;
 import com.google.zxing.client.j2se.BufferedImageLuminanceSource;
@@ -10,18 +13,18 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.io.ByteArrayInputStream;
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.UUID;
 import javax.imageio.ImageIO;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -34,46 +37,42 @@ class TraceabilityIntegrationTest {
     private MockMvc mockMvc;
     @Autowired
     private ObjectMapper objectMapper;
+    @Autowired
+    private TraceabilityApplicationService traceabilityService;
 
     @Test
     void publicLookup_omitsSensitiveFields() throws Exception {
-        String eventId = UUID.randomUUID().toString();
+        UUID eventId = UUID.randomUUID();
         UUID harvestId = UUID.randomUUID();
 
-        MvcResult created = mockMvc.perform(post("/api/v1/traceability/batches")
-                        .header("X-Dev-User", "system")
-                        .header("X-Dev-Roles", "SYSTEM_ADMIN")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "eventId":"%s",
-                                  "harvestBatchId":"%s",
-                                  "cropCycleId":"%s",
-                                  "plotId":"%s",
-                                  "farmName":"Nong trai Dak Lak",
-                                  "plotCode":"DL-A01",
-                                  "productName":"Ca phe Robusta",
-                                  "productCode":"COFFEE-ROBUSTA",
-                                  "varietyName":"TR4",
-                                  "plantingDate":"2025-03-01",
-                                  "harvestDate":"2026-03-15",
-                                  "qualityGrade":"GRADE_A",
-                                  "grossWeightKg":3500,
-                                  "netWeightKg":3300,
-                                  "careSummary":"Organic fertilizer, drip irrigation"
-                                }
-                                """.formatted(eventId, harvestId, UUID.randomUUID(), UUID.randomUUID())))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.farmName").value("Nong trai Dak Lak"))
-                .andExpect(jsonPath("$.productCode").value("COFFEE-ROBUSTA"))
-                .andExpect(jsonPath("$.grossWeightKg").value(3500))
-                .andExpect(jsonPath("$.traceabilityCode").isNotEmpty())
-                .andExpect(jsonPath("$.qrUrl").isNotEmpty())
-                .andReturn();
+        PublicTraceabilityResponse created = traceabilityService.createFromHarvest(
+                new CreateTraceabilityRequest(
+                        eventId,
+                        harvestId,
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        "Nong trai Dak Lak",
+                        "DL-A01",
+                        "Ca phe Robusta",
+                        "TR4",
+                        LocalDate.of(2025, 3, 1),
+                        LocalDate.of(2026, 3, 15),
+                        "GRADE_A",
+                        new BigDecimal("3300"),
+                        "Organic fertilizer, drip irrigation",
+                        "COFFEE-ROBUSTA",
+                        new BigDecimal("3500")
+                )
+        );
 
-        JsonNode body = objectMapper.readTree(created.getResponse().getContentAsString());
-        String code = body.get("traceabilityCode").asText();
-        String qrUrl = body.get("qrUrl").asText();
+        JsonNode body = objectMapper.valueToTree(created);
+        String code = created.traceabilityCode();
+        String qrUrl = created.qrUrl();
+        assertThat(created.farmName()).isEqualTo("Nong trai Dak Lak");
+        assertThat(created.productCode()).isEqualTo("COFFEE-ROBUSTA");
+        assertThat(created.grossWeightKg()).isEqualByComparingTo("3500");
+        assertThat(created.traceabilityCode()).isNotBlank();
+        assertThat(created.qrUrl()).isNotBlank();
 
         // No internal UUID fields in public response
         assertThat(body.has("harvestBatchId")).isFalse();
