@@ -76,5 +76,4 @@ export type InventoryHarvestProjectionAcknowledgementResponse =
 export type TraceabilityHarvestProjectionAcknowledgementResponse =
   GatewaySchemas["TraceabilityHarvestProjectionAcknowledgementResponse"];
 
-export type CreateTraceabilityRequest = GatewaySchemas["CreateTraceabilityRequest"];
 export type PublicTraceabilityResponse = GatewaySchemas["PublicTraceabilityResponse"];

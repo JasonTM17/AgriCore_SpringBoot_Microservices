@@ -1842,26 +1842,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/traceability/batches": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create or replay a traceability projection
-         * @description Privileged backfill/event-adapter endpoint for SYSTEM_ADMIN or WAREHOUSE_MANAGER.
-         */
-        post: operations["createTraceabilityBatch"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/traceability/events/harvest-completed/{eventId}/acknowledgement": {
         parameters: {
             query?: never;
@@ -3288,6 +3268,8 @@ export interface components {
         HarvestCompletedCommand: {
             eventId: string;
             /** Format: uuid */
+            farmId: string;
+            /** Format: uuid */
             harvestBatchId: string;
             /** Format: uuid */
             warehouseId: string;
@@ -3324,6 +3306,11 @@ export interface components {
             code: string;
             /** Format: uuid */
             cropCycleId: string;
+            /**
+             * Format: uuid
+             * @description Authoritative plot farm; null only for legacy records created before farm scoping.
+             */
+            farmId: string | null;
             /** Format: uuid */
             plotId: string;
             /** Format: uuid */
@@ -3395,28 +3382,15 @@ export interface components {
             /** Format: int32 */
             publishAttempts: number;
         };
-        CreateTraceabilityRequest: {
+        TraceabilityHarvestProjectionAcknowledgementResponse: {
             /** Format: uuid */
             eventId: string;
-            /** Format: uuid */
-            harvestBatchId: string;
-            /** Format: uuid */
-            cropCycleId?: string | null;
-            /** Format: uuid */
-            plotId?: string | null;
-            farmName?: string | null;
-            plotCode?: string | null;
-            productName: string;
-            varietyName?: string | null;
-            /** Format: date */
-            plantingDate?: string | null;
-            /** Format: date */
-            harvestDate: string;
-            qualityGrade?: string | null;
-            netWeightKg?: number | null;
-            careSummary?: string | null;
-            productCode?: string | null;
-            grossWeightKg?: number | null;
+            /** @enum {string} */
+            projection: "TRACEABILITY";
+            /** @enum {string} */
+            state: "ACKNOWLEDGED" | "NOT_ACKNOWLEDGED";
+            /** Format: date-time */
+            acknowledgedAt: string | null;
         };
         PublicTraceabilityResponse: {
             traceabilityCode: string;
@@ -3436,16 +3410,6 @@ export interface components {
             qrUrl: string;
             qrImageUrl: string;
             batchLabel: string;
-        };
-        TraceabilityHarvestProjectionAcknowledgementResponse: {
-            /** Format: uuid */
-            eventId: string;
-            /** @enum {string} */
-            projection: "TRACEABILITY";
-            /** @enum {string} */
-            state: "ACKNOWLEDGED" | "NOT_ACKNOWLEDGED";
-            /** Format: date-time */
-            acknowledgedAt: string | null;
         };
         RegisterDeviceRequest: {
             deviceCode: string;
@@ -6124,65 +6088,6 @@ export interface operations {
             404: components["responses"]["harvest-service.v1_components-responses-NotFound"];
             409: components["responses"]["harvest-service.v1_components-responses-Conflict"];
             503: components["responses"]["components-responses-ServiceUnavailable"];
-        };
-    };
-    createTraceabilityBatch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateTraceabilityRequest"];
-            };
-        };
-        responses: {
-            /** @description Projection created, or the existing idempotent projection returned. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicTraceabilityResponse"];
-                };
-            };
-            /** @description Invalid JSON or validation input. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Authentication is required or the bearer token is invalid. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description SYSTEM_ADMIN or WAREHOUSE_MANAGER role is required. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description The event was recorded previously but its projection row is missing. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Content-Type is not supported. */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
         };
     };
     getTraceabilityHarvestProjectionAcknowledgement: {

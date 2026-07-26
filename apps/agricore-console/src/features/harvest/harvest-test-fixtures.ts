@@ -29,6 +29,7 @@ export const harvestBatch = {
   id: harvestId,
   code: "HARVEST-001",
   cropCycleId: "50000000-0000-0000-0000-000000000001",
+  farmId: "20000000-0000-0000-0000-000000000001",
   plotId: "30000000-0000-0000-0000-000000000001",
   warehouseId: "70000000-0000-0000-0000-000000000001",
   productCode: "COFFEE-ROBUSTA",

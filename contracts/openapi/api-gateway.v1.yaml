@@ -200,8 +200,6 @@ paths:
     $ref: './harvest-service.v1.yaml#/paths/~1api~1v1~1harvests~1{harvestId}~1completion-event'
   /api/v1/harvests/{harvestId}/completion-event/republish:
     $ref: './harvest-service.v1.yaml#/paths/~1api~1v1~1harvests~1{harvestId}~1completion-event~1republish'
-  /api/v1/traceability/batches:
-    $ref: './traceability-service.v1.yaml#/paths/~1api~1v1~1traceability~1batches'
   /api/v1/traceability/events/harvest-completed/{eventId}/acknowledgement:
     $ref: './traceability-service.v1.yaml#/paths/~1api~1v1~1traceability~1events~1harvest-completed~1{eventId}~1acknowledgement'
   /public/api/v1/traceability/{traceabilityCode}:
