@@ -1,11 +1,13 @@
 openapi: 3.1.0
 info:
   title: AgriCore Notification Service API
-  version: 1.2.0
+  version: 1.3.0
   description: |
     Authorized direct notification delivery, a persisted in-app inbox, and idempotent
     Kafka-driven notifications. Delivery is persisted as REQUESTED before transitioning
-    to SENT or FAILED.
+    to SENT or FAILED. External channels use at-most-once automatic delivery: an
+    interrupted delivery is recorded as FAILED with DELIVERY_OUTCOME_UNKNOWN instead
+    of being resent. IN_APP delivery can be retried safely by notification ID.
 servers:
   - url: http://localhost:8089
 paths:
@@ -16,6 +18,8 @@ paths:
         Requires both ROLE_SYSTEM_ADMIN and PERMISSION_NOTIFICATION_ADMIN.
         `idempotencyKey` may be reused only with the same channel, recipient, subject,
         and body. A FAILED response is a persisted delivery outcome and still returns 201.
+        `failureRetryable` describes the adapter result; external channels are never
+        retried automatically because SMTP/SMS cannot guarantee provider idempotency.
       security:
         - bearerAuth: []
       requestBody:

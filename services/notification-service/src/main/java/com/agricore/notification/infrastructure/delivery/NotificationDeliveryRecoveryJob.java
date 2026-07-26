@@ -43,6 +43,17 @@ public class NotificationDeliveryRecoveryJob {
     @Scheduled(fixedDelayString = "${agricore.notification.delivery.recovery.poll-ms:30000}")
     public void recover() {
         Instant staleBefore = Instant.now().minus(deliveryLease);
+        for (UUID notificationId : persistenceService.findAmbiguousExternalDeliveryIds(staleBefore, batchSize)) {
+            try {
+                if (persistenceService.failAmbiguousExternalDelivery(notificationId, staleBefore)) {
+                    log.warn("notification_external_delivery_outcome_unknown notificationId={}",
+                            notificationId);
+                }
+            } catch (RuntimeException exception) {
+                log.warn("notification_ambiguous_delivery_recovery_failed notificationId={} errorType={}",
+                        notificationId, exception.getClass().getSimpleName());
+            }
+        }
         for (UUID notificationId : persistenceService.findRecoverableIds(staleBefore, batchSize)) {
             try {
                 applicationService.retryExisting(notificationId);

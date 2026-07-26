@@ -116,7 +116,9 @@ public class NotificationApplicationService {
                 break;
             }
             result = safelyDeliver(notification, deliveryClaim.claimId());
-            if (result.delivered() || !result.retryable()) {
+            if (result.delivered()
+                    || !result.retryable()
+                    || !supportsAutomaticRetry(notification.getChannel())) {
                 break;
             }
         }
@@ -153,6 +155,10 @@ public class NotificationApplicationService {
             return NotificationDeliveryResult.failed(
                     "DELIVERY_ADAPTER_ERROR", "Notification delivery adapter failed", true);
         }
+    }
+
+    private static boolean supportsAutomaticRetry(String channel) {
+        return "IN_APP".equalsIgnoreCase(channel);
     }
 
     private record DeliveryExecution(NotificationEntity notification, boolean transitioned) {

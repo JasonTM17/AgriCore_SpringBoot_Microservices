@@ -121,6 +121,11 @@ public class NotificationPersistenceService {
             return new Completion(notification, false);
         }
 
+        applyCompletion(notification, result);
+        return new Completion(repository.saveAndFlush(notification), true);
+    }
+
+    private void applyCompletion(NotificationEntity notification, NotificationDeliveryResult result) {
         notification.setDeliveryStartedAt(null);
         notification.setDeliveryClaimId(null);
         if (result.delivered()) {
@@ -141,7 +146,6 @@ public class NotificationPersistenceService {
             processedEventRepository.save(ProcessedEventEntity.create(
                     notification.getSourceEventId(), CONSUMER_NAME));
         }
-        return new Completion(repository.saveAndFlush(notification), true);
     }
 
     @Transactional(readOnly = true)
@@ -152,6 +156,30 @@ public class NotificationPersistenceService {
     @Transactional(readOnly = true)
     public List<UUID> findRecoverableIds(Instant staleBefore, int batchSize) {
         return repository.findRecoverableIds(staleBefore, PageRequest.of(0, batchSize));
+    }
+
+    @Transactional(readOnly = true)
+    public List<UUID> findAmbiguousExternalDeliveryIds(Instant staleBefore, int batchSize) {
+        return repository.findAmbiguousExternalDeliveryIds(staleBefore, PageRequest.of(0, batchSize));
+    }
+
+    @Transactional
+    public boolean failAmbiguousExternalDelivery(UUID notificationId, Instant staleBefore) {
+        NotificationEntity notification = repository.findByIdForUpdate(notificationId)
+                .orElseThrow(() -> new IllegalArgumentException("Notification not found"));
+        if (!"DELIVERING".equals(notification.getStatus())
+                || "IN_APP".equalsIgnoreCase(notification.getChannel())
+                || notification.getDeliveryStartedAt() == null
+                || !notification.getDeliveryStartedAt().isBefore(staleBefore)) {
+            return false;
+        }
+        applyCompletion(notification, NotificationDeliveryResult.failed(
+                "DELIVERY_OUTCOME_UNKNOWN",
+                "External delivery outcome is unknown; automatic retry is disabled to prevent duplicates",
+                false
+        ));
+        repository.saveAndFlush(notification);
+        return true;
     }
 
     private static boolean isTerminal(String status) {

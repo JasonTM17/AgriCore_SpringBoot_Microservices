@@ -84,17 +84,18 @@ class NotificationIntegrationTest {
     }
 
     @Test
-    void retryableFailureUsesBoundedAttemptsAndCanRecover() throws Exception {
+    void retryableExternalFailureIsNotAutomaticallyRetried() throws Exception {
         NotificationDeliveryResult transientFailure = NotificationDeliveryResult.failed(
                 "SMTP_DELIVERY_FAILED", "SMTP delivery failed", true);
         deliveryAdapter.respondWith(transientFailure, transientFailure, NotificationDeliveryResult.sent());
 
         systemSend(request("corr-retry", "delivery-retry", "Retry case"))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.status").value("SENT"))
-                .andExpect(jsonPath("$.deliveryAttempts").value(3));
+                .andExpect(jsonPath("$.status").value("FAILED"))
+                .andExpect(jsonPath("$.failureRetryable").value(true))
+                .andExpect(jsonPath("$.deliveryAttempts").value(1));
 
-        assertThat(deliveryAdapter.attempts()).isEqualTo(3);
+        assertThat(deliveryAdapter.attempts()).isEqualTo(1);
     }
 
     @Test

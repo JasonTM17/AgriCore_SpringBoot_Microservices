@@ -27,8 +27,22 @@ public interface NotificationJpaRepository extends JpaRepository<NotificationEnt
     @Query("""
             select n.id from NotificationEntity n
             where n.status = 'REQUESTED'
-               or (n.status = 'DELIVERING' and n.deliveryStartedAt < :staleBefore)
+               or (n.status = 'DELIVERING'
+                   and upper(n.channel) = 'IN_APP'
+                   and n.deliveryStartedAt < :staleBefore)
             order by n.createdAt
             """)
     List<UUID> findRecoverableIds(@Param("staleBefore") Instant staleBefore, Pageable pageable);
+
+    @Query("""
+            select n.id from NotificationEntity n
+            where n.status = 'DELIVERING'
+              and upper(n.channel) <> 'IN_APP'
+              and n.deliveryStartedAt < :staleBefore
+            order by n.createdAt
+            """)
+    List<UUID> findAmbiguousExternalDeliveryIds(
+            @Param("staleBefore") Instant staleBefore,
+            Pageable pageable
+    );
 }
