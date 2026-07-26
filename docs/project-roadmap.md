@@ -17,7 +17,7 @@ reviewable rather than forgotten.
 | Compose stack, Helm chart, NetworkPolicy | Live |
 | CI: build/test, Gitleaks (hard fail), compose config validation | Live |
 | CodeQL SAST, Trivy filesystem scan | Live |
-| Docker Hub publish gated on successful default-branch `ci`, SHA-pinned | Live |
+| Docker Hub publish gated on `ci` + `trivy` + `codeql` for the same SHA, SHA-pinned | Live |
 | JaCoCo coverage measurement, all modules | Live (advisory) |
 | Per-service READMEs, platform documentation set | Live |
 
@@ -184,10 +184,15 @@ Binding `jacoco:check` today fails every service module.
 
 ### Branch protection on `main`
 
-`main` is currently unprotected; CI is the only thing standing between a push and an image publish.
-Enabling required status checks and blocking force-push is a config change in repository settings, and
-it will change the working style for a solo contributor (feature branches + PRs instead of direct
-pushes). Deliberately left as the owner's call rather than switched on mid-flight.
+The publish half of this is done: `docker-publish` now requires `ci`, `trivy`, and `codeql` to have
+concluded `success` for the exact SHA before it builds, so a commit that fails the vulnerability scan
+or the SAST pass no longer ships twelve public images.
+
+Branch protection itself remains open and remains the owner's call. `main` is unprotected, so nothing
+stops a direct push or a force-push; the gate above only decides whether that push gets published.
+Enabling required status checks and blocking force-push is a repository setting, and it changes the
+working style for a solo contributor (feature branches and PRs instead of direct pushes), so it is
+not something to switch on mid-flight.
 
 ### `NotificationRequested.v1` producer
 
@@ -221,17 +226,22 @@ API client from the committed OpenAPI contracts.
 
 ## Next candidates, in order
 
+Everything actionable without an owner decision was taken on 2026-07-26 — the missing advices,
+duplicate-key conflicts, library coverage, and the publish gate. What remains at the top of this list
+is genuinely blocked on a decision, not on effort.
+
 1. Decide the Helm deployment model (external datastores vs. subchart dependencies), then fix the
    three chart defects together. Highest priority: the chart currently cannot work.
-2. Enable branch protection on `main` (owner decision), and gate image publication on `trivy` and
-   `codeql` rather than `ci` alone.
-3. API robustness sweep — the `DataIntegrityViolationException` handler first, since it converts a
-   whole class of 500s into correct 409s across eight services. No service handles it today. Note
-   that a shared advice module is not the obvious win it looks like: `farm` already has an
-   `Exception.class` catch-all, so cross-advice ordering would be undefined, and the gateway is
-   WebFlux while `common-security` carries servlet web.
-4. Decide `DomainEventEnvelope`: adopt it in the five producers and generate the AsyncAPI schemas
+2. Decide `DomainEventEnvelope`: adopt it in the five producers and generate the AsyncAPI schemas
    from it, or delete it. Leaving dead code that looks like the event contract is the worst option.
-5. Lift `common-lib` / `common-security` coverage, then flip the coverage gate strict.
+   Ten of the twelve produced event types are still undeclared in AsyncAPI, and this decision
+   determines whether declaring them is generated or hand-written.
+3. Enable branch protection on `main` (owner decision). Publication is now gated on all three
+   workflows, but nothing yet stops a direct push or a force-push to the branch itself.
+4. Lift service **branch** coverage, then flip the coverage gate strict. Instructions are close to
+   target almost everywhere; branches are not, and `farm` at 4.2% is where to start.
+5. Finish the API robustness sweep: `@Size` on `@NotBlank` fields backed by length-limited columns,
+   `@Digits` on `@DecimalMin` numeric columns, and the `...IgnoreCase` finders whose
+   `upper(col) = upper(?)` no plain unique index can serve.
 6. Spring Boot 4 compat audit + ADR, then the coordinated migration.
 7. Notification delivery adapter, which unblocks IoT alerting.

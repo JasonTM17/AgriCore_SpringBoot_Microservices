@@ -1,7 +1,14 @@
 name: docker-publish
 
-# Publish only after a successful default-branch CI run (immutable SHA).
-# Manual dispatch may target main/master only and still resolves that branch tip.
+# Publish only after a successful default-branch CI run (immutable SHA), and only when the
+# security scans passed for that same SHA. Manual dispatch may target main/master only and
+# still resolves that branch tip.
+#
+# The trigger stays on `ci` alone. Listing trivy and codeql here as well would fire this
+# workflow three times per push, each firing aware only of its own trigger's conclusion, and
+# the concurrency group serialises rather than cancels — so the same twelve images would be
+# built and pushed three times. Instead `ci` (the longest of the three) is the trigger and the
+# other two conclusions are read back from the API for the resolved SHA.
 on:
   workflow_run:
     workflows: [ci]
@@ -10,6 +17,8 @@ on:
 
 permissions:
   contents: read
+  # Required to read the trivy and codeql conclusions for the resolved SHA.
+  actions: read
 
 concurrency:
   group: docker-publish-${{ github.event.workflow_run.head_sha || github.sha }}
@@ -39,6 +48,7 @@ jobs:
           THIS_REPO: ${{ github.repository }}
           GITHUB_SHA_FALLBACK: ${{ github.sha }}
           REF_NAME: ${{ github.ref_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           should=false
@@ -56,8 +66,39 @@ jobs:
             if [[ "$REF_NAME" == "main" || "$REF_NAME" == "master" ]]; then
               should=true
               publish_sha="$GITHUB_SHA_FALLBACK"
+              # Manual dispatch is the recovery lever for a skipped publish, including one
+              # skipped because a scan had not finished. Gating it on the same scans would
+              # defeat its purpose, so it is exempt — and says so in the log.
+              echo "gate: workflow_dispatch bypasses the scan gate for $publish_sha"
             fi
           fi
+
+          # Trivy fails on CRITICAL/HIGH and codeql is the SAST pass; neither gated publication
+          # before, so a commit that failed either still shipped twelve public images.
+          if [[ "$should" == "true" && "$EVENT_NAME" == "workflow_run" ]]; then
+            # per_page=100 rather than the default: a SHA re-run many times could otherwise push
+            # the run being looked for off the first page.
+            runs=$(gh api "repos/$THIS_REPO/actions/runs?head_sha=$publish_sha&per_page=100" \
+              --jq '.workflow_runs | sort_by(.run_started_at) | .[] | "\(.name) \(.status) \(.conclusion // "none")"')
+            for workflow in trivy codeql; do
+              # Oldest to newest, so the last match wins and a re-run after a fix is what counts.
+              # No match at all yields "missing none", which blocks: absence of evidence is not a
+              # pass, and a typo in the workflow name must fail closed rather than wave a build
+              # through.
+              result=$(printf '%s\n' "$runs" \
+                | awk -v wf="$workflow" '$1 == wf { s = $2; c = $3 } END { if (s == "") print "missing none"; else print s, c }')
+              echo "gate: $workflow $result"
+              if [[ "$result" != "completed success" ]]; then
+                should=false
+                echo "gate: blocking publish - $workflow did not pass for $publish_sha"
+              fi
+            done
+            # A scan still running when ci finishes skips the publish rather than waiting for it.
+            # Skips are recoverable with workflow_dispatch on main; polling would burn runner
+            # minutes on every push. The reason is always printed, so a skip is explainable from
+            # the run page.
+          fi
+
           echo "should_publish=$should" >> "$GITHUB_OUTPUT"
           echo "publish_sha=$publish_sha" >> "$GITHUB_OUTPUT"
           echo "should_publish=$should publish_sha=$publish_sha"

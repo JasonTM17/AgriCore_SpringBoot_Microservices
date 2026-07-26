@@ -67,8 +67,30 @@ repository. It then checks out `workflow_run.head_sha` explicitly and builds tha
 never a branch tip that may have moved. A failed, cancelled, or PR-triggered `ci` run publishes
 nothing.
 
+`ci` is necessary but no longer sufficient. Before building, `resolve-sha` reads back the `trivy`
+and `codeql` conclusions **for that same SHA** and requires both to be `completed` + `success`.
+Previously those two ran alongside `ci` and gated nothing, so a commit failing the CRITICAL/HIGH
+vulnerability scan or the SAST pass still shipped twelve public images.
+
+Two consequences worth knowing before wondering where an image went:
+
+- **A scan still running when `ci` finishes skips the publish** rather than waiting for it. Polling
+  would burn runner minutes on every push, and a skip is recoverable. The run log always names which
+  workflow blocked it and why.
+- **A missing scan run blocks.** Absence of evidence is not a pass, so a renamed workflow fails
+  closed instead of waving builds through.
+
+Recovery for either: `workflow_dispatch` on `main`. That path is deliberately exempt from the scan
+gate — it is the lever for a publish the gate skipped — and it logs that it bypassed.
+
+`ci` remains the only trigger. Listing all three workflows under `workflow_run` would fire this
+workflow three times per push, each firing aware only of its own trigger's conclusion, and the
+concurrency group serialises rather than cancels — so the same twelve images would be built and
+pushed three times.
+
 Required repository secrets (names only): `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`. Manage them at
-`Settings → Secrets and variables → Actions`.
+`Settings → Secrets and variables → Actions`. The scan check uses the built-in `GITHUB_TOKEN` with
+`actions: read`; no additional secret is needed.
 
 Manual `workflow_dispatch` is allowed but still refuses any ref other than `main`/`master`.
 
