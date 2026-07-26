@@ -12,7 +12,7 @@ The gateway defines no endpoints of its own — it forwards path prefixes to ups
 
 | Prefix | Upstream |
 |--------|----------|
-| `/api/v1/auth/**`, `/api/v1/users/**`, `/api/v1/admin/users/**`, `/.well-known/jwks.json` | identity-service |
+| `/api/v1/auth/**`, `/api/v1/users/**`, `/api/v1/admin/**`, `/.well-known/jwks.json` | identity-service |
 | `/api/v1/farms/**`, `/api/v1/plots/**` | farm-service |
 | `/api/v1/crops/**` | crop-catalog-service |
 | `/api/v1/crop-cycles/**` | crop-cycle-service |

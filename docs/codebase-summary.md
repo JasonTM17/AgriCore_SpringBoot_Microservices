@@ -49,6 +49,10 @@ com.agricore.<service>
 Rules that hold across services: no cross-service JPA relationships, no shared domain model, no
 schema sharing. Services reference each other's aggregates by id only.
 
+One architectural rule is test-enforced today: `PackageArchitectureTest` in `libs/common-lib` fails
+if the shared library gains a Spring dependency. The per-service layering above is convention,
+reviewed by hand.
+
 ## Event flow (runtime, not aspirational)
 
 ```text

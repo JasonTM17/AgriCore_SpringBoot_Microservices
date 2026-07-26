@@ -26,7 +26,9 @@ com.agricore.<service>
 - Controllers hold no business logic — validate, delegate, map.
 - Application services orchestrate; they do not build event JSON (that is an outbox writer's job).
 - Domain code has no Spring or JPA imports where avoidable, and never imports another service.
-- An ArchUnit test in `libs/common-lib` guards package direction.
+- An ArchUnit test in `libs/common-lib` enforces that the shared library stays framework-free: no
+  class under `com.agricore.common..` may depend on `org.springframework..`. Per-service hexagonal
+  rules are not yet enforced by tests.
 
 ## Modularization
 
