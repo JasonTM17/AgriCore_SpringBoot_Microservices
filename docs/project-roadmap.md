@@ -21,7 +21,69 @@ reviewable rather than forgotten.
 | JaCoCo coverage measurement, all modules | Live (advisory) |
 | Per-service READMEs, platform documentation set | Live |
 
+## Audit, 2026-07-26
+
+A four-reviewer adversarial pass over security/auth, messaging/saga, persistence/API, and
+build/CI/infra. Reports live outside the repo; the outcomes that matter are recorded here.
+
+Six defects shared one property worth naming: **the defence was present in the code and absent at
+runtime.** CI was green throughout, because nothing tested the behaviour end to end.
+
+Fixed in this pass:
+
+| Defect | Why it was invisible |
+|--------|----------------------|
+| Account lockout never persisted | The counter was written, then the rejection threw an unchecked exception and rolled the write back. |
+| Refresh-token family revocation never persisted | Same mechanism, same transaction. |
+| Login rate limit keyed on a forgeable header | Read the first `X-Forwarded-For` hop, which the caller writes; rotating it minted a fresh bucket per request. |
+| Saga confirm-failure never compensated | Recorded `COMPENSATED` without releasing, so the stock stayed held and the saga row said otherwise. |
+| Optimistic-lock 409 read as out of stock | Concurrent orders on one item terminally cancelled the loser with stock available. |
+| Traceability replay scanned the whole table | `findAll()` on a Kafka redelivery path while the index for it sat unused. |
+| `POST /api/v1/notifications` open to any token | The only endpoint on the platform without a role check; caller picks recipient and body. |
+| `/actuator/gateway` readable by any token | Exposed but not in the permitAll list, so it fell through to `authenticated()`. |
+
+Each carries a regression test that fails against the previous behaviour. The lockout fix was
+falsified explicitly: with the write folded back into the rejecting transaction, all three assertions
+report a counter of zero.
+
 ## Deferred, with reasons
+
+### Helm chart is not installable as shipped
+
+Three defects found in the same pass, all in the Helm path while the compose path is healthy:
+identity mounts no JWT key material, so `RsaKeyProvider` generates an ephemeral keypair and every pod
+restart invalidates every issued token; `templates/secret-template.yaml` re-applies `CHANGE_ME` over
+a manually created secret on each `helm upgrade`; and the chart declares no datastore dependencies,
+so `helm install` yields twelve pods with no PostgreSQL to reach.
+
+Deferred because the fix depends on a deployment decision nobody has made yet — whether the target
+cluster is expected to bring its own PostgreSQL, Redis, and Kafka, or the chart should carry
+subchart dependencies. Guessing would bake the wrong assumption into the chart. Until then, compose
+is the supported path and the chart should be treated as illustrative.
+
+### API robustness sweep
+
+Systemic, low-blast-radius, and better done in one pass than piecemeal: no
+`DataIntegrityViolationException` handler in any service, so a duplicate-code race returns 500 where
+the single-threaded path returns 409; `@NotBlank` without `@Size` on fields backed by
+length-limited columns; `@DecimalMin` without `@Digits` on numeric columns; three services with no
+`@RestControllerAdvice`, so their errors do not match the platform `ApiError` shape; and
+`...IgnoreCase` finders that emit `upper(col) = upper(?)`, which the plain unique indexes cannot
+serve — the values are already uppercased before insert, so the `IgnoreCase` is not load-bearing.
+
+### Concurrency invariants that rely on check-then-act
+
+Crop-cycle plot-overlap rejection and IoT open-alert dedup both read-then-write with no database
+constraint behind them, so two concurrent requests can both pass the check. Each needs an exclusion
+or partial-unique constraint, which means a migration per service.
+
+### Outbox and consumer conventions
+
+Platform-wide and deliberately consistent rather than individually correct: the polling publisher
+blocks on `send().get()` inside its transaction, `findUnpublished` has no `publish_attempts` cutoff
+so a poisoned row retries forever, and listeners match event types with `contains` rather than
+equality. Worth one ADR-backed pass across all five publishers and three consumers, not five
+divergent fixes.
 
 ### Spring Boot 4 migration
 
@@ -83,7 +145,12 @@ API client from the committed OpenAPI contracts.
 
 ## Next candidates, in order
 
-1. Lift `common-lib` / `common-security` coverage, then flip the coverage gate strict.
-2. Enable branch protection on `main` (owner decision).
-3. Spring Boot 4 compat audit + ADR, then the coordinated migration.
-4. Notification delivery adapter, which unblocks IoT alerting.
+1. Decide the Helm deployment model (external datastores vs. subchart dependencies), then fix the
+   three chart defects together. Highest priority: the chart currently cannot work.
+2. Enable branch protection on `main` (owner decision), and gate image publication on `trivy` and
+   `codeql` rather than `ci` alone.
+3. API robustness sweep — the `DataIntegrityViolationException` handler first, since it converts a
+   whole class of 500s into correct 409s across eight services.
+4. Lift `common-lib` / `common-security` coverage, then flip the coverage gate strict.
+5. Spring Boot 4 compat audit + ADR, then the coordinated migration.
+6. Notification delivery adapter, which unblocks IoT alerting.

@@ -50,6 +50,14 @@ images are tagged `latest` plus the short and full commit SHA.
 
 ### Fixed
 
+- Sales saga releases the inventory reservation when the confirm step fails. Previously only
+  network-level errors compensated; an HTTP error from the same call recorded the saga as
+  `COMPENSATED` while the stock stayed held, and the order could not be recovered because reconcile
+  rejects an order with no reservation id.
+- An inventory optimistic-lock conflict is no longer reported as out of stock, so two concurrent
+  orders on one item no longer cancel the loser while stock is available.
+- Traceability resolves a redelivered event through an indexed lookup instead of loading every batch
+  into memory.
 - Registration gating and fail-closed login rate limiting on identity-service.
 - Farm-service authorization denials now map to `403` instead of a generic error.
 - Traceability batch-write endpoint is role-gated.
@@ -64,6 +72,18 @@ images are tagged `latest` plus the short and full commit SHA.
 
 ### Security
 
+- **Account lockout now takes effect.** The failed-login counter was written inside the transaction
+  that rejects the attempt, and rejection throws an unchecked exception, so every increment was
+  rolled back and no account ever locked. Failure state is now committed independently.
+- **Refresh-token theft detection now takes effect.** Reuse of a revoked token revoked its family in
+  the same rolled-back transaction, leaving a known-stolen family valid. Same fix.
+- **Login rate limiting can no longer be bypassed by a header.** The limiter keyed on the first
+  `X-Forwarded-For` entry, which the caller supplies; rotating it produced a fresh bucket per
+  request. It now reads the address the gateway observed.
+- **`POST /api/v1/notifications` requires `SYSTEM_ADMIN`.** It was the only mutating endpoint without
+  a role check, and the caller chooses recipient, subject, and body.
+- **The Spring Cloud Gateway actuator endpoint is no longer exposed.** It was reachable with any
+  valid token and lists every internal upstream URI.
 - Access tokens with a wrong or missing `aud` claim are rejected.
 - Spring Boot pinned to 3.5.12 and PostgreSQL driver upgraded, for Actuator and driver CVEs.
 - spring-kafka pinned to 3.3.16 for a deserialization CVE.
