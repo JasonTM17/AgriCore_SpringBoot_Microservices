@@ -16,8 +16,8 @@ named non-`latest` tag. Never carry that override into production values.
 Create the Secret named by `inventory.internalCredentialSecretName` before
 installing the chart. Its `inventory.internalCredentialTokenKey` entry must
 contain a cryptographically random token of at least 32 characters. The chart
-mounts the same value into Inventory, Work, and Sales so background operations
-can authenticate without storing an end-user JWT.
+mounts the same value into Inventory, Work, Harvest, and Sales so background
+operations can authenticate without storing an end-user JWT.
 
 ```bash
 kubectl create secret generic agricore-inventory-internal \
@@ -25,7 +25,7 @@ kubectl create secret generic agricore-inventory-internal \
 ```
 
 Do not commit the token in a values file. Rotate it by updating the Secret and
-rolling the three consuming Deployments.
+rolling the four consuming Deployments.
 
 ## IoT TimescaleDB upgrades
 

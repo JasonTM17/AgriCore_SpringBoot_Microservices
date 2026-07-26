@@ -86,6 +86,9 @@ harvest:
   replicaCount: 1
   image: nguyenson1710/agricore-harvest
   port: 8087
+  inventoryServiceUrl: http://agricore-inventory:8086
+  inventoryServiceAllowedHosts: agricore-inventory
+  inventoryServiceAllowInsecureHttp: true
 
 notification:
   enabled: true

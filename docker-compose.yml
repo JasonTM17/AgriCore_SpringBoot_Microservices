@@ -279,8 +279,10 @@ services:
         condition: service_healthy
       crop-cycle-service:
         condition: service_healthy
+      inventory-service:
+        condition: service_healthy
     environment:
-      <<: [*db-env, *security-env, *kafka-env, *farm-access-env, *crop-cycle-access-env, *observability-env]
+      <<: [*db-env, *security-env, *kafka-env, *farm-access-env, *crop-cycle-access-env, *inventory-access-env, *observability-env]
       HARVEST_PORT: 8087
     ports:
       - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:8087:8087"

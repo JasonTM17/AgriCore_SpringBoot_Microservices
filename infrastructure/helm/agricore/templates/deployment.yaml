@@ -108,8 +108,14 @@ spec:
               value: {{ $.Values.cropCycleAccess.allowedHosts | quote }}
             - name: CROP_CYCLE_SERVICE_ALLOW_INSECURE_HTTP
               value: {{ $.Values.cropCycleAccess.allowInsecureHttp | quote }}
+            - name: INVENTORY_SERVICE_URL
+              value: {{ $svc.inventoryServiceUrl | quote }}
+            - name: INVENTORY_SERVICE_ALLOWED_HOSTS
+              value: {{ $svc.inventoryServiceAllowedHosts | quote }}
+            - name: INVENTORY_SERVICE_ALLOW_INSECURE_HTTP
+              value: {{ $svc.inventoryServiceAllowInsecureHttp | quote }}
             {{- end }}
-            {{- if or (eq $name "work") (eq $name "inventory") (eq $name "sales") }}
+            {{- if or (eq $name "work") (eq $name "inventory") (eq $name "harvest") (eq $name "sales") }}
             - name: INVENTORY_INTERNAL_SERVICE_TOKEN
               valueFrom:
                 secretKeyRef:
