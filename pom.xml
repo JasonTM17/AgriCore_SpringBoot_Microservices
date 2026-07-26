@@ -38,7 +38,7 @@
         <testcontainers.version>1.20.6</testcontainers.version>
         <archunit.version>1.4.0</archunit.version>
         <jjwt.version>0.12.6</jjwt.version>
-        <postgresql.version>42.7.11</postgresql.version>
+        <postgresql.version>42.7.13</postgresql.version>
         <!-- Override Boot-managed 3.3.14 (CVE-2026-41731 insecure deserialization) -->
         <spring-kafka.version>3.3.16</spring-kafka.version>
     </properties>
