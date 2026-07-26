@@ -100,6 +100,11 @@ class HarvestCompletedKafkaListenerTest {
     }
 
     private static String validEnvelope(UUID eventId, UUID harvestId, UUID warehouseId) {
+        UUID farmId = UUID.randomUUID();
+        return validEnvelope(eventId, harvestId, farmId, warehouseId);
+    }
+
+    private static String validEnvelope(UUID eventId, UUID harvestId, UUID farmId, UUID warehouseId) {
         return """
                 {
                   "eventId":"%s",
@@ -110,6 +115,7 @@ class HarvestCompletedKafkaListenerTest {
                   "payload":{
                     "harvestId":"%s",
                     "harvestBatchId":"%s",
+                    "farmId":"%s",
                     "cropCycleId":"%s",
                     "plotId":"%s",
                     "warehouseId":"%s",
@@ -125,6 +131,7 @@ class HarvestCompletedKafkaListenerTest {
                 eventId,
                 harvestId,
                 harvestId,
+                farmId,
                 UUID.randomUUID(),
                 UUID.randomUUID(),
                 warehouseId

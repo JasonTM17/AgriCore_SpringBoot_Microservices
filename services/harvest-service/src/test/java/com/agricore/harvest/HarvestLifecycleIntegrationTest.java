@@ -2,6 +2,7 @@ package com.agricore.harvest;
 
 import com.agricore.common.event.EventTypes;
 import com.agricore.farmaccess.FarmAccessClient;
+import com.agricore.farmaccess.FarmResourceAccess;
 import com.agricore.harvest.api.request.CompleteHarvestBatchRequest;
 import com.agricore.harvest.api.request.StartHarvestRequest;
 import com.agricore.harvest.application.service.HarvestLifecycleService;
@@ -193,7 +194,7 @@ class HarvestLifecycleIntegrationTest {
         doAnswer(invocation -> {
             bothAuthorized.countDown();
             assertThat(bothAuthorized.await(5, TimeUnit.SECONDS)).isTrue();
-            return null;
+            return new FarmResourceAccess(HarvestTestAccessSupport.FARM_ID, plotId);
         }).when(farmAccessClient).requirePlot(plotId);
         CompleteHarvestBatchRequest request = new CompleteHarvestBatchRequest(
                 new BigDecimal("3500.000"),

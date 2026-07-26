@@ -3,8 +3,10 @@ package com.agricore.inventory.api.controller;
 import com.agricore.inventory.api.request.InternalStockOutRequest;
 import com.agricore.inventory.api.request.InternalReserveStockRequest;
 import com.agricore.inventory.api.response.InventoryItemResponse;
+import com.agricore.inventory.api.response.InternalWarehouseScopeResponse;
 import com.agricore.inventory.api.response.ReservationResponse;
 import com.agricore.inventory.application.service.InventoryApplicationService;
+import com.agricore.inventory.application.service.InventoryWarehouseScopeService;
 import com.agricore.inventory.infrastructure.security.InventoryInternalServiceTokenValidator;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -29,14 +31,26 @@ import java.util.UUID;
 public class InventoryInternalController {
 
     private final InventoryApplicationService inventoryService;
+    private final InventoryWarehouseScopeService warehouseScopeService;
     private final InventoryInternalServiceTokenValidator serviceTokenValidator;
 
     public InventoryInternalController(
             InventoryApplicationService inventoryService,
+            InventoryWarehouseScopeService warehouseScopeService,
             InventoryInternalServiceTokenValidator serviceTokenValidator
     ) {
         this.inventoryService = inventoryService;
+        this.warehouseScopeService = warehouseScopeService;
         this.serviceTokenValidator = serviceTokenValidator;
+    }
+
+    @GetMapping("/warehouses/{warehouseId}/scope")
+    public InternalWarehouseScopeResponse getWarehouseScope(
+            @RequestHeader(value = "X-Internal-Service-Token", required = false) String serviceToken,
+            @PathVariable UUID warehouseId
+    ) {
+        requireServiceToken(serviceToken);
+        return warehouseScopeService.getScope(warehouseId);
     }
 
     @PostMapping("/stock-out")

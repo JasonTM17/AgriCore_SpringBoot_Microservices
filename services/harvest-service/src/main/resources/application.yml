@@ -50,6 +50,14 @@ agricore:
     connect-timeout: ${CROP_CYCLE_SERVICE_CONNECT_TIMEOUT:PT2S}
     read-timeout: ${CROP_CYCLE_SERVICE_READ_TIMEOUT:PT3S}
     max-response-bytes: ${CROP_CYCLE_SERVICE_MAX_RESPONSE_BYTES:4096}
+  inventory-access:
+    base-url: ${INVENTORY_SERVICE_URL:http://localhost:8086}
+    allowed-hosts: ${INVENTORY_SERVICE_ALLOWED_HOSTS:localhost,127.0.0.1,::1,inventory-service}
+    allow-insecure-http: ${INVENTORY_SERVICE_ALLOW_INSECURE_HTTP:false}
+    connect-timeout: ${INVENTORY_SERVICE_CONNECT_TIMEOUT:PT2S}
+    read-timeout: ${INVENTORY_SERVICE_READ_TIMEOUT:PT3S}
+    max-response-bytes: ${INVENTORY_SERVICE_MAX_RESPONSE_BYTES:4096}
+    internal-service-token: ${INVENTORY_INTERNAL_SERVICE_TOKEN:}
   outbox:
     publisher:
       enabled: true

@@ -20,7 +20,10 @@ paths:
       tags: [Harvests]
       operationId: startHarvestBatch
       summary: Start an in-progress harvest batch
-      description: Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or WAREHOUSE_MANAGER plus access to the request plot.
+      description: |
+        Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or WAREHOUSE_MANAGER plus
+        access to the request plot. The warehouse must exist and belong to the
+        authoritative plot and crop-cycle farm before any harvest or outbox row is written.
       requestBody:
         required: true
         content:
@@ -46,12 +49,17 @@ paths:
           $ref: '#/components/responses/Conflict'
         '415':
           $ref: '#/components/responses/UnsupportedMediaType'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/harvests/complete:
     post:
       tags: [Harvests]
       operationId: completeHarvest
       summary: Record a completed harvest and enqueue HarvestCompleted.v1
-      description: Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or WAREHOUSE_MANAGER plus access to the request plot.
+      description: |
+        Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or WAREHOUSE_MANAGER plus
+        access to the request plot. The warehouse must exist and belong to the
+        authoritative plot and crop-cycle farm before the harvest and outbox event commit.
       requestBody:
         required: true
         content:
@@ -229,7 +237,7 @@ components:
           schema:
             $ref: '#/components/schemas/ApiError'
     NotFound:
-      description: Harvest batch, plot, or owning farm not found or not visible to the caller.
+      description: Harvest batch, plot, farm, crop cycle, or same-farm warehouse not found or not visible.
       content:
         application/json:
           schema:
@@ -253,7 +261,7 @@ components:
           schema:
             $ref: '#/components/schemas/ApiError'
     ServiceUnavailable:
-      description: Farm authorization or completion-event locking is temporarily unavailable; retry later.
+      description: Farm, crop-cycle, warehouse authorization, or completion-event locking is temporarily unavailable; retry later.
       content:
         application/json:
           schema:

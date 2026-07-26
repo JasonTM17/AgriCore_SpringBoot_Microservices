@@ -121,6 +121,31 @@ paths:
         '403': { description: Internal service authentication failed }
         '404': { description: Item absent from the authorized farm }
         '409': { description: Insufficient stock or idempotency conflict }
+  /internal/api/v1/inventory/warehouses/{warehouseId}/scope:
+    get:
+      summary: Resolve authoritative warehouse farm scope
+      description: >-
+        Internal Harvest contract. Returns the owning farm for a usable warehouse without
+        exposing warehouse metadata. Legacy warehouses without farm scope fail closed.
+      parameters:
+        - in: path
+          name: warehouseId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: X-Internal-Service-Token
+          required: true
+          schema: { type: string, minLength: 32 }
+      responses:
+        '200':
+          description: Authoritative warehouse scope
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalWarehouseScopeResponse'
+        '403': { description: Internal service authentication failed }
+        '404': { description: Warehouse not found }
+        '503': { description: Warehouse farm scope is unavailable }
   /api/v1/inventory/reservations:
     post:
       summary: Reserve stock idempotently by business reference
@@ -513,6 +538,13 @@ components:
         code: { type: string }
         name: { type: string }
         createdAt: { type: string, format: date-time }
+    InternalWarehouseScopeResponse:
+      type: object
+      additionalProperties: false
+      required: [warehouseId, farmId]
+      properties:
+        warehouseId: { type: string, format: uuid }
+        farmId: { type: string, format: uuid }
     InternalStockOutRequest:
       type: object
       additionalProperties: false

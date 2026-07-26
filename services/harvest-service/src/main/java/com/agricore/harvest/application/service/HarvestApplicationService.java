@@ -39,7 +39,11 @@ public class HarvestApplicationService {
     }
 
     private HarvestBatchResponse completeHarvestObserved(CompleteHarvestRequest request) {
-        UUID farmId = accessGuard.requireNewHarvest(request.cropCycleId(), request.plotId());
+        UUID farmId = accessGuard.requireNewHarvest(
+                request.cropCycleId(),
+                request.plotId(),
+                request.warehouseId()
+        );
         return creationTransactions.complete(request, farmId);
     }
 

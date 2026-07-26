@@ -151,19 +151,21 @@ class InventoryStockOutApiIntegrationTest {
 
     @Test
     void internalServiceTokenSupportsReservationRecoveryWithoutAUserSession() throws Exception {
-        String itemId = createStockedItem(UUID.randomUUID());
+        UUID farmId = UUID.randomUUID();
+        String itemId = createStockedItem(farmId);
         String referenceId = "SO-" + UUID.randomUUID();
         MvcResult reserved = mockMvc.perform(post("/internal/api/v1/inventory/reservations")
                         .header(INTERNAL_TOKEN_HEADER, INTERNAL_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
+                                  "farmId":"%s",
                                   "inventoryItemId":"%s",
                                   "quantity":2.500,
                                   "referenceType":"SalesOrder",
                                   "referenceId":"%s"
                                 }
-                                """.formatted(itemId, referenceId)))
+                                """.formatted(farmId, itemId, referenceId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
                 .andReturn();
@@ -172,18 +174,21 @@ class InventoryStockOutApiIntegrationTest {
         ).path("id").asText();
 
         mockMvc.perform(get("/internal/api/v1/inventory/reservations/by-reference")
-                        .header(INTERNAL_TOKEN_HEADER, INTERNAL_TOKEN)
+                .header(INTERNAL_TOKEN_HEADER, INTERNAL_TOKEN)
+                        .param("farmId", farmId.toString())
                         .param("referenceType", "SalesOrder")
                         .param("referenceId", referenceId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(reservationId));
 
         mockMvc.perform(post("/internal/api/v1/inventory/reservations/{id}/confirm", reservationId)
-                        .header(INTERNAL_TOKEN_HEADER, INTERNAL_TOKEN))
+                        .header(INTERNAL_TOKEN_HEADER, INTERNAL_TOKEN)
+                        .param("farmId", farmId.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("FULFILLED"));
 
-        mockMvc.perform(get("/internal/api/v1/inventory/reservations/by-reference")
+                mockMvc.perform(get("/internal/api/v1/inventory/reservations/by-reference")
+                        .param("farmId", farmId.toString())
                         .param("referenceType", "SalesOrder")
                         .param("referenceId", referenceId))
                 .andExpect(status().isForbidden());

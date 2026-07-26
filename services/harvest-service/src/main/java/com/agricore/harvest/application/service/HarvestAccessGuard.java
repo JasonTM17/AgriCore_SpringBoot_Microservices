@@ -5,6 +5,7 @@ import com.agricore.farmaccess.FarmAccessException;
 import com.agricore.farmaccess.FarmResourceAccess;
 import com.agricore.harvest.domain.exception.HarvestException;
 import com.agricore.harvest.infrastructure.client.CropCycleAccessClient;
+import com.agricore.harvest.infrastructure.client.WarehouseAccessClient;
 import com.agricore.harvest.infrastructure.persistence.entity.HarvestBatchEntity;
 import org.springframework.stereotype.Component;
 
@@ -15,18 +16,22 @@ final class HarvestAccessGuard {
 
     private final FarmAccessClient farmAccessClient;
     private final CropCycleAccessClient cropCycleAccessClient;
+    private final WarehouseAccessClient warehouseAccessClient;
 
     HarvestAccessGuard(
             FarmAccessClient farmAccessClient,
-            CropCycleAccessClient cropCycleAccessClient
+            CropCycleAccessClient cropCycleAccessClient,
+            WarehouseAccessClient warehouseAccessClient
     ) {
         this.farmAccessClient = farmAccessClient;
         this.cropCycleAccessClient = cropCycleAccessClient;
+        this.warehouseAccessClient = warehouseAccessClient;
     }
 
-    UUID requireNewHarvest(UUID cropCycleId, UUID plotId) {
+    UUID requireNewHarvest(UUID cropCycleId, UUID plotId, UUID warehouseId) {
         FarmResourceAccess access = requirePlotAccess(plotId);
         cropCycleAccessClient.requireCycle(cropCycleId, access.farmId(), plotId);
+        warehouseAccessClient.requireWarehouse(warehouseId, access.farmId());
         return access.farmId();
     }
 
@@ -42,6 +47,10 @@ final class HarvestAccessGuard {
                         harvest.getCropCycleId(),
                         access.farmId(),
                         harvest.getPlotId()
+                );
+                warehouseAccessClient.requireWarehouse(
+                        harvest.getWarehouseId(),
+                        access.farmId()
                 );
             }
             return access.farmId();

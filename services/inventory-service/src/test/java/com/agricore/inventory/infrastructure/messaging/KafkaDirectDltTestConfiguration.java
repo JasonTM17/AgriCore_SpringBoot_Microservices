@@ -60,6 +60,7 @@ class KafkaDirectDltTestConfiguration {
 
     static String validEvent() {
         UUID harvestId = UUID.randomUUID();
+        UUID farmId = UUID.randomUUID();
         return """
                 {
                   "eventId":"%s",
@@ -70,6 +71,7 @@ class KafkaDirectDltTestConfiguration {
                   "payload":{
                     "harvestId":"%s",
                     "harvestBatchId":"%s",
+                    "farmId":"%s",
                     "cropCycleId":"%s",
                     "plotId":"%s",
                     "warehouseId":"%s",
@@ -85,6 +87,7 @@ class KafkaDirectDltTestConfiguration {
                 UUID.randomUUID(),
                 harvestId,
                 harvestId,
+                farmId,
                 UUID.randomUUID(),
                 UUID.randomUUID(),
                 UUID.randomUUID()

@@ -37,13 +37,14 @@ class InventoryIdempotencyTest {
 
     @Test
     void harvestCompleted_processedTwice_stocksOnce() throws Exception {
+        UUID farmId = UUID.randomUUID();
         MvcResult whResult = mockMvc.perform(post("/api/v1/inventory/warehouses")
                         .header("X-Dev-User", "wh")
                         .header("X-Dev-Roles", "WAREHOUSE_MANAGER")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"farmId":"%s","code":"WH-%d","name":"Dak Lak Produce"}
-                                """.formatted(UUID.randomUUID(), System.nanoTime())))
+                                """.formatted(farmId, System.nanoTime())))
                 .andExpect(status().isCreated())
                 .andReturn();
         String warehouseId = objectMapper.readTree(whResult.getResponse().getContentAsString()).get("id").asText();
@@ -54,12 +55,13 @@ class InventoryIdempotencyTest {
                 {
                   "eventId":"%s",
                   "harvestBatchId":"%s",
+                  "farmId":"%s",
                   "warehouseId":"%s",
                   "productCode":"COFFEE-ROBUSTA",
                   "netWeightKg":3300,
                   "qualityGrade":"GRADE_A"
                 }
-                """.formatted(eventId, harvestBatchId, warehouseId);
+                """.formatted(eventId, harvestBatchId, farmId, warehouseId);
 
         String firstResponse = given()
                 .mockMvc(mockMvc)

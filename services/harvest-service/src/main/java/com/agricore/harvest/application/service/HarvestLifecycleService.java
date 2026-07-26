@@ -38,7 +38,11 @@ public class HarvestLifecycleService {
     }
 
     private HarvestBatchResponse startObserved(StartHarvestRequest request) {
-        UUID farmId = accessGuard.requireNewHarvest(request.cropCycleId(), request.plotId());
+        UUID farmId = accessGuard.requireNewHarvest(
+                request.cropCycleId(),
+                request.plotId(),
+                request.warehouseId()
+        );
         return creationTransactions.start(request, farmId);
     }
 
