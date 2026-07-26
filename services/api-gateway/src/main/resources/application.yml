@@ -68,7 +68,11 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,prometheus,gateway
+        # 'gateway' deliberately excluded. It is not in the permitAll list, so it fell through to
+        # anyExchange().authenticated() — meaning any valid token, including the self-registered
+        # FIELD_WORKER default, could read every internal upstream URI from /actuator/gateway/routes.
+        # Override per-environment only behind a management port that is not routed externally.
+        include: ${GATEWAY_ACTUATOR_ENDPOINTS:health,info,prometheus}
   endpoint:
     health:
       probes:
