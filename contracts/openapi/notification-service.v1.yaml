@@ -1,10 +1,11 @@
 openapi: 3.1.0
 info:
   title: AgriCore Notification Service API
-  version: 1.1.0
+  version: 1.2.0
   description: |
-    Authorized direct notification delivery plus idempotent Kafka-driven notifications.
-    Delivery is persisted as REQUESTED before transitioning to SENT or FAILED.
+    Authorized direct notification delivery, a persisted in-app inbox, and idempotent
+    Kafka-driven notifications. Delivery is persisted as REQUESTED before transitioning
+    to SENT or FAILED.
 servers:
   - url: http://localhost:8089
 paths:
@@ -12,9 +13,9 @@ paths:
     post:
       summary: Deliver a notification
       description: |
-        Requires ROLE_SYSTEM_ADMIN. `idempotencyKey` may be reused only with the same
-        channel, recipient, subject, and body. A FAILED response is a persisted delivery
-        outcome and still returns 201.
+        Requires both ROLE_SYSTEM_ADMIN and PERMISSION_NOTIFICATION_ADMIN.
+        `idempotencyKey` may be reused only with the same channel, recipient, subject,
+        and body. A FAILED response is a persisted delivery outcome and still returns 201.
       security:
         - bearerAuth: []
       requestBody:
@@ -35,9 +36,83 @@ paths:
         '401':
           description: Authentication required
         '403':
-          description: System administrator role required
+          description: System administrator role and notification administration permission required
         '409':
           description: Idempotency key is bound to another notification intent
+  /api/v1/notifications/in-app:
+    get:
+      summary: List persisted in-app notifications
+      description: |
+        Requires both ROLE_SYSTEM_ADMIN and PERMISSION_NOTIFICATION_ADMIN.
+        Results are ordered by delivery time and notification identifier descending.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: recipient
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 320
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Persisted in-app notification page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InAppNotificationPageResponse'
+        '400':
+          description: Invalid paging parameters
+        '401':
+          description: Authentication required
+        '403':
+          description: System administrator role and notification administration permission required
+  /api/v1/notifications/in-app/{notificationId}/read:
+    patch:
+      summary: Mark an in-app notification as read
+      description: |
+        Requires both ROLE_SYSTEM_ADMIN and PERMISSION_NOTIFICATION_ADMIN.
+        The operation is idempotent and preserves the first read timestamp.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Updated in-app notification
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InAppNotificationResponse'
+        '401':
+          description: Authentication required
+        '403':
+          description: System administrator role and notification administration permission required
+        '404':
+          description: In-app notification not found
 components:
   securitySchemes:
     bearerAuth:
@@ -81,3 +156,29 @@ components:
         errorMessage: { type: [string, 'null'], maxLength: 500 }
         failureRetryable: { type: [boolean, 'null'] }
         deliveryAttempts: { type: integer, minimum: 0, maximum: 5 }
+    InAppNotificationResponse:
+      type: object
+      additionalProperties: false
+      required: [notificationId, recipient, subject, body, deliveredAt, readAt]
+      properties:
+        notificationId: { type: string, format: uuid }
+        recipient: { type: string, minLength: 1, maxLength: 320 }
+        subject: { type: string, minLength: 1, maxLength: 300 }
+        body: { type: string, minLength: 1, maxLength: 10000 }
+        deliveredAt: { type: string, format: date-time }
+        readAt: { type: [string, 'null'], format: date-time }
+    InAppNotificationPageResponse:
+      type: object
+      additionalProperties: false
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/InAppNotificationResponse'
+        page: { type: integer, format: int32, minimum: 0 }
+        size: { type: integer, format: int32, minimum: 1, maximum: 100 }
+        totalElements: { type: integer, format: int64, minimum: 0 }
+        totalPages: { type: integer, format: int32, minimum: 0 }
+        first: { type: boolean }
+        last: { type: boolean }
