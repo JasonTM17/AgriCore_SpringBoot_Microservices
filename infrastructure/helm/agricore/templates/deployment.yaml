@@ -49,6 +49,8 @@ spec:
       app.kubernetes.io/name: agricore-{{ $name }}
   template:
     metadata:
+      annotations:
+        checksum/runtime-config: {{ include (print $.Template.BasePath "/configmap.yaml") $ | sha256sum }}
       labels:
         app.kubernetes.io/name: agricore-{{ $name }}
         app.kubernetes.io/part-of: agricore

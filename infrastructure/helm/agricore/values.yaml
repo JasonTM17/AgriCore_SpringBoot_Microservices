@@ -7,6 +7,11 @@ global:
   # production and never commit an environment override that enables it.
   allowMutableImages: false
   imagePullPolicy: IfNotPresent
+  outbox:
+    retry:
+      # Keep false for the first compatible-image rollout. Enable only after
+      # every replica understands deferred/quarantined outbox state.
+      writeStateEnabled: false
 
 autoscaling:
   enabled: false
