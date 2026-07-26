@@ -1,40 +1,49 @@
 package com.agricore.work.infrastructure.client;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.tomakehurst.wiremock.WireMockServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
-import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.matchingJsonPath;
+import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
+import static com.github.tomakehurst.wiremock.client.WireMock.post;
+import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.springframework.test.web.client.ExpectedCount.once;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class DefaultInventoryStockClientTest {
 
-    private static final String BASE_URL = "https://inventory-service";
-    private static final UUID FARM_ID = UUID.fromString("10000000-0000-0000-0000-000000000001");
+    private static final String STOCK_OUT_PATH = "/internal/api/v1/inventory/stock-out";
+    private static final String INTERNAL_TOKEN =
+            "test-inventory-work-service-token-012345678901234567890123";
+    private static final UUID FARM_ID =
+            UUID.fromString("10000000-0000-0000-0000-000000000001");
+
+    private final List<WireMockServer> servers = new ArrayList<>();
 
     @AfterEach
-    void clearSecurityContext() {
+    void cleanUp() {
         SecurityContextHolder.clearContext();
+        servers.forEach(WireMockServer::stop);
     }
 
     @Test
@@ -42,13 +51,8 @@ class DefaultInventoryStockClientTest {
         UUID itemId = UUID.randomUUID();
         setJwtAuthentication("signed-access-token");
         TestClient fixture = client(false);
-        fixture.server().expect(once(), requestTo(BASE_URL + "/internal/api/v1/inventory/stock-out"))
-                .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer signed-access-token"))
-                .andExpect(header("X-Internal-Service-Token", "test-inventory-work-service-token-012345678901234567890123"))
-                .andExpect(jsonPath("$.farmId").value(FARM_ID.toString()))
-                .andExpect(jsonPath("$.inventoryItemId").value(itemId.toString()))
-                .andExpect(jsonPath("$.referenceType").value("WorkTask"))
-                .andRespond(withSuccess(response(itemId), MediaType.APPLICATION_JSON));
+        fixture.server().stubFor(post(urlEqualTo(STOCK_OUT_PATH))
+                .willReturn(okJson(response(itemId))));
 
         InventoryStockClient.StockOutResult result = fixture.client().stockOut(
                 FARM_ID, itemId, new BigDecimal("2.500"), "material-ref"
@@ -56,7 +60,12 @@ class DefaultInventoryStockClientTest {
 
         assertThat(result.inventoryItemId()).isEqualTo(itemId);
         assertThat(result.unit()).isEqualTo("KG");
-        fixture.server().verify();
+        fixture.server().verify(postRequestedFor(urlEqualTo(STOCK_OUT_PATH))
+                .withHeader(HttpHeaders.AUTHORIZATION, equalTo("Bearer signed-access-token"))
+                .withHeader("X-Internal-Service-Token", equalTo(INTERNAL_TOKEN))
+                .withRequestBody(matchingJsonPath("$.farmId", equalTo(FARM_ID.toString())))
+                .withRequestBody(matchingJsonPath("$.inventoryItemId", equalTo(itemId.toString())))
+                .withRequestBody(matchingJsonPath("$.referenceType", equalTo("WorkTask"))));
     }
 
     @Test
@@ -64,15 +73,15 @@ class DefaultInventoryStockClientTest {
         UUID itemId = UUID.randomUUID();
         setDevAuthentication("worker-a", "ROLE_FIELD_WORKER", "ROLE_AGRONOMIST");
         TestClient fixture = client(true);
-        fixture.server().expect(once(), requestTo(BASE_URL + "/internal/api/v1/inventory/stock-out"))
-                .andExpect(header("X-Dev-User", "worker-a"))
-                .andExpect(header("X-Dev-Roles", "AGRONOMIST,FIELD_WORKER"))
-                .andExpect(header("X-Internal-Service-Token", "test-inventory-work-service-token-012345678901234567890123"))
-                .andRespond(withSuccess(response(itemId), MediaType.APPLICATION_JSON));
+        fixture.server().stubFor(post(urlEqualTo(STOCK_OUT_PATH))
+                .willReturn(okJson(response(itemId))));
 
         fixture.client().stockOut(FARM_ID, itemId, BigDecimal.ONE, "material-ref");
 
-        fixture.server().verify();
+        fixture.server().verify(postRequestedFor(urlEqualTo(STOCK_OUT_PATH))
+                .withHeader("X-Dev-User", equalTo("worker-a"))
+                .withHeader("X-Dev-Roles", equalTo("AGRONOMIST,FIELD_WORKER"))
+                .withHeader("X-Internal-Service-Token", equalTo(INTERNAL_TOKEN)));
     }
 
     @Test
@@ -80,11 +89,13 @@ class DefaultInventoryStockClientTest {
         UUID itemId = UUID.randomUUID();
         setDevAuthentication("worker-b", "ROLE_FIELD_WORKER");
         TestClient fixture = client(true);
-        fixture.server().expect(once(), requestTo(BASE_URL + "/internal/api/v1/inventory/stock-out"))
-                .andRespond(withStatus(org.springframework.http.HttpStatus.CONFLICT));
+        fixture.server().stubFor(post(urlEqualTo(STOCK_OUT_PATH))
+                .willReturn(aResponse().withStatus(HttpStatus.CONFLICT.value())));
 
         assertThatExceptionOfType(InventoryStockClientException.class)
-                .isThrownBy(() -> fixture.client().stockOut(FARM_ID, itemId, BigDecimal.TEN, "material-ref"))
+                .isThrownBy(() -> fixture.client().stockOut(
+                        FARM_ID, itemId, BigDecimal.TEN, "material-ref"
+                ))
                 .satisfies(exception -> assertThat(exception.getDownstreamStatus()).isEqualTo(409));
     }
 
@@ -93,40 +104,48 @@ class DefaultInventoryStockClientTest {
         UUID itemId = UUID.randomUUID();
         setDevAuthentication("worker-c", "ROLE_FIELD_WORKER");
         TestClient unknownField = client(true);
-        unknownField.server().expect(once(), requestTo(BASE_URL + "/internal/api/v1/inventory/stock-out"))
-                .andRespond(withSuccess(response(itemId).replace("}", ",\"unknown\":true}"), MediaType.APPLICATION_JSON));
-        assertThatExceptionOfType(InventoryStockClientException.class)
-                .isThrownBy(() -> unknownField.client().stockOut(FARM_ID, itemId, BigDecimal.ONE, "material-ref"))
-                .satisfies(exception -> assertThat(exception.getDownstreamStatus()).isEqualTo(503));
+        unknownField.server().stubFor(post(urlEqualTo(STOCK_OUT_PATH))
+                .willReturn(okJson(response(itemId).replace("}", ",\"unknown\":true}"))));
+        assertUnavailable(() -> unknownField.client().stockOut(
+                FARM_ID, itemId, BigDecimal.ONE, "material-ref"
+        ));
 
         TestClient mismatch = client(true);
-        mismatch.server().expect(once(), requestTo(BASE_URL + "/internal/api/v1/inventory/stock-out"))
-                .andRespond(withSuccess(response(UUID.randomUUID()), MediaType.APPLICATION_JSON));
-        assertThatExceptionOfType(InventoryStockClientException.class)
-                .isThrownBy(() -> mismatch.client().stockOut(FARM_ID, itemId, BigDecimal.ONE, "material-ref"))
-                .satisfies(exception -> assertThat(exception.getDownstreamStatus()).isEqualTo(503));
+        mismatch.server().stubFor(post(urlEqualTo(STOCK_OUT_PATH))
+                .willReturn(okJson(response(UUID.randomUUID()))));
+        assertUnavailable(() -> mismatch.client().stockOut(
+                FARM_ID, itemId, BigDecimal.ONE, "material-ref"
+        ));
     }
 
     @Test
     void stockOutFailsClosedWithoutForwardableProductionAuthentication() {
         TestClient fixture = client(false);
-        assertThatExceptionOfType(InventoryStockClientException.class)
-                .isThrownBy(() -> fixture.client().stockOut(
-                        FARM_ID, UUID.randomUUID(), BigDecimal.ONE, "material-ref"
-                ))
-                .satisfies(exception -> assertThat(exception.getDownstreamStatus()).isEqualTo(503));
+        assertUnavailable(() -> fixture.client().stockOut(
+                FARM_ID, UUID.randomUUID(), BigDecimal.ONE, "material-ref"
+        ));
+        fixture.server().verify(0, postRequestedFor(urlEqualTo(STOCK_OUT_PATH)));
     }
 
-    private static TestClient client(boolean devMode) {
-        RestClient.Builder builder = RestClient.builder();
-        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+    private TestClient client(boolean devMode) {
+        WireMockServer server = new WireMockServer(options().dynamicPort());
+        server.start();
+        servers.add(server);
         InventoryStockClientProperties properties = new InventoryStockClientProperties();
-        properties.setBaseUrl(BASE_URL);
-        properties.setInternalServiceToken("test-inventory-work-service-token-012345678901234567890123");
+        properties.setBaseUrl("http://127.0.0.1:" + server.port());
+        properties.setInternalServiceToken(INTERNAL_TOKEN);
         return new TestClient(
-                new DefaultInventoryStockClient(builder, properties, devMode, new ObjectMapper()),
+                new DefaultInventoryStockClient(
+                        RestClient.builder(), properties, devMode, new ObjectMapper()
+                ),
                 server
         );
+    }
+
+    private static void assertUnavailable(ThrowingCall call) {
+        assertThatExceptionOfType(InventoryStockClientException.class)
+                .isThrownBy(call::execute)
+                .satisfies(exception -> assertThat(exception.getDownstreamStatus()).isEqualTo(503));
     }
 
     private static String response(UUID itemId) {
@@ -170,6 +189,11 @@ class DefaultInventoryStockClientTest {
         );
     }
 
-    private record TestClient(DefaultInventoryStockClient client, MockRestServiceServer server) {
+    @FunctionalInterface
+    private interface ThrowingCall {
+        void execute();
+    }
+
+    private record TestClient(DefaultInventoryStockClient client, WireMockServer server) {
     }
 }

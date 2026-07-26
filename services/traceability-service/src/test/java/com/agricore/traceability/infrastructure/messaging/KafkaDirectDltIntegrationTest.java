@@ -33,6 +33,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
@@ -135,12 +136,16 @@ class KafkaDirectDltIntegrationTest {
         } finally {
             retryConsumer.close();
         }
-        assertThat(meterRegistry.counter(
-                "agricore.kafka.dlq.attempts",
-                "consumer",
-                "traceability-service"
-        ).count()).isEqualTo(3.0);
-        verify(traceabilityService, times(4)).createFromHarvest(any());
+        await()
+                .atMost(Duration.ofSeconds(10))
+                .untilAsserted(() -> {
+                    assertThat(meterRegistry.counter(
+                            "agricore.kafka.dlq.attempts",
+                            "consumer",
+                            "traceability-service"
+                    ).count()).isEqualTo(3.0);
+                    verify(traceabilityService, times(4)).createFromHarvest(any());
+                });
     }
 
     private void assertDirectDlt(

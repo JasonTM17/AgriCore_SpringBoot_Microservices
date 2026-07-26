@@ -3,6 +3,7 @@ package com.agricore.inventory;
 import com.agricore.farmaccess.FarmAccessClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.restassured.http.ContentType;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -15,6 +16,7 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.UUID;
 
+import static io.restassured.module.mockmvc.RestAssuredMockMvc.given;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -59,34 +61,53 @@ class InventoryIdempotencyTest {
                 }
                 """.formatted(eventId, harvestBatchId, warehouseId);
 
-        MvcResult first = mockMvc.perform(post("/api/v1/inventory/events/harvest-completed")
-                        .header("X-Dev-User", "wh")
-                        .header("X-Dev-Roles", "WAREHOUSE_MANAGER")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.onHandQuantity").value(3300))
-                .andReturn();
+        String firstResponse = given()
+                .mockMvc(mockMvc)
+                .header("X-Dev-User", "wh")
+                .header("X-Dev-Roles", "WAREHOUSE_MANAGER")
+                .contentType(ContentType.JSON)
+                .body(body)
+                .when()
+                .post("/api/v1/inventory/events/harvest-completed")
+                .then()
+                .statusCode(200)
+                .extract()
+                .asString();
 
-        JsonNode firstJson = objectMapper.readTree(first.getResponse().getContentAsString());
+        JsonNode firstJson = objectMapper.readTree(firstResponse);
         String itemId = firstJson.get("id").asText();
+        assertThat(firstJson.get("onHandQuantity").decimalValue()).isEqualByComparingTo("3300");
 
         // Redeliver same eventId — must not double stock
-        mockMvc.perform(post("/api/v1/inventory/events/harvest-completed")
-                        .header("X-Dev-User", "wh")
-                        .header("X-Dev-Roles", "WAREHOUSE_MANAGER")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.onHandQuantity").value(3300));
+        String replayResponse = given()
+                .mockMvc(mockMvc)
+                .header("X-Dev-User", "wh")
+                .header("X-Dev-Roles", "WAREHOUSE_MANAGER")
+                .contentType(ContentType.JSON)
+                .body(body)
+                .when()
+                .post("/api/v1/inventory/events/harvest-completed")
+                .then()
+                .statusCode(200)
+                .extract()
+                .asString();
 
-        mockMvc.perform(get("/api/v1/inventory/items/" + itemId)
-                        .header("X-Dev-User", "wh")
-                        .header("X-Dev-Roles", "WAREHOUSE_MANAGER"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.onHandQuantity").value(3300));
+        String itemResponse = given()
+                .mockMvc(mockMvc)
+                .header("X-Dev-User", "wh")
+                .header("X-Dev-Roles", "WAREHOUSE_MANAGER")
+                .when()
+                .get("/api/v1/inventory/items/{itemId}", itemId)
+                .then()
+                .statusCode(200)
+                .extract()
+                .asString();
 
         assertThat(firstJson.get("sku").asText()).isEqualTo("COFFEE-ROBUSTA");
+        assertThat(objectMapper.readTree(replayResponse).get("onHandQuantity").decimalValue())
+                .isEqualByComparingTo("3300");
+        assertThat(objectMapper.readTree(itemResponse).get("onHandQuantity").decimalValue())
+                .isEqualByComparingTo("3300");
     }
 
     @Test
