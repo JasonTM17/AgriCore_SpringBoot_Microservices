@@ -4,7 +4,12 @@ info:
   version: 1.0.0
   description: |
     REST notification sink (log/delivery record).
-    Kafka NotificationRequested consumers are planned, not yet wired.
+
+    Kafka: consumes UserRegistered.v1 from agricore.identity.events and records a
+    welcome notification, idempotent per (eventId, consumer) via processed_events.
+    Failures retry with backoff then land on agricore.identity.events.DLT.
+
+    NotificationRequested.v1 is reserved but not consumed: no service produces it today.
 servers:
   - url: http://localhost:8089
 paths:

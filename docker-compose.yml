@@ -196,8 +196,10 @@ services:
         condition: service_healthy
       identity-service:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
     environment:
-      <<: [*db-env, *security-env]
+      <<: [*db-env, *security-env, *kafka-env]
       NOTIFICATION_PORT: 8089
     ports:
       - "8089:8089"

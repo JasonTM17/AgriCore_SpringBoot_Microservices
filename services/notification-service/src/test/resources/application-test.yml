@@ -18,3 +18,7 @@ agricore:
     dev-mode: true
     issuer: https://agricore.test/identity
     jwk-set-uri: http://localhost:8081/.well-known/jwks.json
+  # No broker in tests; the listener is exercised directly as a unit
+  kafka:
+    consumer:
+      enabled: false
