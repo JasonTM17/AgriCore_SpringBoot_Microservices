@@ -14,6 +14,11 @@
   {{- if eq (lower $tag) "latest" -}}
     {{- fail "global.imageTag must be an immutable release tag or commit SHA; latest is not allowed" -}}
   {{- end -}}
+  {{- if not (default false .allowMutable) -}}
+    {{- if not (regexMatch `^[0-9a-f]{40}$` $tag) -}}
+      {{- fail "global.imageTag must be the full 40-character lowercase commit SHA unless global.allowMutableImages=true" -}}
+    {{- end -}}
+  {{- end -}}
   {{- printf "%s:%s" $image $tag -}}
 {{- end -}}
 {{- end -}}

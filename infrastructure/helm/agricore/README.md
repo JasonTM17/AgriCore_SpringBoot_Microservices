@@ -2,10 +2,14 @@
 
 ## Immutable images
 
-Set `global.imageTag` to a full or short commit SHA when each service `image`
-value is a repository. For deploy-by-digest, set a service `image` directly to
+Set `global.imageTag` to the full 40-character lowercase commit SHA when each
+service `image` value is a repository. The chart fails closed when the value is
+empty or not immutable. For deploy-by-digest, set a service `image` directly to
 `repository@sha256:<64-hex-digest>`; the chart validates and renders that digest
-without appending `global.imageTag`. The `latest` tag is rejected.
+without appending `global.imageTag`. The `latest` tag is always rejected.
+
+For a local development render only, set `global.allowMutableImages=true` and a
+named non-`latest` tag. Never carry that override into production values.
 
 ## Required internal Inventory credential
 

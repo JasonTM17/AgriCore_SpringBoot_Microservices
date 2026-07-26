@@ -1,7 +1,11 @@
 global:
   imageRegistry: nguyenson1710
-  # CI/release jobs override this with the full commit SHA. Never use latest.
-  imageTag: "0.1.0"
+  # CI/release jobs must override this with the full 40-character commit SHA.
+  # Leave empty locally to fail closed instead of silently rendering a mutable tag.
+  imageTag: ""
+  # Development-only escape hatch for a named non-latest tag. Keep false in
+  # production and never commit an environment override that enables it.
+  allowMutableImages: false
   imagePullPolicy: IfNotPresent
 
 autoscaling:

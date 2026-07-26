@@ -162,7 +162,7 @@ jobs:
           python scripts/verify-compose-runtime-contracts.py
       - name: Lint and render Helm chart
         run: |
-          docker run --rm -v "$PWD:/workspace" -w /workspace alpine/helm:3.17.3 lint infrastructure/helm/agricore
+          docker run --rm -v "$PWD:/workspace" -w /workspace alpine/helm:3.17.3 lint infrastructure/helm/agricore --set "global.imageTag=0000000000000000000000000000000000000000"
           docker run --rm -v "$PWD:/workspace" -w /workspace alpine/helm:3.17.3 template agricore infrastructure/helm/agricore --set ingress.enabled=true --set "global.imageTag=${GITHUB_SHA}" >/dev/null
 
   container-build-scan:
