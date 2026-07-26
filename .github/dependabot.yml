@@ -8,8 +8,12 @@ updates:
     open-pull-requests-limit: 10
     labels: ["dependencies", "maven"]
 
+  # Every Dockerfile lives under services/<name>/. Pointed at "/" this found nothing, so the
+  # builder and runtime base images were never offered an update while the config looked like
+  # coverage. The glob also picks up a new service without another edit here.
   - package-ecosystem: docker
-    directory: "/"
+    directories:
+      - "/services/*"
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
