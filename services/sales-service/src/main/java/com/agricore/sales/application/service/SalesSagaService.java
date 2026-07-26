@@ -97,8 +97,12 @@ public class SalesSagaService {
         saga.setUpdatedAt(now);
         saga = sagaRepository.saveAndFlush(saga);
 
+        // Held outside the try so both catch blocks can compensate a reservation that inventory
+        // already committed. Reading it back off the order row instead would miss the window
+        // between the remote reserve succeeding and the local save persisting the id.
+        UUID reservationId = null;
         try {
-            UUID reservationId = inventoryClient.reserve(
+            reservationId = inventoryClient.reserve(
                     order.getInventoryItemId(),
                     order.getQuantity(),
                     order.getId().toString()
@@ -127,6 +131,11 @@ public class SalesSagaService {
             saga.setUpdatedAt(Instant.now());
             saga = sagaRepository.saveAndFlush(saga);
         } catch (InventoryClient.InventoryReservationException ex) {
+            // A failure at the confirm step leaves a reservation inventory already committed.
+            // Without this release the stock stays held forever while the saga below records
+            // itself as COMPENSATED, and reconcile refuses the order for having no reservation.
+            String releaseError = releaseQuietly(reservationId);
+
             order = reloadOrder(order.getId());
             if (ex.isInsufficientStock()) {
                 order.setStatus(OrderStatus.OUT_OF_STOCK);
@@ -139,22 +148,19 @@ public class SalesSagaService {
 
             saga = reloadSaga(order.getId());
             saga.setStatus("FAILED");
-            saga.setLastError(ex.getMessage());
+            saga.setLastError(releaseError == null ? ex.getMessage() : ex.getMessage() + " | " + releaseError);
             saga.setCurrentStep("COMPENSATED");
             saga.setUpdatedAt(Instant.now());
             saga = sagaRepository.saveAndFlush(saga);
         } catch (Exception ex) {
             // Compensation: release if we already reserved
-            order = reloadOrder(order.getId());
-            if (order.getReservationId() != null) {
-                try {
-                    inventoryClient.release(order.getReservationId());
-                } catch (Exception releaseEx) {
-                    saga = reloadSaga(order.getId());
-                    saga.setLastError("Release failed: " + releaseEx.getMessage());
-                    sagaRepository.saveAndFlush(saga);
-                }
+            String releaseError = releaseQuietly(reservationId);
+            if (releaseError != null) {
+                saga = reloadSaga(order.getId());
+                saga.setLastError(releaseError);
+                sagaRepository.saveAndFlush(saga);
             }
+            order = reloadOrder(order.getId());
             order.setStatus(OrderStatus.CANCELLED);
             order.setFailureReason(ex.getMessage());
             order.setUpdatedAt(Instant.now());
@@ -167,6 +173,28 @@ public class SalesSagaService {
         }
 
         return toResponse(order, saga);
+    }
+
+    /**
+     * Releases a reservation during compensation, returning a description of the failure instead of
+     * throwing. Compensation runs while another failure is already being handled, so letting this
+     * throw would replace the original cause with a secondary one and abandon the order mid-update.
+     *
+     * <p>Safe to call for a reservation inventory has already finalised: {@code release} on a
+     * terminal reservation is a no-op there, so this cannot double-decrement.
+     *
+     * @return null when there was nothing to release or the release succeeded
+     */
+    private String releaseQuietly(UUID reservationId) {
+        if (reservationId == null) {
+            return null;
+        }
+        try {
+            inventoryClient.release(reservationId);
+            return null;
+        } catch (Exception releaseEx) {
+            return "Release failed: " + releaseEx.getMessage();
+        }
     }
 
     private SalesOrderEntity reloadOrder(UUID id) {

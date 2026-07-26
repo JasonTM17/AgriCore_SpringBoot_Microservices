@@ -113,8 +113,16 @@ public class InventoryClient {
             return status;
         }
 
+        /**
+         * True only for a genuine stock shortage, which is a terminal outcome for the order.
+         *
+         * <p>Deliberately does not treat every 409 as out of stock. Inventory also answers 409 for
+         * {@code OPTIMISTIC_LOCK} (two orders touching one item at once) and
+         * {@code RESERVATION_NOT_ACTIVE}. Reading the status alone marked the loser of a harmless
+         * concurrent update as permanently OUT_OF_STOCK while the stock was in fact available.
+         */
         public boolean isInsufficientStock() {
-            return status == 409 || (getMessage() != null && getMessage().contains("INSUFFICIENT_STOCK"));
+            return getMessage() != null && getMessage().contains("INSUFFICIENT_STOCK");
         }
     }
 }
