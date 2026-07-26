@@ -42,29 +42,34 @@ public class GenerationEventStreamService {
             UUID generationId,
             long afterSequence
     ) {
-        GenerationEventReplayBatch initialBatch = replayService.read(
-                actor, conversationId, generationId, afterSequence, properties.getBatchSize());
         if (!connectionSlots.tryAcquire()) {
             throw AssistantException.streamCapacityExceeded();
         }
 
-        SseEmitter emitter = new SseEmitter(properties.getMaxConnectionDuration().toMillis());
-        GenerationEventStreamSession session = new GenerationEventStreamSession(
-                replayService,
-                scheduler,
-                properties,
-                clock,
-                emitter,
-                actor,
-                conversationId,
-                generationId,
-                afterSequence,
-                connectionSlots::release
-        );
-        emitter.onCompletion(session::close);
-        emitter.onTimeout(session::complete);
-        emitter.onError(ignored -> session.close());
-        session.start(initialBatch);
-        return emitter;
+        try {
+            GenerationEventReplayBatch initialBatch = replayService.read(
+                    actor, conversationId, generationId, afterSequence, properties.getBatchSize());
+            SseEmitter emitter = new SseEmitter(properties.getMaxConnectionDuration().toMillis());
+            GenerationEventStreamSession session = new GenerationEventStreamSession(
+                    replayService,
+                    scheduler,
+                    properties,
+                    clock,
+                    emitter,
+                    actor,
+                    conversationId,
+                    generationId,
+                    afterSequence,
+                    connectionSlots::release
+            );
+            emitter.onCompletion(session::close);
+            emitter.onTimeout(session::complete);
+            emitter.onError(ignored -> session.close());
+            session.start(initialBatch);
+            return emitter;
+        } catch (RuntimeException | Error exception) {
+            connectionSlots.release();
+            throw exception;
+        }
     }
 }
