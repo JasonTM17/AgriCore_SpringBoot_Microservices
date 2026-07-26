@@ -58,10 +58,20 @@ function PublishKafkaJson([string]$Topic, [string]$Payload) {
 }
 
 function ReadKafkaTopic([string]$Topic, [int]$TimeoutMs = 2000) {
-  $output = docker exec agricore-kafka /opt/kafka/bin/kafka-console-consumer.sh `
-    --bootstrap-server kafka:19092 --topic $Topic --from-beginning --timeout-ms $TimeoutMs 2>&1 | Out-String
-  if ($LASTEXITCODE -ne 0 -and $output -notmatch "Processed a total") {
-    throw "Kafka consume failed for topic=$Topic exit=$LASTEXITCODE output=$output"
+  $previousErrorActionPreference = $ErrorActionPreference
+  try {
+    # Kafka's console consumer writes its normal timeout summary to stderr.
+    # Capture it for validation without letting Windows PowerShell promote it
+    # to a terminating NativeCommandError.
+    $ErrorActionPreference = "Continue"
+    $output = docker exec agricore-kafka /opt/kafka/bin/kafka-console-consumer.sh `
+      --bootstrap-server kafka:19092 --topic $Topic --from-beginning --timeout-ms $TimeoutMs 2>&1 | Out-String
+    $consumerExitCode = $LASTEXITCODE
+  } finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+  }
+  if ($consumerExitCode -ne 0 -and $output -notmatch "Processed a total") {
+    throw "Kafka consume failed for topic=$Topic exit=$consumerExitCode output=$output"
   }
   return $output
 }
@@ -183,16 +193,24 @@ $taskObj = PostJson "$Gateway/api/v1/work-tasks" $Auth @{
   title = "Water block"
   priority = "HIGH"
 }
-PostJson "$Gateway/api/v1/work-tasks/$($taskObj.id)/assign" $Auth @{
+$taskObj = PostJson "$Gateway/api/v1/work-tasks/$($taskObj.id)/assign" $Auth @{
   assignedEmployeeId = [guid]::NewGuid().ToString()
-} | Out-Null
-PostJson "$Gateway/api/v1/work-tasks/$($taskObj.id)/complete" $Auth @{ notes = "ok" } | Out-Null
+}
+$taskObj = Invoke-RestMethod -Method Post `
+  -Uri "$Gateway/api/v1/work-tasks/$($taskObj.id)/start" `
+  -Headers $Auth
+if ($taskObj.status -ne "IN_PROGRESS") {
+  throw "Work task must be IN_PROGRESS before completion, got '$($taskObj.status)'"
+}
+$taskObj = PostJson "$Gateway/api/v1/work-tasks/$($taskObj.id)/complete" $Auth @{ notes = "ok" }
 Log "Work task completed id=$($taskObj.id)"
 
 Log "== 5. Warehouse + harvest (outbox -> Kafka) =="
 $whObj = PostJson "$Gateway/api/v1/inventory/warehouses" $Auth @{
   farmId = $farmObj.id; code = "WH-$(Get-Random)"; name = "E2E Warehouse"
 }
+$inventoryBefore = [decimal](docker exec agricore-postgres psql -U agricore -d agricore_inventory -t -A -c `
+  "SELECT COALESCE(SUM(on_hand_quantity), 0) FROM inventory_items WHERE upper(sku)='COFFEE-ROBUSTA';").Trim()
 $harvestCode = "HB-$(Get-Random)"
 $harvestObj = PostJson "$Gateway/api/v1/harvests/complete" $Auth @{
   code = $harvestCode
@@ -217,9 +235,9 @@ $onHand = $null
 while ((Get-Date) -lt $deadline) {
   try {
     $onHand = (docker exec agricore-postgres psql -U agricore -d agricore_inventory -t -A -c `
-      "SELECT on_hand_quantity FROM inventory_items WHERE upper(sku)='COFFEE-ROBUSTA' ORDER BY created_at DESC LIMIT 1;").Trim()
-    if ($onHand -and [decimal]$onHand -ge 90) {
-      Log "Inventory stocked sku=COFFEE-ROBUSTA onHand=$onHand"
+      "SELECT COALESCE(SUM(on_hand_quantity), 0) FROM inventory_items WHERE upper(sku)='COFFEE-ROBUSTA';").Trim()
+    if ($onHand -and [decimal]$onHand -ge ($inventoryBefore + 90)) {
+      Log "Inventory stocked sku=COFFEE-ROBUSTA before=$inventoryBefore onHand=$onHand"
       $stocked = $true
       break
     }
@@ -235,27 +253,22 @@ $productNameForCode = "Ca phe Robusta"
 $prefix = ($productNameForCode -replace '[^A-Za-z0-9]', '').ToUpperInvariant()
 if ($prefix.Length -gt 6) { $prefix = $prefix.Substring(0, 6) }
 if ([string]::IsNullOrWhiteSpace($prefix)) { $prefix = "PRD" }
-$suffix = ($harvestObj.id.ToString() -replace '-', '').Substring(0, 8).ToUpperInvariant()
+$suffix = ($harvestObj.id.ToString() -replace '-', '').ToUpperInvariant()
 $expectedCode = "$prefix-$suffix"
-$candidates = @($expectedCode, "COFFEE-$suffix", "PRD-$suffix")
 Log "Expected traceability code: $expectedCode"
 
 $publicObj = $null
 $traceCode = $null
 $deadline2 = (Get-Date).AddSeconds(90)
 while ((Get-Date) -lt $deadline2 -and -not $publicObj) {
-  foreach ($c in $candidates) {
+  try {
+    $publicObj = GetJson "$Gateway/public/api/v1/traceability/$expectedCode"
+    $traceCode = $expectedCode
+  } catch {
     try {
-      $publicObj = GetJson "$Gateway/public/api/v1/traceability/$c"
-      $traceCode = $c
-      break
-    } catch {
-      try {
-        $publicObj = GetJson "$TraceDirect/public/api/v1/traceability/$c"
-        $traceCode = $c
-        break
-      } catch {}
-    }
+      $publicObj = GetJson "$TraceDirect/public/api/v1/traceability/$expectedCode"
+      $traceCode = $expectedCode
+    } catch {}
   }
   if ($publicObj) { break }
   Start-Sleep -Seconds 2
@@ -286,7 +299,7 @@ $duplicateStable = $false
 while ((Get-Date) -lt $duplicateDeadline) {
   try {
     $afterRepublish = (docker exec agricore-postgres psql -U agricore -d agricore_inventory -t -A -c `
-      "SELECT on_hand_quantity FROM inventory_items WHERE upper(sku)='COFFEE-ROBUSTA' ORDER BY created_at DESC LIMIT 1;").Trim()
+      "SELECT COALESCE(SUM(on_hand_quantity), 0) FROM inventory_items WHERE upper(sku)='COFFEE-ROBUSTA';").Trim()
     if ($afterRepublish -and [decimal]$afterRepublish -eq $baselineOnHand) {
       $duplicateStable = $true
       break
