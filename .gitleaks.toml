@@ -1,0 +1,19 @@
+title = "AgriCore Gitleaks configuration"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+
+[[rules.allowlists]]
+description = "Ignore path-encoding fixtures passed to assistant API helpers"
+condition = "AND"
+regexTarget = "line"
+paths = [
+  '''^apps/agricore-console/src/features/assistant/assistant-api\.test\.ts$''',
+]
+regexes = [
+  '''getAssistantGeneration\(api, "conversation/id", "generation/id\?part"\);''',
+  '''cancelAssistantGeneration\(api, "conversation/id", "generation/id\?part"\);''',
+]
