@@ -13,6 +13,7 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -36,6 +37,7 @@ class CropCycleOverlapPostgresIntegrationTest {
         Flyway.configure()
                 .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
                 .locations("classpath:db/migration", "classpath:db/postgresql-migration")
+                .configuration(Map.of("flyway.postgresql.transactional.lock", "false"))
                 .load()
                 .migrate();
 
