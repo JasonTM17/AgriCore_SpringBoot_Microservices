@@ -1,9 +1,11 @@
-﻿FROM maven:3.9.9-eclipse-temurin-21 AS build
+# syntax=docker/dockerfile:1.7
+FROM maven:3.9.9-eclipse-temurin-21 AS build
 WORKDIR /workspace
 COPY pom.xml .
 COPY libs ./libs
 COPY services ./services
-RUN mvn -q -pl services/work-service -am package -DskipTests
+RUN --mount=type=cache,id=agricore-maven,target=/root/.m2,sharing=locked \
+    mvn -q -pl services/work-service -am package -DskipTests
 
 FROM eclipse-temurin:21-jre-alpine
 RUN addgroup -S agricore && adduser -S agricore -G agricore \

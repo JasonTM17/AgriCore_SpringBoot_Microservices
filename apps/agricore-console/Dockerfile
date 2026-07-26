@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 FROM node:22.13.0-alpine AS build
 
 WORKDIR /workspace
@@ -5,7 +6,8 @@ RUN npm install --global pnpm@11.0.9
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/agricore-console/package.json apps/agricore-console/package.json
-RUN pnpm install --frozen-lockfile --filter @agricore/console...
+RUN --mount=type=cache,id=agricore-pnpm,target=/root/.local/share/pnpm/store,sharing=locked \
+    pnpm install --frozen-lockfile --filter @agricore/console...
 
 COPY apps/agricore-console apps/agricore-console
 COPY contracts contracts
