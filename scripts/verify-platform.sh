@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 # Unix counterpart of verify-platform.ps1
 set -euo pipefail
+INVOCATION_DIR="$(pwd -P)"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 EVIDENCE_DIR="${EVIDENCE_DIR:-${1:-./.verify-evidence}}"
+if [[ "$EVIDENCE_DIR" != /* ]]; then
+  EVIDENCE_DIR="$INVOCATION_DIR/$EVIDENCE_DIR"
+fi
 mkdir -p "$EVIDENCE_DIR"
+EVIDENCE_DIR="$(cd "$EVIDENCE_DIR" && pwd -P)"
 cd "$ROOT"
 
 if [[ ! -f .env && -f .env.example ]]; then
@@ -70,10 +75,10 @@ echo "InventoryPostgresIdempotencyTest: $PG_LINE"
 if command -v pwsh >/dev/null 2>&1; then
   pwsh -File scripts/e2e-happy-path.ps1 -EvidenceDir "$EVIDENCE_DIR"
 else
-  echo "pwsh not found — install PowerShell Core or run e2e-happy-path.ps1 manually" >&2
+  echo "pwsh not found - install PowerShell Core or run e2e-happy-path.ps1 manually" >&2
   exit 1
 fi
 
 grep -q farmName "$EVIDENCE_DIR/traceability.json"
 grep -q plotCode "$EVIDENCE_DIR/traceability.json"
-echo "VERIFY PLATFORM OK — evidence in $EVIDENCE_DIR"
+echo "VERIFY PLATFORM OK - evidence in $EVIDENCE_DIR"
