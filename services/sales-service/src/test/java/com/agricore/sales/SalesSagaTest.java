@@ -24,6 +24,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -116,7 +117,7 @@ class SalesSagaTest {
     }
 
     @Test
-    void placeOrder_confirmFailure_releasesReservationBeforeCancelling() throws Exception {
+    void placeOrder_confirmFailure_schedulesDurableRetry() throws Exception {
         UUID reservationId = UUID.randomUUID();
         when(inventoryClient.reserve(any(), any(), anyString())).thenReturn(reservationId);
         doThrow(new InventoryClient.InventoryReservationException(503, "confirm unavailable"))
@@ -125,15 +126,15 @@ class SalesSagaTest {
 
         placeOrder("SO3", createCustomer("C3"), 25)
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.status").value("CANCELLED"))
-                .andExpect(jsonPath("$.sagaStatus").value("FAILED"))
-                .andExpect(jsonPath("$.sagaStep").value("COMPENSATED"));
+                .andExpect(jsonPath("$.status").value("STOCK_RESERVED"))
+                .andExpect(jsonPath("$.sagaStatus").value("RETRY_SCHEDULED"))
+                .andExpect(jsonPath("$.sagaStep").value("CONFIRM_INVENTORY"));
 
-        verify(inventoryClient).release(reservationId);
+        verify(inventoryClient, never()).release(reservationId);
     }
 
     @Test
-    void placeOrder_confirmResponseLost_preservesFulfilledOrder() throws Exception {
+    void placeOrder_confirmResponseLost_isRecoverableWithoutImmediateCompensation() throws Exception {
         UUID reservationId = UUID.randomUUID();
         when(inventoryClient.reserve(any(), any(), anyString())).thenReturn(reservationId);
         doThrow(new InventoryClient.InventoryReservationException(503, "confirm response lost"))
@@ -142,30 +143,27 @@ class SalesSagaTest {
 
         placeOrder("SO4", createCustomer("C4"), 30)
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.status").value("CONFIRMED"))
-                .andExpect(jsonPath("$.sagaStatus").value("COMPLETED"))
-                .andExpect(jsonPath("$.sagaStep").value("CONFIRMED"));
+                .andExpect(jsonPath("$.status").value("STOCK_RESERVED"))
+                .andExpect(jsonPath("$.sagaStatus").value("RETRY_SCHEDULED"))
+                .andExpect(jsonPath("$.sagaStep").value("CONFIRM_INVENTORY"));
 
-        verify(inventoryClient).release(reservationId);
+        verify(inventoryClient, never()).release(reservationId);
     }
 
     @Test
-    void placeOrder_releaseFailure_keepsReservationPendingCompensation() throws Exception {
+    void placeOrder_confirmFailure_doesNotReleaseBeforeRetryBudgetIsConsumed() throws Exception {
         UUID reservationId = UUID.randomUUID();
         when(inventoryClient.reserve(any(), any(), anyString())).thenReturn(reservationId);
         doThrow(new InventoryClient.InventoryReservationException(503, "confirm unavailable"))
                 .when(inventoryClient).confirm(reservationId);
-        when(inventoryClient.release(reservationId))
-                .thenThrow(new IllegalStateException("release timeout"));
-
         placeOrder("SO5", createCustomer("C5"), 30)
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("STOCK_RESERVED"))
-                .andExpect(jsonPath("$.sagaStatus").value("FAILED"))
-                .andExpect(jsonPath("$.sagaStep").value("COMPENSATION_PENDING"))
+                .andExpect(jsonPath("$.sagaStatus").value("RETRY_SCHEDULED"))
+                .andExpect(jsonPath("$.sagaStep").value("CONFIRM_INVENTORY"))
                 .andExpect(jsonPath("$.reservationId").value(reservationId.toString()));
 
-        verify(inventoryClient).release(reservationId);
+        verify(inventoryClient, never()).release(reservationId);
     }
 
     @Test
@@ -216,7 +214,7 @@ class SalesSagaTest {
         placeOrder("UNKNOWN", customerId, 3)
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("PENDING_CONFIRMATION"))
-                .andExpect(jsonPath("$.sagaStatus").value("FAILED"))
+                .andExpect(jsonPath("$.sagaStatus").value("RETRY_SCHEDULED"))
                 .andExpect(jsonPath("$.sagaStep").value("RESERVATION_OUTCOME_UNKNOWN"));
 
         assertThat(sagaRepository.findAll()).anySatisfy(saga ->

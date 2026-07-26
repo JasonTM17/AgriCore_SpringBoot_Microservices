@@ -89,8 +89,9 @@ public class SalesOrderTransactionService {
         saga.setSalesOrderId(order.getId());
         saga.setCorrelationId(correlationId);
         saga.setCurrentStep("RESERVE_INVENTORY");
-        saga.setStatus("RUNNING");
+        saga.setStatus("PROCESSING");
         saga.setRetryCount(0);
+        saga.setExecutionStartedAt(now);
         saga.setCreatedAt(now);
         saga.setUpdatedAt(now);
         sagaRepository.save(saga);
@@ -146,6 +147,9 @@ public class SalesOrderTransactionService {
         if (reconciliation) {
             saga.setRetryCount(saga.getRetryCount() + 1);
         }
+        saga.setExecutionStartedAt(null);
+        saga.setNextAttemptAt(null);
+        saga.setCompletedAt(order.getUpdatedAt());
         saga.setUpdatedAt(order.getUpdatedAt());
         outboxWriter.salesOrderConfirmed(order);
     }
@@ -163,6 +167,9 @@ public class SalesOrderTransactionService {
         saga.setStatus("FAILED");
         saga.setLastError(failureMessage);
         saga.setCurrentStep("COMPENSATED");
+        saga.setExecutionStartedAt(null);
+        saga.setNextAttemptAt(null);
+        saga.setCompletedAt(order.getUpdatedAt());
         saga.setUpdatedAt(order.getUpdatedAt());
         outboxWriter.salesOrderCancelled(
                 order,
@@ -192,6 +199,9 @@ public class SalesOrderTransactionService {
         if (reconciliation) {
             saga.setRetryCount(saga.getRetryCount() + 1);
         }
+        saga.setExecutionStartedAt(null);
+        saga.setNextAttemptAt(null);
+        saga.setCompletedAt(order.getUpdatedAt());
         saga.setUpdatedAt(order.getUpdatedAt());
         outboxWriter.salesOrderCancelled(
                 order,
@@ -203,7 +213,8 @@ public class SalesOrderTransactionService {
     public void markCompensationPending(
             UUID orderId,
             UUID reservationId,
-            String compensationFailure
+            String compensationFailure,
+            Instant nextAttemptAt
     ) {
         SalesOrderEntity order = lockedOrder(orderId);
         OrderSagaEntity saga = lockedSaga(orderId);
@@ -214,22 +225,37 @@ public class SalesOrderTransactionService {
         order.setStatus(OrderStatus.STOCK_RESERVED);
         order.setFailureReason(compensationFailure);
         order.setUpdatedAt(Instant.now());
-        saga.setStatus("FAILED");
+        saga.setStatus("RETRY_SCHEDULED");
         saga.setLastError(compensationFailure);
         saga.setCurrentStep("COMPENSATION_PENDING");
+        saga.setNextAttemptAt(nextAttemptAt);
+        saga.setExecutionStartedAt(null);
         saga.setUpdatedAt(order.getUpdatedAt());
     }
 
     @Transactional
-    public void recordReconcileFailure(UUID orderId, String action, String failureMessage) {
+    public void recordReconcileFailure(
+            UUID orderId,
+            String action,
+            String failureMessage,
+            Instant nextAttemptAt
+    ) {
+        lockedOrder(orderId);
         OrderSagaEntity saga = lockedSaga(orderId);
         saga.setLastError("reconcile " + action + " failed: " + failureMessage);
         saga.setRetryCount(saga.getRetryCount() + 1);
+        saga.setStatus("RETRY_SCHEDULED");
+        saga.setNextAttemptAt(nextAttemptAt);
+        saga.setExecutionStartedAt(null);
         saga.setUpdatedAt(Instant.now());
     }
 
     @Transactional
-    public void markReservationOutcomeUnknown(UUID orderId, String failureMessage) {
+    public void markReservationOutcomeUnknown(
+            UUID orderId,
+            String failureMessage,
+            Instant nextAttemptAt
+    ) {
         SalesOrderEntity order = lockedOrder(orderId);
         OrderSagaEntity saga = lockedSaga(orderId);
         if (isTerminal(order)) {
@@ -239,11 +265,38 @@ public class SalesOrderTransactionService {
         order.setStatus(OrderStatus.PENDING_CONFIRMATION);
         order.setFailureReason("reservation outcome unknown: " + failureMessage);
         order.setUpdatedAt(now);
-        saga.setStatus("FAILED");
+        saga.setStatus("RETRY_SCHEDULED");
         saga.setLastError(failureMessage);
         saga.setCurrentStep("RESERVATION_OUTCOME_UNKNOWN");
         saga.setRetryCount(saga.getRetryCount() + 1);
+        saga.setNextAttemptAt(nextAttemptAt);
+        saga.setExecutionStartedAt(null);
         saga.setUpdatedAt(now);
+    }
+
+    @Transactional
+    public void markConfirmationRetry(
+            UUID orderId,
+            UUID reservationId,
+            String failureMessage,
+            Instant nextAttemptAt
+    ) {
+        SalesOrderEntity order = lockedOrder(orderId);
+        OrderSagaEntity saga = lockedSaga(orderId);
+        if (isTerminal(order)) {
+            return;
+        }
+        order.setReservationId(reservationId);
+        order.setStatus(OrderStatus.STOCK_RESERVED);
+        order.setFailureReason(failureMessage);
+        order.setUpdatedAt(Instant.now());
+        saga.setStatus("RETRY_SCHEDULED");
+        saga.setLastError(failureMessage);
+        saga.setCurrentStep("CONFIRM_INVENTORY");
+        saga.setRetryCount(saga.getRetryCount() + 1);
+        saga.setNextAttemptAt(nextAttemptAt);
+        saga.setExecutionStartedAt(null);
+        saga.setUpdatedAt(order.getUpdatedAt());
     }
 
     private SalesOrderEntity lockedOrder(UUID orderId) {

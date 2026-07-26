@@ -43,6 +43,15 @@ agricore:
     internal-service-token: ${INVENTORY_INTERNAL_SERVICE_TOKEN:}
     connect-timeout: ${INVENTORY_CONNECT_TIMEOUT:PT2S}
     read-timeout: ${INVENTORY_READ_TIMEOUT:PT5S}
+  saga:
+    recovery:
+      enabled: ${SALES_SAGA_RECOVERY_ENABLED:true}
+      poll-ms: ${SALES_SAGA_RECOVERY_POLL_MS:5000}
+      max-attempts: ${SALES_SAGA_RECOVERY_MAX_ATTEMPTS:5}
+      batch-size: ${SALES_SAGA_RECOVERY_BATCH_SIZE:50}
+      execution-lease: ${SALES_SAGA_RECOVERY_EXECUTION_LEASE:PT30S}
+      initial-delay: ${SALES_SAGA_RECOVERY_INITIAL_DELAY:PT5S}
+      maximum-delay: ${SALES_SAGA_RECOVERY_MAXIMUM_DELAY:PT1M}
   outbox:
     publisher:
       enabled: true

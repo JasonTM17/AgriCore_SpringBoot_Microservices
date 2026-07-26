@@ -1,10 +1,10 @@
 openapi: 3.1.0
 info:
   title: AgriCore Sales Service API
-  version: 1.1.0
+  version: 1.2.0
   description: |
     Customers and sales orders with inventory reservation saga.
-    Flow: create order → reserve stock → confirm reservation → CONFIRMED.
+    Flow: create order → reserve stock → confirm reservation → fulfillment milestones.
 servers:
   - url: http://localhost:8091
 paths:
@@ -53,8 +53,9 @@ paths:
       responses:
         '201':
           description: >-
-            Current saga outcome: CONFIRMED, OUT_OF_STOCK, CANCELLED, or STOCK_RESERVED
-            while failed compensation awaits reconciliation.
+            Current saga outcome can be terminal (CONFIRMED, OUT_OF_STOCK, CANCELLED),
+            retryable (RETRY_SCHEDULED), or STOCK_RESERVED while confirmation is retried.
+            A bounded recovery worker marks exhausted sagas TIMED_OUT for manual review.
           content:
             application/json:
               schema:
@@ -147,6 +148,9 @@ components:
         failureReason: { type: [string, 'null'] }
         sagaStatus: { type: [string, 'null'] }
         sagaStep: { type: [string, 'null'] }
+        sagaRetryCount: { type: [integer, 'null'], minimum: 0 }
+        sagaNextAttemptAt: { type: [string, 'null'], format: date-time }
+        sagaCompletedAt: { type: [string, 'null'], format: date-time }
         createdAt: { type: string, format: date-time }
         currencyCode: { type: [string, 'null'], pattern: '^[A-Z]{3}$' }
         subtotalAmount: { type: [number, 'null'], minimum: 0 }

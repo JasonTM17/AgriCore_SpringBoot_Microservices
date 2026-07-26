@@ -30,6 +30,9 @@ export interface SalesOrderResponse {
   failureReason: string | null;
   sagaStatus: string | null;
   sagaStep: string | null;
+  sagaRetryCount: number | null;
+  sagaNextAttemptAt: string | null;
+  sagaCompletedAt: string | null;
   createdAt: string;
   currencyCode: string | null;
   subtotalAmount: number | null;

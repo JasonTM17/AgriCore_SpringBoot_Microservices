@@ -36,6 +36,7 @@ public class SalesSagaService {
     private final InventoryClient inventoryClient;
     private final SalesOrderTransactionService transactions;
     private final SalesMetrics metrics;
+    private final SalesSagaRecoveryPolicy recoveryPolicy;
 
     public SalesSagaService(
             CustomerJpaRepository customerRepository,
@@ -44,7 +45,8 @@ public class SalesSagaService {
             SalesOrderItemJpaRepository itemRepository,
             InventoryClient inventoryClient,
             SalesOrderTransactionService transactions,
-            SalesMetrics metrics
+            SalesMetrics metrics,
+            SalesSagaRecoveryPolicy recoveryPolicy
     ) {
         this.customerRepository = customerRepository;
         this.orderRepository = orderRepository;
@@ -53,6 +55,7 @@ public class SalesSagaService {
         this.inventoryClient = inventoryClient;
         this.transactions = transactions;
         this.metrics = metrics;
+        this.recoveryPolicy = recoveryPolicy;
     }
 
     @Transactional
@@ -110,10 +113,17 @@ public class SalesSagaService {
                         compensateKnownReservation(orderId, reservation.get(), failureMessage);
                         return;
                     }
+                    transactions.markReservationOutcomeUnknown(
+                            orderId,
+                            failureMessage + "; reservation is not visible yet",
+                            recoveryPolicy.nextAttemptAt(1, Instant.now())
+                    );
+                    return;
                 } catch (Exception lookupFailure) {
                     transactions.markReservationOutcomeUnknown(
                             orderId,
-                            failureMessage + "; reservation lookup failed: " + failureMessage(lookupFailure)
+                            failureMessage + "; reservation lookup failed: " + failureMessage(lookupFailure),
+                            recoveryPolicy.nextAttemptAt(1, Instant.now())
                     );
                     return;
                 }
@@ -124,18 +134,12 @@ public class SalesSagaService {
             return;
         }
 
-        try {
-            InventoryClient.ReleaseOutcome releaseOutcome = inventoryClient.release(reservationId);
-            if (releaseOutcome == InventoryClient.ReleaseOutcome.FULFILLED) {
-                transactions.confirm(orderId, reservationId, false);
-            } else {
-                transactions.cancelAfterRelease(orderId, reservationId, failureMessage, false);
-            }
-        } catch (Exception releaseFailure) {
-            String compensationFailure = failureMessage
-                    + "; release failed: " + failureMessage(releaseFailure);
-            transactions.markCompensationPending(orderId, reservationId, compensationFailure);
-        }
+        transactions.markConfirmationRetry(
+                orderId,
+                reservationId,
+                failureMessage,
+                recoveryPolicy.nextAttemptAt(1, Instant.now())
+        );
     }
 
     private void compensateKnownReservation(
@@ -148,24 +152,18 @@ public class SalesSagaService {
             case "FULFILLED" -> transactions.confirm(orderId, reservationId, false);
             case "RELEASED" -> transactions.cancelAfterRelease(orderId, reservationId, failureMessage, false);
             case "ACTIVE" -> {
-                try {
-                    InventoryClient.ReleaseOutcome outcome = inventoryClient.release(reservationId);
-                    if (outcome == InventoryClient.ReleaseOutcome.FULFILLED) {
-                        transactions.confirm(orderId, reservationId, false);
-                    } else {
-                        transactions.cancelAfterRelease(orderId, reservationId, failureMessage, false);
-                    }
-                } catch (Exception releaseFailure) {
-                    transactions.markCompensationPending(
-                            orderId,
-                            reservationId,
-                            failureMessage + "; release failed: " + failureMessage(releaseFailure)
-                    );
-                }
+                transactions.recordReservation(orderId, reservationId);
+                transactions.markConfirmationRetry(
+                        orderId,
+                        reservationId,
+                        failureMessage,
+                        recoveryPolicy.nextAttemptAt(1, Instant.now())
+                );
             }
             default -> transactions.markReservationOutcomeUnknown(
                     orderId,
-                    failureMessage + "; unsupported reservation status " + reservation.status()
+                    failureMessage + "; unsupported reservation status " + reservation.status(),
+                    recoveryPolicy.nextAttemptAt(1, Instant.now())
             );
         }
     }
@@ -210,7 +208,12 @@ public class SalesSagaService {
             throw exception;
         } catch (Exception failure) {
             String message = failureMessage(failure);
-            transactions.recordReconcileFailure(orderId, normalizedAction, message);
+            transactions.recordReconcileFailure(
+                    orderId,
+                    normalizedAction,
+                    message,
+                    recoveryPolicy.nextAttemptAt(1, Instant.now())
+            );
             throw new SalesException("RECONCILE_FAILED", message, 502);
         }
         return get(orderId);
@@ -231,7 +234,8 @@ public class SalesSagaService {
                 transactions.recordReconcileFailure(
                         orderId,
                         action,
-                        "Inventory has not exposed a reservation for the order reference"
+                        "Inventory has not exposed a reservation for the order reference",
+                        recoveryPolicy.nextAttemptAt(1, Instant.now())
                 );
                 throw new SalesException(
                         "RESERVATION_OUTCOME_UNKNOWN",
@@ -252,7 +256,12 @@ public class SalesSagaService {
             throw exception;
         } catch (Exception failure) {
             String message = failureMessage(failure);
-            transactions.recordReconcileFailure(orderId, action, message);
+            transactions.recordReconcileFailure(
+                    orderId,
+                    action,
+                    message,
+                    recoveryPolicy.nextAttemptAt(1, Instant.now())
+            );
             throw new SalesException("RECONCILE_FAILED", message, 502);
         }
     }
@@ -308,6 +317,9 @@ public class SalesSagaService {
                 order.getFailureReason(),
                 saga == null ? null : saga.getStatus(),
                 saga == null ? null : saga.getCurrentStep(),
+                saga == null ? null : saga.getRetryCount(),
+                saga == null ? null : saga.getNextAttemptAt(),
+                saga == null ? null : saga.getCompletedAt(),
                 order.getCreatedAt(),
                 order.getCurrencyCode(),
                 order.getSubtotalAmount(),

@@ -20,6 +20,10 @@ agricore:
   inventory:
     base-url: http://localhost:18086
     internal-service-token: test-inventory-sales-service-token-012345678901234567890123
+  saga:
+    recovery:
+      enabled: true
+      poll-ms: 3600000
   outbox:
     publisher:
       enabled: false
