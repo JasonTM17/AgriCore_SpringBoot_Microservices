@@ -1,21 +1,30 @@
 # Single gating entrypoint for AgriCore portfolio verification.
 # Starts FULL docker compose (apps + infra), waits health, runs tests + e2e, writes evidence bundle.
 param(
-  [string]$EvidenceDir = $(if ($env:EVIDENCE_DIR) { $env:EVIDENCE_DIR } else { Join-Path $PSScriptRoot "..\..\..\AppData\Local\Temp\grok-goal-4bce7ceea422\implementer" }),
+  [string]$EvidenceDir = $(if ($env:EVIDENCE_DIR) {
+    $env:EVIDENCE_DIR
+  } else {
+    Join-Path ([System.IO.Path]::GetTempPath()) "agricore-verify-evidence"
+  }),
   [switch]$SkipBuild,
   [switch]$SkipMaven
 )
 
 $ErrorActionPreference = "Stop"
+$InvocationDirectory = (Get-Location).Path
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-Set-Location $Root
 
-# Default scratch if path missing
-if (-not $EvidenceDir -or $EvidenceDir -match 'AppData\\Local\\Temp\\grok-goal') {
-  $fallback = "C:\Users\Admin\AppData\Local\Temp\grok-goal-4bce7ceea422\implementer"
-  if (-not $EvidenceDir) { $EvidenceDir = $fallback }
+# Resolve the evidence directory before changing the working directory so a
+# caller-provided relative path remains relative to the invocation location.
+if (-not $EvidenceDir) {
+  $EvidenceDir = Join-Path ([System.IO.Path]::GetTempPath()) "agricore-verify-evidence"
 }
+if (-not [System.IO.Path]::IsPathRooted($EvidenceDir)) {
+  $EvidenceDir = Join-Path $InvocationDirectory $EvidenceDir
+}
+$EvidenceDir = [System.IO.Path]::GetFullPath($EvidenceDir)
 New-Item -ItemType Directory -Path $EvidenceDir -Force | Out-Null
+Set-Location $Root
 Write-Host "EvidenceDir=$EvidenceDir"
 Write-Host "Root=$Root"
 
@@ -52,6 +61,16 @@ Start-Sleep -Seconds 2
 
 if (-not (Test-Path (Join-Path $Root ".env"))) {
   Copy-Item (Join-Path $Root ".env.example") (Join-Path $Root ".env") -ErrorAction SilentlyContinue
+}
+
+$jwtPrivateKey = Join-Path $Root "infrastructure\jwt\private.pem"
+$jwtPublicKey = Join-Path $Root "infrastructure\jwt\public.pem"
+if (-not (Test-Path $jwtPrivateKey) -or -not (Test-Path $jwtPublicKey)) {
+  Write-Host "== generate local JWT signing keys =="
+  & (Join-Path $Root "scripts\generate-jwt-keys.ps1")
+  if ($LASTEXITCODE -ne 0 -or -not (Test-Path $jwtPrivateKey) -or -not (Test-Path $jwtPublicKey)) {
+    throw "Local JWT signing key generation failed"
+  }
 }
 
 Write-Host "== docker compose up (full stack) =="

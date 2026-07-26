@@ -10,6 +10,20 @@ if [[ ! -f .env && -f .env.example ]]; then
   cp .env.example .env
 fi
 
+JWT_DIR="$ROOT/infrastructure/jwt"
+JWT_PRIVATE_KEY="$JWT_DIR/private.pem"
+JWT_PUBLIC_KEY="$JWT_DIR/public.pem"
+if [[ ! -f "$JWT_PRIVATE_KEY" || ! -f "$JWT_PUBLIC_KEY" ]]; then
+  if ! command -v openssl >/dev/null 2>&1; then
+    echo "openssl is required to generate local JWT signing keys" >&2
+    exit 1
+  fi
+  echo "== generate local JWT signing keys =="
+  mkdir -p "$JWT_DIR"
+  openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$JWT_PRIVATE_KEY"
+  openssl pkey -in "$JWT_PRIVATE_KEY" -pubout -out "$JWT_PUBLIC_KEY"
+fi
+
 echo "== docker compose up (full stack) =="
 docker compose -f docker-compose.yml up -d --build
 

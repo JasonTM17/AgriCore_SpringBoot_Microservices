@@ -91,4 +91,5 @@ apps/agricore-console/src/generated/
 *.tfstate*
 
 /evidence/
+/.verify-evidence/
 
