@@ -76,6 +76,80 @@ function ReadKafkaTopic([string]$Topic, [int]$TimeoutMs = 2000) {
   return $output
 }
 
+function GetKafkaTopicEndOffsets([string]$Topic) {
+  $output = docker exec agricore-kafka /opt/kafka/bin/kafka-get-offsets.sh `
+    --bootstrap-server kafka:19092 --topic $Topic --time -1
+  if ($LASTEXITCODE -ne 0) {
+    throw "Kafka end-offset lookup failed for topic=$Topic exit=$LASTEXITCODE"
+  }
+  $offsets = @{}
+  foreach ($line in @($output)) {
+    if ($line -match '^.+:(\d+):(\d+)$') {
+      $offsets[[int]$Matches[1]] = [long]$Matches[2]
+    }
+  }
+  if ($offsets.Count -eq 0) {
+    throw "Kafka end-offset lookup returned no partitions for topic=$Topic output=$output"
+  }
+  return $offsets
+}
+
+function FormatKafkaOffsets([hashtable]$Offsets) {
+  return (($Offsets.GetEnumerator() |
+        Sort-Object Key |
+        ForEach-Object { "$($_.Key):$($_.Value)" }) -join ",")
+}
+
+function WaitKafkaGroupCaughtUp(
+  [string]$Group,
+  [string]$Topic,
+  [hashtable]$TargetOffsets,
+  [int]$TimeoutSec = 60
+) {
+  $deadline = (Get-Date).AddSeconds($TimeoutSec)
+  $lastDescription = ""
+  while ((Get-Date) -lt $deadline) {
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+      $ErrorActionPreference = "Continue"
+      $lastDescription = docker exec agricore-kafka /opt/kafka/bin/kafka-consumer-groups.sh `
+        --bootstrap-server kafka:19092 --describe --group $Group 2>&1 | Out-String
+      $describeExitCode = $LASTEXITCODE
+    } finally {
+      $ErrorActionPreference = $previousErrorActionPreference
+    }
+    if ($describeExitCode -eq 0) {
+      $currentOffsets = @{}
+      foreach ($line in ($lastDescription -split "`r?`n")) {
+        $columns = @($line.Trim() -split '\s+')
+        if ($columns.Count -ge 5 -and
+            $columns[0] -eq $Group -and
+            $columns[1] -eq $Topic -and
+            $columns[2] -match '^\d+$' -and
+            $columns[3] -match '^\d+$') {
+          $currentOffsets[[int]$columns[2]] = [long]$columns[3]
+        }
+      }
+      $caughtUp = $true
+      foreach ($partition in $TargetOffsets.Keys) {
+        $target = [long]$TargetOffsets[$partition]
+        if ($target -gt 0 -and
+            (-not $currentOffsets.ContainsKey([int]$partition) -or
+             $currentOffsets[[int]$partition] -lt $target)) {
+          $caughtUp = $false
+          break
+        }
+      }
+      if ($caughtUp) {
+        Log "Kafka group caught up group=$Group topic=$Topic targets=$(FormatKafkaOffsets $TargetOffsets)"
+        return
+      }
+    }
+    Start-Sleep -Seconds 1
+  }
+  throw "Kafka group did not reach target offsets: group=$Group topic=$Topic targets=$(FormatKafkaOffsets $TargetOffsets) last=$lastDescription"
+}
+
 if ($EvidenceDir) {
   New-Item -ItemType Directory -Path $EvidenceDir -Force | Out-Null
 }
@@ -202,8 +276,18 @@ $taskObj = Invoke-RestMethod -Method Post `
 if ($taskObj.status -ne "IN_PROGRESS") {
   throw "Work task must be IN_PROGRESS before completion, got '$($taskObj.status)'"
 }
+$startedVersion = [long]$taskObj.version
 $taskObj = PostJson "$Gateway/api/v1/work-tasks/$($taskObj.id)/complete" $Auth @{ notes = "ok" }
-Log "Work task completed id=$($taskObj.id)"
+if ($taskObj.status -ne "COMPLETED") {
+  throw "Work task must be COMPLETED, got '$($taskObj.status)'"
+}
+if (-not $taskObj.actualEnd) {
+  throw "Completed work task must include actualEnd"
+}
+if ([long]$taskObj.version -le $startedVersion) {
+  throw "Work task completion must advance version: started=$startedVersion completed=$($taskObj.version)"
+}
+Log "Work task completed id=$($taskObj.id) actualEnd=$($taskObj.actualEnd) version=$($taskObj.version)"
 
 Log "== 5. Warehouse + harvest (outbox -> Kafka) =="
 $whObj = PostJson "$Gateway/api/v1/inventory/warehouses" $Auth @{
@@ -289,25 +373,40 @@ Log "Public QR code=$traceCode product=$($publicObj.productName) farm=$($publicO
 
 Log "== 8. Republish duplicate HarvestCompleted (Kafka idempotency) =="
 $baselineOnHand = [decimal]$onHand
+$completionBefore = GetJson "$Gateway/api/v1/harvests/$($harvestObj.id)/completion-event" $Auth
+if ($completionBefore.state -ne "PUBLISHED") {
+  throw "Initial harvest completion event must be PUBLISHED before republish, got '$($completionBefore.state)'"
+}
+$baselinePublishAttempts = [int]$completionBefore.publishAttempts
 $republishResponse = Invoke-RestMethod -Method Post `
   -Uri "$Gateway/api/v1/harvests/$($harvestObj.id)/completion-event/republish" `
   -Headers $Auth
 Log "Republish accepted eventId=$($republishResponse.eventId)"
 
-$duplicateDeadline = (Get-Date).AddSeconds(45)
-$duplicateStable = $false
-while ((Get-Date) -lt $duplicateDeadline) {
+$republishDeadline = (Get-Date).AddSeconds(90)
+$completionAfter = $null
+while ((Get-Date) -lt $republishDeadline) {
   try {
-    $afterRepublish = (docker exec agricore-postgres psql -U agricore -d agricore_inventory -t -A -c `
-      "SELECT COALESCE(SUM(on_hand_quantity), 0) FROM inventory_items WHERE upper(sku)='COFFEE-ROBUSTA';").Trim()
-    if ($afterRepublish -and [decimal]$afterRepublish -eq $baselineOnHand) {
-      $duplicateStable = $true
+    $completionAfter = GetJson "$Gateway/api/v1/harvests/$($harvestObj.id)/completion-event" $Auth
+    if ($completionAfter.state -eq "PUBLISHED" -and
+        [int]$completionAfter.publishAttempts -gt $baselinePublishAttempts) {
       break
     }
   } catch {}
-  Start-Sleep -Seconds 2
+  Start-Sleep -Seconds 1
 }
-if (-not $duplicateStable) {
+if (-not $completionAfter -or
+    $completionAfter.state -ne "PUBLISHED" -or
+    [int]$completionAfter.publishAttempts -le $baselinePublishAttempts) {
+  throw "Republished harvest event was not published: state=$($completionAfter.state) attempts=$($completionAfter.publishAttempts) baseline=$baselinePublishAttempts"
+}
+$harvestTargetOffsets = GetKafkaTopicEndOffsets "agricore.harvest.events"
+WaitKafkaGroupCaughtUp "inventory-service" "agricore.harvest.events" $harvestTargetOffsets 60
+WaitKafkaGroupCaughtUp "traceability-service" "agricore.harvest.events" $harvestTargetOffsets 60
+Start-Sleep -Seconds 3
+$afterRepublish = (docker exec agricore-postgres psql -U agricore -d agricore_inventory -t -A -c `
+  "SELECT COALESCE(SUM(on_hand_quantity), 0) FROM inventory_items WHERE upper(sku)='COFFEE-ROBUSTA';").Trim()
+if (-not $afterRepublish -or [decimal]$afterRepublish -ne $baselineOnHand) {
   throw "Duplicate HarvestCompleted changed inventory stock: before=$baselineOnHand after='$afterRepublish'"
 }
 $inventoryProcessedCount = (docker exec agricore-postgres psql -U agricore -d agricore_inventory -t -A -c `
@@ -347,18 +446,18 @@ $notificationPayload = @{
 PublishKafkaJson "agricore.sales.events" $notificationPayload
 PublishKafkaJson "agricore.sales.events" $notificationPayload
 
-$notificationDeadline = (Get-Date).AddSeconds(45)
-$notificationCount = "0"
-while ((Get-Date) -lt $notificationDeadline) {
-  try {
-    $notificationCount = (docker exec agricore-postgres psql -U agricore -d agricore_notification -t -A -c `
-      "SELECT count(*) FROM notifications WHERE source_event_id='$notificationEventId';").Trim()
-    if ($notificationCount -eq "1") { break }
-  } catch {}
-  Start-Sleep -Seconds 2
-}
+$notificationTargetOffsets = GetKafkaTopicEndOffsets "agricore.sales.events"
+WaitKafkaGroupCaughtUp "notification-service" "agricore.sales.events" $notificationTargetOffsets 60
+$notificationCount = (docker exec agricore-postgres psql -U agricore -d agricore_notification -t -A -c `
+  "SELECT count(*) FROM notifications WHERE source_event_id='$notificationEventId';").Trim()
 if ($notificationCount -ne "1") {
   throw "Notification event dedupe failed: expected one notification for eventId=$notificationEventId, got=$notificationCount"
+}
+Start-Sleep -Seconds 3
+$notificationStableCount = (docker exec agricore-postgres psql -U agricore -d agricore_notification -t -A -c `
+  "SELECT count(*) FROM notifications WHERE source_event_id='$notificationEventId';").Trim()
+if ($notificationStableCount -ne "1") {
+  throw "Notification dedupe was not stable after consumer quiescence: eventId=$notificationEventId count=$notificationStableCount"
 }
 Log "Notification dedupe OK eventId=$notificationEventId count=$notificationCount"
 
