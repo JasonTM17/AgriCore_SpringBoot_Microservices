@@ -143,6 +143,7 @@ class HarvestCompletionEventRepairCorruptionIntegrationTest {
         HarvestBatchEntity harvest = new HarvestBatchEntity();
         harvest.setId(UUID.randomUUID());
         harvest.setCode("REPAIR-CORRUPT-" + System.nanoTime());
+        harvest.setFarmId(HarvestTestAccessSupport.FARM_ID);
         harvest.setCropCycleId(UUID.randomUUID());
         harvest.setPlotId(UUID.randomUUID());
         harvest.setWarehouseId(UUID.randomUUID());

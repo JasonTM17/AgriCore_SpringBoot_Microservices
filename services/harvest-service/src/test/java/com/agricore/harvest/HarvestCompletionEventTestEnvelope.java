@@ -20,6 +20,7 @@ final class HarvestCompletionEventTestEnvelope {
                   "payload":{
                     "harvestId":"%s",
                     "harvestBatchId":"%s",
+                    "farmId":"%s",
                     "cropCycleId":"%s",
                     "plotId":"%s",
                     "warehouseId":"%s",
@@ -36,6 +37,7 @@ final class HarvestCompletionEventTestEnvelope {
                 harvest.getHarvestedAt(),
                 harvest.getId(),
                 harvest.getId(),
+                harvest.getFarmId(),
                 harvest.getCropCycleId(),
                 harvest.getPlotId(),
                 harvest.getWarehouseId(),

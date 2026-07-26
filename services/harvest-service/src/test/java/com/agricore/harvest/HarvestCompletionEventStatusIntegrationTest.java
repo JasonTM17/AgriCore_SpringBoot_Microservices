@@ -165,6 +165,7 @@ class HarvestCompletionEventStatusIntegrationTest {
         HarvestBatchEntity batch = new HarvestBatchEntity();
         batch.setId(UUID.randomUUID());
         batch.setCode("STATUS-BOUNDARY-" + System.nanoTime());
+        batch.setFarmId(eventId == null ? null : HarvestTestAccessSupport.FARM_ID);
         batch.setCropCycleId(UUID.randomUUID());
         batch.setPlotId(UUID.randomUUID());
         batch.setWarehouseId(UUID.randomUUID());
