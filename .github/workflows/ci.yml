@@ -27,6 +27,33 @@ jobs:
         with:
           name: surefire-reports
           path: "**/target/surefire-reports/**"
+      # Advisory until library/branch coverage reaches the documented targets
+      # (docs/project-roadmap.md). Flipping this strict is a separate change that
+      # binds jacoco:check; do not add -D thresholds here.
+      - name: Coverage summary (advisory)
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          shopt -s globstar nullglob
+          printf '%-34s %10s %10s\n' MODULE INSTR BRANCH
+          for csv in **/target/site/jacoco/jacoco.csv; do
+            module="${csv%%/target/*}"
+            awk -F, -v m="$module" '
+              NR>1 { im+=$4; ic+=$5; bm+=$6; bc+=$7 }
+              END {
+                instr = (im+ic) ? ic*100/(im+ic) : 0
+                branch = (bm+bc) ? bc*100/(bm+bc) : 0
+                printf "%-34s %9.1f%% %9.1f%%\n", m, instr, branch
+              }' "$csv"
+          done
+      - name: Upload coverage reports
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: jacoco-coverage
+          path: "**/target/site/jacoco/**"
 
   secret-scan:
     runs-on: ubuntu-latest
