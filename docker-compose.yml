@@ -118,8 +118,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
     environment:
-      <<: [*db-env, *observability-env]
+      <<: [*db-env, *kafka-env, *observability-env]
       REDIS_HOST: redis
       REDIS_PORT: 6379
       IDENTITY_PORT: 8081
@@ -135,7 +137,7 @@ services:
     volumes:
       - ./infrastructure/jwt:/keys:ro
     ports:
-      - "8081:8081"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:8081:8081"
     healthcheck:
       <<: *app-healthcheck
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8081/actuator/health | grep -q UP || exit 1"]
@@ -157,7 +159,7 @@ services:
       <<: [*db-env, *security-env, *kafka-env, *observability-env]
       FARM_PORT: 8082
     ports:
-      - "8082:8082"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:8082:8082"
     healthcheck:
       <<: *app-healthcheck
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8082/actuator/health | grep -q UP || exit 1"]
@@ -177,7 +179,7 @@ services:
       <<: [*db-env, *security-env, *observability-env]
       CROP_CATALOG_PORT: 8083
     ports:
-      - "8083:8083"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:8083:8083"
     healthcheck:
       <<: *app-healthcheck
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8083/actuator/health | grep -q UP || exit 1"]
@@ -201,7 +203,7 @@ services:
       <<: [*db-env, *security-env, *kafka-env, *farm-access-env, *observability-env]
       CROP_CYCLE_PORT: 8084
     ports:
-      - "8084:8084"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:8084:8084"
     healthcheck:
       <<: *app-healthcheck
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8084/actuator/health | grep -q UP || exit 1"]
@@ -229,7 +231,7 @@ services:
       <<: [*db-env, *security-env, *kafka-env, *farm-access-env, *inventory-access-env, *object-storage-env, *observability-env]
       WORK_PORT: 8085
     ports:
-      - "8085:8085"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:8085:8085"
     healthcheck:
       <<: *app-healthcheck
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8085/actuator/health | grep -q UP || exit 1"]
@@ -255,7 +257,7 @@ services:
       <<: [*db-env, *security-env, *kafka-env, *farm-access-env, *inventory-access-env, *observability-env]
       INVENTORY_PORT: 8086
     ports:
-      - "8086:8086"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:8086:8086"
     healthcheck:
       <<: *app-healthcheck
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8086/actuator/health | grep -q UP || exit 1"]
@@ -281,7 +283,7 @@ services:
       <<: [*db-env, *security-env, *kafka-env, *farm-access-env, *crop-cycle-access-env, *observability-env]
       HARVEST_PORT: 8087
     ports:
-      - "8087:8087"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:8087:8087"
     healthcheck:
       <<: *app-healthcheck
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8087/actuator/health | grep -q UP || exit 1"]
@@ -314,7 +316,7 @@ services:
       NOTIFICATION_SMTP_STARTTLS_REQUIRED: "false"
       NOTIFICATION_SMTP_FROM: no-reply@agricore.local
     ports:
-      - "8089:8089"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:8089:8089"
     healthcheck:
       <<: *app-healthcheck
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8089/actuator/health | grep -q UP || exit 1"]
@@ -351,7 +353,7 @@ services:
       IOT_MQTT_USERNAME: ${MQTT_SERVICE_USERNAME:-agricore_iot}
       IOT_MQTT_PASSWORD: ${MQTT_SERVICE_PASSWORD:-agricore_iot_dev_change_me}
     ports:
-      - "8090:8090"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:8090:8090"
     healthcheck:
       <<: *app-healthcheck
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8090/actuator/health | grep -q UP || exit 1"]
@@ -379,7 +381,7 @@ services:
       <<: [*db-env, *security-env, *kafka-env, *farm-access-env, *inventory-access-env, *observability-env]
       SALES_PORT: 8091
     ports:
-      - "8091:8091"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:8091:8091"
     healthcheck:
       <<: *app-healthcheck
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8091/actuator/health | grep -q UP || exit 1"]
@@ -404,7 +406,7 @@ services:
       TRACEABILITY_PORT: 8092
       TRACEABILITY_PUBLIC_BASE_URL: http://localhost:3000/public/api/v1/traceability
     ports:
-      - "8092:8092"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:8092:8092"
     healthcheck:
       <<: *app-healthcheck
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8092/actuator/health | grep -q UP || exit 1"]
@@ -519,7 +521,7 @@ services:
       api-gateway:
         condition: service_healthy
     ports:
-      - "${CONSOLE_PORT:-3000}:8080"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:${CONSOLE_PORT:-3000}:8080"
     read_only: true
     tmpfs:
       - /tmp:size=16m

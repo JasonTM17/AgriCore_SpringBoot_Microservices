@@ -6,6 +6,8 @@ import com.agricore.notification.application.service.NotificationApplicationServ
 import com.agricore.notification.application.service.NotificationEventCommand;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.mail.internet.AddressException;
+import jakarta.mail.internet.InternetAddress;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.DltHandler;
@@ -18,6 +20,11 @@ import org.springframework.stereotype.Component;
 
 import java.util.Set;
 import java.util.UUID;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 
 @Component
 @ConditionalOnProperty(name = "agricore.kafka.consumer.enabled", havingValue = "true", matchIfMissing = true)
@@ -26,6 +33,7 @@ public class NotificationEventListener {
     private static final Logger log = LoggerFactory.getLogger(NotificationEventListener.class);
 
     private static final Set<String> SUPPORTED_EVENTS = Set.of(
+            EventTypes.USER_REGISTERED,
             EventTypes.SALES_ORDER_CONFIRMED,
             EventTypes.SALES_ORDER_CANCELLED,
             EventTypes.TRACEABILITY_CODE_GENERATED,
@@ -61,6 +69,7 @@ public class NotificationEventListener {
     )
     @KafkaListener(
             topics = {
+                    "${agricore.kafka.topics.identity-events:agricore.identity.events}",
                     "${agricore.kafka.topics.sales-events:agricore.sales.events}",
                     "${agricore.kafka.topics.traceability-events:agricore.traceability.events}",
                     "${agricore.kafka.topics.iot-events:agricore.iot.events}"
@@ -91,6 +100,7 @@ public class NotificationEventListener {
         JsonNode payload = envelope.payload();
         String correlationId = textOrNull(root.path("correlationId"), 100);
         return switch (envelope.eventType()) {
+            case EventTypes.USER_REGISTERED -> userRegisteredCommand(payload, envelope, correlationId);
             case EventTypes.SALES_ORDER_CONFIRMED -> new NotificationEventCommand(
                     envelope.eventId(), envelope.eventType(), "IN_APP",
                     requiredUuid(payload, "customerId"),
@@ -131,6 +141,29 @@ public class NotificationEventListener {
         };
     }
 
+    private static NotificationEventCommand userRegisteredCommand(
+            JsonNode payload,
+            DomainEventEnvelopeReader.Envelope envelope,
+            String correlationId
+    ) {
+        requireOnlyFields(payload, Set.of("userId", "email", "fullName", "roles", "registeredAt"));
+        String userId = requiredUuid(payload, "userId");
+        String email = requiredEmail(payload, "email");
+        String fullName = required(payload, "fullName", 200);
+        List<String> roles = requiredSortedRoles(payload.path("roles"));
+        requiredInstant(payload, "registeredAt");
+        return new NotificationEventCommand(
+                envelope.eventId(),
+                envelope.eventType(),
+                "EMAIL",
+                email,
+                "Welcome to AgriCore",
+                "Hello " + fullName + ", your AgriCore account is ready. Assigned roles: "
+                        + String.join(", ", roles) + ". User ID: " + userId + ".",
+                correlationId
+        );
+    }
+
     private JsonNode readRoot(String raw) {
         try {
             JsonNode root = objectMapper.readTree(raw);
@@ -161,6 +194,71 @@ public class NotificationEventListener {
         } catch (IllegalArgumentException exception) {
             throw new IllegalArgumentException("Notification event payload requires UUID " + field, exception);
         }
+    }
+
+    private static String requiredEmail(JsonNode payload, String field) {
+        String value = required(payload, field, 320);
+        try {
+            InternetAddress address = new InternetAddress(value, true);
+            address.validate();
+            if (!value.equals(address.getAddress())) {
+                throw new AddressException("Display names are not allowed");
+            }
+            return value;
+        } catch (AddressException exception) {
+            throw new IllegalArgumentException(
+                    "Notification event payload requires valid email " + field,
+                    exception
+            );
+        }
+    }
+
+    private static List<String> requiredSortedRoles(JsonNode rolesNode) {
+        if (!rolesNode.isArray() || rolesNode.isEmpty() || rolesNode.size() > 16) {
+            throw new IllegalArgumentException("Notification event payload requires roles");
+        }
+        List<String> roles = new ArrayList<>(rolesNode.size());
+        Set<String> seen = new HashSet<>();
+        for (JsonNode roleNode : rolesNode) {
+            if (!roleNode.isTextual()) {
+                throw new IllegalArgumentException("Notification event payload requires role codes");
+            }
+            String role = roleNode.textValue();
+            if (!role.matches("[A-Z][A-Z0-9_]{0,63}") || !seen.add(role)) {
+                throw new IllegalArgumentException("Notification event payload requires unique role codes");
+            }
+            roles.add(role);
+        }
+        List<String> sorted = roles.stream().sorted().toList();
+        if (!roles.equals(sorted)) {
+            throw new IllegalArgumentException("Notification event payload roles must be sorted");
+        }
+        return List.copyOf(roles);
+    }
+
+    private static void requiredInstant(JsonNode payload, String field) {
+        String value = required(payload, field, 40);
+        try {
+            Instant.parse(value);
+        } catch (DateTimeParseException exception) {
+            throw new IllegalArgumentException(
+                    "Notification event payload requires date-time " + field,
+                    exception
+            );
+        }
+    }
+
+    private static void requireOnlyFields(JsonNode payload, Set<String> allowedFields) {
+        if (!payload.isObject()) {
+            throw new IllegalArgumentException("Notification event payload must be an object");
+        }
+        payload.fieldNames().forEachRemaining(field -> {
+            if (!allowedFields.contains(field)) {
+                throw new IllegalArgumentException(
+                        "Notification event payload contains unsupported field " + field
+                );
+            }
+        });
     }
 
     private static String prefixed(JsonNode payload, String field, String fallback, String prefix) {

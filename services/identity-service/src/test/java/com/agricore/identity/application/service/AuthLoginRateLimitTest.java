@@ -60,7 +60,8 @@ class AuthLoginRateLimitTest {
                 mock(JwtTokenService.class),
                 mock(EffectivePermissionService.class),
                 security,
-                limiter
+                limiter,
+                mock(IdentityOutboxWriter.class)
         );
 
         LoginRequest request = new LoginRequest("any@agricore.test", "Secret123!");

@@ -26,6 +26,14 @@ spring:
   jackson:
     serialization:
       write-dates-as-timestamps: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
 
 management:
   endpoints:
@@ -64,6 +72,12 @@ agricore:
     refresh-cookie-secure: ${AGRICORE_REFRESH_COOKIE_SECURE:false}
     refresh-cookie-same-site: ${AGRICORE_REFRESH_COOKIE_SAME_SITE:Strict}
     web-allowed-origins: ${AGRICORE_WEB_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
+  outbox:
+    publisher:
+      enabled: ${AGRICORE_OUTBOX_PUBLISHER_ENABLED:true}
+      poll-ms: ${AGRICORE_OUTBOX_PUBLISHER_POLL_MS:1000}
+      send-timeout-ms: ${AGRICORE_OUTBOX_PUBLISHER_SEND_TIMEOUT_MS:10000}
+      claim-lease-ms: ${AGRICORE_OUTBOX_PUBLISHER_CLAIM_LEASE_MS:30000}
 
 logging:
   level:

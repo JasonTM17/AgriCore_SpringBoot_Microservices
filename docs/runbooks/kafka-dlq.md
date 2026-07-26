@@ -8,6 +8,8 @@ harvest-service outbox
       |- inventory-service consumer
       `- traceability-service consumer
 
+identity-service outbox -> agricore.identity.events (UserRegistered.v1)
+  -> notification-service (durable welcome EMAIL delivery)
 sales-service outbox -> agricore.sales.events -> notification-service
 traceability-service outbox -> agricore.traceability.events -> notification-service
 iot-service outbox -> agricore.iot.events -> notification-service
@@ -21,12 +23,13 @@ consumer failure
 
 implemented DLTs
   |- agricore.harvest.events.DLT
+  |- agricore.identity.events.DLT
   |- agricore.sales.events.DLT
   |- agricore.traceability.events.DLT
   `- agricore.iot.events.DLT
 ```
 
-The harvest projection consumers use a fixed Spring Kafka non-blocking retry topology with four total attempts (initial delivery plus three retries). Inventory and traceability disable retry-topic auto-creation, so `agricore.harvest.events`, its three exact retry topics, and its DLT must exist before either service starts. `infrastructure/docker/kafka/create-topics.sh` provisions these names for local Compose; production operators must provision the same topology. Producer outboxes for farm, crop-cycle, work, inventory, IoT, traceability, sales, and notification use polling delivery with retryable publish state.
+The harvest projection consumers use a fixed Spring Kafka non-blocking retry topology with four total attempts (initial delivery plus three retries). Inventory and traceability disable retry-topic auto-creation, so `agricore.harvest.events`, its three exact retry topics, and its DLT must exist before either service starts. `infrastructure/docker/kafka/create-topics.sh` provisions these names for local Compose; production operators must provision the same topology. Producer outboxes for identity, farm, crop-cycle, work, inventory, IoT, traceability, sales, and notification use polling delivery with retryable publish state.
 
 ## Consumer error handling
 
@@ -42,6 +45,13 @@ Consumers use Spring Kafka `@RetryableTopic` with bounded exponential backoff. I
 | Recovery destination | `<original-topic>.DLT`; same partition when that DLT partition exists |
 
 Transient processing failures still use all three bounded retry stages. `DeadLetterPublishingRecoverer` publishes to the same partition when the DLT exposes that partition; otherwise its partition verification lets the Kafka producer choose an available partition.
+
+Kafka retry protects event-to-notification persistence. Once an external
+EMAIL/SMS provider attempt begins, Notification does not automatically resend
+an ambiguous delivery: a stale `DELIVERING` record becomes
+`FAILED`/`DELIVERY_OUTCOME_UNKNOWN`. Source-event idempotency prevents a replay
+from creating another notification intent, but it cannot prove what an external
+provider accepted.
 
 For inventory and traceability, `agricore_kafka_dlq_attempts_total` is instrumented on the actual retry-topic publishing recoverer and increments only when its resolved destination ends in `.DLT`; retry-topic transitions do not increment it. The notification service exposes the same metric name through its service-specific recovery configuration. The counter measures a DLT publish attempt, not DLT topic depth, and does not prove the publish succeeded.
 
@@ -78,7 +88,7 @@ Publisher replicas use `FOR UPDATE SKIP LOCKED`. Farm, crop-cycle, work, and inv
 
 ## DLT response procedure
 
-1. Inspect the DLT matching the failed source topic in Kafka UI or with Kafka tooling: `agricore.harvest.events.DLT`, `agricore.sales.events.DLT`, `agricore.traceability.events.DLT`, or `agricore.iot.events.DLT`.
+1. Inspect the DLT matching the failed source topic in Kafka UI or with Kafka tooling: `agricore.harvest.events.DLT`, `agricore.identity.events.DLT`, `agricore.sales.events.DLT`, `agricore.traceability.events.DLT`, or `agricore.iot.events.DLT`.
 2. Capture the JSON envelope, original topic/partition/offset headers, and exception headers added by Spring Kafka.
 3. Check `agricore_kafka_dlq_attempts_total` and consumer logs for the affected consumer. Do not infer topic depth from the counter.
 4. Correct the schema, data, or application cause.

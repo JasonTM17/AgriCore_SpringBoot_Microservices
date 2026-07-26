@@ -44,7 +44,7 @@ The browser uses a same-origin edge: Nginx serves `/` and forwards `/api` and `/
 | Application | Owns or performs | Runtime events |
 |---|---|---|
 | API gateway | Routing, JWT validation, external boundary | None |
-| Identity | Users, roles, permission catalog and role grants, access and refresh tokens, JWKS | None; outbox table is unused |
+| Identity | Users, roles, permission catalog and role grants, access and refresh tokens, JWKS | Publishes `UserRegistered.v1` through its transactional outbox |
 | Farm | Farms, areas, plots, memberships | Publishes farm events through outbox |
 | Crop catalog | Crops, varieties, care specifications | None |
 | Crop cycle | Cycles, stages, lifecycle, PostgreSQL overlap exclusion | Publishes crop-cycle events through outbox |
@@ -54,18 +54,20 @@ The browser uses a same-origin edge: Nginx serves `/` and forwards `/api` and `/
 | Traceability | Public QR timeline/read model | Consumes `HarvestCompleted.v1`, idempotent with DLT recovery; publishes QR lifecycle events |
 | IoT | Devices, readings, threshold alerts, per-device MQTT admission | Publishes reading, threshold, and offline events through outbox |
 | Sales | Farm-scoped customers, orders, order items, and inventory saga state | Verifies Farm scope; bounded farm-scoped reserve/confirm attempt plus durable retry/timeout recovery; publishes order lifecycle events |
-| Notification | Truthful email/in-app delivery lifecycle, administrative inbox, and event dedupe | Consumes Sales, Traceability, and IoT events; invalid payloads bypass retries; publishes requested, sent, and failed v2 events |
+| Notification | Truthful email/in-app delivery lifecycle, administrative inbox, and event dedupe | Consumes Identity, Sales, Traceability, and IoT events; invalid payloads bypass retries; publishes requested, sent, and failed v2 events |
 | Assistant | Conversations, messages, generations, event replay, redacted tool evidence | No Kafka event path implemented |
 
 Implemented consumer topology includes `HarvestCompleted.v1` from Harvest to
-Inventory and Traceability, plus Sales order, Traceability QR, and IoT
-alert/offline events into Notification. Consumers persist a stable event marker
-with each side effect. Transient failures use bounded retry topics; contract
-failures raise `IllegalArgumentException` and route directly to `<topic>.DLT`
-without retry churn or persisted side effects. The repository E2E script also
-republishes a harvest event, publishes a duplicate notification event, and
-injects a wrong-version harvest event to prove idempotency and DLT routing on a
-real broker.
+Inventory and Traceability. Notification consumes Identity
+`UserRegistered.v1`, Sales order, Traceability QR, and IoT alert/offline events.
+The registration event carries the bounded fields needed for a durable welcome
+email and excludes credential material. Consumers persist a stable event marker
+with each side effect. Transient Kafka failures use bounded retry topics;
+contract failures raise `IllegalArgumentException` and route directly to
+`<topic>.DLT` without retry churn or persisted side effects. The repository E2E
+script also republishes a harvest event, publishes a duplicate notification
+event, and injects a wrong-version harvest event to prove idempotency and DLT
+routing on a real broker.
 
 ### Farm-scope upgrade boundary
 
@@ -91,6 +93,19 @@ real broker.
   audit events, and generation replay events; defaults are 90 days, 365 days,
   and 24 hours respectively.
 - Autonomous writes, arbitrary URLs, RAG ingestion, and cross-service database access are out of scope.
+
+### Notification delivery boundary
+
+- A notification is persisted as `REQUESTED` before delivery and ends as
+  `SENT` or `FAILED`.
+- External channels use at-most-once automatic delivery. A recoverable adapter
+  result is recorded rather than automatically retried, and a stale
+  `DELIVERING` row becomes `FAILED` with `DELIVERY_OUTCOME_UNKNOWN` because the
+  provider may already have accepted the message.
+- `IN_APP` delivery is a local idempotent write keyed by notification ID, so its
+  stale lease can be reclaimed within the bounded retry budget.
+- Kafka source-event idempotency prevents a replay from creating a second
+  notification intent; it cannot make an external SMTP provider exactly once.
 
 ### Inventory batch allocation
 

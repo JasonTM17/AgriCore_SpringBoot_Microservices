@@ -39,3 +39,7 @@ agricore:
     refresh-cookie-secure: false
     refresh-cookie-same-site: Strict
     web-allowed-origins: http://localhost:5173,http://127.0.0.1:5173
+  # No broker in unit/integration tests; outbox rows are asserted directly
+  outbox:
+    publisher:
+      enabled: false

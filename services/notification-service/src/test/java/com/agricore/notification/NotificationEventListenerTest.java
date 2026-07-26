@@ -90,6 +90,67 @@ class NotificationEventListenerTest {
     }
 
     @Test
+    void duplicateUserRegistrationCreatesOneWelcomeEmailAndOneProcessedMarker() {
+        UUID eventId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        String raw = """
+                {
+                  "eventId":"%s",
+                  "eventType":"UserRegistered.v1",
+                  "eventVersion":1,
+                  "occurredAt":"2026-07-26T10:15:30Z",
+                  "producer":"identity-service",
+                  "payload":{
+                    "userId":"%s",
+                    "email":"worker@agricore.test",
+                    "fullName":"Field Worker",
+                    "roles":["FIELD_WORKER"],
+                    "registeredAt":"2026-07-26T10:15:30Z"
+                  }
+                }
+                """.formatted(eventId, userId);
+
+        listener.onMessage(record("agricore.identity.events", raw));
+        listener.onMessage(record("agricore.identity.events", raw));
+
+        assertThat(notificationRepository.countBySourceEventId(eventId)).isEqualTo(1);
+        assertThat(processedEventRepository.existsByEventIdAndConsumerName(eventId, "notification-service"))
+                .isTrue();
+        assertThat(notificationRepository.findAll()).singleElement()
+                .satisfies(notification -> {
+                    assertThat(notification.getRecipient()).isEqualTo("worker@agricore.test");
+                    assertThat(notification.getSubject()).isEqualTo("Welcome to AgriCore");
+                    assertThat(notification.getStatus()).isEqualTo("SENT");
+                    assertThat(notification.getBody()).contains("Field Worker", "FIELD_WORKER", userId.toString());
+                });
+    }
+
+    @Test
+    void forgedOrUnboundedUserRegistrationIsRejectedWithoutSideEffects() {
+        String forgedProducer = userRegistration("farm-service", "worker@agricore.test", "");
+        String invalidEmail = userRegistration("identity-service", "not-an-email", "");
+        String extraPayload = userRegistration(
+                "identity-service",
+                "worker@agricore.test",
+                ",\"passwordHash\":\"must-never-cross-boundary\""
+        );
+
+        assertThatThrownBy(() -> listener.onMessage(record("agricore.identity.events", forgedProducer)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("source does not match");
+        assertThatThrownBy(() -> listener.onMessage(record("agricore.identity.events", invalidEmail)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("valid email");
+        assertThatThrownBy(() -> listener.onMessage(record("agricore.identity.events", extraPayload)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("unsupported field");
+
+        assertThat(notificationRepository.count()).isZero();
+        assertThat(processedEventRepository.count()).isZero();
+        assertThat(outboxRepository.count()).isZero();
+    }
+
+    @Test
     void malformedOrUnsupportedEventsAreRejectedForDeadLetterHandling() {
         UUID eventId = UUID.randomUUID();
         String raw = """
@@ -163,5 +224,24 @@ class NotificationEventListenerTest {
                 UUID.randomUUID(), producer, UUID.randomUUID(), UUID.randomUUID(),
                 UUID.randomUUID(), UUID.randomUUID()
         );
+    }
+
+    private static String userRegistration(String producer, String email, String extraPayload) {
+        return """
+                {
+                  "eventId":"%s",
+                  "eventType":"UserRegistered.v1",
+                  "eventVersion":1,
+                  "occurredAt":"2026-07-26T10:15:30Z",
+                  "producer":"%s",
+                  "payload":{
+                    "userId":"%s",
+                    "email":"%s",
+                    "fullName":"Field Worker",
+                    "roles":["FIELD_WORKER"],
+                    "registeredAt":"2026-07-26T10:15:30Z"%s
+                  }
+                }
+                """.formatted(UUID.randomUUID(), producer, UUID.randomUUID(), email, extraPayload);
     }
 }

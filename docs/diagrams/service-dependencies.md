@@ -40,6 +40,7 @@ flowchart LR
     assistant -->|"Allowlisted read-only farm tools"| farm
     sales -->|"Farm-scoped reserve, lookup, confirm, release"| inventory
 
+    identity -->|"UserRegistered.v1"| kafka
     farm --> kafka
     cycle --> kafka
     work --> kafka

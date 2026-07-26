@@ -57,6 +57,7 @@ flowchart TB
     mqtt --> iot
     work --> minio
 
+    identity --> kafka
     farm <--> kafka
     cycle <--> kafka
     work <--> kafka

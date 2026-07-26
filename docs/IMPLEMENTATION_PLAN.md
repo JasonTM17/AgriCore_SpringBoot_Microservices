@@ -47,7 +47,13 @@ Monorepo POM, environment templates, Docker infrastructure, shared libraries, sc
 
 ### M1 — Identity
 
-Registration, login, refresh rotation, logout, RBAC, account lockout, rate limiting, and JWKS. Identity also owns a unique permission catalog and role grants, provides `SYSTEM_ADMIN` management APIs, adds the sorted effective permission snapshot to access JWTs, and maps role and permission claims consistently at Identity, the gateway, and servlet domain services.
+Registration, login, refresh rotation, logout, RBAC, account lockout, rate
+limiting, and JWKS. Registration writes `UserRegistered.v1` through the
+transactional outbox for Notification's welcome-email path. Identity also owns
+a unique permission catalog and role grants, provides `SYSTEM_ADMIN` management
+APIs, adds the sorted effective permission snapshot to access JWTs, and maps
+role and permission claims consistently at Identity, the gateway, and servlet
+domain services.
 
 ### M2 — Farm and catalog
 
@@ -79,9 +85,11 @@ per-device token-bucket/in-flight admission, and alert cooldown; farm-scoped,
 Inventory-backed Sales saga with price snapshots, order-item persistence,
 durable reservation reconciliation, bounded recovery leases/backoff, fulfillment
 milestones, and transactional order lifecycle events; and idempotent
-Notification consumption of Sales, Traceability, and IoT events. Notification
-email uses bounded SMTP delivery, while in-app notifications persist locally
-and are available through authorized administrative list/mark-read endpoints.
+Notification consumption of Identity, Sales, Traceability, and IoT events.
+External notification delivery is at-most-once automatically: an ambiguous
+stale provider attempt ends as `FAILED`/`DELIVERY_OUTCOME_UNKNOWN` instead of
+being resent. In-app notifications persist locally, are safely retryable, and
+are available through authorized administrative list/mark-read endpoints.
 Contract-invalid Notification records bypass retries and reach the DLT without
 side effects. Current lifecycle outbox events use the v2 schemas retained
 alongside immutable historical v1 schemas.

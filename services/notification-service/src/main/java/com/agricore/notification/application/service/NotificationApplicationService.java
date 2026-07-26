@@ -163,4 +163,5 @@ public class NotificationApplicationService {
 
     private record DeliveryExecution(NotificationEntity notification, boolean transitioned) {
     }
+
 }

@@ -122,6 +122,8 @@ jobs:
       packages: write
     strategy:
       fail-fast: false
+      # Cap concurrent candidate builds to avoid registry base-image pull bursts.
+      max-parallel: 4
       matrix: ${{ fromJSON(needs.resolve-sha.outputs.matrix) }}
     steps:
       - name: Checkout verified revision

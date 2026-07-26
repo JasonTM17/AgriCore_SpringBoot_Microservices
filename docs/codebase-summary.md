@@ -14,22 +14,26 @@
 
 ## Applications
 
-| Module | Boundary | Data/integration |
-|---|---|---|
-| `api-gateway` | External route and JWT boundary | JWKS, Redis rate limits |
-| `identity-service` | Users, roles, permissions, tokens | PostgreSQL, Redis |
-| `farm-service` | Enterprise, farms, areas, plots, memberships | PostgreSQL, Kafka outbox |
-| `crop-catalog-service` | Crops, varieties, care knowledge | PostgreSQL |
-| `crop-cycle-service` | Cycles, stages, observations, history, overlap exclusion | PostgreSQL, Farm REST, Kafka outbox |
-| `work-service` | Tasks, assignments, executions, materials, images | PostgreSQL, Farm/Inventory REST, MinIO, Kafka outbox |
-| `inventory-service` | Warehouses, lots, movements, reservations | PostgreSQL, Farm REST, Kafka |
-| `harvest-service` | Farm-scoped harvest batches and completion repair | PostgreSQL, Farm/Crop-cycle REST, Kafka outbox |
-| `traceability-service` | Public QR read model | PostgreSQL, Kafka |
-| `iot-service` | Devices, telemetry, rules, alerts, offline detection | PostgreSQL time-series capability, MQTT, Kafka outbox |
-| `sales-service` | Farm-scoped customers, orders, inventory saga | PostgreSQL, Farm/Inventory REST, Kafka outbox |
-| `notification-service` | Email and persisted in-app delivery truth, inbox administration, event dedupe | PostgreSQL, SMTP, Kafka |
-| `assistant-service` | Conversations, generations, replay, tools | PostgreSQL, Redis, allowlisted Farm REST |
-| `apps/agricore-console` | Same-origin React operations console | Gateway APIs and fetch-SSE |
+| Module | Boundary | Data/integration | Module guide |
+|---|---|---|---|
+| `api-gateway` | External route and JWT boundary | JWKS, Redis rate limits | [README](../services/api-gateway/README.md) |
+| `identity-service` | Users, roles, permissions, tokens | PostgreSQL, Redis, Kafka outbox | [README](../services/identity-service/README.md) |
+| `farm-service` | Enterprise, farms, areas, plots, memberships | PostgreSQL, Kafka outbox | [README](../services/farm-service/README.md) |
+| `crop-catalog-service` | Crops, varieties, care knowledge | PostgreSQL | [README](../services/crop-catalog-service/README.md) |
+| `crop-cycle-service` | Cycles, stages, observations, history, overlap exclusion | PostgreSQL, Farm REST, Kafka outbox | [README](../services/crop-cycle-service/README.md) |
+| `work-service` | Tasks, assignments, executions, materials, images | PostgreSQL, Farm/Inventory REST, MinIO, Kafka outbox | [README](../services/work-service/README.md) |
+| `inventory-service` | Warehouses, lots, movements, reservations | PostgreSQL, Farm REST, Kafka | [README](../services/inventory-service/README.md) |
+| `harvest-service` | Farm-scoped harvest batches and completion repair | PostgreSQL, Farm/Crop-cycle REST, Kafka outbox | [README](../services/harvest-service/README.md) |
+| `traceability-service` | Public QR read model | PostgreSQL, Kafka | [README](../services/traceability-service/README.md) |
+| `iot-service` | Devices, telemetry, rules, alerts, offline detection | PostgreSQL time-series capability, MQTT, Kafka outbox | [README](../services/iot-service/README.md) |
+| `sales-service` | Farm-scoped customers, orders, inventory saga | PostgreSQL, Farm/Inventory REST, Kafka outbox | [README](../services/sales-service/README.md) |
+| `notification-service` | Email and persisted in-app delivery truth, inbox administration, event dedupe | PostgreSQL, SMTP, Kafka | [README](../services/notification-service/README.md) |
+| `assistant-service` | Conversations, generations, replay, tools | PostgreSQL, Redis, allowlisted Farm REST | [README](../services/assistant-service/README.md) |
+| `apps/agricore-console` | Same-origin React operations console | Gateway APIs and fetch-SSE | [Platform README](../README.md) |
+
+The module guides provide local setup and repair orientation. Versioned
+contracts, runtime code, and the platform documents in this directory remain
+authoritative for cross-service behavior.
 
 ## Shared Java libraries
 
@@ -55,6 +59,12 @@ Shared modules do not contain service JPA entities.
 - Authenticated REST for immediate decisions and farm access.
 - Transactional outbox for implemented producers.
 - At-least-once Kafka consumers with persistent idempotency and retry/DLT.
+- Identity registration writes `UserRegistered.v1` in the user transaction;
+  Notification validates the Identity producer and bounded payload before it
+  creates the idempotent welcome-email intent.
+- External notification channels use at-most-once automatic delivery. Ambiguous
+  stale attempts become `FAILED` with `DELIVERY_OUTCOME_UNKNOWN`; local
+  `IN_APP` delivery can be reclaimed safely.
 - Sales-owned orchestration saga with Inventory as reservation authority.
 - Harvest events, Inventory reservation calls, and Sales saga recovery carry
   authoritative farm scope; additive migrations leave legacy nulls fail-closed

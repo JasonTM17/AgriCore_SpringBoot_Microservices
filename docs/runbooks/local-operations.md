@@ -255,8 +255,14 @@ window; expired rows otherwise remain physically stored.
 
 - Compose routes email to `mailpit:1025`; only the Mailpit UI is host-published on port `8025`.
 - The direct notification endpoint requires `SYSTEM_ADMIN`. An optional `idempotencyKey` prevents repeated delivery and returns `409` if reused for different content.
-- Email delivery uses at most `NOTIFICATION_DELIVERY_MAX_ATTEMPTS` attempts. `IN_APP` delivery is the persisted in-app notification itself; unsupported or exhausted delivery ends in `FAILED`.
-- A short delivery lease and recovery poll reclaim `REQUESTED` or stale `DELIVERING` rows. This is at-least-once recovery; SMTP cannot provide exactly-once delivery.
+- External email/SMS uses at-most-once automatic delivery. An adapter result is
+  persisted after one provider attempt; a stale `DELIVERING` lease becomes
+  `FAILED` with `DELIVERY_OUTCOME_UNKNOWN` instead of being resent because the
+  provider may already have accepted it.
+- `IN_APP` delivery is an idempotent local write keyed by notification ID. Its
+  `REQUESTED` or stale `DELIVERING` rows may be reclaimed within
+  `NOTIFICATION_DELIVERY_MAX_ATTEMPTS`; unsupported or exhausted delivery ends
+  in `FAILED`.
 - Production SMTP host, TLS policy, and credentials are deployment inputs. Helm reads username/password from the Secret configured by `notification.smtp.credentialSecretName`.
 
 | Situation | Action |

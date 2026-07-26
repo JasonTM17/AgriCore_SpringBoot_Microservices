@@ -30,6 +30,33 @@ jobs:
         with:
           name: surefire-reports
           path: "**/target/surefire-reports/**"
+      # Advisory until library/branch coverage reaches the documented targets
+      # (docs/project-roadmap.md). Flipping this strict is a separate change that
+      # binds jacoco:check; do not add -D thresholds here.
+      - name: Coverage summary (advisory)
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          shopt -s globstar nullglob
+          printf '%-34s %10s %10s\n' MODULE INSTR BRANCH
+          for csv in **/target/site/jacoco/jacoco.csv; do
+            module="${csv%%/target/*}"
+            awk -F, -v m="$module" '
+              NR>1 { im+=$4; ic+=$5; bm+=$6; bc+=$7 }
+              END {
+                instr = (im+ic) ? ic*100/(im+ic) : 0
+                branch = (bm+bc) ? bc*100/(bm+bc) : 0
+                printf "%-34s %9.1f%% %9.1f%%\n", m, instr, branch
+              }' "$csv"
+          done
+      - name: Upload coverage reports
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: jacoco-coverage
+          path: "**/target/site/jacoco/**"
 
   frontend-contracts:
     runs-on: ubuntu-latest
@@ -76,7 +103,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Gitleaks
-        uses: gitleaks/gitleaks-action@dcedce43c6f43de0b836d1fe38946645c9c638dc # v2
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         # Hard fail on secret findings (portfolio security gate)

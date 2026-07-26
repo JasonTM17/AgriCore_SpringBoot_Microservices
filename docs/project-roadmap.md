@@ -9,17 +9,17 @@ complete only after code, contract, migration, tests, operations, and docs agree
 
 | Area | Evidence state |
 |---|---|
-| Identity, JWT, roles, refresh security | Implemented; canonical permission guards and administration covered by tests |
+| Identity, JWT, roles, refresh security | Implemented; canonical permission guards and administration covered by tests; registration writes `UserRegistered.v1` through the transactional outbox |
 | Farm, catalog, crop-cycle, work | Core vertical slices implemented with farm boundary, optimistic/history evidence, and PostgreSQL crop-cycle overlap exclusion |
 | Work image evidence | Private MinIO-compatible storage and validated attachments implemented |
 | Harvest, inventory, traceability | Authoritative farm-scoped events/contracts, broker-backed projections, duplicate protection, expiry-aware lot allocation, and DLT recovery implemented |
 | MQTT and IoT alerts | Authenticated ingestion, per-device admission quotas, idempotency, cooldown, offline flow, and TimescaleDB migration implemented |
 | Sales saga | Farm-scoped reservation/compensation, bounded timeout, durable retry recovery, fulfillment milestones, and contract fields implemented |
-| Notification | Requested/sent/failed truth, SMTP and persisted in-app adapters, administrative inbox endpoints, invalid-payload DLT handling, and idempotent event consumption implemented |
+| Notification | Identity welcome, Sales, Traceability, and IoT consumption implemented with requested/sent/failed truth, SMTP and persisted in-app adapters, administrative inbox endpoints, invalid-payload DLT handling, and source-event idempotency; external automatic delivery is at-most-once and ambiguous attempts fail as `DELIVERY_OUTCOME_UNKNOWN` |
 | Assistant | Persisted read-only boundary, budgets, SSE replay, safe provider-none behavior implemented |
 | Console | Core workflows, assistant, Inventory, Sales, IoT, identity administration, permission-aware navigation, serialized auth/logout transitions, and responsive media variants implemented |
 | Platform | Compose and Helm tenant dependencies, read-only application filesystems, gateway Service alias, configurable egress policy, observability, security workflows, and signed SHA-only dual-registry publishing implemented; final clean-revision and remote execution pending |
-| Docs/demo | Repository media/GIF, regional seed, bounded cross-domain dataset, diagrams, ADRs, and release docs synchronized |
+| Docs/demo | Repository media/GIF, regional seed, bounded cross-domain dataset, diagrams, ADRs, and platform release docs synchronized; all 13 Spring application READMEs provide service-local orientation and remain part of the final merged-revision accuracy gate |
 
 Current checkpoint: implementation/remediation complete. Final pre-landing
 review, clean-revision gates, GitHub CI, merge, registry publication, and

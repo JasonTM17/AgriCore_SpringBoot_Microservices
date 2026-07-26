@@ -45,8 +45,11 @@ inside an independently owned service and database.
    and detect offline devices.
 8. Orchestrate farm-scoped Sales inventory reservations without a distributed
    transaction.
-9. Persist email and in-app notification delivery outcomes instead of reporting
-   attempted sends as successful; provide an authorized administrative inbox.
+9. Publish `UserRegistered.v1` atomically with Identity registration and consume
+   it as an idempotent welcome-email intent. Persist email and in-app delivery
+   outcomes instead of reporting attempted sends as successful; external
+   automatic delivery is at-most-once, while local `IN_APP` recovery is safely
+   retryable. Provide an authorized administrative inbox.
 10. Publish a public-safe QR read model without cross-service database queries.
 11. Provide an authenticated, persisted, read-only assistant with replayable SSE,
     bounded tools, budgets, and safe provider-unavailable behavior.
@@ -60,6 +63,9 @@ inside an independently owned service and database.
 - Database per service; REST for immediate decisions and Kafka for implemented
   domain events.
 - Transactional outbox for producers and persistent idempotency for consumers.
+- External notification ambiguity becomes
+  `FAILED`/`DELIVERY_OUTCOME_UNKNOWN`; recovery must not automatically resend a
+  message the provider may already have accepted.
 - Optimistic or pessimistic locking selected from the actual contention
   invariant.
 - Versioned OpenAPI, AsyncAPI, and JSON Schema contracts.
@@ -83,8 +89,8 @@ inside an independently owned service and database.
   production flows, 128 work tasks, 640 readings, and 16 confirmed sales
   orders, with repository-owned media stored through the Work attachment
   boundary.
-- Docs, diagrams, generated clients, and environment examples match the released
-  revision.
+- Platform docs, service-local README files, diagrams, generated clients, and
+  environment examples match the released revision.
 - Docker Hub and GitHub Packages publish immutable SHA images only after default
   branch CI succeeds. Only full and short SHA tags are promoted; signatures,
   SBOM, and provenance are verifiable.

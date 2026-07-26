@@ -15,6 +15,22 @@ Canonical machine-readable design specification: [`../assets/designs/agricore-op
 5. Preserve context. Farm, plot, crop cycle, and reference codes stay visible across workflows.
 6. Degrade honestly. Missing list/history APIs become clear unavailable states, not simulated data.
 
+## API-Facing Interaction Rules
+
+- Generate clients from committed OpenAPI contracts. Do not hand-maintain a
+  second request or response shape.
+- Treat stable `ApiError.code` values as machine contracts; show the human
+  message and a safe recovery action without exposing stack traces or upstream
+  internals.
+- JSON fields are `camelCase`, identifiers are UUID strings, and timestamps are
+  ISO-8601 UTC instants unless a contract explicitly says otherwise.
+- Use explicit transition operations from the contract instead of editing a
+  status field optimistically.
+- Render `401`, `403`, `404`, `409`, `429`, and `503` as distinct states. A
+  masked `404` must not reveal whether a resource exists in another farm.
+- Public traceability is the deliberate unauthenticated exception under
+  `/public/api`; do not infer that any neighboring route is public.
+
 ## Visual Language
 
 - Personality: grounded, precise, calm, modern, field-tested.
@@ -124,7 +140,11 @@ Top bar contains breadcrumb, environment badge, global search affordance only wh
 ## Content Language
 
 - Use direct Vietnamese verbs: `Tạo vụ canh tác`, `Giao việc`, `Hoàn tất thu hoạch`, `Giữ hàng`, `Xác nhận giữ hàng`.
-- Avoid success claims stronger than backend evidence. Render notification status from `REQUESTED`, `DELIVERING`, `SENT`, or `FAILED`; use `Đang đồng bộ` after harvest.
+- Avoid success claims stronger than backend evidence. Render notification
+  status from `REQUESTED`, `DELIVERING`, `SENT`, or `FAILED`; use `Đang đồng bộ`
+  after harvest. For `DELIVERY_OUTCOME_UNKNOWN`, explain that automatic resend
+  is disabled because the external provider may already have accepted the
+  message; never label it unsent.
 - Error messages state what happened, the affected object, and the safe next step.
 - Preserve agricultural terms consistently: `Trang trại`, `Lô canh tác`, `Vụ canh tác`, `Công việc`, `Thu hoạch`, `Tồn kho`, `Giữ hàng`, `Truy xuất nguồn gốc`.
 

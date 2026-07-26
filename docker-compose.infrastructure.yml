@@ -24,7 +24,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-agricore}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agricore_dev_change_me}
     ports:
-      - "${POSTGRES_PORT:-5434}:5432"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-5434}:5432"
     volumes:
       - agricore_pg_data:/var/lib/postgresql/data
       - ./infrastructure/docker/postgres/disable-template-timescaledb-install.sh:/docker-entrypoint-initdb.d/000_install_timescaledb.sh:ro
@@ -89,7 +89,7 @@ services:
     container_name: agricore-redis
     logging: *bounded-logging
     ports:
-      - "${REDIS_PORT:-6380}:6379"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:${REDIS_PORT:-6380}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -101,7 +101,7 @@ services:
     container_name: agricore-kafka
     logging: *bounded-logging
     ports:
-      - "9092:9092"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:${KAFKA_PORT:-9092}:9092"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -131,7 +131,7 @@ services:
       kafka:
         condition: service_started
     ports:
-      - "8088:8080"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:${KAFKA_UI_PORT:-8088}:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: agricore
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:19092

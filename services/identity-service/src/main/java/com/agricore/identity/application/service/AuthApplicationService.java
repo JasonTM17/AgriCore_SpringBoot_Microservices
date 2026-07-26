@@ -44,6 +44,7 @@ public class AuthApplicationService {
     private final EffectivePermissionService effectivePermissionService;
     private final SecurityProperties securityProperties;
     private final LoginRateLimiter loginRateLimiter;
+    private final IdentityOutboxWriter outboxWriter;
 
     public AuthApplicationService(
             UserJpaRepository userRepository,
@@ -53,7 +54,8 @@ public class AuthApplicationService {
             JwtTokenService jwtTokenService,
             EffectivePermissionService effectivePermissionService,
             SecurityProperties securityProperties,
-            LoginRateLimiter loginRateLimiter
+            LoginRateLimiter loginRateLimiter,
+            IdentityOutboxWriter outboxWriter
     ) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
@@ -63,6 +65,7 @@ public class AuthApplicationService {
         this.effectivePermissionService = effectivePermissionService;
         this.securityProperties = securityProperties;
         this.loginRateLimiter = loginRateLimiter;
+        this.outboxWriter = outboxWriter;
     }
 
     @Transactional
@@ -102,6 +105,7 @@ public class AuthApplicationService {
             }
             throw new IdentityException("EMAIL_ALREADY_EXISTS", "Email is already registered", 409);
         }
+        outboxWriter.enqueueUserRegistered(user);
         return toUserResponse(user, effectivePermissionService.resolveForRoles(roleNames(user)));
     }
 

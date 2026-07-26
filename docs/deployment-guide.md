@@ -27,6 +27,9 @@ backends.
 - OTLP/metrics/log endpoints, sampling, storage, access, and retention.
 
 Never copy values from `.env.example` into production unchanged.
+Service-local READMEs provide module setup and troubleshooting orientation;
+deployment values, rendered manifests, and versioned contracts remain the
+authority for an actual release.
 
 ## Local deployment
 
@@ -77,6 +80,24 @@ simulator, seed, verification, log, and cleanup commands.
 
 8. Verify rollout, migrations, health, metrics, gateway JWT, public traceability,
    Kafka lag/DLT, and object-storage access.
+
+## Notification delivery
+
+- Identity registration publishes `UserRegistered.v1` through its transactional
+  outbox. Notification validates the source and bounded payload before creating
+  an idempotent welcome-email delivery.
+- External channels use at-most-once automatic delivery. They receive one
+  automatic provider attempt; an adapter failure is persisted, and a stale
+  `DELIVERING` lease becomes `FAILED` with `DELIVERY_OUTCOME_UNKNOWN` instead
+  of being resent.
+- `IN_APP` delivery is a local idempotent write and may be retried within the
+  configured bounded attempt budget.
+- This policy prevents automatic duplicate email/SMS after an ambiguous
+  provider response. It does not guarantee that a provider delivered a
+  `DELIVERY_OUTCOME_UNKNOWN` message.
+
+Operators must monitor `FAILED` notification outcomes and reconcile ambiguous
+external deliveries manually against provider evidence before any resend.
 
 ## Database change and rollback
 

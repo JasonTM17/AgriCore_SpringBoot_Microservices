@@ -23,6 +23,8 @@ class EventContractCatalogTest {
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final ObjectMapper YAML_MAPPER = new ObjectMapper(new YAMLFactory());
     private static final List<Contract> CONTRACTS = List.of(
+            contract(EventTypes.USER_REGISTERED, "identity-service", "agricore.identity.events",
+                    set("userId", "email", "fullName", "roles", "registeredAt")),
             contract(EventTypes.FARM_CREATED, "farm-service", "agricore.farm.events",
                     set("farmId", "code", "name", "province", "status")),
             contract(EventTypes.PLOT_CREATED, "farm-service", "agricore.farm.events",
@@ -194,9 +196,11 @@ class EventContractCatalogTest {
         assertThat(versionedMessageNames(channels))
                 .containsExactlyInAnyOrderElementsOf(CONTRACTS.stream().map(Contract::eventType).toList());
 
-        assertThat(actionCount(operations, "send")).isEqualTo(14);
-        assertThat(actionCount(operations, "receive")).isEqualTo(5);
+        assertThat(actionCount(operations, "send")).isEqualTo(16);
+        assertThat(actionCount(operations, "receive")).isEqualTo(6);
         assertThat(fieldNames(operations)).contains(
+                "notificationServiceReceivesUserRegistered",
+                "notificationServiceSendsIdentityDeadLetters",
                 "inventoryServiceReceivesHarvestCompleted",
                 "traceabilityServiceReceivesHarvestCompleted",
                 "notificationServiceReceivesSalesOrderEvents",
@@ -217,6 +221,7 @@ class EventContractCatalogTest {
         assertDeadLetterChannel(channels, "agricore.sales.events.DLT", "SalesOrderDeadLetter");
         assertDeadLetterChannel(channels, "agricore.traceability.events.DLT", "TraceabilityDeadLetter");
         assertDeadLetterChannel(channels, "agricore.iot.events.DLT", "IotDeadLetter");
+        assertDeadLetterChannel(channels, "agricore.identity.events.DLT", "IdentityDeadLetter");
     }
 
     @Test

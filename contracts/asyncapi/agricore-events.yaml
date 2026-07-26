@@ -105,6 +105,32 @@ channels:
         name: HarvestCompleted.v1
         payload:
           $ref: ../event-schemas/HarvestCompleted.v1.json
+  agricore.identity.events:
+    address: agricore.identity.events
+    description: Registration lifecycle events emitted by identity-service.
+    messages:
+      UserRegistered:
+        name: UserRegistered.v1
+        summary: Accepted registration addressing data without credentials or tokens.
+        payload:
+          $ref: ../event-schemas/UserRegistered.v1.json
+  agricore.identity.events.DLT:
+    address: agricore.identity.events.DLT
+    description: |
+      Dead-letter destination used by notification-service for rejected identity
+      records. Contract failures are recovered immediately; retryable failures
+      are recovered after bounded in-process retries.
+      Retryable records use `agricore.identity.events-retry-1000`,
+      `-retry-2000`, and `-retry-4000` before reaching this DLT. The value is
+      the unchanged original string and Spring Kafka adds dead-letter headers.
+    messages:
+      IdentityDeadLetter:
+        name: IdentityDeadLetter
+        title: Rejected identity event record
+        contentType: text/plain
+        description: Unchanged identity event record rejected by notification-service.
+        payload:
+          type: string
   agricore.iot.events:
     address: agricore.iot.events
     description: Sensor telemetry, threshold, and device availability events emitted by iot-service.
@@ -373,3 +399,21 @@ operations:
       $ref: '#/channels/agricore.iot.events.DLT'
     messages:
       - $ref: '#/channels/agricore.iot.events.DLT/messages/IotDeadLetter'
+  identityServiceSendsUserRegistered:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.identity.events'
+    messages:
+      - $ref: '#/channels/agricore.identity.events/messages/UserRegistered'
+  notificationServiceReceivesUserRegistered:
+    action: receive
+    channel:
+      $ref: '#/channels/agricore.identity.events'
+    messages:
+      - $ref: '#/channels/agricore.identity.events/messages/UserRegistered'
+  notificationServiceSendsIdentityDeadLetters:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.identity.events.DLT'
+    messages:
+      - $ref: '#/channels/agricore.identity.events.DLT/messages/IdentityDeadLetter'

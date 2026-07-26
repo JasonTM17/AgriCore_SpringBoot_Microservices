@@ -13,11 +13,13 @@ public class NotificationEventSourcePolicy {
     private final Map<String, EventSource> sources;
 
     public NotificationEventSourcePolicy(
+            @Value("${agricore.kafka.topics.identity-events:agricore.identity.events}") String identityTopic,
             @Value("${agricore.kafka.topics.sales-events:agricore.sales.events}") String salesTopic,
             @Value("${agricore.kafka.topics.traceability-events:agricore.traceability.events}") String traceabilityTopic,
             @Value("${agricore.kafka.topics.iot-events:agricore.iot.events}") String iotTopic
     ) {
         this.sources = Map.of(
+                EventTypes.USER_REGISTERED, new EventSource(identityTopic, "identity-service"),
                 EventTypes.SALES_ORDER_CONFIRMED, new EventSource(salesTopic, "sales-service"),
                 EventTypes.SALES_ORDER_CANCELLED, new EventSource(salesTopic, "sales-service"),
                 EventTypes.TRACEABILITY_CODE_GENERATED,

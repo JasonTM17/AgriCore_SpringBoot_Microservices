@@ -6,6 +6,23 @@ Use YAGNI, then KISS, then DRY. Extend an existing boundary before creating a
 generic framework. Split files above roughly 200 lines when a real responsibility
 boundary exists; configuration, migrations, scripts, and prose are exceptions.
 
+## Service structure
+
+Spring services use responsibility-oriented packages:
+
+```text
+com.agricore.<service>
+  api/             controllers and transport records
+  application/     use cases and ports
+  domain/          models, policies, and domain exceptions
+  infrastructure/  persistence, messaging, security, and configuration
+```
+
+Dependencies point inward. A service never imports another service's domain or
+JPA model. Keep module-local setup, environment-variable, test, and repair notes
+in `services/<service>/README.md`, and verify them against the controller,
+configuration, contracts, and migrations whenever behavior changes.
+
 ## Java and Spring
 
 - Target Java 21 and use constructor injection.
@@ -46,6 +63,12 @@ boundary exists; configuration, migrations, scripts, and prose are exceptions.
   batches, row locks, send timeouts, backlog metrics, and repairable failures.
 - Consumers validate exact type/version, commit side effect plus processed marker,
   and route invalid/exhausted records through the documented DLT path.
+- Event payloads include only data the consumer proves it needs. Identity's
+  `UserRegistered.v1` welcome-notification payload must never contain password,
+  token, or credential material.
+- Do not automatically resend an external notification after an ambiguous
+  outcome. Mark it `FAILED` with `DELIVERY_OUTCOME_UNKNOWN`; only idempotent
+  local channels such as `IN_APP` may reclaim a stale delivery lease.
 
 ## TypeScript and React
 

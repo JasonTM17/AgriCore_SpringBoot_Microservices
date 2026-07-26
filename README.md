@@ -26,7 +26,7 @@ operational path and a public-safe traceability view.
 
 ## Status
 
-Pre-release implementation: the repository contains 13 Spring applications, the React console, local Compose stacks, a Helm application chart, automated quality and security gates, and gated Docker Hub plus GitHub Packages publishing. Implementation and remediation are complete at the current checkpoint; final clean-revision gates, pull-request review/merge, and registry publication remain pending. The implemented event mesh currently covers 29 versioned Kafka events with transactional outboxes, idempotent consumers, bounded DLT recovery, and contract checks; this status does not claim a production installation.
+Pre-release implementation: the repository contains 13 Spring applications, the React console, local Compose stacks, a Helm application chart, automated quality and security gates, and gated Docker Hub plus GitHub Packages publishing. Implementation and remediation are complete at the current checkpoint; final clean-revision gates, pull-request review/merge, and registry publication remain pending. The implemented event mesh uses versioned contracts, transactional outboxes, idempotent consumers, bounded DLT recovery, and contract checks; this status does not claim a production installation.
 
 ## Microservices
 
@@ -60,24 +60,45 @@ Browser :3000 ── Nginx ── /api, /public/api ── API Gateway :8080
                                                 ├─ Cycle, Work, Harvest, Inventory
                                                 └─ Traceability, IoT, Sales, Notification, Assistant
 
+Identity transactional outbox ── UserRegistered.v1 ── Notification
 Harvest transactional outbox ── Kafka ── Inventory + Traceability
-Sales ── bounded reserve/confirm ── durable recovery ── Notification
+Sales ── bounded reserve/confirm ── durable recovery
 ```
 
 - Database per service with PostgreSQL and Flyway.
-- Kafka event mesh: Harvest feeds Inventory and Traceability; Sales, Traceability, and IoT feed Notification; every event producer uses a transactional outbox.
-- Transactional outbox publishers across farm, crop-cycle, work, harvest, inventory, IoT, traceability, sales, and notification.
+- Kafka event mesh: Identity registration, Sales, Traceability, and IoT feed
+  Notification; Harvest feeds Inventory and Traceability. Every event producer
+  uses a transactional outbox.
+- Transactional outbox publishers across identity, farm, crop-cycle, work,
+  harvest, inventory, IoT, traceability, sales, and notification.
 - Farm-scoped `HarvestCompleted.v1` consumers in Inventory and Traceability,
-  plus Notification consumers for Sales, Traceability, and IoT events. Invalid
-  notification envelopes/payloads bypass retry topics and go to the DLT without
-  creating a delivery or processed marker.
-- Versioned JSON Schema and AsyncAPI contracts for 29 implemented domain events.
+  plus Notification consumers for Identity, Sales, Traceability, and IoT
+  events. Invalid notification envelopes/payloads bypass retry topics and go
+  to the DLT without creating a delivery or processed marker.
+- External notification delivery is at-most-once automatically: an ambiguous
+  stale delivery becomes `FAILED` with `DELIVERY_OUTCOME_UNKNOWN` instead of
+  being resent. Persisted `IN_APP` delivery can be reclaimed safely.
+- Versioned JSON Schema and AsyncAPI contracts for implemented domain events.
 - RS256 JWTs, JWKS validation, canonical permission guards, permission-aware console navigation, and farm membership authorization.
 - Persisted assistant with authenticated replayable SSE, read-only farm tools, and Redis-backed budgets.
 - PostgreSQL excludes overlapping `DRAFT`/`ACTIVE` crop-cycle date ranges for
   one plot, closing the concurrent-insert race left by application checks alone.
 
 See [System Architecture](docs/architecture/SYSTEM_ARCHITECTURE.md), [ADRs](docs/adr/), and [local operations](docs/runbooks/local-operations.md).
+
+### Service references
+
+Each Spring application has module-local setup and runbook notes. Versioned
+contracts and the platform docs remain authoritative for cross-service
+behavior.
+
+| | | |
+|---|---|---|
+| [API gateway](services/api-gateway/README.md) | [Identity](services/identity-service/README.md) | [Farm](services/farm-service/README.md) |
+| [Crop catalog](services/crop-catalog-service/README.md) | [Crop cycle](services/crop-cycle-service/README.md) | [Work](services/work-service/README.md) |
+| [Harvest](services/harvest-service/README.md) | [Inventory](services/inventory-service/README.md) | [Traceability](services/traceability-service/README.md) |
+| [IoT](services/iot-service/README.md) | [Sales](services/sales-service/README.md) | [Notification](services/notification-service/README.md) |
+| [Assistant](services/assistant-service/README.md) | | |
 
 ## Technology stack
 
@@ -176,7 +197,16 @@ hourly cleanup job exposes purged-record and failure counters. Review
 `ASSISTANT_*_RETENTION` and cleanup settings against the deployment's legal and
 operational requirements before production use.
 
-Local email delivery uses Mailpit. Notification state is persisted as `REQUESTED` before bounded delivery attempts and ends as `SENT` or `FAILED`; captured development email is visible in the Mailpit UI. Event-driven `IN_APP` deliveries are persisted in the administrative inbox. A `SYSTEM_ADMIN` with `NOTIFICATION_ADMIN` can page `GET /api/v1/notifications/in-app` and mark an entry read with `PATCH /api/v1/notifications/in-app/{notificationId}/read`.
+Local email delivery uses Mailpit. Notification state is persisted as
+`REQUESTED` before delivery and ends as `SENT` or `FAILED`; captured development
+email is visible in the Mailpit UI. External channels receive at most one
+automatic delivery attempt. If the process loses the provider result, recovery
+records `FAILED` with `DELIVERY_OUTCOME_UNKNOWN` instead of risking a duplicate
+send. Event-driven `IN_APP` deliveries are persisted in the administrative
+inbox and can be retried safely. A `SYSTEM_ADMIN` with
+`NOTIFICATION_ADMIN` can page `GET /api/v1/notifications/in-app` and mark an
+entry read with
+`PATCH /api/v1/notifications/in-app/{notificationId}/read`.
 
 For deterministic demo data, set a local-only `AGRICORE_SEED_PASSWORD`, preview
 with `.\scripts\seed-data.ps1 -Profile Large -DryRun`, then remove `-DryRun`.

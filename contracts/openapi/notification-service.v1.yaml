@@ -1,13 +1,15 @@
 openapi: 3.1.0
 info:
   title: AgriCore Notification Service API
-  version: 1.3.0
+  version: 1.4.0
   description: |
     Authorized direct notification delivery, a persisted in-app inbox, and idempotent
     Kafka-driven notifications. Delivery is persisted as REQUESTED before transitioning
     to SENT or FAILED. External channels use at-most-once automatic delivery: an
     interrupted delivery is recorded as FAILED with DELIVERY_OUTCOME_UNKNOWN instead
     of being resent. IN_APP delivery can be retried safely by notification ID.
+    The service also consumes the exact UserRegistered.v1 identity event and creates
+    one durable welcome-email delivery per event ID.
 servers:
   - url: http://localhost:8089
 paths:

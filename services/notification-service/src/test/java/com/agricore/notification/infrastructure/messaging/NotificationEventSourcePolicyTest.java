@@ -14,11 +14,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class NotificationEventSourcePolicyTest {
 
+    private static final String IDENTITY_TOPIC = "identity-topic";
     private static final String SALES_TOPIC = "sales-topic";
     private static final String TRACEABILITY_TOPIC = "traceability-topic";
     private static final String IOT_TOPIC = "iot-topic";
 
     private final NotificationEventSourcePolicy policy = new NotificationEventSourcePolicy(
+            IDENTITY_TOPIC,
             SALES_TOPIC,
             TRACEABILITY_TOPIC,
             IOT_TOPIC
@@ -27,6 +29,7 @@ class NotificationEventSourcePolicyTest {
     @Test
     void acceptsEverySupportedEventOnlyFromItsContractSource() {
         List<EventSourceCase> cases = List.of(
+                new EventSourceCase(EventTypes.USER_REGISTERED, IDENTITY_TOPIC, "identity-service"),
                 new EventSourceCase(EventTypes.SALES_ORDER_CONFIRMED, SALES_TOPIC, "sales-service"),
                 new EventSourceCase(EventTypes.SALES_ORDER_CANCELLED, SALES_TOPIC, "sales-service"),
                 new EventSourceCase(

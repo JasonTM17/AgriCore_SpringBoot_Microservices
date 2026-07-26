@@ -85,6 +85,7 @@ agricore:
       enabled: ${NOTIFICATION_KAFKA_CONSUMER_ENABLED:true}
       group-id: ${NOTIFICATION_KAFKA_GROUP_ID:notification-service}
     topics:
+      identity-events: agricore.identity.events
       sales-events: agricore.sales.events
       traceability-events: agricore.traceability.events
       iot-events: agricore.iot.events
