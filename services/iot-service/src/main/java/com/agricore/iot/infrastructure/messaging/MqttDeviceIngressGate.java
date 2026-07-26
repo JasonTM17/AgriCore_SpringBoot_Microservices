@@ -56,8 +56,8 @@ public class MqttDeviceIngressGate {
             evictIdleBuckets(now);
         }
 
-        DeviceBucket bucket = bucketFor(deviceKey(topic), now);
-        if (bucket == null || !bucket.tryAcquire(now, permitsPerSecond, burstCapacity, maxInFlightPerDevice)) {
+        DeviceBucket bucket = acquireBucket(deviceKey(topic), now);
+        if (bucket == null) {
             return Optional.empty();
         }
         return Optional.of(new Permit(bucket));
@@ -67,15 +67,15 @@ public class MqttDeviceIngressGate {
         return buckets.size();
     }
 
-    private DeviceBucket bucketFor(String deviceKey, long now) {
-        DeviceBucket existing = buckets.get(deviceKey);
-        if (existing != null) {
-            return existing;
+    private DeviceBucket acquireBucket(String deviceKey, long now) {
+        Acquisition existing = tryAcquireExisting(deviceKey, now);
+        if (existing.found()) {
+            return existing.bucket();
         }
         synchronized (bucketCreationLock) {
-            existing = buckets.get(deviceKey);
-            if (existing != null) {
-                return existing;
+            existing = tryAcquireExisting(deviceKey, now);
+            if (existing.found()) {
+                return existing.bucket();
             }
             if (buckets.size() >= trackedDeviceCapacity) {
                 evictIdleBuckets(now);
@@ -84,13 +84,33 @@ public class MqttDeviceIngressGate {
                 return null;
             }
             DeviceBucket created = new DeviceBucket(burstCapacity, now);
+            if (!created.tryAcquire(now, permitsPerSecond, burstCapacity, maxInFlightPerDevice)) {
+                return null;
+            }
             buckets.put(deviceKey, created);
             return created;
         }
     }
 
+    private Acquisition tryAcquireExisting(String deviceKey, long now) {
+        AcquisitionHolder holder = new AcquisitionHolder();
+        buckets.computeIfPresent(deviceKey, (key, bucket) -> {
+            holder.found = true;
+            if (bucket.tryAcquire(now, permitsPerSecond, burstCapacity, maxInFlightPerDevice)) {
+                holder.bucket = bucket;
+            }
+            return bucket;
+        });
+        return new Acquisition(holder.found, holder.bucket);
+    }
+
     private void evictIdleBuckets(long now) {
-        buckets.entrySet().removeIf(entry -> entry.getValue().isIdle(now, idleTtlNanos));
+        for (String deviceKey : buckets.keySet()) {
+            buckets.computeIfPresent(
+                    deviceKey,
+                    (key, bucket) -> bucket.isIdle(now, idleTtlNanos) ? null : bucket
+            );
+        }
     }
 
     private static String deviceKey(String topic) {
@@ -158,6 +178,14 @@ public class MqttDeviceIngressGate {
             );
             lastRefillNanos = now;
         }
+    }
+
+    private record Acquisition(boolean found, DeviceBucket bucket) {
+    }
+
+    private static final class AcquisitionHolder {
+        private boolean found;
+        private DeviceBucket bucket;
     }
 
     public static final class Permit implements AutoCloseable {

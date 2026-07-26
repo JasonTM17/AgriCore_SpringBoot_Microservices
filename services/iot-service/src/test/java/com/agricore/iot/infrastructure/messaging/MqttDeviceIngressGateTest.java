@@ -3,6 +3,10 @@ package com.agricore.iot.infrastructure.messaging;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -63,6 +67,45 @@ class MqttDeviceIngressGateTest {
                 + "x".repeat(80) + "/reading")).isEmpty();
         assertThat(gate.trackedDeviceCount()).isEqualTo(1);
         invalid.close();
+    }
+
+    @Test
+    void idleEvictionCannotDetachAConcurrentDevicePermit() throws Exception {
+        MqttDeviceIngressGate gate = new MqttDeviceIngressGate(
+                10_000, 10_000, 1, 1, Duration.ofNanos(1));
+        AtomicInteger inFlight = new AtomicInteger();
+        AtomicInteger maximumInFlight = new AtomicInteger();
+        CountDownLatch ready = new CountDownLatch(12);
+        CountDownLatch start = new CountDownLatch(1);
+        var executor = Executors.newFixedThreadPool(12);
+
+        try {
+            for (int worker = 0; worker < 12; worker++) {
+                executor.submit(() -> {
+                    ready.countDown();
+                    start.await(5, TimeUnit.SECONDS);
+                    for (int attempt = 0; attempt < 600; attempt++) {
+                        gate.tryAcquire(topic("DEVICE-RACE")).ifPresent(permit -> {
+                            int current = inFlight.incrementAndGet();
+                            maximumInFlight.accumulateAndGet(current, Math::max);
+                            Thread.onSpinWait();
+                            inFlight.decrementAndGet();
+                            permit.close();
+                        });
+                    }
+                    return null;
+                });
+            }
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            executor.shutdown();
+            assertThat(executor.awaitTermination(15, TimeUnit.SECONDS)).isTrue();
+
+            assertThat(maximumInFlight).hasValue(1);
+            assertThat(gate.trackedDeviceCount()).isEqualTo(1);
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     private static String topic(String deviceCode) {
