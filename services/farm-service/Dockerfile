@@ -5,7 +5,7 @@ COPY libs ./libs
 COPY services ./services
 RUN mvn -q -pl services/farm-service -am package -DskipTests
 
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:25-jre-alpine
 ARG GIT_SHA=unknown
 LABEL org.opencontainers.image.source="https://github.com/JasonTM17/AgriCore_SpringBoot_Microservices" \
       org.opencontainers.image.licenses="MIT" \
