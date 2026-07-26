@@ -17,9 +17,17 @@ pdb:
 networkPolicy:
   enabled: true
   # Keep egress open by default because PostgreSQL, Redis, Kafka, SMTP, MQTT,
-  # and OTLP backends are operator-provided. Set false and provide explicit
-  # rules in a production values overlay when dependency CIDRs are known.
+  # and OTLP backends are operator-provided. Set restrictEgress=true only with
+  # explicit dependency rules below once namespaces or CIDRs are known.
   restrictEgress: false
+  # Full NetworkPolicy egress entries appended after DNS and same-namespace
+  # AgriCore traffic. Example:
+  # additionalEgress:
+  #   - to:
+  #       - ipBlock: { cidr: 10.40.0.0/16 }
+  #     ports:
+  #       - { protocol: TCP, port: 5432 }
+  additionalEgress: []
 
 # Each entry maps to Deployment+Service in templates/deployment.yaml
 identity:
@@ -152,7 +160,6 @@ assistant:
   replicaCount: 1
   image: nguyenson1710/agricore-assistant
   port: 8093
-  readOnlyRootFilesystem: true
   provider: none
   providerModel: ""
   providerBaseUrl: ""
