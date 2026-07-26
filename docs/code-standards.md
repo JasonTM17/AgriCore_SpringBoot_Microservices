@@ -98,6 +98,22 @@ com.agricore.<service>
   to a service means adding it to that service's contract in the same change — CI enforces the paths
   match and the schema copies are identical.
 
+## API contract
+
+- `contracts/openapi/*.v1.yaml` is canonical, one file per service, each standing alone.
+- `tools/check-openapi-contract-drift.py` runs in CI as the `contracts` job and fails the build on:
+  a declared endpoint no controller implements; an implemented endpoint no contract declares; a
+  missing or divergent `ApiError` schema; a 4xx/5xx response with no schema; a status declared twice
+  in one `responses:` block; a service with no contract or a contract with no service.
+- **The code is the reference.** When the two disagree, the contract is what changes — unless the
+  contract describes an intended feature, in which case it goes to the roadmap rather than being
+  quietly implemented to satisfy the document.
+- The checker refuses to run on a mapping annotation form it does not understand rather than
+  skipping it. Extend the checker; do not work around it.
+- What it does **not** check: path-variable *names* (`{id}` vs `{cropId}` both pass), request and
+  response body schemas, or the `ApiError` copies against `ApiError.java`. Keep the copies in step
+  with the Java record by hand — changing that record is a deliberate platform-wide event.
+
 ## Configuration
 
 - Every externally settable value is an env var with a safe default:

@@ -184,9 +184,16 @@ scripts/           Dev stack, JWT key generation, platform verification
 
 ## CI
 
-GitHub Actions on every push and PR: `ci` (Maven build + test, Gitleaks secret scan, compose config
-validation), `codeql` (SAST), and `trivy` (filesystem + dependency scan). Images publish only after
-`ci` succeeds on the default branch.
+GitHub Actions on every push and PR: `ci` (Maven build + test, Gitleaks secret scan, OpenAPI
+contract check, compose config validation), `codeql` (SAST), and `trivy` (filesystem + dependency
+scan).
+
+Images publish only when **all three** succeed for that exact commit. `ci` triggers the publish
+workflow, which then reads back the `trivy` and `codeql` conclusions for the same SHA; a failed,
+missing, or still-running scan blocks the publish and the run log says which one and why.
+
+The contract check fails the build when `contracts/openapi/` stops describing the controllers —
+in either direction — or when the shared `ApiError` schema drifts between service contracts.
 
 ## Contributing
 
