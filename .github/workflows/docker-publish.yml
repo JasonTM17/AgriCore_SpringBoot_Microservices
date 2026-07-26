@@ -124,7 +124,7 @@ jobs:
             image: agricore-gateway
     steps:
       - name: Checkout verified revision
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.resolve-sha.outputs.publish_sha }}
 
