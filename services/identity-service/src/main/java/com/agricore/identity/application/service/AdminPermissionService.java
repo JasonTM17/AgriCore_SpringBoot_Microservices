@@ -27,6 +27,8 @@ import java.util.stream.Collectors;
 @Service
 public class AdminPermissionService {
 
+    private static final String POLICY_ADMIN_PERMISSION_CODE = "IDENTITY_POLICY_ADMIN";
+
     private final PermissionJpaRepository permissionRepository;
     private final RoleJpaRepository roleRepository;
     private final RolePermissionPolicyAuditJpaRepository auditRepository;
@@ -74,6 +76,7 @@ public class AdminPermissionService {
                     409
             );
         }
+        validateBreakGlassPolicy(roleCode, permissionCodes);
 
         List<PermissionEntity> requestedPermissions = permissionCodes.isEmpty()
                 ? List.of()
@@ -108,6 +111,16 @@ public class AdminPermissionService {
         auditRepository.saveAndFlush(audit);
 
         return toRoleResponse(updatedRole);
+    }
+
+    private static void validateBreakGlassPolicy(RoleCode roleCode, Set<String> permissionCodes) {
+        if (roleCode == RoleCode.SYSTEM_ADMIN && !permissionCodes.contains(POLICY_ADMIN_PERMISSION_CODE)) {
+            throw new IdentityException(
+                    "SYSTEM_ADMIN_POLICY_ADMIN_REQUIRED",
+                    "SYSTEM_ADMIN must retain " + POLICY_ADMIN_PERMISSION_CODE,
+                    409
+            );
+        }
     }
 
     private static void validateAllPermissionsExist(

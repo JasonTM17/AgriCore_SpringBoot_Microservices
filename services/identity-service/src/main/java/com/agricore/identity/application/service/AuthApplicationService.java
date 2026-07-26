@@ -25,7 +25,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
@@ -36,13 +35,6 @@ import java.util.stream.Collectors;
 public class AuthApplicationService {
 
     private static final String EMAIL_UNIQUE_CONSTRAINT = "uk_users_email";
-
-    /**
-     * Concurrent legitimate refresh of the same active token can wait for the user lock
-     * and then observe a just-rotated row. Inside this grace window we reject without
-     * wiping the winner's replacement. Outside the window, reuse triggers family revoke.
-     */
-    private static final Duration CONCURRENT_ROTATION_GRACE = Duration.ofSeconds(5);
 
     private final UserJpaRepository userRepository;
     private final RoleJpaRepository roleRepository;
@@ -235,17 +227,6 @@ public class AuthApplicationService {
     }
 
     private void handleRevokedRefreshPresentation(RefreshTokenEntity existing, Instant now) {
-        // Concurrent rotation loser: replacement still active and rotation was moments ago.
-        if (existing.getReplacedBy() != null
-                && existing.getRevokedAt() != null
-                && !Duration.between(existing.getRevokedAt(), now).isNegative()
-                && Duration.between(existing.getRevokedAt(), now).compareTo(CONCURRENT_ROTATION_GRACE) <= 0) {
-            RefreshTokenEntity replacement = refreshTokenRepository.findById(existing.getReplacedBy()).orElse(null);
-            if (replacement != null && replacement.isActive(now)) {
-                throw new IdentityException("INVALID_REFRESH_TOKEN", "Invalid refresh token", 401);
-            }
-        }
-
         refreshTokenRepository.revokeFamily(existing.getFamilyId(), now);
         throw new RefreshTokenReuseException();
     }

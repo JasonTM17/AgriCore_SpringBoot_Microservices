@@ -169,6 +169,59 @@ class AdminPermissionIntegrationTest {
     }
 
     @Test
+    @WithMockUser(username = "break-glass-admin", authorities = {
+            "ROLE_SYSTEM_ADMIN", "PERMISSION_IDENTITY_POLICY_READ", "PERMISSION_IDENTITY_POLICY_ADMIN"
+    })
+    void systemAdminReplacementCannotRemovePolicyAdminPermission() throws Exception {
+        var role = roleRepository.findByCode("SYSTEM_ADMIN").orElseThrow();
+
+        mockMvc.perform(put("/api/v1/admin/roles/SYSTEM_ADMIN/permissions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "permissionCodes":["IDENTITY_POLICY_READ"],
+                                  "expectedVersion":1,
+                                  "reason":"Accidental self-lockout"
+                                }
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SYSTEM_ADMIN_POLICY_ADMIN_REQUIRED"));
+
+        entityManager.clear();
+        var unchanged = roleRepository.findByCode("SYSTEM_ADMIN").orElseThrow();
+        assertThat(unchanged.getPermissionPolicyVersion()).isEqualTo(1);
+        assertThat(unchanged.getPermissions())
+                .extracting(PermissionEntity::getCode)
+                .contains("IDENTITY_POLICY_ADMIN");
+        assertThat(auditRepository.findAllByRoleIdOrderByPolicyVersionAsc(role.getId())).isEmpty();
+    }
+
+    @Test
+    @WithMockUser(username = "break-glass-admin", authorities = {
+            "ROLE_SYSTEM_ADMIN", "PERMISSION_IDENTITY_POLICY_READ", "PERMISSION_IDENTITY_POLICY_ADMIN"
+    })
+    void systemAdminReplacementSucceedsWhenPolicyAdminPermissionIsRetained() throws Exception {
+        mockMvc.perform(put("/api/v1/admin/roles/SYSTEM_ADMIN/permissions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "permissionCodes":["IDENTITY_POLICY_ADMIN","IDENTITY_POLICY_READ"],
+                                  "expectedVersion":1,
+                                  "reason":"Retain break-glass administration"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.role").value("SYSTEM_ADMIN"))
+                .andExpect(jsonPath("$.version").value(2))
+                .andExpect(jsonPath("$.permissions.length()").value(2))
+                .andExpect(jsonPath("$.permissions[0].code").value("IDENTITY_POLICY_ADMIN"))
+                .andExpect(jsonPath("$.permissions[1].code").value("IDENTITY_POLICY_READ"));
+
+        var role = roleRepository.findByCode("SYSTEM_ADMIN").orElseThrow();
+        assertThat(auditRepository.findAllByRoleIdOrderByPolicyVersionAsc(role.getId())).hasSize(1);
+    }
+
+    @Test
     @WithMockUser(authorities = {
             "ROLE_SYSTEM_ADMIN", "PERMISSION_IDENTITY_POLICY_READ", "PERMISSION_IDENTITY_POLICY_ADMIN"
     })

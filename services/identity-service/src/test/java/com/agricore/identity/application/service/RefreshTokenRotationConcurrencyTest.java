@@ -14,7 +14,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -38,7 +37,7 @@ class RefreshTokenRotationConcurrencyTest {
     private RefreshTokenJpaRepository refreshTokenRepository;
 
     @Test
-    void concurrentRefresh_createsOneUsableReplacement() throws Exception {
+    void concurrentRefresh_reuseRevokesTheWholeFamily() throws Exception {
         String email = "refresh-race-" + System.nanoTime() + "@agricore.test";
         authService.register(new RegisterRequest(email, "Secret123!", "Refresh Race User"));
         AuthTokensResponse login = authService.login(
@@ -67,7 +66,7 @@ class RefreshTokenRotationConcurrencyTest {
             assertThat(attempts)
                     .filteredOn(attempt -> !attempt.succeeded())
                     .extracting(RefreshAttempt::errorCode)
-                    .containsExactly("INVALID_REFRESH_TOKEN");
+                    .containsExactly("REFRESH_TOKEN_REUSE");
 
             RefreshTokenEntity original = refreshTokenRepository
                     .findByTokenHash(TokenHashing.sha256Hex(login.refreshToken()))
@@ -78,14 +77,27 @@ class RefreshTokenRotationConcurrencyTest {
                     .toList();
 
             assertThat(family).hasSize(2);
-            assertThat(family).filteredOn(token -> token.getRevokedAt() == null).hasSize(1);
+            assertThat(family).allMatch(token -> token.getRevokedAt() != null);
+            assertThat(refreshTokenRepository.countByFamilyIdAndRevokedAtIsNull(familyId)).isZero();
+
+            String returnedReplacement = attempts.stream()
+                    .filter(RefreshAttempt::succeeded)
+                    .findFirst()
+                    .orElseThrow()
+                    .refreshToken();
+            assertThatThrownBy(
+                    () -> authService.refresh(returnedReplacement, "127.0.0.1", "concurrency-test")
+            ).isInstanceOfSatisfying(
+                    IdentityException.class,
+                    exception -> assertThat(exception.getCode()).isEqualTo("REFRESH_TOKEN_REUSE")
+            );
         } finally {
             executor.shutdownNow();
         }
     }
 
     @Test
-    void reusedTokenOutsideGrace_revokesWholeFamily() {
+    void reusedRotatedTokenImmediately_revokesWholeFamily() {
         String email = "refresh-reuse-" + System.nanoTime() + "@agricore.test";
         authService.register(new RegisterRequest(email, "Secret123!", "Refresh Reuse User"));
         AuthTokensResponse login = authService.login(
@@ -98,8 +110,6 @@ class RefreshTokenRotationConcurrencyTest {
         RefreshTokenEntity original = refreshTokenRepository
                 .findByTokenHash(TokenHashing.sha256Hex(login.refreshToken()))
                 .orElseThrow();
-        original.setRevokedAt(Instant.now().minusSeconds(10));
-        refreshTokenRepository.saveAndFlush(original);
 
         assertThatThrownBy(
                 () -> authService.refresh(login.refreshToken(), "127.0.0.1", "reuse-test")
