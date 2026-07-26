@@ -109,21 +109,15 @@ public class NotificationApplicationService {
 
         NotificationPersistenceService.Claim deliveryClaim = claimed.get();
         NotificationEntity notification = deliveryClaim.notification();
-        NotificationDeliveryResult result;
-        if ("IN_APP".equals(notification.getChannel())) {
-            persistenceService.beginAttempt(notificationId, deliveryClaim.claimId(), maxAttempts);
-            result = NotificationDeliveryResult.sent();
-        } else {
-            result = NotificationDeliveryResult.failed(
-                    "RETRY_BUDGET_EXHAUSTED", "Notification delivery retry budget exhausted", false);
-            while (true) {
-                if (persistenceService.beginAttempt(notificationId, deliveryClaim.claimId(), maxAttempts).isEmpty()) {
-                    break;
-                }
-                result = safelyDeliver(notification, deliveryClaim.claimId());
-                if (result.delivered() || !result.retryable()) {
-                    break;
-                }
+        NotificationDeliveryResult result = NotificationDeliveryResult.failed(
+                "RETRY_BUDGET_EXHAUSTED", "Notification delivery retry budget exhausted", false);
+        while (true) {
+            if (persistenceService.beginAttempt(notificationId, deliveryClaim.claimId(), maxAttempts).isEmpty()) {
+                break;
+            }
+            result = safelyDeliver(notification, deliveryClaim.claimId());
+            if (result.delivered() || !result.retryable()) {
+                break;
             }
         }
 

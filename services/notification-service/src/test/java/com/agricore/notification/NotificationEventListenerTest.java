@@ -12,8 +12,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.kafka.annotation.RetryableTopic;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -121,6 +124,16 @@ class NotificationEventListenerTest {
         assertThat(notificationRepository.count()).isZero();
         assertThat(processedEventRepository.count()).isZero();
         assertThat(outboxRepository.count()).isZero();
+    }
+
+    @Test
+    void contractValidationFailuresBypassRetryTopics() throws NoSuchMethodException {
+        Method listenerMethod = NotificationEventListener.class
+                .getMethod("onMessage", ConsumerRecord.class);
+        RetryableTopic retryPolicy = listenerMethod.getAnnotation(RetryableTopic.class);
+
+        assertThat(retryPolicy).isNotNull();
+        assertThat(Arrays.asList(retryPolicy.exclude())).contains(IllegalArgumentException.class);
     }
 
     private static ConsumerRecord<String, String> record(String topic, String raw) {

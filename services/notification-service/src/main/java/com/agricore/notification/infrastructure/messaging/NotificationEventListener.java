@@ -56,6 +56,7 @@ public class NotificationEventListener {
             ),
             timeout = "${AGRICORE_KAFKA_RETRY_TIMEOUT_MS:30000}",
             dltTopicSuffix = ".DLT",
+            exclude = IllegalArgumentException.class,
             autoCreateTopics = "${AGRICORE_KAFKA_RETRY_AUTO_CREATE_TOPICS:false}"
     )
     @KafkaListener(
