@@ -25,7 +25,9 @@ x-security-env: &security-env
   AGRICORE_DEV_MODE: "false"
 
 x-observability-env: &observability-env
-  MANAGEMENT_OTLP_TRACING_ENDPOINT: ${MANAGEMENT_OTLP_TRACING_ENDPOINT:-http://tempo:4318/v1/traces}
+  # Host-launched applications use MANAGEMENT_OTLP_TRACING_ENDPOINT from
+  # .env. Containers need the Compose-network hostname instead.
+  MANAGEMENT_OTLP_TRACING_ENDPOINT: ${COMPOSE_MANAGEMENT_OTLP_TRACING_ENDPOINT:-http://tempo:4318/v1/traces}
   MANAGEMENT_TRACING_SAMPLING_PROBABILITY: ${MANAGEMENT_TRACING_SAMPLING_PROBABILITY:-1.0}
   # Spring's environment-variable mapping removes the hyphen in
   # `percentiles-histogram`; an underscore here binds to the separate
