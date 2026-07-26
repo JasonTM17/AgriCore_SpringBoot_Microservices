@@ -47,7 +47,7 @@ public class PlotQueryService {
         PlotStatus statusFilter = StringUtils.hasText(status)
                 ? PlotStatus.valueOf(status.toUpperCase())
                 : null;
-        String queryFilter = StringUtils.hasText(query) ? query.strip() : null;
+        String queryFilter = StringUtils.hasText(query) ? query.strip() : "";
         Page<PlotEntity> page = plotRepository.searchByFarm(
                 farmId,
                 statusFilter,

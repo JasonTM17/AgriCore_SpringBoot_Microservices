@@ -20,7 +20,7 @@ public interface FarmJpaRepository extends JpaRepository<FarmEntity, UUID> {
             WHERE (:status IS NULL OR f.status = :status)
               AND (:enterpriseId IS NULL OR f.enterpriseId = :enterpriseId)
               AND (
-                :province IS NULL
+                :province = ''
                 OR LOWER(f.province) LIKE LOWER(CONCAT('%', :province, '%')) ESCAPE '!'
               )
             """)
@@ -40,7 +40,7 @@ public interface FarmJpaRepository extends JpaRepository<FarmEntity, UUID> {
               AND (:status IS NULL OR f.status = :status)
               AND (:enterpriseId IS NULL OR f.enterpriseId = :enterpriseId)
               AND (
-                :province IS NULL
+                :province = ''
                 OR LOWER(f.province) LIKE LOWER(CONCAT('%', :province, '%')) ESCAPE '!'
               )
             """)

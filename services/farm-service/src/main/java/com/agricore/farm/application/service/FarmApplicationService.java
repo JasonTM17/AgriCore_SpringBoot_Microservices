@@ -165,7 +165,7 @@ public class FarmApplicationService {
 
     private static String escapedFilter(String value) {
         if (!StringUtils.hasText(value)) {
-            return null;
+            return "";
         }
         return value.strip().replace("!", "!!").replace("%", "!%").replace("_", "!_");
     }

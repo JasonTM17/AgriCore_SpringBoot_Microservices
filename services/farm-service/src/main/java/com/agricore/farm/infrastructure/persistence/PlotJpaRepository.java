@@ -21,7 +21,7 @@ public interface PlotJpaRepository extends JpaRepository<PlotEntity, UUID> {
               AND (:status IS NULL OR p.status = :status)
               AND (:areaId IS NULL OR p.areaId = :areaId)
               AND (
-                :query IS NULL
+                :query = ''
                 OR LOWER(p.code) LIKE LOWER(CONCAT('%', :query, '%'))
                 OR LOWER(p.name) LIKE LOWER(CONCAT('%', :query, '%'))
               )

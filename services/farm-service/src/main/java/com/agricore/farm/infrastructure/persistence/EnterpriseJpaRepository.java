@@ -25,11 +25,11 @@ public interface EnterpriseJpaRepository extends JpaRepository<EnterpriseEntity,
             FROM EnterpriseEntity enterprise
             WHERE (:status IS NULL OR enterprise.status = :status)
               AND (
-                :province IS NULL
+                :province = ''
                 OR LOWER(enterprise.province) LIKE LOWER(CONCAT('%', :province, '%')) ESCAPE '!'
               )
               AND (
-                :query IS NULL
+                :query = ''
                 OR LOWER(enterprise.code) LIKE LOWER(CONCAT('%', :query, '%')) ESCAPE '!'
                 OR LOWER(enterprise.name) LIKE LOWER(CONCAT('%', :query, '%')) ESCAPE '!'
                 OR LOWER(enterprise.legalName) LIKE LOWER(CONCAT('%', :query, '%')) ESCAPE '!'

@@ -77,7 +77,7 @@ public class FarmAreaApplicationService {
         FarmAreaStatus statusFilter = StringUtils.hasText(status)
                 ? FarmAreaStatus.valueOf(status.toUpperCase(Locale.ROOT))
                 : null;
-        String queryFilter = StringUtils.hasText(query) ? query.strip() : null;
+        String queryFilter = StringUtils.hasText(query) ? query.strip() : "";
         Page<FarmAreaEntity> page = areaRepository.searchByFarm(farmId, statusFilter, queryFilter, pageable);
         return PageResponse.of(
                 page.getContent().stream().map(FarmAreaApplicationService::toResponse).toList(),

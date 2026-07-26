@@ -25,7 +25,7 @@ public interface FarmAreaJpaRepository extends JpaRepository<FarmAreaEntity, Far
             WHERE a.farmId = :farmId
               AND (:status IS NULL OR a.status = :status)
               AND (
-                :query IS NULL
+                :query = ''
                 OR LOWER(a.code) LIKE LOWER(CONCAT('%', :query, '%'))
                 OR LOWER(a.name) LIKE LOWER(CONCAT('%', :query, '%'))
               )

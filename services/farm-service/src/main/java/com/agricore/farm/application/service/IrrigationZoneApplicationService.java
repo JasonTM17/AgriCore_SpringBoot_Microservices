@@ -89,7 +89,7 @@ public class IrrigationZoneApplicationService {
         IrrigationMethod methodFilter = StringUtils.hasText(method)
                 ? enumValue(IrrigationMethod.class, method)
                 : null;
-        String queryFilter = StringUtils.hasText(query) ? escapeLike(query.strip()) : null;
+        String queryFilter = StringUtils.hasText(query) ? escapeLike(query.strip()) : "";
         Page<IrrigationZoneEntity> page = zoneRepository.searchByPlot(
                 plot.getFarmId(),
                 plotId,

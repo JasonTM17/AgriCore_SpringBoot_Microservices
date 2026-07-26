@@ -29,7 +29,7 @@ public interface IrrigationZoneJpaRepository extends JpaRepository<IrrigationZon
               AND (:status IS NULL OR zone.status = :status)
               AND (:method IS NULL OR zone.method = :method)
               AND (
-                :query IS NULL
+                :query = ''
                 OR LOWER(zone.code) LIKE LOWER(CONCAT('%', :query, '%')) ESCAPE '!'
                 OR LOWER(zone.name) LIKE LOWER(CONCAT('%', :query, '%')) ESCAPE '!'
               )

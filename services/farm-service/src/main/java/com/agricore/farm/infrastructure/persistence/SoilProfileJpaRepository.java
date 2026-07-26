@@ -26,7 +26,7 @@ public interface SoilProfileJpaRepository extends JpaRepository<SoilProfileEntit
               AND (:sampledFrom IS NULL OR profile.sampledAt >= :sampledFrom)
               AND (:sampledTo IS NULL OR profile.sampledAt <= :sampledTo)
               AND (
-                :query IS NULL
+                :query = ''
                 OR LOWER(profile.sampleCode) LIKE LOWER(CONCAT('%', :query, '%')) ESCAPE '!'
               )
             """)

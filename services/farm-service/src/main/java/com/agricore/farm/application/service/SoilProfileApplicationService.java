@@ -94,7 +94,7 @@ public class SoilProfileApplicationService {
         SoilProfileStatus statusFilter = StringUtils.hasText(status)
                 ? SoilProfileStatus.valueOf(status.toUpperCase(Locale.ROOT))
                 : null;
-        String queryFilter = StringUtils.hasText(query) ? escapeLike(query.strip()) : null;
+        String queryFilter = StringUtils.hasText(query) ? escapeLike(query.strip()) : "";
         Page<SoilProfileEntity> page = profileRepository.searchByPlot(
                 plot.getFarmId(),
                 plotId,
