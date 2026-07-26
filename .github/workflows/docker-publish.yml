@@ -68,6 +68,10 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      # Twelve simultaneous builds resolve the same two Docker Hub base images at once.
+      # Back-to-back pushes stack multiple runs, and the combined burst exceeds the
+      # registry pull-rate limit (observed: HTTP 429 on every job of one run).
+      max-parallel: 4
       matrix:
         include:
           - service: identity
