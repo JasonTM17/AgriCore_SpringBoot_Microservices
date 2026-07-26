@@ -151,6 +151,10 @@ jobs:
           context: ${{ matrix.context }}
           file: ${{ matrix.file }}
           push: true
+          # Stamps org.opencontainers.image.revision so a pulled image can be traced back to
+          # the commit it was built from. Without it the label would read "unknown".
+          build-args: |
+            GIT_SHA=${{ steps.meta_sha.outputs.full }}
           tags: |
             ${{ env.IMAGE_NAMESPACE }}/${{ matrix.image }}:latest
             ${{ env.IMAGE_NAMESPACE }}/${{ matrix.image }}:${{ steps.meta_sha.outputs.short }}
