@@ -9,8 +9,17 @@ import org.springframework.stereotype.Component;
 public class OutboxBacklogMetrics {
 
     public OutboxBacklogMetrics(MeterRegistry registry, OutboxJpaRepository repository) {
-        Gauge.builder("agricore.outbox.backlog", repository, OutboxJpaRepository::countByPublishedAtIsNull)
-                .description("Unpublished transactional outbox events")
+        Gauge.builder("agricore.outbox.backlog", repository,
+                        OutboxJpaRepository::countByPublishedAtIsNull)
+                .description("All unpublished transactional outbox events")
+                .register(registry);
+        Gauge.builder("agricore.outbox.pending", repository,
+                        OutboxJpaRepository::countByPublishedAtIsNullAndQuarantinedAtIsNull)
+                .description("Unpublished transactional outbox events eligible for retry")
+                .register(registry);
+        Gauge.builder("agricore.outbox.quarantined", repository,
+                        OutboxJpaRepository::countByQuarantinedAtIsNotNull)
+                .description("Quarantined transactional outbox events")
                 .register(registry);
     }
 }
