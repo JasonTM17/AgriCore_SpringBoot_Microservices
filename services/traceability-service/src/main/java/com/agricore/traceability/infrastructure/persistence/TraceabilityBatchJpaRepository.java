@@ -7,4 +7,7 @@ import java.util.UUID;
 
 public interface TraceabilityBatchJpaRepository extends JpaRepository<TraceabilityBatchEntity, UUID> {
     Optional<TraceabilityBatchEntity> findByTraceabilityCode(String code);
+
+    /** Served by idx_traceability_harvest; used on the consumer's duplicate-delivery path. */
+    Optional<TraceabilityBatchEntity> findByHarvestBatchId(UUID harvestBatchId);
 }

@@ -40,9 +40,9 @@ public class TraceabilityApplicationService {
     @Transactional
     public PublicTraceabilityResponse createFromHarvest(CreateTraceabilityRequest request) {
         if (processedEventRepository.existsByEventIdAndConsumerName(request.eventId(), CONSUMER)) {
-            return batchRepository.findAll().stream()
-                    .filter(b -> b.getHarvestBatchId().equals(request.harvestBatchId()))
-                    .findFirst()
+            // Indexed lookup, not findAll(): this is the redelivery path of a Kafka consumer, so a
+            // full-table scan here would grow with the batch history and stall the partition.
+            return batchRepository.findByHarvestBatchId(request.harvestBatchId())
                     .map(this::toPublic)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Event processed but batch missing"));
         }
