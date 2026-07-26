@@ -69,31 +69,37 @@ function Sync-SeedSalesOrders {
   param([hashtable]$Context)
 
   Write-Host "Seeding sales saga orders..."
-  $customerCode = "SEED-COOPERATIVE"
-  $customerId = Invoke-SeedSqlScalar "agricore_sales" `
-    "SELECT id FROM customers WHERE upper(code)=upper('$customerCode') LIMIT 1;"
-  if (-not $customerId) {
-    $customer = Invoke-SeedJson POST `
-      "$($Context.Gateway)/api/v1/sales/customers" `
-      $Context.AuthHeaders @{
-      code = $customerCode
-      name = "Hop tac xa nong san AgriCore"
-      email = "orders@agricore.local"
-    }
-    $customerId = $customer.id
-    $Context.Counts.CustomersCreated++
-    Add-SeedMutation $Context
-  } else {
-    $Context.Counts.CustomersReused++
-  }
-
   $confirmedOrders = New-Object System.Collections.Generic.List[object]
   $orderRecords = @($Context.FlowRecords | Select-Object -First $Context.SalesOrderLimit)
   for ($orderIndex = 0; $orderIndex -lt $orderRecords.Count; $orderIndex++) {
     $record = $orderRecords[$orderIndex]
+    $customerCode = "SEED-CUST-$($record.Farm.code)"
+    $customerId = Invoke-SeedSqlScalar "agricore_sales" `
+      "SELECT id FROM customers WHERE upper(code)=upper('$customerCode') AND farm_id='$($record.Farm.id)' LIMIT 1;"
+    if (-not $customerId) {
+      $customer = Invoke-SeedJson POST `
+        "$($Context.Gateway)/api/v1/sales/customers" `
+        $Context.AuthHeaders @{
+        farmId = $record.Farm.id
+        code = $customerCode
+        name = "Khach hang $($record.Farm.name)"
+        email = "orders@agricore.local"
+      }
+      $customerId = $customer.id
+      $Context.Counts.CustomersCreated++
+      Add-SeedMutation $Context
+    } else {
+      $Context.Counts.CustomersReused++
+    }
+
     $orderNumber = "SO-$($record.Farm.code)-{0:D2}" -f ($orderIndex + 1)
+    $upgradedOrderId = Invoke-SeedSqlScalar "agricore_sales" `
+      "UPDATE sales_orders SET farm_id='$($record.Farm.id)', customer_id='$customerId' WHERE upper(order_number)=upper('$orderNumber') AND farm_id IS NULL RETURNING id;"
+    if ($upgradedOrderId) {
+      Add-SeedMutation $Context
+    }
     $existing = Invoke-SeedSqlScalar "agricore_sales" `
-      "SELECT id || '|' || correlation_id || '|' || status FROM sales_orders WHERE upper(order_number)=upper('$orderNumber') LIMIT 1;"
+      "SELECT id || '|' || correlation_id || '|' || status FROM sales_orders WHERE upper(order_number)=upper('$orderNumber') AND farm_id='$($record.Farm.id)' LIMIT 1;"
     if ($existing) {
       $parts = $existing -split '\|'
       $order = [pscustomobject]@{
@@ -106,6 +112,7 @@ function Sync-SeedSalesOrders {
       $order = Invoke-SeedJson POST "$($Context.Gateway)/api/v1/sales/orders" `
         $Context.AuthHeaders @{
         orderNumber = $orderNumber
+        farmId = $record.Farm.id
         customerId = $customerId
         inventoryItemId = $record.InventoryItemId
         quantity = [decimal](5 + ($orderIndex % 4))
