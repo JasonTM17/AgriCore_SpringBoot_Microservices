@@ -61,6 +61,21 @@ cluster is expected to bring its own PostgreSQL, Redis, and Kafka, or the chart 
 subchart dependencies. Guessing would bake the wrong assumption into the chart. Until then, compose
 is the supported path and the chart should be treated as illustrative.
 
+### Identity is reachable without the gateway in the compose stack
+
+`docker-compose.yml` publishes identity on host `8081` while setting
+`AGRICORE_TRUST_FORWARDED_HEADERS: "true"`. Requests that arrive that way have no gateway-appended
+hop, so a forged `X-Forwarded-For` is the only entry present and becomes the rate-limit key.
+
+Scope of the residual risk, stated precisely: this evades the **per-IP rate limiter**, not the
+**per-account lockout**. Lockout is keyed on the user row and now actually persists, so repeated
+guesses against one account still lock it at the threshold regardless of the claimed address. The two
+controls are meant to be paired for exactly this reason — neither is sufficient alone.
+
+Closing it properly means either dropping the host port publish (which the local e2e and seed scripts
+currently depend on) or trusting the forwarded header only from known proxy addresses. Both are
+deployment-shape decisions rather than code fixes, so neither was guessed at here.
+
 ### API robustness sweep
 
 Systemic, low-blast-radius, and better done in one pass than piecemeal: no

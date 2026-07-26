@@ -34,7 +34,10 @@ Out of scope:
   development scaffolding; every deployment is expected to generate its own.
 - Findings that require an attacker to already hold the JWT signing key or database credentials.
 - The default `docker-compose.yml` binding services to localhost ports. It is a development stack,
-  not a hardened deployment. See [`docs/deployment-guide.md`](docs/deployment-guide.md).
+  not a hardened deployment. See [`docs/deployment-guide.md`](docs/deployment-guide.md). In
+  particular, identity is published directly on `8081` there, so the gateway can be bypassed and the
+  forwarded-address header spoofed; the per-account lockout still applies. Recorded in
+  [`docs/project-roadmap.md`](docs/project-roadmap.md).
 
 ## Automated scanning
 
@@ -58,7 +61,9 @@ Implemented and verifiable in source:
   identity per request. See [`docs/adr/0003-jwt-rs256-jwks.md`](docs/adr/0003-jwt-rs256-jwks.md).
 - **Audience validation.** Access tokens with a wrong or missing `aud` are rejected.
 - **Refresh token rotation.** Refresh tokens are opaque and stored hashed, never in plaintext.
-- **Login rate limiting and account lockout** on the identity service.
+- **Login rate limiting and account lockout** on the identity service. The two are paired
+  deliberately: the per-IP limiter alone does not stop a distributed attack on one account, and the
+  per-account lockout alone does not stop credential stuffing across many accounts.
 - **Database per service.** No shared schema and no cross-service JPA relationships, so a
   compromise of one service does not hand over another's data.
 - **Non-root containers** with pinned base images.
