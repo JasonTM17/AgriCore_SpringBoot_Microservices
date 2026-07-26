@@ -39,6 +39,12 @@ public class OutboxEventEntity {
     @Column(name = "last_error", columnDefinition = "TEXT")
     private String lastError;
 
+    @Column(name = "next_attempt_at")
+    private Instant nextAttemptAt;
+
+    @Column(name = "quarantined_at")
+    private Instant quarantinedAt;
+
     public static OutboxEventEntity create(
             UUID eventId,
             String aggregateType,
@@ -69,15 +75,39 @@ public class OutboxEventEntity {
     public Instant getPublishedAt() { return publishedAt; }
     public int getPublishAttempts() { return publishAttempts; }
     public String getLastError() { return lastError; }
+    public Instant getNextAttemptAt() { return nextAttemptAt; }
+    public Instant getQuarantinedAt() { return quarantinedAt; }
 
     public void markPublished() {
         this.publishAttempts = this.publishAttempts + 1;
         this.publishedAt = Instant.now();
+        this.nextAttemptAt = null;
+        this.quarantinedAt = null;
         this.lastError = null;
     }
 
-    public void markFailed(String error) {
+    public boolean isEligibleForPublish(Instant now) {
+        return publishedAt == null
+                && quarantinedAt == null
+                && (nextAttemptAt == null || !nextAttemptAt.isAfter(now));
+    }
+
+    public void markFailed(String error, Instant failedAt, long retryDelayMillis, int maxAttempts) {
         this.publishAttempts = this.publishAttempts + 1;
         this.lastError = error == null ? "unknown" : error.substring(0, Math.min(error.length(), 1000));
+        if (this.publishAttempts >= maxAttempts) {
+            this.quarantinedAt = failedAt;
+            this.nextAttemptAt = null;
+        } else {
+            this.quarantinedAt = null;
+            this.nextAttemptAt = failedAt.plusMillis(retryDelayMillis);
+        }
+    }
+
+    public void markFailedWithoutRetryState(String error) {
+        publishAttempts++;
+        lastError = error == null ? "unknown" : error.substring(0, Math.min(error.length(), 1000));
+        nextAttemptAt = null;
+        quarantinedAt = null;
     }
 }
