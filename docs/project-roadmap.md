@@ -171,33 +171,37 @@ it needs its own audit.
 Coverage is measured but not enforced. Targets are ≥ 70% instructions / 65% branches for services and
 ≥ 90%/85% for critical modules (identity, inventory, sales).
 
-The libraries were the first step and are done. Measured on 2026-07-26, whole reactor:
+The libraries and farm are done. Measured 2026-07-27, whole reactor:
 
 | Module | Instructions | Branches | | Module | Instructions | Branches |
 |---|---|---|---|---|---|---|
-| common-lib | 99.2% | 90.0% | | inventory | 66.8% | 28.0% |
-| common-security | 61.1% | 86.7% | | harvest | 67.2% | 38.5% |
-| api-gateway | 77.5% | 50.0% | | work | 68.2% | 39.3% |
-| crop-cycle | 74.8% | 52.3% | | crop-catalog | 69.9% | 40.0% |
-| identity | 73.6% | 57.1% | | sales | 64.8% | 40.7% |
-| iot | 73.4% | 46.2% | | farm | 57.7% | 4.2% |
-| notification | 71.0% | 38.9% | | traceability | 57.1% | 18.8% |
+| common-lib | 99.2% | 90.0% | | crop-catalog | 70.0% | 43.8% |
+| common-security | 61.1% | 86.7% | | work | 68.2% | 39.3% |
+| **farm** | **84.4%** | **77.8%** | | harvest | 67.2% | 38.5% |
+| api-gateway | 77.5% | 50.0% | | inventory | 66.8% | 28.0% |
+| crop-cycle | 74.8% | 52.3% | | notification | 65.1% | 33.3% |
+| iot | 73.4% | 46.2% | | sales | 64.8% | 40.7% |
+| identity | 71.4% | 53.3% | | traceability | 52.9% | 16.7% |
 
-`common-lib` went from 20.6%/0% and `common-security` from 25.6%/30%. `DomainServiceSecurityConfig`
-is the only class still at zero: it is an autoconfiguration and needs a Spring context, which every
-service test already boots — a unit test for it would assert the framework, not the config.
+`common-lib` went from 20.6%/0%, `common-security` from 25.6%/30%, and farm from **57.7%/4.2%** —
+the worst module on the platform and now the best service. `FarmApplicationService` went from 2 of
+38 covered branches to 37: every duplicate check, every missing-row check, the seven partial-update
+null checks, and both halves of the `PlotStatusChanged.v1` guard.
 
-**Branches are the binding constraint, not instructions.** No service meets the 65% branch target,
-and farm at 4.2% is an outlier worth its own look: its advice has an `Exception.class` catch-all and
-its integration test covers two happy paths, so almost every decision in the module is unexecuted.
+`DomainServiceSecurityConfig` is the only class still at zero anywhere: it is an autoconfiguration
+needing a Spring context, which every service test already boots — a unit test would assert the
+framework, not the config.
 
-Three services read lower than they did before 2026-07-26 — notification 77.3% → 71.0%, and
-crop-catalog and traceability similarly. That is this pass adding error-path code, not coverage being
-lost: each gained an advice whose 500 and validation branches no service currently exercises end to
-end. Real behaviour improved and the percentage fell, which is the honest direction for that trade.
+**Branches remain the binding constraint.** Only farm and the two libraries clear the 65% target.
+`traceability` at 16.7% is now the outlier, and for a specific reason: `HarvestCompletedKafkaListener`
+has 0 of 24 branches covered, because no service has a produce-to-consume test at all.
+
+Farm is the template for the rest: drive the application service directly for the rejection and
+partial-update paths, and use MockMvc for the advice. It took four test classes and moved the module
+26 points of instructions and 74 of branches.
 
 Sequence unchanged: lift service branch coverage, then flip the gate strict in its own change.
-Binding `jacoco:check` today fails every service module.
+Binding `jacoco:check` today still fails every service module except farm.
 
 ### Branch protection on `main`
 

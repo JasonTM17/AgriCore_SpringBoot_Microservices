@@ -72,8 +72,9 @@ com.agricore.<service>
 - Error codes are part of the public contract — renaming one is a breaking change.
 - Responses use the shared `ApiError` envelope from `common-lib`. Every servlet service has a
   `@RestControllerAdvice`; the gateway does not, because it is WebFlux.
-- Platform-wide codes every service emits: `VALIDATION_FAILED` (400), `ACCESS_DENIED` (403),
-  `DUPLICATE_RESOURCE` (409), `INTERNAL_ERROR` (500).
+- Platform-wide codes every service emits: `VALIDATION_FAILED` (400), `INVALID_PARAMETER` (400),
+  `MALFORMED_REQUEST` (400), `ACCESS_DENIED` (403), `DUPLICATE_RESOURCE` (409),
+  `INTERNAL_ERROR` (500).
 - A duplicate unique key is `DUPLICATE_RESOURCE`, not a 500. Pre-insert existence checks are not
   locks, so two concurrent requests can both pass one and the database rejects the loser.
   `ConstraintViolations` in `common-lib` classifies by SQLState (`23505` unique, `23503` foreign key,
@@ -90,9 +91,17 @@ com.agricore.<service>
   unreadable body — which already carry a correct status, and reports each as 500. Spring 6 marks
   those with the `ErrorResponse` interface, so the catch-all forwards `errorResponse.getStatusCode()`
   before falling through to `INTERNAL_ERROR`.
-- `MethodArgumentTypeMismatchException` needs its own handler: it does **not** implement
-  `ErrorResponse`, so a malformed path variable or query parameter would still land on the catch-all.
-  It maps to 400 `INVALID_PARAMETER`, naming the parameter and not repeating the rejected value.
+- Two exceptions need their own handler because they do **not** implement `ErrorResponse` and would
+  otherwise still land on the catch-all as 500. Both were found by probing, not by reading:
+  `MethodArgumentTypeMismatchException` → 400 `INVALID_PARAMETER`, naming the parameter without
+  repeating the rejected value; and `HttpMessageNotReadableException` → 400 `MALFORMED_REQUEST` for
+  a body that is absent or is not valid JSON. Its message quotes the offending payload, so it is
+  logged rather than returned.
+- Confirmed as `ErrorResponse` implementors, and therefore handled by the re-dispatch:
+  `NoResourceFoundException` (404), `HttpRequestMethodNotSupportedException` (405),
+  `HttpMediaTypeNotSupportedException` (415), `HttpMediaTypeNotAcceptableException` (406). When
+  adding a handler, probe the exception rather than assuming — the interface is not applied
+  uniformly.
 - The envelope is declared in the contract, not only in code. Every file under `contracts/openapi/`
   carries an identical `ApiError` schema and references it from each error response. Adding a status
   to a service means adding it to that service's contract in the same change — CI enforces the paths

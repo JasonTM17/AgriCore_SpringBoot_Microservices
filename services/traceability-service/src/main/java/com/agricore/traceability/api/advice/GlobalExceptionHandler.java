@@ -9,6 +9,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.ErrorResponse;
@@ -33,6 +34,27 @@ import org.springframework.web.server.ResponseStatusException;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    /**
+     * A body that will not parse - malformed JSON, or none at all - is the caller's mistake. It
+     * does not implement {@link org.springframework.web.ErrorResponse}, so without an explicit
+     * handler it reaches the catch-all below and answers 500.
+     *
+     * <p>The exception message quotes the offending payload back, so it is logged rather than
+     * returned.
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiError> handleUnreadableBody(
+            HttpMessageNotReadableException ex,
+            HttpServletRequest request
+    ) {
+        log.debug("Unreadable request body on {}", request.getRequestURI(), ex);
+        return ResponseEntity.badRequest().body(ApiError.of(
+                400, "Bad Request", "MALFORMED_REQUEST",
+                "Request body is missing or is not valid JSON",
+                request.getRequestURI(), null
+        ));
+    }
 
     /**
      * Forwards the status the service chose. The replay path reports CONFLICT when an event is

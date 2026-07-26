@@ -8,9 +8,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -39,6 +40,27 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleIllegal(IllegalArgumentException ex, HttpServletRequest request) {
         return ResponseEntity.badRequest().body(ApiError.of(
                 400, "Bad Request", "INVALID_ARGUMENT", ex.getMessage(), request.getRequestURI(), null
+        ));
+    }
+
+    /**
+     * A body that will not parse - malformed JSON, or none at all - is the caller's mistake. It
+     * does not implement {@link org.springframework.web.ErrorResponse}, so without an explicit
+     * handler it reaches the catch-all below and answers 500.
+     *
+     * <p>The exception message quotes the offending payload back, so it is logged rather than
+     * returned.
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiError> handleUnreadableBody(
+            HttpMessageNotReadableException ex,
+            HttpServletRequest request
+    ) {
+        log.debug("Unreadable request body on {}", request.getRequestURI(), ex);
+        return ResponseEntity.badRequest().body(ApiError.of(
+                400, "Bad Request", "MALFORMED_REQUEST",
+                "Request body is missing or is not valid JSON",
+                request.getRequestURI(), null
         ));
     }
 
