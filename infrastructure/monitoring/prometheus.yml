@@ -1,12 +1,13 @@
 global:
   scrape_interval: 15s
 
-# Local stack: scrape host-published service ports (Docker Desktop host.docker.internal)
+# Local stack: scrape internal-only edge services on the shared Compose network
+# and development-published domain services through Docker Desktop's host bridge.
 scrape_configs:
   - job_name: api-gateway
     metrics_path: /actuator/prometheus
     static_configs:
-      - targets: ["host.docker.internal:8080"]
+      - targets: ["api-gateway:8080"]
   - job_name: identity-service
     metrics_path: /actuator/prometheus
     static_configs:
