@@ -41,7 +41,7 @@ AgriCore manages the full agricultural production chain for an enterprise: farms
 
 | Service | Owns | Publishes (runtime) | Consumes (runtime) | Notes |
 |---------|------|---------------------|--------------------|-------|
-| identity | users, roles, tokens | — (outbox table unused) | — | UserRegistered planned |
+| identity | users, roles, tokens | UserRegistered via outbox+Kafka poller | — | Publisher wired 2026-07-26 |
 | farm | farms, areas, plots | Farm* via outbox+Kafka poller | — | Publisher wired 2026-07-17 |
 | crop-catalog | crops, varieties | — | — | REST catalog only |
 | crop-cycle | cycles, stages | CropCycle* via outbox+Kafka poller | — (read models optional) | Publisher wired 2026-07-17 |
@@ -51,7 +51,7 @@ AgriCore manages the full agricultural production chain for an enterprise: farms
 | traceability | public timeline / QR | — | HarvestCompleted (Kafka, idempotent+DLT) | Public read model |
 | iot | devices, readings, alerts | — | — | REST only; Sensor* events planned |
 | sales | orders, saga | — | Inventory via sync HTTP | Saga: reserve → **confirm** → CONFIRMED |
-| notification | delivery log | — | — | REST sink; Kafka NotificationRequested planned |
+| notification | delivery log | — | UserRegistered (Kafka, idempotent+DLT) | REST sink + welcome notification; NotificationRequested has no producer |
 
 Empty “planned” rows are intentional honesty for portfolio reviewers — do not claim full event mesh.
 

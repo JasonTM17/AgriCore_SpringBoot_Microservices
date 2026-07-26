@@ -27,16 +27,21 @@ Tags: `latest`, short git SHA, full commit SHA. Images publish only after succes
 
 ```text
 Client → API Gateway (:8080)  JWT RS256 / JWKS
-            ├─ Identity, Farm, Crop Catalog, Crop Cycle, Work
+            ├─ Identity (outbox) → Kafka → Notification
+            ├─ Farm, Crop Catalog, Crop Cycle, Work
             ├─ Harvest (outbox) → Kafka → Inventory + Traceability
             ├─ Sales (HTTP saga reserve→confirm inventory)
-            └─ IoT, Notification
+            └─ IoT
 ```
 
 - **Database per service** (PostgreSQL)
-- **Transactional outbox** on farm / crop-cycle / work / harvest
-- **Idempotent Kafka consumers** (inventory, traceability + DLT)
-- Docs: [System Architecture](docs/architecture/SYSTEM_ARCHITECTURE.md) · [ADRs](docs/adr/)
+- **Transactional outbox** on identity / farm / crop-cycle / work / harvest
+- **Idempotent Kafka consumers** (inventory, traceability, notification + DLT)
+- Every service has its own README with endpoints, env vars, and a runbook
+- Docs: [Codebase Summary](docs/codebase-summary.md) · [System Architecture](docs/architecture/SYSTEM_ARCHITECTURE.md) ·
+  [Deployment](docs/deployment-guide.md) · [Code Standards](docs/code-standards.md) ·
+  [Design Guidelines](docs/design-guidelines.md) · [Roadmap](docs/project-roadmap.md) ·
+  [Overview/PDR](docs/project-overview-pdr.md) · [ADRs](docs/adr/)
 
 ## Prerequisites
 
@@ -67,6 +72,9 @@ Starts PostgreSQL (multi-DB on host **5434**), Redis (**6380**), Kafka (**9092**
 ```bash
 mvn verify
 ```
+
+JaCoCo reports one coverage file per module during `verify`. Thresholds are measured but not yet
+enforced — see [Roadmap](docs/project-roadmap.md) for the current baseline and the strict-flip plan.
 
 ### 3. Run services locally
 
