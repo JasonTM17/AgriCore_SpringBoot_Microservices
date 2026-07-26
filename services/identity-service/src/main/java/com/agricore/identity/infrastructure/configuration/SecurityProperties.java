@@ -18,7 +18,10 @@ public record SecurityProperties(
         boolean registrationEnabled,
         /** When false, Redis errors deny login (fail-closed). Tests may set true. */
         boolean rateLimitFailOpen,
-        /** When true, trust first X-Forwarded-For hop (only behind trusted gateway). */
+        /**
+         * When true, read the client address from the last X-Forwarded-For hop — the one the
+         * trusted gateway appended. Earlier hops are caller-supplied and must not be trusted.
+         */
         boolean trustForwardedHeaders
 ) {
 }

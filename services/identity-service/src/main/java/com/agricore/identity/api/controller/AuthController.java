@@ -47,11 +47,29 @@ public class AuthController {
         authService.logout(request.refreshToken());
     }
 
+    /**
+     * Resolves the address the rate limiter keys on.
+     *
+     * <p>Reads the <em>rightmost</em> {@code X-Forwarded-For} entry, not the leftmost. The gateway
+     * appends the peer address it observed rather than replacing the header, so everything to the
+     * left of the last entry was supplied by the caller and can be forged. Keying on the leftmost
+     * value would let a client mint a fresh rate-limit bucket per request by rotating the header,
+     * which removes the brute-force brake entirely.
+     *
+     * <p>This is correct for exactly one trusted proxy in front of identity. Adding a second hop
+     * means dropping a known number of trailing entries instead.
+     */
     private String clientIp(HttpServletRequest request) {
         if (securityProperties.trustForwardedHeaders()) {
             String forwarded = request.getHeader("X-Forwarded-For");
             if (forwarded != null && !forwarded.isBlank()) {
-                return forwarded.split(",")[0].trim();
+                String[] hops = forwarded.split(",");
+                for (int i = hops.length - 1; i >= 0; i--) {
+                    String hop = hops[i].trim();
+                    if (!hop.isEmpty()) {
+                        return hop;
+                    }
+                }
             }
         }
         return request.getRemoteAddr();
