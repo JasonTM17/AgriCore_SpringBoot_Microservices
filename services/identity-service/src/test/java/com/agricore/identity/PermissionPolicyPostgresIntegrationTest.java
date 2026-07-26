@@ -2,6 +2,7 @@ package com.agricore.identity;
 
 import com.agricore.identity.api.response.RolePermissionsResponse;
 import com.agricore.identity.application.service.AdminPermissionService;
+import com.agricore.identity.application.service.AdminUserService;
 import com.agricore.identity.domain.exception.IdentityException;
 import com.agricore.identity.domain.model.RoleCode;
 import org.flywaydb.core.Flyway;
@@ -45,6 +46,9 @@ class PermissionPolicyPostgresIntegrationTest {
 
     @Autowired
     private AdminPermissionService permissionService;
+
+    @Autowired
+    private AdminUserService adminUserService;
 
     @Autowired
     private JdbcTemplate jdbc;
@@ -162,6 +166,41 @@ class PermissionPolicyPostgresIntegrationTest {
         assertThat(auditCount(RoleCode.WAREHOUSE_MANAGER)).isZero();
     }
 
+    @Test
+    void concurrentAdminDemotionsPreserveOneActiveSystemAdministrator() throws Exception {
+        UUID firstAdmin = insertActiveSystemAdmin("first-admin-" + UUID.randomUUID() + "@agricore.test");
+        UUID secondAdmin = insertActiveSystemAdmin("second-admin-" + UUID.randomUUID() + "@agricore.test");
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        var executor = Executors.newFixedThreadPool(2);
+        try {
+            var first = executor.submit(() -> demoteAfterGate(firstAdmin, ready, start));
+            var second = executor.submit(() -> demoteAfterGate(secondAdmin, ready, start));
+
+            assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            List<RuntimeException> failures = java.util.stream.Stream.of(
+                            first.get(20, TimeUnit.SECONDS),
+                            second.get(20, TimeUnit.SECONDS)
+                    )
+                    .filter(java.util.Objects::nonNull)
+                    .toList();
+
+            assertThat(failures).singleElement().isInstanceOfSatisfying(
+                    IdentityException.class,
+                    exception -> {
+                        assertThat(exception.getCode()).isEqualTo("LAST_SYSTEM_ADMIN_REQUIRED");
+                        assertThat(exception.getHttpStatus()).isEqualTo(409);
+                    }
+            );
+            assertThat(activeSystemAdministratorCount()).isEqualTo(1L);
+        } finally {
+            executor.shutdownNow();
+            deleteUser(firstAdmin);
+            deleteUser(secondAdmin);
+        }
+    }
+
     private AttemptResult replaceAfterGate(
             Set<String> codes,
             String actor,
@@ -182,6 +221,54 @@ class PermissionPolicyPostgresIntegrationTest {
         } catch (RuntimeException exception) {
             return new AttemptResult(null, exception);
         }
+    }
+
+    private RuntimeException demoteAfterGate(
+            UUID userId,
+            CountDownLatch ready,
+            CountDownLatch start
+    ) throws InterruptedException {
+        ready.countDown();
+        if (!start.await(10, TimeUnit.SECONDS)) {
+            throw new IllegalStateException("Concurrent admin demotion test did not start");
+        }
+        try {
+            adminUserService.updateRoles(userId, Set.of(RoleCode.FIELD_WORKER));
+            return null;
+        } catch (RuntimeException exception) {
+            return exception;
+        }
+    }
+
+    private UUID insertActiveSystemAdmin(String email) {
+        UUID userId = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO users (
+                    id, email, password_hash, full_name, status, failed_login_count,
+                    created_at, updated_at, version
+                ) VALUES (?, ?, ?, ?, 'ACTIVE', 0, NOW(), NOW(), 0)
+                """, userId, email, "test-password-hash", "Concurrent Admin");
+        jdbc.update("""
+                INSERT INTO user_roles (user_id, role_id)
+                SELECT ?, role.id FROM roles role WHERE role.code = 'SYSTEM_ADMIN'
+                """, userId);
+        return userId;
+    }
+
+    private long activeSystemAdministratorCount() {
+        return jdbc.queryForObject("""
+                SELECT COUNT(DISTINCT user_row.id)
+                FROM users user_row
+                JOIN user_roles assignment ON assignment.user_id = user_row.id
+                JOIN roles role ON role.id = assignment.role_id
+                WHERE user_row.status = 'ACTIVE' AND role.code = 'SYSTEM_ADMIN'
+                """, Long.class);
+    }
+
+    private void deleteUser(UUID userId) {
+        jdbc.update("DELETE FROM refresh_tokens WHERE user_id = ?", userId);
+        jdbc.update("DELETE FROM user_roles WHERE user_id = ?", userId);
+        jdbc.update("DELETE FROM users WHERE id = ?", userId);
     }
 
     private long roleVersion(RoleCode roleCode) {

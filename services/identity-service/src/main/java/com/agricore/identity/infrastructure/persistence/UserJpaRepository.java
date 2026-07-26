@@ -21,4 +21,13 @@ public interface UserJpaRepository extends JpaRepository<UserEntity, UUID> {
     Optional<UserEntity> findByEmailIgnoreCase(@Param("email") String email);
 
     boolean existsByEmailIgnoreCase(String email);
+
+    @Query("""
+            SELECT COUNT(DISTINCT user)
+            FROM UserEntity user
+            JOIN user.roles role
+            WHERE user.status = com.agricore.identity.domain.model.UserStatus.ACTIVE
+              AND role.code = :roleCode
+            """)
+    long countActiveUsersByRoleCode(@Param("roleCode") String roleCode);
 }
