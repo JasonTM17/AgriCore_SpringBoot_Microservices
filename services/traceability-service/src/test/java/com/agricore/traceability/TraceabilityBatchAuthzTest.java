@@ -10,11 +10,14 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.UUID;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Proves POST /api/v1/traceability/batches is role-gated on the shipped controller.
+ * Proves POST /api/v1/traceability/batches is role-gated on the shipped controller, and that every
+ * rejection on this service answers in the platform {@code ApiError} shape.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -48,7 +51,54 @@ class TraceabilityBatchAuthzTest {
                         .header("X-Dev-Roles", "FIELD_WORKER")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body()))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+    }
+
+    /**
+     * The QR lookup is the one endpoint an end consumer reaches directly, unauthenticated, from a
+     * printed label — so its failure modes must answer in the platform contract rather than
+     * whatever the container would render.
+     */
+    @Test
+    void unknownPathOnThePublicSurfaceIsNotFound() throws Exception {
+        mockMvc.perform(get("/public/api/v1/no-such-thing"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+    }
+
+    @Test
+    void unsupportedMethodOnTheQrLookupIsMethodNotAllowed() throws Exception {
+        mockMvc.perform(post("/public/api/v1/traceability/ANYCODE")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.code").value("METHOD_NOT_ALLOWED"));
+    }
+
+    @Test
+    void unreadableBodyIsABadRequest() throws Exception {
+        mockMvc.perform(post("/api/v1/traceability/batches")
+                        .header("X-Dev-User", "wh")
+                        .header("X-Dev-Roles", "WAREHOUSE_MANAGER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{not json"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("MALFORMED_REQUEST"));
+    }
+
+    @Test
+    void invalidBodyReportsTheOffendingFields() throws Exception {
+        mockMvc.perform(post("/api/v1/traceability/batches")
+                        .header("X-Dev-User", "wh")
+                        .header("X-Dev-Roles", "WAREHOUSE_MANAGER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"eventId":"","productName":""}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.violations").isArray());
     }
 
     @Test

@@ -145,13 +145,36 @@ reference is its own test, because all five producers hand-roll an `ObjectNode`.
 producers adopt it and the AsyncAPI schemas are generated from one definition, or it should be
 deleted rather than left looking like the contract.
 
+### The public QR page always shows an empty variety and planting date
+
+Found on 2026-07-27 while writing the listener test against the producer's real envelope, and
+pinned by a test rather than left as a note.
+
+`traceability_batches` stores `variety_name` and `planting_date`, `PublicTraceabilityResponse`
+returns them, and the QR page a consumer scans renders them. `HarvestApplicationService` never emits
+either field. So for every batch created through Kafka — which is the normal path — both are null,
+and the page shows blanks where it promises provenance.
+
+Only the REST backfill (`POST /api/v1/traceability/batches`) can populate them today, and nothing
+calls it in production.
+
+Closing it means the harvest producer carrying both fields, which means harvest knowing the crop
+cycle's variety and planting date — it holds `cropCycleId`, so the data is reachable, but the
+service does not currently join to it. That is a product decision about what the QR page promises,
+not a wiring gap, so it is recorded rather than guessed at.
+
 ### Kafka paths have no end-to-end test
 
 Every service's "integration" test is MockMvc over H2 with Kafka autoconfiguration excluded. There
 is no produce-to-consume test anywhere, and the five `OutboxPublisher` copies have no tests at all.
-The idempotency tests call the application service directly, so the listener, the error handler, and
-the DLT routing are only exercised by unit tests with a mocked service. Closing this means an
-embedded or containerised broker, which the disk budget currently rules out.
+Closing this means an embedded or containerised broker, which the disk budget currently rules out.
+
+Partly mitigated as of 2026-07-27. Both listeners are now unit-tested against the exact envelope
+their producer emits — notification's four cases, and traceability's fifteen. That covers envelope
+parsing, event-type filtering, every fallback, and the throw that routes a poisoned message to the
+DLT. What it still cannot cover is the wiring between them: that the producer's topic matches the
+consumer's subscription, that serialization round-trips, and that the DLT is actually configured.
+A fixture copied from the producer catches a field rename; only a broker catches a topic rename.
 
 ### Spring Boot 4 migration
 
@@ -178,27 +201,32 @@ The libraries and farm are done. Measured 2026-07-27, whole reactor:
 | common-lib | 99.2% | 90.0% | | crop-catalog | 70.0% | 43.8% |
 | common-security | 61.1% | 86.7% | | work | 68.2% | 39.3% |
 | **farm** | **84.4%** | **77.8%** | | harvest | 67.2% | 38.5% |
-| api-gateway | 77.5% | 50.0% | | inventory | 66.8% | 28.0% |
-| crop-cycle | 74.8% | 52.3% | | notification | 65.1% | 33.3% |
-| iot | 73.4% | 46.2% | | sales | 64.8% | 40.7% |
-| identity | 71.4% | 53.3% | | traceability | 52.9% | 16.7% |
+| **traceability** | **80.9%** | **63.0%** | | inventory | 66.8% | 28.0% |
+| api-gateway | 77.5% | 50.0% | | notification | 65.1% | 33.3% |
+| crop-cycle | 74.8% | 52.3% | | sales | 64.8% | 40.7% |
+| iot | 73.4% | 46.2% | | identity | 71.4% | 53.3% |
 
-`common-lib` went from 20.6%/0%, `common-security` from 25.6%/30%, and farm from **57.7%/4.2%** —
-the worst module on the platform and now the best service. `FarmApplicationService` went from 2 of
-38 covered branches to 37: every duplicate check, every missing-row check, the seven partial-update
-null checks, and both halves of the `PlotStatusChanged.v1` guard.
+`common-lib` went from 20.6%/0%, `common-security` from 25.6%/30%, farm from **57.7%/4.2%**, and
+traceability from **52.9%/16.7%**. `FarmApplicationService` went from 2 of 38 covered branches to
+37; `HarvestCompletedKafkaListener` from 0 of 24 to 22.
 
-`DomainServiceSecurityConfig` is the only class still at zero anywhere: it is an autoconfiguration
-needing a Spring context, which every service test already boots — a unit test would assert the
-framework, not the config.
+Two classes are deliberately left uncovered, both because a test would assert the framework rather
+than this platform's behaviour:
 
-**Branches remain the binding constraint.** Only farm and the two libraries clear the 65% target.
-`traceability` at 16.7% is now the outlier, and for a specific reason: `HarvestCompletedKafkaListener`
-has 0 of 24 branches covered, because no service has a produce-to-consume test at all.
+- `DomainServiceSecurityConfig` (common-security) — an autoconfiguration needing a Spring context,
+  which every service test already boots.
+- `ProcessedEventEntity.Pk` (traceability, 0 of 8 branches) — `@IdClass` `equals`/`hashCode` with no
+  constructor or setters, so only Hibernate or reflection can populate it. Those 8 branches are the
+  entire gap between traceability's 63% and the 65% target. Writing a reflection test to cross the
+  line would be exactly the coverage theatre this work is meant to avoid; the behaviour that
+  actually matters — dedup on `(event_id, consumer_name)` — is covered end to end.
 
-Farm is the template for the rest: drive the application service directly for the rejection and
-partial-update paths, and use MockMvc for the advice. It took four test classes and moved the module
-26 points of instructions and 74 of branches.
+**Branches remain the binding constraint** for the seven services still untouched.
+
+Farm and traceability are the template: drive the application service directly for rejection and
+partial-update paths, unit-test the Kafka listener against the producer's real envelope, and use
+MockMvc for the advice. Farm took four test classes for +26 instruction points and +74 branch
+points; traceability two for +28 and +46.
 
 Sequence unchanged: lift service branch coverage, then flip the gate strict in its own change.
 Binding `jacoco:check` today still fails every service module except farm.
