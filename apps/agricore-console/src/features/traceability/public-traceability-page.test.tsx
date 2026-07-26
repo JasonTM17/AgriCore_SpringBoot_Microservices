@@ -50,6 +50,13 @@ describe("public traceability page", () => {
     expect(screen.getByText(publicTraceability.batchLabel)).toBeInTheDocument();
     expect(screen.getByRole("img", { name: `Mã QR truy xuất ${traceabilityCode}` }))
       .toHaveAttribute("src", publicTraceability.qrImageUrl);
+    expect(screen.getByRole("img", { name: "Nông sản đã thu hoạch bên thẻ truy xuất nguồn gốc" }))
+      .toHaveAttribute(
+        "srcset",
+        expect.stringContaining("/agricore-traceability-produce-480w.webp 480w"),
+      );
+    expect(screen.getByRole("img", { name: "Nông sản đã thu hoạch bên thẻ truy xuất nguồn gốc" }))
+      .toHaveAttribute("loading", "lazy");
     expect(screen.getByText("Nông trại Đắk Lắk")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Hành trình sản phẩm" })).toBeInTheDocument();
     expect(screen.getAllByText("15/03/2026")).toHaveLength(2);

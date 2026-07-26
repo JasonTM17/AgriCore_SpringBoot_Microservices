@@ -10,7 +10,7 @@ The images contain no user data, production identifiers, logos, or readable
 labels. The blank tag in the traceability image is intentionally non-scannable;
 runtime QR codes must come from the traceability service.
 
-## Files
+## Source files
 
 | File | Intended use | Dimensions | Size |
 |---|---|---:|---:|
@@ -18,6 +18,13 @@ runtime QR codes must come from the traceability service.
 | `agricore-harvest-packing.webp` | Harvest and cold-chain card | 1536×1024 | 215 KiB |
 | `agricore-traceability-produce.webp` | Public traceability card | 1122×1402 | 138 KiB |
 | `agricore-farm-story.gif` | Three-step farm story preview | 960×540 × 3 | 645 KiB |
+
+## Responsive derivatives
+
+Each source WebP has same-crop `thumbnail-240w`, `480w`, and `960w`
+derivatives. ImageMagick 7 converts them to sRGB, strips metadata, and uses
+bounded WebP quality 74–78. Originals and the bounded GIF remain unchanged.
+The console selects these same-origin variants with `srcset` and `sizes`.
 
 ## Integrity
 
@@ -29,6 +36,6 @@ node scripts/verify-showcase-media.mjs
 ```
 
 The verifier checks Git tracking, manifest membership, byte size, SHA-256,
-file signatures, and the 2 MiB repository budget. The GIF is intentionally
-limited to three frames and is not used as a data
-transport or operational animation.
+file signatures, dimensions, and the 2 MiB repository budget. The GIF is
+intentionally limited to three frames and is not used as a data transport or
+operational animation.

@@ -1,3 +1,8 @@
+import {
+  ResponsiveShowcaseImage,
+  type ShowcaseImageAsset,
+} from "../../components/media/responsive-showcase-image";
+import { traceabilityProduceShowcase } from "../../components/media/showcase-media";
 import type { PublicTraceabilityResponse } from "../../lib/api/types";
 import {
   formatPublicDate,
@@ -36,17 +41,37 @@ function TimelineItem({
 }
 
 export function PublicTraceabilityPanel({ data }: { data: PublicTraceabilityResponse }) {
+  const qrImage: ShowcaseImageAsset = {
+    src: data.qrImageUrl,
+    width: 144,
+    height: 144,
+    sources: [{ src: data.qrImageUrl, width: 144 }],
+  };
+
   return (
     <article className="space-y-6 animate-fade-in-up">
       <header className="rounded-card border border-border bg-surface p-5 sm:p-7">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="rounded-full bg-forest-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-forest-900">
-            Dữ liệu nguồn gốc công khai
-          </span>
-          <span className="font-mono text-xs font-semibold text-muted">{data.batchLabel}</span>
+        <div className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_10rem] sm:items-center">
+          <div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span className="rounded-full bg-forest-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-forest-900">
+                Dữ liệu nguồn gốc công khai
+              </span>
+              <span className="font-mono text-xs font-semibold text-muted">{data.batchLabel}</span>
+            </div>
+            <h1 className="mt-5 text-3xl font-bold tracking-tight text-ink sm:text-4xl">{data.productName}</h1>
+            <p className="mt-2 font-mono text-sm font-semibold text-forest-700">{data.traceabilityCode}</p>
+          </div>
+          <ResponsiveShowcaseImage
+            asset={traceabilityProduceShowcase}
+            alt="Nông sản đã thu hoạch bên thẻ truy xuất nguồn gốc"
+            sizes="(min-width: 640px) 160px, 100vw"
+            aspectRatioClassName="aspect-video sm:aspect-[4/5]"
+            className="w-full rounded-lg border border-forest-100"
+            imageClassName="object-[center_65%]"
+            loading="lazy"
+          />
         </div>
-        <h1 className="mt-5 text-3xl font-bold tracking-tight text-ink sm:text-4xl">{data.productName}</h1>
-        <p className="mt-2 font-mono text-sm font-semibold text-forest-700">{data.traceabilityCode}</p>
       </header>
 
       <section
@@ -60,12 +85,13 @@ export function PublicTraceabilityPanel({ data }: { data: PublicTraceabilityResp
           </p>
         </div>
         <figure className="mx-auto w-40 rounded-control border border-forest-100 bg-white p-2 text-center sm:mx-0">
-          <img
-            src={data.qrImageUrl}
+          <ResponsiveShowcaseImage
+            asset={qrImage}
             alt={`Mã QR truy xuất ${data.traceabilityCode}`}
-            width={144}
-            height={144}
-            className="aspect-square w-full"
+            sizes="144px"
+            aspectRatioClassName="aspect-square"
+            className="w-full"
+            loading="eager"
           />
           <figcaption className="mt-2 text-xs font-medium text-muted">Quét để mở hồ sơ</figcaption>
         </figure>
