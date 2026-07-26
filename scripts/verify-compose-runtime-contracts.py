@@ -23,6 +23,16 @@ EXPECTED_SERVICE_ENVIRONMENT = {
     "assistant-service": {
         "FARM_SERVICE_URL": "http://farm-service:8082",
     },
+    "harvest-service": {
+        "FARM_SERVICE_URL": "http://farm-service:8082",
+        "CROP_CYCLE_SERVICE_URL": "http://crop-cycle-service:8084",
+        "CROP_CYCLE_SERVICE_ALLOWED_HOSTS": "crop-cycle-service",
+        "CROP_CYCLE_SERVICE_ALLOW_INSECURE_HTTP": "true",
+    },
+    "sales-service": {
+        "FARM_SERVICE_URL": "http://farm-service:8082",
+        "INVENTORY_SERVICE_URL": "http://inventory-service:8086",
+    },
 }
 
 

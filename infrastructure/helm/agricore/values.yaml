@@ -237,6 +237,12 @@ farmAccess:
   # Current chart has no service-mesh TLS; set false when serviceUrl uses HTTPS.
   allowInsecureHttp: true
 
+cropCycleAccess:
+  serviceUrl: http://agricore-crop-cycle:8084
+  allowedHosts: agricore-crop-cycle
+  # Current chart has no service-mesh TLS; set false when serviceUrl uses HTTPS.
+  allowInsecureHttp: true
+
 identityJwksUri: http://agricore-identity:8081/.well-known/jwks.json
 jwtIssuer: https://agricore.local/identity
 

@@ -46,6 +46,12 @@ x-farm-access-env: &farm-access-env
   # Local Compose has no service-mesh TLS; keep plaintext opt-in explicit.
   FARM_SERVICE_ALLOW_INSECURE_HTTP: "true"
 
+x-crop-cycle-access-env: &crop-cycle-access-env
+  CROP_CYCLE_SERVICE_URL: http://crop-cycle-service:8084
+  CROP_CYCLE_SERVICE_ALLOWED_HOSTS: crop-cycle-service
+  # Local Compose has no service-mesh TLS; keep plaintext opt-in explicit.
+  CROP_CYCLE_SERVICE_ALLOW_INSECURE_HTTP: "true"
+
 x-inventory-access-env: &inventory-access-env
   INVENTORY_SERVICE_URL: http://inventory-service:8086
   INVENTORY_SERVICE_ALLOWED_HOSTS: inventory-service
@@ -269,8 +275,10 @@ services:
         condition: service_healthy
       farm-service:
         condition: service_healthy
+      crop-cycle-service:
+        condition: service_healthy
     environment:
-      <<: [*db-env, *security-env, *kafka-env, *farm-access-env, *observability-env]
+      <<: [*db-env, *security-env, *kafka-env, *farm-access-env, *crop-cycle-access-env, *observability-env]
       HARVEST_PORT: 8087
     ports:
       - "8087:8087"
@@ -359,6 +367,8 @@ services:
         condition: service_healthy
       identity-service:
         condition: service_healthy
+      farm-service:
+        condition: service_healthy
       inventory-service:
         condition: service_healthy
       kafka:
@@ -366,7 +376,7 @@ services:
       kafka-topics-init:
         condition: service_completed_successfully
     environment:
-      <<: [*db-env, *security-env, *kafka-env, *inventory-access-env, *observability-env]
+      <<: [*db-env, *security-env, *kafka-env, *farm-access-env, *inventory-access-env, *observability-env]
       SALES_PORT: 8091
     ports:
       - "8091:8091"
