@@ -86,6 +86,73 @@ The endpoint returns `202`, preserves the event ID, and is a no-op while the eve
 
 Publisher replicas use `FOR UPDATE SKIP LOCKED`. Farm, crop-cycle, work, and inventory use effective producer defaults of 5 seconds for both `max.block.ms` and `request.timeout.ms`, and 10 seconds for `delivery.timeout.ms`. Their 10-second outbox send wait is not shorter than producer delivery timeout; `max.block.ms` can elapse before the send future is returned, so it is a separate bound rather than part of that wait. A late broker acknowledgement can still produce an at-least-once duplicate, so consumers retain idempotency by stable event ID.
 
+Publishers defer transient broker, timeout, interruption, authentication, and
+unknown infrastructure failures with capped exponential backoff indefinitely;
+an outage cannot quarantine the backlog. Deterministic producer failures
+(`SerializationException`, `RecordTooLargeException`, and
+`InvalidTopicException`) quarantine after the configured terminal attempt.
+After repairing the payload, topic, or producer contract, operators may release
+one reviewed row in its owning service database. Never bulk-release quarantine
+or edit an event envelope:
+
+```sql
+BEGIN;
+
+SELECT id, aggregate_type, aggregate_id, event_type, topic,
+       publish_attempts, last_error, quarantined_at
+FROM outbox_events
+WHERE id = :event_id
+  AND published_at IS NULL
+FOR UPDATE;
+
+UPDATE outbox_events
+SET quarantined_at = NULL,
+    next_attempt_at = CURRENT_TIMESTAMP,
+    publish_attempts = 0,
+    last_error = NULL
+WHERE id = :event_id
+  AND published_at IS NULL
+  AND quarantined_at IS NOT NULL;
+
+COMMIT;
+```
+
+Record the service database, event ID, incident, diagnosis, and operator in the
+incident log. A zero-row update means the row is not quarantined or was already
+published; stop rather than forcing state. For Harvest completion events, use
+the authenticated republish endpoint above because it validates the stored
+topic and payload before requeueing.
+
+Sales and notification retain quarantined payloads for seven days by default
+before cleanup. Treat that as the operator recovery deadline, or set
+`OUTBOX_QUARANTINE_RETENTION` to a longer positive duration independently from
+`OUTBOX_RETENTION`.
+
+### Retry-state rollout and rollback
+
+Retry-state writes default to disabled because a previous application version
+does not understand `next_attempt_at` or `quarantined_at`. Activate the feature
+in two releases for every service that publishes an outbox:
+
+1. Roll out the compatible image to every replica with
+   `OUTBOX_PUBLISHER_RETRY_WRITE_STATE_ENABLED=false`.
+2. Verify every replica runs the compatible image and Kafka publishing is
+   healthy. In a maintenance window, quiesce producer writes and verify no
+   unpublished rows remain in each service database.
+3. Roll out configuration with
+   `--set global.outbox.retry.writeStateEnabled=true` (which renders
+   `OUTBOX_PUBLISHER_RETRY_WRITE_STATE_ENABLED=true`), then restore producer
+   traffic and verify pending/quarantined metrics. The runtime ConfigMap
+   checksum annotation forces this Helm configuration change to restart pods.
+
+Do not enable retry-state writes while any old replica is running: that replica
+will ignore the eligibility columns and repeatedly publish deferred or
+quarantined rows. After retry-state writes have ever been enabled, rolling back
+to an incompatible image is unsafe. Keep a compatible image running, or disable
+the publisher, quiesce writes, and make an explicit replay/drop decision for
+every unpublished deferred or quarantined row before starting old code. Merely
+scaling to zero does not migrate that state.
+
 ## DLT response procedure
 
 1. Inspect the DLT matching the failed source topic in Kafka UI or with Kafka tooling: `agricore.harvest.events.DLT`, `agricore.identity.events.DLT`, `agricore.sales.events.DLT`, `agricore.traceability.events.DLT`, or `agricore.iot.events.DLT`.
@@ -100,6 +167,7 @@ Publisher replicas use `FOR UPDATE SKIP LOCKED`. Farm, crop-cycle, work, and inv
 The repository does not provision Prometheus alert rules or Alertmanager. Candidate operator thresholds:
 
 - `agricore_outbox_backlog > 100` for 5 minutes.
+- `agricore_outbox_quarantined > 0` immediately.
 - Consumer lag greater than 1,000 records.
 - Any increase in `agricore_kafka_dlq_attempts_total`.
 - DLT topic depth greater than zero, measured through Kafka consumer-group/topic monitoring rather than the recovery counter.
