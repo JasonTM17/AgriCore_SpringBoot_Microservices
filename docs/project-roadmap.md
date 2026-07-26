@@ -96,6 +96,23 @@ backed by length-limited columns; `@DecimalMin` without `@Digits` on numeric col
 `...IgnoreCase` finders that emit `upper(col) = upper(?)`, which the plain unique indexes cannot
 serve — the values are already uppercased before insert, so the `IgnoreCase` is not load-bearing.
 
+Adding those advices exposed a defect in the shape they were copied from. An
+`@ExceptionHandler(Exception.class)` catch-all takes precedence over Spring's
+`DefaultHandlerExceptionResolver`, so it silently captured the framework's own web exceptions and
+reported each as 500: a mistyped URL 500 instead of 404, a wrong HTTP method 500 instead of 405, a
+malformed UUID path variable 500 instead of 400. `farm` and `identity` had carried this since their
+advices were written; copying the pattern spread it to three more services before a probe caught it.
+
+Fixed in all five. The catch-all now forwards `ErrorResponse.getStatusCode()` before falling through
+to `INTERNAL_ERROR`, and `MethodArgumentTypeMismatchException` — which does not implement
+`ErrorResponse` — has its own 400 handler. Six regression tests cover the four cases plus the
+message not repeating the rejected value.
+
+The six services without a catch-all were never affected: Spring's own resolver still handles those
+exceptions there, with the correct status and Boot's default body. Giving them the `ApiError` shape
+for 404 and 405 too would mean adding catch-alls, which is what caused this defect in the first
+place, so it stays part of the remaining sweep rather than a quick follow-on.
+
 Note on what an advice cannot reach: a 401 is produced by the security filter chain's
 authentication entry point, before the DispatcherServlet, so it is not shaped by
 `@RestControllerAdvice` in any service. That is uniform across the platform rather than a gap in

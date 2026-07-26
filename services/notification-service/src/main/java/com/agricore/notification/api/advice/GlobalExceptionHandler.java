@@ -11,9 +11,11 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
@@ -94,8 +96,41 @@ public class GlobalExceptionHandler {
         ));
     }
 
+    /**
+     * A path variable or query parameter that will not convert is the caller's mistake, not a
+     * server fault. Without this it reaches the catch-all below and answers 500.
+     *
+     * <p>The rejected value is not echoed back — only the parameter name, which this service
+     * defines.
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiError> handleTypeMismatch(
+            MethodArgumentTypeMismatchException ex,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.badRequest().body(ApiError.of(
+                400, "Bad Request", "INVALID_PARAMETER",
+                "Parameter '" + ex.getName() + "' has an invalid value",
+                request.getRequestURI(), null
+        ));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleGeneric(Exception ex, HttpServletRequest request) {
+        // Spring's own web exceptions already know the status they should answer with — unknown
+        // path 404, wrong method 405, unreadable body 400. Declaring a handler for Exception takes
+        // precedence over DefaultHandlerExceptionResolver, so without this branch every one of them
+        // would be reported as a server fault and a mistyped URL would read as an outage.
+        if (ex instanceof ErrorResponse errorResponse) {
+            HttpStatusCode statusCode = errorResponse.getStatusCode();
+            HttpStatus resolved = HttpStatus.resolve(statusCode.value());
+            String reason = resolved != null ? resolved.getReasonPhrase() : "Error";
+            return ResponseEntity.status(statusCode).body(ApiError.of(
+                    statusCode.value(), reason,
+                    resolved != null ? resolved.name() : "HTTP_" + statusCode.value(),
+                    reason, request.getRequestURI(), null
+            ));
+        }
         log.error("Unhandled error on {}", request.getRequestURI(), ex);
         return ResponseEntity.internalServerError().body(ApiError.of(
                 500, "Internal Server Error", "INTERNAL_ERROR", "An unexpected error occurred",

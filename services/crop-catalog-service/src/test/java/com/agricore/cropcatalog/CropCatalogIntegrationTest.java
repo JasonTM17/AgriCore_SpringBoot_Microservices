@@ -9,8 +9,11 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -67,5 +70,64 @@ class CropCatalogIntegrationTest {
                         .header("X-Dev-Roles", "AGRONOMIST"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+    }
+
+    /**
+     * Declaring {@code @ExceptionHandler(Exception.class)} takes precedence over Spring's
+     * {@code DefaultHandlerExceptionResolver}, so a catch-all silently captures the framework's own
+     * web exceptions — the ones that already carry a correct status. Left unhandled, all four of
+     * these answered 500: a mistyped URL read as an outage.
+     */
+    @Test
+    void malformedPathVariable_isABadRequestNotAServerError() throws Exception {
+        mockMvc.perform(get("/api/v1/crops/not-a-uuid")
+                        .header("X-Dev-User", "agronomist")
+                        .header("X-Dev-Roles", "AGRONOMIST"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"))
+                .andExpect(jsonPath("$.message").value(containsString("cropId")));
+    }
+
+    @Test
+    void malformedQueryParameter_isABadRequestNotAServerError() throws Exception {
+        mockMvc.perform(get("/api/v1/crops?page=abc")
+                        .header("X-Dev-User", "agronomist")
+                        .header("X-Dev-Roles", "AGRONOMIST"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
+    }
+
+    @Test
+    void unknownPath_isNotFoundNotAServerError() throws Exception {
+        mockMvc.perform(get("/api/v1/no-such-endpoint")
+                        .header("X-Dev-User", "agronomist")
+                        .header("X-Dev-Roles", "AGRONOMIST"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+    }
+
+    @Test
+    void unsupportedMethod_isMethodNotAllowedNotAServerError() throws Exception {
+        mockMvc.perform(post("/api/v1/crops")
+                        .header("X-Dev-User", "agronomist")
+                        .header("X-Dev-Roles", "AGRONOMIST"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.code").value("METHOD_NOT_ALLOWED"));
+    }
+
+    /**
+     * The message names the parameter this service defines rather than repeating what the caller
+     * typed. {@code path} still carries the request URI — that is the contract for every error on
+     * the platform, and the URI is the caller's own request — but the human-readable message does
+     * not add a second copy of an unvalidated value.
+     */
+    @Test
+    void invalidParameterMessage_namesTheParameterRatherThanItsValue() throws Exception {
+        mockMvc.perform(get("/api/v1/crops/caller-supplied-garbage")
+                        .header("X-Dev-User", "agronomist")
+                        .header("X-Dev-Roles", "AGRONOMIST"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(containsString("cropId")))
+                .andExpect(jsonPath("$.message").value(not(containsString("caller-supplied-garbage"))));
     }
 }

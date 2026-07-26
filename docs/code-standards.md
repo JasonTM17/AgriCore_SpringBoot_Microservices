@@ -84,6 +84,15 @@ com.agricore.<service>
   go to the log, where an operator can act on them.
 - A 401 is not `ApiError`-shaped anywhere: it comes from the security filter chain's authentication
   entry point, which runs before the DispatcherServlet and so before any advice.
+- **An `@ExceptionHandler(Exception.class)` catch-all must first re-dispatch `ErrorResponse`.**
+  Declaring a handler for `Exception` takes precedence over Spring's `DefaultHandlerExceptionResolver`,
+  so it silently captures the framework's own web exceptions — unknown path, unsupported method,
+  unreadable body — which already carry a correct status, and reports each as 500. Spring 6 marks
+  those with the `ErrorResponse` interface, so the catch-all forwards `errorResponse.getStatusCode()`
+  before falling through to `INTERNAL_ERROR`.
+- `MethodArgumentTypeMismatchException` needs its own handler: it does **not** implement
+  `ErrorResponse`, so a malformed path variable or query parameter would still land on the catch-all.
+  It maps to 400 `INVALID_PARAMETER`, naming the parameter and not repeating the rejected value.
 
 ## Configuration
 
