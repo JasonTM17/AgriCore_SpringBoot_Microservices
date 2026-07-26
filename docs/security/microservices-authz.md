@@ -47,7 +47,7 @@ The permission snapshot is now an enforcement boundary. Domain controllers use `
 caller bearer token
   -> API Gateway JWT validation
   -> domain-service JWT validation and role check
-  -> crop-cycle/work/harvest/IoT access guard
+  -> crop-cycle/work/harvest/inventory/IoT/Sales access guard
   -> farm-access-client forwards the same bearer token
   -> farm-service resolves membership and authoritative plot ownership
   -> allow, masked not-found, denial, or fail-closed unavailable
@@ -69,8 +69,9 @@ The successful response contains authoritative `farmId` and nullable `plotId`. T
 |---|---|
 | crop-cycle | Create verifies the request farm/plot pair. Get and stage change reload the cycle, then verify its stored farm/plot pair. Non-admin lists require an accessible `farmId` or `plotId`; supplying both verifies the pair. |
 | work | Create verifies the request plot. Get, assign, and complete reload the task, then verify its stored plot. Non-admin lists require `plotId`; `cropCycleId`-only or global lists are `SYSTEM_ADMIN`-only. |
-| harvest | Complete verifies the request plot before saving the batch or outbox event. Detail/status reload the batch, then verify its stored plot. Republish also requires a completion role and plot access before locking and requeueing the original event. |
+| harvest | Create/complete resolves the authoritative farm from the request plot and verifies the crop cycle belongs to that farm/plot before saving. New batches and `HarvestCompleted.v1` persist/publish `farmId`. Detail/status reload the batch and verify its stored plot; a non-null stored farm must match. Republish also requires a completion role and plot access before locking and requeueing the original event. |
 | IoT | Device registration verifies the request plot. Reading ingestion reloads the device, then verifies the device's stored plot before updating last-seen state or writing readings/alerts. |
+| Sales | Customer/order creation requires `farmId` and verifies membership. Reads, reconciliation, and recovery use the order's stored farm. Sales passes the same farm to every Inventory reserve, lookup, confirm, and release call. Legacy rows without farm scope fail closed with `503 ORDER_SCOPE_UNAVAILABLE`. |
 
 Role checks run before these resource checks. Passing a role check does not bypass farm membership.
 
@@ -83,6 +84,16 @@ Missing items, warehouses without a farm assignment, and cross-farm item IDs all
 ### Public inventory scope boundary
 
 Public inventory reads and mutations resolve the stored warehouse, item, or reservation before calling farm-service. The guard runs before idempotency lookup or side effects. Harvest acknowledgement reads require a caller-supplied `warehouseId`; the warehouse farm is authorized before the processed-event marker is inspected, so pending and acknowledged states share the same boundary. A marker from another farm or warehouse is reported as the same `NOT_ACKNOWLEDGED` state, while legacy markers or warehouses without stored scope fail closed with an explicit `503` until an operator maps the scope.
+
+### Sales-to-Inventory reservation boundary
+
+Internal reservation create, business-reference lookup, release, and confirm
+require both the internal service token and an explicit `farmId`. Inventory
+locks the reservation/item, resolves the owning warehouse, and returns the same
+`404` for a missing item/reservation or farm mismatch. The farm check precedes
+quantity mutation. Nullable warehouse and processed-event scope columns preserve
+schema upgrade compatibility, but runtime access fails closed until legacy rows
+are mapped.
 
 ## Failure and masking semantics
 

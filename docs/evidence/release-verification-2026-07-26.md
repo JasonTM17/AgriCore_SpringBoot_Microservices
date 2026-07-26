@@ -2,6 +2,8 @@
 
 ## Scope
 
+- Evidence type: historical local release-candidate snapshot, not current-HEAD
+  completion proof.
 - Branch: `feature/agricore-web-assistant-ck`
 - Reviewed source revision: `5867b37`
 - Runtime image content revision: `2c8c339`; the later `5867b37` commit
@@ -13,6 +15,14 @@
 This is local release-candidate evidence. It does not claim a production
 deployment, production TLS/mTLS, Kafka ACL enforcement, external persistence,
 or production retention policy.
+
+Later commits through the 2026-07-26 pre-landing checkpoint add notification
+inbox persistence, invalid-payload handling, per-device MQTT admission, Console
+session/media hardening, PostgreSQL crop-cycle overlap exclusion, authoritative
+Harvest/Inventory/Sales farm scope, Helm/Compose dependency wiring, SHA-only
+release promotion, and merged dependency upgrades. The results below were not
+re-run against that complete change set. They must not be cited as a current
+clean-revision pass.
 
 ## Quality gates
 
@@ -34,10 +44,12 @@ or production retention policy.
 | Deployment/config gates | PASS | actionlint, Compose config, runtime contracts, Helm lint and render |
 | Showcase media | PASS | 4 tracked assets, 1,262,468 bytes, manifest and checksums verified |
 
-The Maven run includes Spring Boot 3.5.16, Spring Cloud 2025.0.2, Gateway
-4.3.4, Netty 4.1.136.Final, and Bouncy Castle 1.84. Only frontend container,
-media packaging, and CI files changed after that reactor run; no Maven source,
-POM, migration, or backend configuration changed.
+The historical Maven run includes Spring Boot 3.5.16, Spring Cloud 2025.0.2,
+Gateway 4.3.4, Netty 4.1.136.Final, and Bouncy Castle 1.84. Within the captured
+`5867b37` evidence sequence, only frontend container, media packaging, and CI
+files changed after that reactor run. Subsequent commits do change Maven
+plugins, backend source, migrations, contracts, and deployment configuration,
+so this qualification does not extend to the current pre-landing checkpoint.
 
 ## Runtime acceptance path
 
@@ -125,6 +137,11 @@ left untouched.
 
 ## Remaining release boundary
 
+- Run the complete backend, frontend, browser, Compose, Helm, workflow,
+  contract, migration, security, and image gates from the final clean revision.
+- Reproduce the new PostgreSQL overlap/farm-scope, MQTT quota, Notification
+  inbox/invalid-payload, Console auth/media, and tenant dependency behaviors in
+  that evidence.
 - Push the feature branch and require all GitHub checks, including CodeQL,
   Gitleaks, Trivy, container matrix, Compose/Helm, frontend, and Maven.
 - Merge the focused commit history after review.
