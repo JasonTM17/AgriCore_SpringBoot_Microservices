@@ -166,10 +166,11 @@ Robusta coffee, Ri6 durian, red dragon fruit, ST25 rice, lettuce, tomato, black 
 ```text
 services/          Spring Boot microservices
 libs/common-lib/   API errors, event envelope (no domain)
-contracts/         OpenAPI / event schemas
-infrastructure/    Docker, K8s (later), monitoring
+libs/common-security/  JWT resource-server validation shared by every service
+contracts/         OpenAPI / AsyncAPI schemas
+infrastructure/    Docker, Helm chart, K8s network policy, monitoring
 docs/              Architecture, ADRs, runbooks
-plans/             CK implementation plans
+scripts/           Dev stack, JWT key generation, platform verification
 ```
 
 ## Security notes
@@ -183,8 +184,17 @@ plans/             CK implementation plans
 
 ## CI
 
-GitHub Actions: build + test on push/PR (`.github/workflows/ci.yml`).
+GitHub Actions on every push and PR: `ci` (Maven build + test, Gitleaks secret scan, compose config
+validation), `codeql` (SAST), and `trivy` (filesystem + dependency scan). Images publish only after
+`ci` succeeds on the default branch.
+
+## Contributing
+
+Setup, test commands, commit conventions, and the architecture rules a PR must respect are in
+[CONTRIBUTING.md](CONTRIBUTING.md). Please read [SECURITY.md](SECURITY.md) before reporting a
+vulnerability — report privately, not as a public issue. Participation is covered by the
+[Code of Conduct](CODE_OF_CONDUCT.md). Notable changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
-MIT (see `LICENSE` when published).
+[MIT](LICENSE) © Nguyen Tien Son

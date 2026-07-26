@@ -1,0 +1,22 @@
+# Code owners for AgriCore.
+# The last matching pattern wins, so the catch-all comes first.
+
+*                               @JasonTM17
+
+# Contracts are the FE/BE boundary — a change here ripples into generated clients.
+/contracts/                     @JasonTM17
+
+# Architecture decisions are append-only; superseding one needs a deliberate review.
+/docs/adr/                      @JasonTM17
+
+# Security-sensitive surfaces.
+/libs/common-security/          @JasonTM17
+/services/identity-service/     @JasonTM17
+/services/api-gateway/          @JasonTM17
+
+# Supply chain and deployment.
+/.github/workflows/             @JasonTM17
+/.github/dependabot.yml         @JasonTM17
+/infrastructure/                @JasonTM17
+/docker-compose.yml             @JasonTM17
+/pom.xml                        @JasonTM17
