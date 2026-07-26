@@ -51,6 +51,9 @@ agricore:
       archived-conversation: ${ASSISTANT_ARCHIVED_CONVERSATION_RETENTION:P90D}
       audit-event: ${ASSISTANT_AUDIT_RETENTION:P365D}
       generation-event: ${ASSISTANT_GENERATION_EVENT_RETENTION:PT24H}
+      cleanup-enabled: ${ASSISTANT_RETENTION_CLEANUP_ENABLED:true}
+      cleanup-interval: ${ASSISTANT_RETENTION_CLEANUP_INTERVAL:PT1H}
+      cleanup-batch-size: ${ASSISTANT_RETENTION_CLEANUP_BATCH_SIZE:250}
     worker:
       enabled: ${ASSISTANT_WORKER_ENABLED:true}
       recovery-enabled: ${ASSISTANT_WORKER_RECOVERY_ENABLED:true}

@@ -54,4 +54,25 @@ public interface ConversationJpaRepository extends JpaRepository<ConversationEnt
             @Param("archivedAt") Instant archivedAt,
             @Param("purgeAfter") Instant purgeAfter
     );
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+            WITH expired AS (
+                SELECT id
+                  FROM conversations
+                 WHERE status = 'ARCHIVED'
+                   AND purge_after IS NOT NULL
+                   AND purge_after <= :now
+                 ORDER BY purge_after, id
+                 LIMIT :batchSize
+                 FOR UPDATE SKIP LOCKED
+            )
+            DELETE FROM conversations target
+             USING expired
+             WHERE target.id = expired.id
+            """, nativeQuery = true)
+    int deleteExpiredBatch(
+            @Param("now") Instant now,
+            @Param("batchSize") int batchSize
+    );
 }

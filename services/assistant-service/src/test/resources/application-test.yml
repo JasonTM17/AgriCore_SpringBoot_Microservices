@@ -17,6 +17,8 @@ management:
 
 agricore:
   assistant:
+    retention:
+      cleanup-enabled: false
     worker:
       enabled: false
       recovery-enabled: false
