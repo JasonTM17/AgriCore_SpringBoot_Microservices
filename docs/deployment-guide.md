@@ -109,13 +109,15 @@ external deliveries manually against provider evidence before any resend.
   undo schema or published events.
 - For a failed release, stop writers if data interpretation changed, restore the
   compatible application image, and follow the migration-specific runbook.
-- Harvest and Sales farm-scope migrations are additive: new rows persist
-  `farm_id`, while pre-scope rows remain nullable for upgrade compatibility.
-  Harvest can re-authorize a legacy row from its stored plot; mismatched stored
-  scope is masked as not found. Sales and Inventory fail closed when legacy
-  order/customer, warehouse, or processed-event scope is unavailable. Backfill
-  those rows from authoritative farm/plot/warehouse records before relying on
-  them after upgrade.
+- Harvest and Inventory farm-scope migrations are additive. Harvest can
+  re-authorize a legacy row from its stored plot; mismatched stored scope is
+  masked as not found. Inventory fails closed when warehouse or processed-event
+  scope is unavailable.
+- Sales migration V8 is an executable release gate: it refuses to start while
+  any customer/order lacks `farm_id` or an order disagrees with its customer's
+  farm. Audit and explicitly backfill those rows from authoritative records
+  before deploying V8. On success it makes both columns non-null and installs a
+  composite foreign key so the mismatch cannot recur.
 - Crop-cycle PostgreSQL migration V5 installs `btree_gist` and an exclusion
   constraint over inclusive planned date ranges for `DRAFT` and `ACTIVE` rows.
   Resolve any pre-existing overlapping active rows before migration; otherwise

@@ -36,6 +36,7 @@ class SalesFailureDiagnosticsPostgresMigrationTest {
                 .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
                 .locations("classpath:db/migration")
                 .baselineVersion("6")
+                .target("7")
                 .load();
         flyway.baseline();
 

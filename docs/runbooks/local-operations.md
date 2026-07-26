@@ -299,6 +299,31 @@ WHERE id = '<warehouse-uuid>'
 
 Do not bulk-assign a default farm. Re-run the audit and require zero rows before enabling Work material stock-out for migrated warehouses.
 
+### Sales farm-scope contract upgrade
+
+Sales migration V8 fails before changing constraints if any legacy scope is
+missing or an order's farm differs from its customer's farm. Before deploying
+the V8 application, audit the Sales database:
+
+```sql
+SELECT id, code FROM customers WHERE farm_id IS NULL ORDER BY code;
+SELECT id, order_number, customer_id
+FROM sales_orders
+WHERE farm_id IS NULL
+ORDER BY order_number;
+SELECT sales_order.id, sales_order.order_number,
+       sales_order.farm_id AS order_farm_id,
+       customer.farm_id AS customer_farm_id
+FROM sales_orders sales_order
+JOIN customers customer ON customer.id = sales_order.customer_id
+WHERE sales_order.farm_id IS DISTINCT FROM customer.farm_id;
+```
+
+Resolve each row against authoritative farm membership and order provenance.
+Update customers first, then orders; never infer a default farm. Require all
+three audits to return zero rows before retrying the deployment. V8 then marks
+both `farm_id` columns `NOT NULL` and adds a composite customer/farm foreign key.
+
 ### Inventory expiry-aware batches
 
 Migration `V6__add_expiry_aware_inventory_batches.sql` creates the lot ledger and
