@@ -130,7 +130,9 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Validate docker compose (microservices stack)
-        run: docker compose -f docker-compose.yml config --quiet
+        run: |
+          docker compose -f docker-compose.yml config --quiet
+          python scripts/verify-compose-runtime-contracts.py
       - name: Lint and render Helm chart
         run: |
           docker run --rm -v "$PWD:/workspace" -w /workspace alpine/helm:3.17.3 lint infrastructure/helm/agricore

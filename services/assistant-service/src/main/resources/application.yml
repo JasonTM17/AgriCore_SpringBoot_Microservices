@@ -88,6 +88,10 @@ agricore:
       max-tokens: ${ASSISTANT_BUDGET_MAX_TOKENS:20000}
       trust-forwarded-headers: ${ASSISTANT_BUDGET_TRUST_FORWARDED_HEADERS:false}
       key-prefix: ${ASSISTANT_BUDGET_KEY_PREFIX:rl:assistant}
+  farm-access:
+    base-url: ${FARM_SERVICE_URL:http://localhost:8082}
+    allowed-hosts: ${FARM_SERVICE_ALLOWED_HOSTS:localhost,127.0.0.1,::1,farm-service}
+    allow-insecure-http: ${FARM_SERVICE_ALLOW_INSECURE_HTTP:false}
   security:
     issuer: ${JWT_ISSUER:https://agricore.local/identity}
     jwk-set-uri: ${IDENTITY_JWKS_URI:http://localhost:8081/.well-known/jwks.json}

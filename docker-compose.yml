@@ -326,10 +326,14 @@ services:
         condition: service_healthy
       farm-service:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-topics-init:
+        condition: service_completed_successfully
       mqtt:
         condition: service_healthy
     environment:
-      <<: [*db-env, *security-env, *farm-access-env, *observability-env]
+      <<: [*db-env, *security-env, *kafka-env, *farm-access-env, *observability-env]
       IOT_PORT: 8090
       IOT_MQTT_ENABLED: "true"
       IOT_MQTT_BROKER: tcp://mqtt:1883
@@ -357,8 +361,12 @@ services:
         condition: service_healthy
       inventory-service:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-topics-init:
+        condition: service_completed_successfully
     environment:
-      <<: [*db-env, *security-env, *inventory-access-env, *observability-env]
+      <<: [*db-env, *security-env, *kafka-env, *inventory-access-env, *observability-env]
       SALES_PORT: 8091
     ports:
       - "8091:8091"
@@ -409,7 +417,7 @@ services:
       farm-service:
         condition: service_healthy
     environment:
-      <<: [*db-env, *security-env, *observability-env]
+      <<: [*db-env, *security-env, *farm-access-env, *observability-env]
       ASSISTANT_PORT: 8093
       REDIS_HOST: redis
       REDIS_PORT: 6379
