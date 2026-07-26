@@ -10,7 +10,7 @@ The repository contains 13 Spring applications, a React/Vite console, OpenAPI an
 
 ## Technology stack
 
-- Java 21, Spring Boot 3.5.16, Spring Cloud 2025.0.0, Jackson BOM 2.21.4.
+- Java 21, Spring Boot 3.5.16, Spring Cloud 2025.0.2, Jackson BOM 2.21.4.
 - PostgreSQL 16 with database-per-service and Flyway; Redis 7.
 - Apache Kafka 3.8.1 and Kafka UI.
 - React 19, Vite 8, TypeScript 5.9, pnpm 11.
