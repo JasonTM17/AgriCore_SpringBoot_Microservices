@@ -13,6 +13,7 @@ RUN --mount=type=cache,id=agricore-pnpm,target=/root/.local/share/pnpm/store,sha
 
 COPY apps/agricore-console apps/agricore-console
 COPY contracts contracts
+COPY assets/media/agricore-showcase assets/media/agricore-showcase
 RUN pnpm --filter @agricore/console build
 
 FROM nginxinc/nginx-unprivileged:1.30.2-alpine3.23@sha256:de3e40ec8b7debd7194fc798d4bbfb102c7f8b012b2c73032816b5f72393acdd
