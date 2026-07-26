@@ -57,6 +57,33 @@ services:
     tmpfs:
       - /tmp:size=16m
 
+  assistant-database-init:
+    image: *timescale-image
+    container_name: agricore-assistant-database-init
+    logging: *bounded-logging
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER:-agricore}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-agricore_dev_change_me}
+    entrypoint:
+      - psql
+      - -d
+      - postgres
+      - -v
+      - ON_ERROR_STOP=1
+      - -f
+      - /opt/agricore/provision-assistant-database.sql
+    volumes:
+      - ./infrastructure/docker/postgres/provision-assistant-database.sql:/opt/agricore/provision-assistant-database.sql:ro
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+
   redis:
     image: redis:7-alpine
     container_name: agricore-redis

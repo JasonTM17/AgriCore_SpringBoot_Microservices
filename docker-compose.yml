@@ -398,6 +398,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      assistant-database-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       identity-service:
