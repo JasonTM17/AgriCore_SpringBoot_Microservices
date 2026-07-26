@@ -19,7 +19,7 @@ const userA = {
   fullName: "Kỹ thuật viên A",
   status: "ACTIVE",
   roles: ["AGRONOMIST"],
-  permissions: [],
+  permissions: ["CROP_CYCLE_READ"],
   lastLoginAt: null,
   createdAt: "2026-07-19T00:00:00Z",
 } satisfies UserResponse;

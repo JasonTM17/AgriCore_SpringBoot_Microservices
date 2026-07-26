@@ -16,7 +16,7 @@ const userA = {
   fullName: "Quản lý A",
   status: "ACTIVE",
   roles: ["FARM_MANAGER"],
-  permissions: [],
+  permissions: ["FARM_READ"],
   lastLoginAt: null,
   createdAt: "2026-07-19T00:00:00Z",
 } satisfies UserResponse;
