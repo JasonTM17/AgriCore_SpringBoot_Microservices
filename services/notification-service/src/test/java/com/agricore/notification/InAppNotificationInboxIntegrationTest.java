@@ -124,6 +124,23 @@ class InAppNotificationInboxIntegrationTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void inboxRejectsUnboundedRecipientFilters() throws Exception {
+        mockMvc.perform(get("/api/v1/notifications/in-app")
+                        .header("X-Dev-User", "system-admin")
+                        .header("X-Dev-Roles", "SYSTEM_ADMIN")
+                        .param("recipient", ""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+
+        mockMvc.perform(get("/api/v1/notifications/in-app")
+                        .header("X-Dev-User", "system-admin")
+                        .header("X-Dev-Roles", "SYSTEM_ADMIN")
+                        .param("recipient", "a".repeat(321)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+    }
+
     private void cleanDatabase() {
         inAppRepository.deleteAll();
         outboxRepository.deleteAll();

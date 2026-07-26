@@ -9,6 +9,7 @@ import com.agricore.notification.application.service.NotificationApplicationServ
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Size;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.data.domain.PageRequest;
@@ -44,7 +45,7 @@ public class NotificationController {
     @GetMapping("/in-app")
     @PreAuthorize("hasRole('SYSTEM_ADMIN') and hasAuthority('PERMISSION_NOTIFICATION_ADMIN')")
     public PageResponse<InAppNotificationResponse> listInApp(
-            @RequestParam(required = false) String recipient,
+            @RequestParam(required = false) @Size(min = 1, max = 320) String recipient,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
     ) {
