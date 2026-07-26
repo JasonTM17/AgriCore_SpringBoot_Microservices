@@ -1,6 +1,7 @@
 package com.agricore.sales.api.advice;
 
 import com.agricore.common.api.ApiError;
+import com.agricore.farmaccess.FarmAccessException;
 import com.agricore.sales.domain.exception.SalesException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
@@ -14,6 +15,14 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(SalesException.class)
     public ResponseEntity<ApiError> handle(SalesException ex, HttpServletRequest request) {
+        return ResponseEntity.status(ex.getHttpStatus()).body(ApiError.of(
+                ex.getHttpStatus(), HttpStatus.valueOf(ex.getHttpStatus()).getReasonPhrase(),
+                ex.getCode(), ex.getMessage(), request.getRequestURI(), null
+        ));
+    }
+
+    @ExceptionHandler(FarmAccessException.class)
+    public ResponseEntity<ApiError> handleFarmAccess(FarmAccessException ex, HttpServletRequest request) {
         return ResponseEntity.status(ex.getHttpStatus()).body(ApiError.of(
                 ex.getHttpStatus(), HttpStatus.valueOf(ex.getHttpStatus()).getReasonPhrase(),
                 ex.getCode(), ex.getMessage(), request.getRequestURI(), null

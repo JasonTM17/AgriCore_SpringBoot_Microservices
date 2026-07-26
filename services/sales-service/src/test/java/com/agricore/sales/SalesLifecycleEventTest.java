@@ -1,5 +1,6 @@
 package com.agricore.sales;
 
+import com.agricore.farmaccess.FarmAccessClient;
 import com.agricore.sales.application.service.SalesOrderTransactionService;
 import com.agricore.sales.domain.model.OrderStatus;
 import com.agricore.sales.infrastructure.client.InventoryClient;
@@ -43,6 +44,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class SalesLifecycleEventTest {
 
+    private static final UUID FARM_ID = UUID.fromString("33333333-3333-3333-3333-333333333333");
+
     @Autowired
     private MockMvc mockMvc;
     @Autowired
@@ -60,6 +63,8 @@ class SalesLifecycleEventTest {
 
     @MockBean
     private InventoryClient inventoryClient;
+    @MockBean
+    private FarmAccessClient farmAccessClient;
 
     @BeforeEach
     void clearOutbox() {
@@ -69,8 +74,8 @@ class SalesLifecycleEventTest {
     @Test
     void successfulOrderEmitsCreatedAndConfirmedWithCorrelation() throws Exception {
         UUID reservationId = UUID.randomUUID();
-        when(inventoryClient.reserve(any(), any(), anyString())).thenReturn(reservationId);
-        doNothing().when(inventoryClient).confirm(reservationId);
+        when(inventoryClient.reserve(any(), any(), any(), anyString())).thenReturn(reservationId);
+        doNothing().when(inventoryClient).confirm(FARM_ID, reservationId);
 
         UUID customerId = createCustomer();
         mockMvc.perform(post("/api/v1/sales/orders")
@@ -95,7 +100,7 @@ class SalesLifecycleEventTest {
 
     @Test
     void reservationFailureEmitsCancellationWithFinalStatus() throws Exception {
-        when(inventoryClient.reserve(any(), any(), anyString()))
+        when(inventoryClient.reserve(any(), any(), any(), anyString()))
                 .thenThrow(new InventoryClient.InventoryReservationException(409, "INSUFFICIENT_STOCK"));
 
         UUID customerId = createCustomer();
@@ -134,7 +139,8 @@ class SalesLifecycleEventTest {
                         .header("X-Dev-User", "sales")
                         .header("X-Dev-Roles", "SALES_STAFF")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"code\":\"EVT-" + System.nanoTime() + "\",\"name\":\"Event Customer\"}"))
+                        .content("{\"farmId\":\"" + FARM_ID + "\",\"code\":\"EVT-"
+                                + System.nanoTime() + "\",\"name\":\"Event Customer\"}"))
                 .andExpect(status().isCreated())
                 .andReturn();
         return UUID.fromString(objectMapper.readTree(result.getResponse().getContentAsString()).get("id").asText());
@@ -142,6 +148,7 @@ class SalesLifecycleEventTest {
 
     private String orderJson(UUID customerId) {
         return "{\"orderNumber\":\"EVT-ORDER-" + System.nanoTime()
+                + "\",\"farmId\":\"" + FARM_ID
                 + "\",\"customerId\":\"" + customerId
                 + "\",\"inventoryItemId\":\"" + UUID.randomUUID()
                 + "\",\"quantity\":10}";
@@ -151,6 +158,7 @@ class SalesLifecycleEventTest {
         Instant now = Instant.now();
         CustomerEntity customer = new CustomerEntity();
         customer.setId(UUID.randomUUID());
+        customer.setFarmId(FARM_ID);
         customer.setCode("EVT-DIRECT-" + System.nanoTime());
         customer.setName("Direct Customer");
         customer.setCreatedAt(now);
@@ -158,6 +166,7 @@ class SalesLifecycleEventTest {
 
         SalesOrderEntity order = new SalesOrderEntity();
         order.setId(UUID.randomUUID());
+        order.setFarmId(FARM_ID);
         order.setOrderNumber("EVT-DIRECT-ORDER-" + System.nanoTime());
         order.setCustomerId(customer.getId());
         order.setStatus(OrderStatus.STOCK_RESERVED);

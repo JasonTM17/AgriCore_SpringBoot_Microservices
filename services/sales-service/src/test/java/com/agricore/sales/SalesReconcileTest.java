@@ -1,5 +1,6 @@
 package com.agricore.sales;
 
+import com.agricore.farmaccess.FarmAccessClient;
 import com.agricore.sales.domain.model.OrderStatus;
 import com.agricore.sales.infrastructure.client.InventoryClient;
 import com.agricore.sales.infrastructure.persistence.CustomerJpaRepository;
@@ -45,6 +46,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class SalesReconcileTest {
 
+    private static final UUID FARM_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
+
     @Autowired
     private MockMvc mockMvc;
     @Autowired
@@ -58,6 +61,8 @@ class SalesReconcileTest {
 
     @MockBean
     private InventoryClient inventoryClient;
+    @MockBean
+    private FarmAccessClient farmAccessClient;
 
     @ParameterizedTest
     @ValueSource(strings = {"", "SALES_READ"})
@@ -73,6 +78,7 @@ class SalesReconcileTest {
     private UUID persistCustomer() {
         CustomerEntity c = new CustomerEntity();
         c.setId(UUID.randomUUID());
+        c.setFarmId(FARM_ID);
         c.setCode("C-REC-" + System.nanoTime());
         c.setName("Reconcile Customer");
         c.setCreatedAt(Instant.now());
@@ -83,6 +89,7 @@ class SalesReconcileTest {
         Instant now = Instant.now();
         SalesOrderEntity order = new SalesOrderEntity();
         order.setId(UUID.randomUUID());
+        order.setFarmId(FARM_ID);
         order.setOrderNumber(orderPrefix + "-" + System.nanoTime());
         order.setCustomerId(persistCustomer());
         order.setStatus(OrderStatus.STOCK_RESERVED);
@@ -112,7 +119,7 @@ class SalesReconcileTest {
     @Test
     void reconcile_release_cancelsOrderAndCallsInventoryRelease() throws Exception {
         ReservedOrder fixture = persistReservedOrder("SO-REC", "10.000");
-        when(inventoryClient.release(any())).thenReturn(RELEASED);
+        when(inventoryClient.release(any(), any())).thenReturn(RELEASED);
 
         MvcResult result = mockMvc.perform(post("/api/v1/sales/orders/" + fixture.orderId() + "/reconcile")
                         .param("action", "RELEASE")
@@ -125,7 +132,7 @@ class SalesReconcileTest {
                 .andExpect(jsonPath("$.sagaStep").value("RELEASED"))
                 .andReturn();
 
-        verify(inventoryClient).release(fixture.reservationId());
+        verify(inventoryClient).release(FARM_ID, fixture.reservationId());
 
         SalesOrderEntity after = orderRepository.findById(fixture.orderId()).orElseThrow();
         assertThat(after.getStatus()).isEqualTo(OrderStatus.CANCELLED);
@@ -142,7 +149,7 @@ class SalesReconcileTest {
     @Test
     void reconcile_confirm_marksConfirmed() throws Exception {
         ReservedOrder fixture = persistReservedOrder("SO-CON", "5.000");
-        doNothing().when(inventoryClient).confirm(any());
+        doNothing().when(inventoryClient).confirm(any(), any());
 
         mockMvc.perform(post("/api/v1/sales/orders/" + fixture.orderId() + "/reconcile")
                         .param("action", "CONFIRM")
@@ -152,7 +159,7 @@ class SalesReconcileTest {
                 .andExpect(jsonPath("$.status").value("CONFIRMED"))
                 .andExpect(jsonPath("$.sagaStatus").value("COMPLETED"));
 
-        verify(inventoryClient).confirm(fixture.reservationId());
+        verify(inventoryClient).confirm(FARM_ID, fixture.reservationId());
         assertThat(orderRepository.findById(fixture.orderId()).orElseThrow().getStatus())
                 .isEqualTo(OrderStatus.CONFIRMED);
     }
@@ -160,7 +167,7 @@ class SalesReconcileTest {
     @Test
     void reconcile_releaseWhenInventoryAlreadyFulfilled_marksOrderConfirmed() throws Exception {
         ReservedOrder fixture = persistReservedOrder("SO-FUL", "7.000");
-        when(inventoryClient.release(fixture.reservationId())).thenReturn(FULFILLED);
+        when(inventoryClient.release(FARM_ID, fixture.reservationId())).thenReturn(FULFILLED);
 
         mockMvc.perform(post("/api/v1/sales/orders/" + fixture.orderId() + "/reconcile")
                         .param("action", "RELEASE")

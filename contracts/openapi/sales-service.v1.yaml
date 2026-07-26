@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: AgriCore Sales Service API
-  version: 1.2.0
+  version: 2.0.0
   description: |
-    Customers and sales orders with inventory reservation saga.
+    Farm-scoped customers and sales orders with inventory reservation saga.
     Flow: create order → reserve stock → confirm reservation → fulfillment milestones.
 servers:
   - url: http://localhost:8091
@@ -19,14 +19,27 @@ paths:
           application/json:
             schema:
               type: object
-              required: [code, name]
+              additionalProperties: false
+              required: [farmId, code, name]
               properties:
+                farmId: { type: string, format: uuid }
                 code: { type: string }
                 name: { type: string }
                 email: { type: string, format: email }
       responses:
         '201':
           description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [id, farmId, code, name]
+                properties:
+                  id: { type: string, format: uuid }
+                  farmId: { type: string, format: uuid }
+                  code: { type: string }
+                  name: { type: string }
         '409':
           description: Customer code exists
   /api/v1/sales/orders:
@@ -40,9 +53,11 @@ paths:
           application/json:
             schema:
               type: object
-              required: [orderNumber, customerId, inventoryItemId, quantity]
+              additionalProperties: false
+              required: [orderNumber, farmId, customerId, inventoryItemId, quantity]
               properties:
                 orderNumber: { type: string }
+                farmId: { type: string, format: uuid }
                 customerId: { type: string, format: uuid }
                 inventoryItemId: { type: string, format: uuid }
                 quantity: { type: number }
@@ -81,6 +96,8 @@ paths:
       description: >-
         RELEASE cancels the order when Inventory returns RELEASED. If Inventory reports
         that the reservation is already FULFILLED, the order is confirmed instead.
+        CONFIRM is the only idempotent action for CONFIRMED; RELEASE is the only
+        idempotent action for CANCELLED. Other terminal-state actions return 409.
       security:
         - bearerAuth: []
       parameters:
@@ -127,6 +144,7 @@ components:
       required:
         - id
         - orderNumber
+        - farmId
         - customerId
         - status
         - inventoryItemId
@@ -139,6 +157,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         orderNumber: { type: string }
+        farmId: { type: string, format: uuid }
         customerId: { type: string, format: uuid }
         status: { type: string }
         inventoryItemId: { type: string, format: uuid }

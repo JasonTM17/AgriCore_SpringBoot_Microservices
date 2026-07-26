@@ -13,6 +13,8 @@ public class SalesOrderEntity {
     private UUID id;
     @Column(name = "order_number", nullable = false, length = 64)
     private String orderNumber;
+    @Column(name = "farm_id", nullable = false)
+    private UUID farmId;
     @Column(name = "customer_id", nullable = false)
     private UUID customerId;
     @Enumerated(EnumType.STRING)
@@ -45,6 +47,8 @@ public class SalesOrderEntity {
     public void setId(UUID id) { this.id = id; }
     public String getOrderNumber() { return orderNumber; }
     public void setOrderNumber(String orderNumber) { this.orderNumber = orderNumber; }
+    public UUID getFarmId() { return farmId; }
+    public void setFarmId(UUID farmId) { this.farmId = farmId; }
     public UUID getCustomerId() { return customerId; }
     public void setCustomerId(UUID customerId) { this.customerId = customerId; }
     public OrderStatus getStatus() { return status; }

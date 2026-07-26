@@ -7,7 +7,6 @@ import com.agricore.sales.api.response.SalesOrderResponse;
 import com.agricore.sales.domain.exception.SalesException;
 import com.agricore.sales.domain.model.OrderStatus;
 import com.agricore.sales.infrastructure.client.InventoryClient;
-import com.agricore.sales.infrastructure.persistence.CustomerJpaRepository;
 import com.agricore.sales.infrastructure.persistence.OrderSagaJpaRepository;
 import com.agricore.sales.infrastructure.persistence.SalesOrderItemJpaRepository;
 import com.agricore.sales.infrastructure.persistence.SalesOrderJpaRepository;
@@ -16,7 +15,6 @@ import com.agricore.sales.infrastructure.persistence.entity.OrderSagaEntity;
 import com.agricore.sales.infrastructure.persistence.entity.SalesOrderEntity;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -29,7 +27,6 @@ import java.util.UUID;
 @Service
 public class SalesSagaService {
 
-    private final CustomerJpaRepository customerRepository;
     private final SalesOrderJpaRepository orderRepository;
     private final OrderSagaJpaRepository sagaRepository;
     private final SalesOrderItemJpaRepository itemRepository;
@@ -37,18 +34,18 @@ public class SalesSagaService {
     private final SalesOrderTransactionService transactions;
     private final SalesMetrics metrics;
     private final SalesSagaRecoveryPolicy recoveryPolicy;
+    private final SalesAccessGuard accessGuard;
 
     public SalesSagaService(
-            CustomerJpaRepository customerRepository,
             SalesOrderJpaRepository orderRepository,
             OrderSagaJpaRepository sagaRepository,
             SalesOrderItemJpaRepository itemRepository,
             InventoryClient inventoryClient,
             SalesOrderTransactionService transactions,
             SalesMetrics metrics,
-            SalesSagaRecoveryPolicy recoveryPolicy
+            SalesSagaRecoveryPolicy recoveryPolicy,
+            SalesAccessGuard accessGuard
     ) {
-        this.customerRepository = customerRepository;
         this.orderRepository = orderRepository;
         this.sagaRepository = sagaRepository;
         this.itemRepository = itemRepository;
@@ -56,35 +53,32 @@ public class SalesSagaService {
         this.transactions = transactions;
         this.metrics = metrics;
         this.recoveryPolicy = recoveryPolicy;
+        this.accessGuard = accessGuard;
     }
 
-    @Transactional
     public CustomerEntity createCustomer(CreateCustomerRequest request) {
-        String code = request.code().trim().toUpperCase();
-        if (customerRepository.existsByCodeIgnoreCase(code)) {
+        accessGuard.requireFarm(request.farmId());
+        try {
+            return transactions.createCustomer(request);
+        } catch (DataIntegrityViolationException exception) {
             throw new SalesException("CUSTOMER_EXISTS", "Customer code already exists", 409);
         }
-        CustomerEntity customer = new CustomerEntity();
-        customer.setId(UUID.randomUUID());
-        customer.setCode(code);
-        customer.setName(request.name().trim());
-        customer.setEmail(request.email());
-        customer.setCreatedAt(Instant.now());
-        return customerRepository.save(customer);
     }
 
     public SalesOrderResponse placeOrder(CreateOrderRequest request) {
+        accessGuard.requireFarm(request.farmId());
         UUID orderId = createOrder(request);
         UUID reservationId = null;
         try {
             SalesOrderEntity order = reloadOrder(orderId);
             reservationId = inventoryClient.reserve(
+                    order.getFarmId(),
                     order.getInventoryItemId(),
                     order.getQuantity(),
                     order.getId().toString()
             );
             transactions.recordReservation(orderId, reservationId);
-            inventoryClient.confirm(reservationId);
+            inventoryClient.confirm(order.getFarmId(), reservationId);
             transactions.confirm(orderId, reservationId, false);
         } catch (Exception failure) {
             compensate(orderId, reservationId, failure);
@@ -108,7 +102,12 @@ public class SalesSagaService {
         if (reservationId == null) {
             if (shouldResolveReservation(failure)) {
                 try {
-                    var reservation = inventoryClient.findByReference("SalesOrder", orderId.toString());
+                    SalesOrderEntity order = reloadOrder(orderId);
+                    var reservation = inventoryClient.findByReference(
+                            order.getFarmId(),
+                            "SalesOrder",
+                            orderId.toString()
+                    );
                     if (reservation.isPresent()) {
                         compensateKnownReservation(orderId, reservation.get(), failureMessage);
                         return;
@@ -147,6 +146,8 @@ public class SalesSagaService {
             InventoryClient.ReservationState reservation,
             String failureMessage
     ) {
+        SalesOrderEntity order = reloadOrder(orderId);
+        requireMatchingReservation(order, reservation);
         UUID reservationId = reservation.id();
         switch (reservation.status()) {
             case "FULFILLED" -> transactions.confirm(orderId, reservationId, false);
@@ -177,9 +178,23 @@ public class SalesSagaService {
         return !inventoryFailure.isInsufficientStock() && inventoryFailure.getStatus() != 409;
     }
 
-    @Transactional(readOnly = true)
+    private static void requireMatchingReservation(
+            SalesOrderEntity order,
+            InventoryClient.ReservationState reservation
+    ) {
+        if (!order.getInventoryItemId().equals(reservation.inventoryItemId())
+                || order.getQuantity().compareTo(reservation.quantity()) != 0) {
+            throw new SalesException(
+                    "RESERVATION_SCOPE_MISMATCH",
+                    "Inventory reservation does not match the sales order",
+                    409
+            );
+        }
+    }
+
     public SalesOrderResponse get(UUID orderId) {
         SalesOrderEntity order = reloadOrder(orderId);
+        accessGuard.requireFarm(order.getFarmId());
         OrderSagaEntity saga = sagaRepository.findBySalesOrderId(orderId).orElse(null);
         return toResponse(order, saga);
     }
@@ -187,21 +202,23 @@ public class SalesSagaService {
     public SalesOrderResponse reconcile(UUID orderId, String action) {
         String normalizedAction = normalizeReconcileAction(action);
         SalesOrderEntity order = reloadOrder(orderId);
+        accessGuard.requireFarm(order.getFarmId());
+        if (isAlreadyReconciled(order, normalizedAction)) {
+            return get(orderId);
+        }
+        requireReconciliationAllowed(order, normalizedAction);
         if (order.getReservationId() == null) {
             order = resolveUnknownReservation(orderId, order, normalizedAction);
         }
         if (order.getReservationId() == null) {
             throw new SalesException("NO_RESERVATION", "Order has no inventory reservation to reconcile", 409);
         }
-        if (isAlreadyReconciled(order, normalizedAction)) {
-            return get(orderId);
-        }
 
         try {
             if ("RELEASE".equals(normalizedAction)) {
                 reconcileRelease(order);
             } else {
-                inventoryClient.confirm(order.getReservationId());
+                inventoryClient.confirm(order.getFarmId(), order.getReservationId());
                 transactions.confirm(orderId, order.getReservationId(), true);
             }
         } catch (SalesException exception) {
@@ -229,7 +246,11 @@ public class SalesSagaService {
             return order;
         }
         try {
-            var reservation = inventoryClient.findByReference("SalesOrder", orderId.toString());
+            var reservation = inventoryClient.findByReference(
+                    order.getFarmId(),
+                    "SalesOrder",
+                    orderId.toString()
+            );
             if (reservation.isEmpty()) {
                 transactions.recordReconcileFailure(
                         orderId,
@@ -244,6 +265,7 @@ public class SalesSagaService {
                 );
             }
             InventoryClient.ReservationState state = reservation.get();
+            requireMatchingReservation(order, state);
             if ("FULFILLED".equals(state.status())) {
                 transactions.confirm(orderId, state.id(), true);
             } else if ("RELEASED".equals(state.status())) {
@@ -267,7 +289,10 @@ public class SalesSagaService {
     }
 
     private void reconcileRelease(SalesOrderEntity order) {
-        InventoryClient.ReleaseOutcome outcome = inventoryClient.release(order.getReservationId());
+        InventoryClient.ReleaseOutcome outcome = inventoryClient.release(
+                order.getFarmId(),
+                order.getReservationId()
+        );
         if (outcome == InventoryClient.ReleaseOutcome.FULFILLED) {
             transactions.confirm(order.getId(), order.getReservationId(), true);
         } else {
@@ -296,8 +321,19 @@ public class SalesSagaService {
             return true;
         }
         return order.getStatus() == OrderStatus.CANCELLED
-                && "RELEASE".equals(action)
-                && "reconciled:RELEASE".equals(order.getFailureReason());
+                && "RELEASE".equals(action);
+    }
+
+    private static void requireReconciliationAllowed(SalesOrderEntity order, String action) {
+        if (order.getStatus() == OrderStatus.CONFIRMED
+                || order.getStatus() == OrderStatus.CANCELLED
+                || order.getStatus() == OrderStatus.OUT_OF_STOCK) {
+            throw new SalesException(
+                    "ORDER_TERMINAL",
+                    "Action " + action + " is incompatible with terminal order status " + order.getStatus(),
+                    409
+            );
+        }
     }
 
     private SalesOrderEntity reloadOrder(UUID orderId) {
@@ -312,7 +348,8 @@ public class SalesSagaService {
 
     private SalesOrderResponse toResponse(SalesOrderEntity order, OrderSagaEntity saga) {
         return new SalesOrderResponse(
-                order.getId(), order.getOrderNumber(), order.getCustomerId(), order.getStatus().name(),
+                order.getId(), order.getOrderNumber(), order.getFarmId(), order.getCustomerId(),
+                order.getStatus().name(),
                 order.getInventoryItemId(), order.getQuantity(), order.getReservationId(), order.getCorrelationId(),
                 order.getFailureReason(),
                 saga == null ? null : saga.getStatus(),

@@ -43,6 +43,10 @@ agricore:
     internal-service-token: ${INVENTORY_INTERNAL_SERVICE_TOKEN:}
     connect-timeout: ${INVENTORY_CONNECT_TIMEOUT:PT2S}
     read-timeout: ${INVENTORY_READ_TIMEOUT:PT5S}
+  farm-access:
+    base-url: ${FARM_SERVICE_URL:http://localhost:8082}
+    allowed-hosts: ${FARM_SERVICE_ALLOWED_HOSTS:localhost,127.0.0.1,::1,farm-service}
+    allow-insecure-http: ${FARM_SERVICE_ALLOW_INSECURE_HTTP:false}
   saga:
     recovery:
       enabled: ${SALES_SAGA_RECOVERY_ENABLED:true}

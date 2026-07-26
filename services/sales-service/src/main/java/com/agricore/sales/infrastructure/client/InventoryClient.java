@@ -43,9 +43,15 @@ public class InventoryClient {
         this.internalServiceToken = internalServiceToken == null ? "" : internalServiceToken.trim();
     }
 
-    public UUID reserve(UUID inventoryItemId, BigDecimal quantity, String referenceId) {
+    public UUID reserve(
+            UUID farmId,
+            UUID inventoryItemId,
+            BigDecimal quantity,
+            String referenceId
+    ) {
         try {
             Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("farmId", farmId.toString());
             payload.put("inventoryItemId", inventoryItemId.toString());
             payload.put("quantity", quantity);
             payload.put("referenceType", "SalesOrder");
@@ -69,10 +75,13 @@ public class InventoryClient {
         }
     }
 
-    public ReleaseOutcome release(UUID reservationId) {
+    public ReleaseOutcome release(UUID farmId, UUID reservationId) {
         try {
             String body = restClient.post()
-                    .uri(INTERNAL_BASE_PATH + "/reservations/{id}/release", reservationId)
+                    .uri(uriBuilder -> uriBuilder
+                            .path(INTERNAL_BASE_PATH + "/reservations/{id}/release")
+                            .queryParam("farmId", farmId)
+                            .build(reservationId))
                     .headers(authHeaders())
                     .retrieve()
                     .body(String.class);
@@ -93,10 +102,13 @@ public class InventoryClient {
         }
     }
 
-    public void confirm(UUID reservationId) {
+    public void confirm(UUID farmId, UUID reservationId) {
         try {
             restClient.post()
-                    .uri(INTERNAL_BASE_PATH + "/reservations/{id}/confirm", reservationId)
+                    .uri(uriBuilder -> uriBuilder
+                            .path(INTERNAL_BASE_PATH + "/reservations/{id}/confirm")
+                            .queryParam("farmId", farmId)
+                            .build(reservationId))
                     .headers(authHeaders())
                     .retrieve()
                     .toBodilessEntity();
@@ -110,11 +122,16 @@ public class InventoryClient {
      * ambiguous reserve response. A missing reference is authoritative for
      * this lookup; transport and server failures remain retryable.
      */
-    public Optional<ReservationState> findByReference(String referenceType, String referenceId) {
+    public Optional<ReservationState> findByReference(
+            UUID farmId,
+            String referenceType,
+            String referenceId
+    ) {
         try {
             String body = restClient.get()
                     .uri(uriBuilder -> uriBuilder
                             .path(INTERNAL_BASE_PATH + "/reservations/by-reference")
+                            .queryParam("farmId", farmId)
                             .queryParam("referenceType", referenceType)
                             .queryParam("referenceId", referenceId)
                             .build())

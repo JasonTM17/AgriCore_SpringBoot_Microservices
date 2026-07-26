@@ -38,6 +38,8 @@ import static org.mockito.Mockito.when;
 @ActiveProfiles("test")
 class SalesSagaRecoveryJobIntegrationTest {
 
+    private static final UUID FARM_ID = UUID.fromString("44444444-4444-4444-4444-444444444444");
+
     @Autowired
     private SalesSagaRecoveryJob recoveryJob;
     @Autowired
@@ -74,7 +76,7 @@ class SalesSagaRecoveryJobIntegrationTest {
                 reservationId,
                 Instant.now().minusSeconds(1)
         );
-        doNothing().when(inventoryClient).confirm(reservationId);
+        doNothing().when(inventoryClient).confirm(FARM_ID, reservationId);
 
         recoveryJob.recover();
 
@@ -84,7 +86,7 @@ class SalesSagaRecoveryJobIntegrationTest {
         assertThat(saga.getStatus()).isEqualTo("COMPLETED");
         assertThat(saga.getRetryCount()).isEqualTo(2);
         assertThat(saga.getCompletedAt()).isNotNull();
-        verify(inventoryClient).confirm(reservationId);
+        verify(inventoryClient).confirm(FARM_ID, reservationId);
     }
 
     @Test
@@ -98,21 +100,21 @@ class SalesSagaRecoveryJobIntegrationTest {
                 null,
                 Instant.now().minusSeconds(1)
         );
-        when(inventoryClient.findByReference("SalesOrder", fixture.orderId().toString()))
+        when(inventoryClient.findByReference(FARM_ID, "SalesOrder", fixture.orderId().toString()))
                 .thenReturn(Optional.of(new InventoryClient.ReservationState(
                         reservationId,
                         fixture.inventoryItemId(),
                         fixture.quantity(),
                         "ACTIVE"
                 )));
-        doNothing().when(inventoryClient).confirm(reservationId);
+        doNothing().when(inventoryClient).confirm(FARM_ID, reservationId);
 
         recoveryJob.recover();
 
         assertThat(orderRepository.findById(fixture.orderId()).orElseThrow().getStatus())
                 .isEqualTo(OrderStatus.CONFIRMED);
-        verify(inventoryClient, never()).reserve(any(), any(), anyString());
-        verify(inventoryClient).confirm(reservationId);
+        verify(inventoryClient, never()).reserve(any(), any(), any(), anyString());
+        verify(inventoryClient).confirm(FARM_ID, reservationId);
     }
 
     @Test
@@ -127,8 +129,8 @@ class SalesSagaRecoveryJobIntegrationTest {
                 Instant.now().minusSeconds(1)
         );
         doThrow(new InventoryClient.InventoryReservationException(503, "confirm unavailable"))
-                .when(inventoryClient).confirm(reservationId);
-        when(inventoryClient.release(reservationId))
+                .when(inventoryClient).confirm(FARM_ID, reservationId);
+        when(inventoryClient.release(FARM_ID, reservationId))
                 .thenReturn(InventoryClient.ReleaseOutcome.RELEASED);
 
         recoveryJob.recover();
@@ -137,7 +139,7 @@ class SalesSagaRecoveryJobIntegrationTest {
                 .isEqualTo(OrderStatus.CANCELLED);
         assertThat(sagaRepository.findBySalesOrderId(fixture.orderId()).orElseThrow().getStatus())
                 .isEqualTo("FAILED");
-        verify(inventoryClient).release(reservationId);
+        verify(inventoryClient).release(FARM_ID, reservationId);
     }
 
     @Test
@@ -170,6 +172,7 @@ class SalesSagaRecoveryJobIntegrationTest {
         Instant now = Instant.now();
         CustomerEntity customer = new CustomerEntity();
         customer.setId(UUID.randomUUID());
+        customer.setFarmId(FARM_ID);
         customer.setCode("RECOVERY-" + UUID.randomUUID());
         customer.setName("Recovery Customer");
         customer.setCreatedAt(now);
@@ -180,6 +183,7 @@ class SalesSagaRecoveryJobIntegrationTest {
         BigDecimal quantity = new BigDecimal("2.500");
         SalesOrderEntity order = new SalesOrderEntity();
         order.setId(orderId);
+        order.setFarmId(FARM_ID);
         order.setOrderNumber("RECOVERY-" + orderId);
         order.setCustomerId(customer.getId());
         order.setStatus(orderStatus);
@@ -206,10 +210,10 @@ class SalesSagaRecoveryJobIntegrationTest {
     }
 
     private void verifyNoInventoryCalls() {
-        verify(inventoryClient, never()).reserve(any(), any(), anyString());
-        verify(inventoryClient, never()).findByReference(anyString(), anyString());
-        verify(inventoryClient, never()).confirm(any());
-        verify(inventoryClient, never()).release(any());
+        verify(inventoryClient, never()).reserve(any(), any(), any(), anyString());
+        verify(inventoryClient, never()).findByReference(any(), anyString(), anyString());
+        verify(inventoryClient, never()).confirm(any(), any());
+        verify(inventoryClient, never()).release(any(), any());
     }
 
     private record Fixture(UUID orderId, UUID inventoryItemId, BigDecimal quantity) {

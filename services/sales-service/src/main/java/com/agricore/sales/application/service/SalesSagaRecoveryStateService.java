@@ -1,6 +1,7 @@
 package com.agricore.sales.application.service;
 
 import com.agricore.sales.domain.exception.SalesException;
+import com.agricore.sales.domain.model.OrderStatus;
 import com.agricore.sales.infrastructure.persistence.OrderSagaJpaRepository;
 import com.agricore.sales.infrastructure.persistence.SalesOrderJpaRepository;
 import com.agricore.sales.infrastructure.persistence.entity.OrderSagaEntity;
@@ -50,6 +51,9 @@ public class SalesSagaRecoveryStateService {
     ) {
         SalesOrderEntity order = lockedOrder(orderId);
         OrderSagaEntity saga = lockedSaga(orderId);
+        if (isTerminal(order) || isTerminal(saga.getStatus())) {
+            return Optional.empty();
+        }
         if (!isRecoverableNow(saga, now, staleBefore)) {
             return Optional.empty();
         }
@@ -75,7 +79,7 @@ public class SalesSagaRecoveryStateService {
     public void scheduleRetry(UUID orderId, String failureMessage, Instant nextAttemptAt) {
         SalesOrderEntity order = lockedOrder(orderId);
         OrderSagaEntity saga = lockedSaga(orderId);
-        if (isTerminal(saga.getStatus())) {
+        if (isTerminal(order) || isTerminal(saga.getStatus())) {
             return;
         }
         Instant now = Instant.now();
@@ -92,7 +96,7 @@ public class SalesSagaRecoveryStateService {
     public void markTimedOut(UUID orderId, String failureMessage) {
         SalesOrderEntity order = lockedOrder(orderId);
         OrderSagaEntity saga = lockedSaga(orderId);
-        if (isTerminal(saga.getStatus())) {
+        if (isTerminal(order) || isTerminal(saga.getStatus())) {
             return;
         }
         markTimedOut(order, saga, failureMessage, Instant.now());
@@ -144,6 +148,12 @@ public class SalesSagaRecoveryStateService {
                 || "FAILED".equals(status)
                 || "RECONCILED".equals(status)
                 || "TIMED_OUT".equals(status);
+    }
+
+    private static boolean isTerminal(SalesOrderEntity order) {
+        return order.getStatus() == OrderStatus.CONFIRMED
+                || order.getStatus() == OrderStatus.CANCELLED
+                || order.getStatus() == OrderStatus.OUT_OF_STOCK;
     }
 
     private static String bounded(String value) {

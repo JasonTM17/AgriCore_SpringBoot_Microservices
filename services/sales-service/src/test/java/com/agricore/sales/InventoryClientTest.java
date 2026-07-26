@@ -40,6 +40,7 @@ class InventoryClientTest {
 
     @Test
     void reserveClassifiesOnlyExplicitInsufficientStockCode() {
+        UUID farmId = UUID.randomUUID();
         TestClient fixture = client();
         fixture.server().expect(once(), requestTo(BASE_URL + INTERNAL_BASE_PATH + "/reservations"))
                 .andExpect(method(HttpMethod.POST))
@@ -52,6 +53,7 @@ class InventoryClientTest {
 
         assertThatExceptionOfType(InventoryClient.InventoryReservationException.class)
                 .isThrownBy(() -> fixture.client().reserve(
+                        farmId,
                         UUID.randomUUID(),
                         new BigDecimal("5.000"),
                         UUID.randomUUID().toString()
@@ -62,6 +64,7 @@ class InventoryClientTest {
 
     @Test
     void reserveReferenceConflictIsNotMisclassifiedAsInsufficientStock() {
+        UUID farmId = UUID.randomUUID();
         TestClient fixture = client();
         fixture.server().expect(once(), requestTo(BASE_URL + INTERNAL_BASE_PATH + "/reservations"))
                 .andExpect(method(HttpMethod.POST))
@@ -73,6 +76,7 @@ class InventoryClientTest {
 
         assertThatExceptionOfType(InventoryClient.InventoryReservationException.class)
                 .isThrownBy(() -> fixture.client().reserve(
+                        farmId,
                         UUID.randomUUID(),
                         new BigDecimal("5.000"),
                         UUID.randomUUID().toString()
@@ -84,12 +88,14 @@ class InventoryClientTest {
     @Test
     void findByReference_readsAuthoritativeReservationState() {
         UUID reservationId = UUID.randomUUID();
+        UUID farmId = UUID.randomUUID();
         UUID itemId = UUID.randomUUID();
         String orderId = UUID.randomUUID().toString();
         TestClient fixture = client();
         fixture.server().expect(once(), requestTo(
                         URI.create(BASE_URL + INTERNAL_BASE_PATH + "/reservations/by-reference"
-                                + "?referenceType=SalesOrder&referenceId=" + orderId)))
+                                + "?farmId=" + farmId
+                                + "&referenceType=SalesOrder&referenceId=" + orderId)))
                 .andExpect(method(HttpMethod.GET))
                 .andRespond(withSuccess("""
                         {
@@ -102,7 +108,7 @@ class InventoryClientTest {
                         }
                         """.formatted(reservationId, itemId, orderId), MediaType.APPLICATION_JSON));
 
-        assertThat(fixture.client().findByReference("SalesOrder", orderId))
+        assertThat(fixture.client().findByReference(farmId, "SalesOrder", orderId))
                 .hasValueSatisfying(state -> {
                     assertThat(state.id()).isEqualTo(reservationId);
                     assertThat(state.inventoryItemId()).isEqualTo(itemId);
@@ -114,75 +120,85 @@ class InventoryClientTest {
 
     @Test
     void findByReference_treatsNotFoundAsNoReservation() {
+        UUID farmId = UUID.randomUUID();
         String orderId = UUID.randomUUID().toString();
         TestClient fixture = client();
         fixture.server().expect(once(), requestTo(
                         URI.create(BASE_URL + INTERNAL_BASE_PATH + "/reservations/by-reference"
-                                + "?referenceType=SalesOrder&referenceId=" + orderId)))
+                                + "?farmId=" + farmId
+                                + "&referenceType=SalesOrder&referenceId=" + orderId)))
                 .andExpect(method(HttpMethod.GET))
                 .andRespond(withStatus(HttpStatus.NOT_FOUND)
                         .contentType(MediaType.APPLICATION_JSON)
                         .body("{\"code\":\"RESERVATION_NOT_FOUND\"}"));
 
-        assertThat(fixture.client().findByReference("SalesOrder", orderId)).isEmpty();
+        assertThat(fixture.client().findByReference(farmId, "SalesOrder", orderId)).isEmpty();
         fixture.server().verify();
     }
 
     @Test
     void release_returnsAuthoritativeFulfilledOutcome() {
+        UUID farmId = UUID.randomUUID();
         UUID reservationId = UUID.randomUUID();
         TestClient fixture = client();
         fixture.server().expect(once(), requestTo(
-                        BASE_URL + INTERNAL_BASE_PATH + "/reservations/" + reservationId + "/release"))
+                        BASE_URL + INTERNAL_BASE_PATH + "/reservations/" + reservationId
+                                + "/release?farmId=" + farmId))
                 .andExpect(method(HttpMethod.POST))
                 .andRespond(withSuccess("""
                         {"id":"%s","status":"FULFILLED"}
                         """.formatted(reservationId), MediaType.APPLICATION_JSON));
 
-        assertThat(fixture.client().release(reservationId)).isEqualTo(FULFILLED);
+        assertThat(fixture.client().release(farmId, reservationId)).isEqualTo(FULFILLED);
         fixture.server().verify();
     }
 
     @Test
     void release_returnsAuthoritativeReleasedOutcome() {
+        UUID farmId = UUID.randomUUID();
         UUID reservationId = UUID.randomUUID();
         TestClient fixture = client();
         fixture.server().expect(once(), requestTo(
-                        BASE_URL + INTERNAL_BASE_PATH + "/reservations/" + reservationId + "/release"))
+                        BASE_URL + INTERNAL_BASE_PATH + "/reservations/" + reservationId
+                                + "/release?farmId=" + farmId))
                 .andRespond(withSuccess("""
                         {"id":"%s","status":"RELEASED"}
                         """.formatted(reservationId), MediaType.APPLICATION_JSON));
 
-        assertThat(fixture.client().release(reservationId)).isEqualTo(RELEASED);
+        assertThat(fixture.client().release(farmId, reservationId)).isEqualTo(RELEASED);
         fixture.server().verify();
     }
 
     @Test
     void release_rejectsUnexpectedInventoryStatus() {
+        UUID farmId = UUID.randomUUID();
         UUID reservationId = UUID.randomUUID();
         TestClient fixture = client();
         fixture.server().expect(once(), requestTo(
-                        BASE_URL + INTERNAL_BASE_PATH + "/reservations/" + reservationId + "/release"))
+                        BASE_URL + INTERNAL_BASE_PATH + "/reservations/" + reservationId
+                                + "/release?farmId=" + farmId))
                 .andRespond(withSuccess("""
                         {"id":"%s","status":"ACTIVE"}
                         """.formatted(reservationId), MediaType.APPLICATION_JSON));
 
         assertThatExceptionOfType(InventoryClient.InventoryReservationException.class)
-                .isThrownBy(() -> fixture.client().release(reservationId))
+                .isThrownBy(() -> fixture.client().release(farmId, reservationId))
                 .satisfies(exception -> assertThat(exception.getStatus()).isEqualTo(502));
         fixture.server().verify();
     }
 
     @Test
     void release_rejectsEmptyInventoryResponse() {
+        UUID farmId = UUID.randomUUID();
         UUID reservationId = UUID.randomUUID();
         TestClient fixture = client();
         fixture.server().expect(once(), requestTo(
-                        BASE_URL + INTERNAL_BASE_PATH + "/reservations/" + reservationId + "/release"))
+                        BASE_URL + INTERNAL_BASE_PATH + "/reservations/" + reservationId
+                                + "/release?farmId=" + farmId))
                 .andRespond(withSuccess());
 
         assertThatExceptionOfType(InventoryClient.InventoryReservationException.class)
-                .isThrownBy(() -> fixture.client().release(reservationId))
+                .isThrownBy(() -> fixture.client().release(farmId, reservationId))
                 .withMessage("Inventory release response was empty")
                 .satisfies(exception -> assertThat(exception.getStatus()).isEqualTo(502));
         fixture.server().verify();

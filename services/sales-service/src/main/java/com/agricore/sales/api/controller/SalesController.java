@@ -30,6 +30,7 @@ public class SalesController {
         CustomerEntity c = salesService.createCustomer(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
                 "id", c.getId(),
+                "farmId", c.getFarmId(),
                 "code", c.getCode(),
                 "name", c.getName()
         ));

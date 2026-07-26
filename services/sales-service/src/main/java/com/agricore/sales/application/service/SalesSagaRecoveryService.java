@@ -70,15 +70,16 @@ public class SalesSagaRecoveryService {
     private void recoverReservation(UUID orderId) {
         SalesOrderEntity order = reloadOrder(orderId);
         Optional<InventoryClient.ReservationState> existing =
-                inventoryClient.findByReference("SalesOrder", orderId.toString());
+                inventoryClient.findByReference(order.getFarmId(), "SalesOrder", orderId.toString());
         if (existing.isEmpty()) {
             UUID reservationId = inventoryClient.reserve(
+                    order.getFarmId(),
                     order.getInventoryItemId(),
                     order.getQuantity(),
                     orderId.toString()
             );
             transactions.recordReservation(orderId, reservationId);
-            inventoryClient.confirm(reservationId);
+            inventoryClient.confirm(order.getFarmId(), reservationId);
             transactions.confirm(orderId, reservationId, false);
             return;
         }
@@ -95,7 +96,7 @@ public class SalesSagaRecoveryService {
             );
             case "ACTIVE" -> {
                 transactions.recordReservation(orderId, reservation.id());
-                inventoryClient.confirm(reservation.id());
+                inventoryClient.confirm(order.getFarmId(), reservation.id());
                 transactions.confirm(orderId, reservation.id(), false);
             }
             default -> throw new IllegalStateException(
@@ -107,14 +108,14 @@ public class SalesSagaRecoveryService {
     private void recoverConfirmation(UUID orderId) {
         SalesOrderEntity order = reloadOrder(orderId);
         UUID reservationId = requiredReservation(order);
-        inventoryClient.confirm(reservationId);
+        inventoryClient.confirm(order.getFarmId(), reservationId);
         transactions.confirm(orderId, reservationId, false);
     }
 
     private void recoverCompensation(UUID orderId) {
         SalesOrderEntity order = reloadOrder(orderId);
         UUID reservationId = requiredReservation(order);
-        InventoryClient.ReleaseOutcome outcome = inventoryClient.release(reservationId);
+        InventoryClient.ReleaseOutcome outcome = inventoryClient.release(order.getFarmId(), reservationId);
         if (outcome == InventoryClient.ReleaseOutcome.FULFILLED) {
             transactions.confirm(orderId, reservationId, false);
         } else {
@@ -147,7 +148,11 @@ public class SalesSagaRecoveryService {
         try {
             if (order.getReservationId() == null) {
                 Optional<InventoryClient.ReservationState> existing =
-                        inventoryClient.findByReference("SalesOrder", orderId.toString());
+                        inventoryClient.findByReference(
+                                order.getFarmId(),
+                                "SalesOrder",
+                                orderId.toString()
+                        );
                 if (existing.isEmpty()) {
                     transactions.failWithoutReservation(orderId, failureMessage, false);
                     return;
@@ -161,7 +166,7 @@ public class SalesSagaRecoveryService {
                             "Inventory reservation was released after recovery exhaustion",
                             false
                     );
-                    case "ACTIVE" -> releaseOrConfirm(orderId, existing.get().id());
+                    case "ACTIVE" -> releaseOrConfirm(order, existing.get().id());
                     default -> stateService.markTimedOut(
                             orderId,
                             failureMessage + "; unsupported reservation status " + existing.get().status()
@@ -169,7 +174,7 @@ public class SalesSagaRecoveryService {
                 }
                 return;
             }
-            releaseOrConfirm(orderId, order.getReservationId());
+            releaseOrConfirm(order, order.getReservationId());
         } catch (RuntimeException compensationFailure) {
             stateService.markTimedOut(
                     orderId,
@@ -178,8 +183,10 @@ public class SalesSagaRecoveryService {
         }
     }
 
-    private void releaseOrConfirm(UUID orderId, UUID reservationId) {
-        InventoryClient.ReleaseOutcome outcome = inventoryClient.release(reservationId);
+    private void releaseOrConfirm(SalesOrderEntity order, UUID reservationId) {
+        UUID orderId = order.getId();
+        InventoryClient.ReleaseOutcome outcome =
+                inventoryClient.release(order.getFarmId(), reservationId);
         if (outcome == InventoryClient.ReleaseOutcome.FULFILLED) {
             transactions.confirm(orderId, reservationId, false);
         } else {

@@ -1,6 +1,7 @@
 package com.agricore.sales.application.service;
 
 import com.agricore.sales.api.request.CreateOrderRequest;
+import com.agricore.sales.api.request.CreateCustomerRequest;
 import com.agricore.sales.domain.exception.SalesException;
 import com.agricore.sales.domain.model.OrderStatus;
 import com.agricore.sales.infrastructure.persistence.CustomerJpaRepository;
@@ -8,6 +9,7 @@ import com.agricore.sales.infrastructure.persistence.OrderSagaJpaRepository;
 import com.agricore.sales.infrastructure.persistence.SalesOrderItemJpaRepository;
 import com.agricore.sales.infrastructure.persistence.SalesOrderJpaRepository;
 import com.agricore.sales.infrastructure.persistence.entity.OrderSagaEntity;
+import com.agricore.sales.infrastructure.persistence.entity.CustomerEntity;
 import com.agricore.sales.infrastructure.persistence.entity.SalesOrderEntity;
 import com.agricore.sales.infrastructure.persistence.entity.SalesOrderItemEntity;
 import org.springframework.stereotype.Service;
@@ -43,9 +45,31 @@ public class SalesOrderTransactionService {
     }
 
     @Transactional
+    public CustomerEntity createCustomer(CreateCustomerRequest request) {
+        String code = request.code().trim().toUpperCase(Locale.ROOT);
+        if (customerRepository.existsByCodeIgnoreCase(code)) {
+            throw new SalesException("CUSTOMER_EXISTS", "Customer code already exists", 409);
+        }
+        CustomerEntity customer = new CustomerEntity();
+        customer.setId(UUID.randomUUID());
+        customer.setFarmId(request.farmId());
+        customer.setCode(code);
+        customer.setName(request.name().trim());
+        customer.setEmail(request.email());
+        customer.setCreatedAt(Instant.now());
+        return customerRepository.save(customer);
+    }
+
+    @Transactional
     public UUID createOrder(CreateOrderRequest request, String orderNumber) {
-        if (!customerRepository.existsById(request.customerId())) {
-            throw new SalesException("CUSTOMER_NOT_FOUND", "Customer not found", 404);
+        CustomerEntity customer = customerRepository.findById(request.customerId())
+                .orElseThrow(() -> new SalesException("CUSTOMER_NOT_FOUND", "Customer not found", 404));
+        if (!request.farmId().equals(customer.getFarmId())) {
+            throw new SalesException(
+                    "CUSTOMER_NOT_FOUND",
+                    "Customer not found in the requested farm",
+                    404
+            );
         }
         if (orderRepository.existsByOrderNumberIgnoreCase(orderNumber)) {
             throw new SalesException("ORDER_EXISTS", "Order number already exists", 409);
@@ -57,6 +81,7 @@ public class SalesOrderTransactionService {
         SalesOrderEntity order = new SalesOrderEntity();
         order.setId(UUID.randomUUID());
         order.setOrderNumber(orderNumber);
+        order.setFarmId(request.farmId());
         order.setCustomerId(request.customerId());
         order.setStatus(OrderStatus.PENDING_CONFIRMATION);
         order.setInventoryItemId(request.inventoryItemId());
@@ -117,7 +142,7 @@ public class SalesOrderTransactionService {
     public void recordReservation(UUID orderId, UUID reservationId) {
         SalesOrderEntity order = lockedOrder(orderId);
         OrderSagaEntity saga = lockedSaga(orderId);
-        if (order.getStatus() == OrderStatus.CONFIRMED) {
+        if (isTerminal(order)) {
             return;
         }
         order.setReservationId(reservationId);
@@ -240,8 +265,11 @@ public class SalesOrderTransactionService {
             String failureMessage,
             Instant nextAttemptAt
     ) {
-        lockedOrder(orderId);
+        SalesOrderEntity order = lockedOrder(orderId);
         OrderSagaEntity saga = lockedSaga(orderId);
+        if (isTerminal(order) || isTerminalSaga(saga)) {
+            return;
+        }
         saga.setLastError("reconcile " + action + " failed: " + failureMessage);
         saga.setRetryCount(saga.getRetryCount() + 1);
         saga.setStatus("RETRY_SCHEDULED");
@@ -313,5 +341,12 @@ public class SalesOrderTransactionService {
         return order.getStatus() == OrderStatus.CONFIRMED
                 || order.getStatus() == OrderStatus.CANCELLED
                 || order.getStatus() == OrderStatus.OUT_OF_STOCK;
+    }
+
+    private static boolean isTerminalSaga(OrderSagaEntity saga) {
+        return "COMPLETED".equals(saga.getStatus())
+                || "FAILED".equals(saga.getStatus())
+                || "RECONCILED".equals(saga.getStatus())
+                || "TIMED_OUT".equals(saga.getStatus());
     }
 }
