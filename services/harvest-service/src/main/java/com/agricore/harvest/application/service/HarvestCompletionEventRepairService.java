@@ -48,7 +48,7 @@ public class HarvestCompletionEventRepairService {
         }
 
         OutboxEventEntity currentEvent = eventResolver.find(harvest, eventId);
-        if (currentEvent.getPublishedAt() == null) {
+        if (isCleanPending(currentEvent)) {
             return HarvestCompletionEventStatusFactory.available(harvestId, eventId, currentEvent);
         }
 
@@ -64,5 +64,13 @@ public class HarvestCompletionEventRepairService {
         }
         event.requeueForRepublish();
         return HarvestCompletionEventStatusFactory.available(harvestId, eventId, event);
+    }
+
+    private static boolean isCleanPending(OutboxEventEntity event) {
+        return event.getPublishedAt() == null
+                && event.getPublishAttempts() == 0
+                && event.getLastError() == null
+                && event.getNextAttemptAt() == null
+                && event.getQuarantinedAt() == null;
     }
 }

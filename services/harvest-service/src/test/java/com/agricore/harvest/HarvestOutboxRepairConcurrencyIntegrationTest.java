@@ -4,6 +4,7 @@ import com.agricore.farmaccess.FarmAccessClient;
 import com.agricore.harvest.api.response.HarvestCompletionEventStatusResponse;
 import com.agricore.harvest.application.service.HarvestCompletionEventRepairService;
 import com.agricore.harvest.infrastructure.messaging.OutboxPublisher;
+import com.agricore.harvest.infrastructure.messaging.OutboxRetryProperties;
 import com.agricore.harvest.infrastructure.persistence.HarvestBatchJpaRepository;
 import com.agricore.harvest.infrastructure.persistence.OutboxJpaRepository;
 import com.agricore.harvest.infrastructure.persistence.entity.OutboxEventEntity;
@@ -80,7 +81,8 @@ class HarvestOutboxRepairConcurrencyIntegrationTest {
                 outboxRepository,
                 kafkaTemplate,
                 transactionManager,
-                5_000
+                5_000,
+                new OutboxRetryProperties(100, 100, 10)
         );
         clearInvocations(farmAccessClient);
         doAnswer(invocation -> {

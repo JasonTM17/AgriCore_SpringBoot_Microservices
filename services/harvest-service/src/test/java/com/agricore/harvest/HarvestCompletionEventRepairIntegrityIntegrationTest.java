@@ -94,14 +94,18 @@ class HarvestCompletionEventRepairIntegrityIntegrationTest {
         mockMvc.perform(republishRequest(harvest.getId()))
                 .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.eventId").value(eventId.toString()))
-                .andExpect(jsonPath("$.state").value("RETRYING"))
+                .andExpect(jsonPath("$.state").value("ENQUEUED"))
                 .andExpect(jsonPath("$.publishedAt").value(nullValue()))
-                .andExpect(jsonPath("$.publishAttempts").value(1));
+                .andExpect(jsonPath("$.publishAttempts").value(0));
 
         OutboxEventEntity requeued = outboxRepository.findById(transitionalRowId).orElseThrow();
         assertThat(requeued.getId()).isEqualTo(transitionalRowId);
         assertThat(requeued.getPayload()).isEqualTo(payload);
         assertThat(requeued.getPublishedAt()).isNull();
+        assertThat(requeued.getPublishAttempts()).isZero();
+        assertThat(requeued.getLastError()).isNull();
+        assertThat(requeued.getNextAttemptAt()).isNull();
+        assertThat(requeued.getQuarantinedAt()).isNull();
         assertThat(outboxRepository.count()).isEqualTo(outboxCount + 1);
     }
 

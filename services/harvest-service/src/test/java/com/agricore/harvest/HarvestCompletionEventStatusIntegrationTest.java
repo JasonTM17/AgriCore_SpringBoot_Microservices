@@ -77,7 +77,7 @@ class HarvestCompletionEventStatusIntegrationTest {
                 .andExpect(jsonPath("$.publishedAt").value(nullValue()))
                 .andExpect(jsonPath("$.publishAttempts").value(0));
 
-        outboxEvent.markFailed("broker unavailable");
+        outboxEvent.markFailedWithoutRetryState("broker unavailable");
         outboxRepository.saveAndFlush(outboxEvent);
 
         mockMvc.perform(statusRequest(harvestId))

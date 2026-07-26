@@ -71,9 +71,9 @@ class HarvestCompletionEventRepublishIntegrationTest {
                     .andExpect(jsonPath("$.harvestId").value(harvestId.toString()))
                     .andExpect(jsonPath("$.eventId").value(eventId.toString()))
                     .andExpect(jsonPath("$.producer").value("HARVEST"))
-                    .andExpect(jsonPath("$.state").value("RETRYING"))
+                    .andExpect(jsonPath("$.state").value("ENQUEUED"))
                     .andExpect(jsonPath("$.publishedAt").value(nullValue()))
-                    .andExpect(jsonPath("$.publishAttempts").value(1));
+                    .andExpect(jsonPath("$.publishAttempts").value(0));
         }
 
         OutboxEventEntity requeued = outboxRepository.findById(eventId).orElseThrow();
@@ -81,11 +81,52 @@ class HarvestCompletionEventRepublishIntegrationTest {
         assertThat(requeued.getPayload()).isEqualTo(originalPayload);
         assertThat(requeued.getCreatedAt()).isEqualTo(originalCreatedAt);
         assertThat(requeued.getPublishedAt()).isNull();
-        assertThat(requeued.getPublishAttempts()).isEqualTo(1);
+        assertThat(requeued.getPublishAttempts()).isZero();
+        assertThat(requeued.getLastError()).isNull();
+        assertThat(requeued.getNextAttemptAt()).isNull();
+        assertThat(requeued.getQuarantinedAt()).isNull();
         assertThat(harvestRepository.count()).isEqualTo(harvestCount);
         assertThat(outboxRepository.count()).isEqualTo(outboxCount);
         assertThat(harvestRepository.findById(harvestId).orElseThrow().getLastOutboxEventId())
                 .isEqualTo(eventId);
+    }
+
+    @Test
+    void republish_releasesQuarantinedEventAndClearsDeliveryState() throws Exception {
+        JsonNode harvest = completeHarvest();
+        UUID harvestId = UUID.fromString(harvest.get("id").asText());
+        UUID eventId = UUID.fromString(harvest.get("lastOutboxEventId").asText());
+        OutboxEventEntity event = outboxRepository.findById(eventId).orElseThrow();
+        event.markFailed("invalid topic", Instant.now(), 60_000, 1);
+        outboxRepository.saveAndFlush(event);
+
+        mockMvc.perform(post(republishPath(harvestId))
+                        .header("X-Dev-User", "manager")
+                        .header("X-Dev-Roles", "FARM_MANAGER"))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.state").value("ENQUEUED"))
+                .andExpect(jsonPath("$.publishAttempts").value(0));
+
+        assertClearedDeliveryState(outboxRepository.findById(eventId).orElseThrow());
+    }
+
+    @Test
+    void republish_releasesDeferredEventAndClearsDeliveryState() throws Exception {
+        JsonNode harvest = completeHarvest();
+        UUID harvestId = UUID.fromString(harvest.get("id").asText());
+        UUID eventId = UUID.fromString(harvest.get("lastOutboxEventId").asText());
+        OutboxEventEntity event = outboxRepository.findById(eventId).orElseThrow();
+        event.markFailed("broker unavailable", Instant.now(), 60_000, Integer.MAX_VALUE);
+        outboxRepository.saveAndFlush(event);
+
+        mockMvc.perform(post(republishPath(harvestId))
+                        .header("X-Dev-User", "manager")
+                        .header("X-Dev-Roles", "FARM_MANAGER"))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.state").value("ENQUEUED"))
+                .andExpect(jsonPath("$.publishAttempts").value(0));
+
+        assertClearedDeliveryState(outboxRepository.findById(eventId).orElseThrow());
     }
 
     @Test
@@ -152,6 +193,14 @@ class HarvestCompletionEventRepublishIntegrationTest {
         batch.setCreatedAt(now);
         batch.setUpdatedAt(now);
         return harvestRepository.saveAndFlush(batch);
+    }
+
+    private static void assertClearedDeliveryState(OutboxEventEntity event) {
+        assertThat(event.getPublishedAt()).isNull();
+        assertThat(event.getPublishAttempts()).isZero();
+        assertThat(event.getLastError()).isNull();
+        assertThat(event.getNextAttemptAt()).isNull();
+        assertThat(event.getQuarantinedAt()).isNull();
     }
 
     private static String republishPath(UUID harvestId) {

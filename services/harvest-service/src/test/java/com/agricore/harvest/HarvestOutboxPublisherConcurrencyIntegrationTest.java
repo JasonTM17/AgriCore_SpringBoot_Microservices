@@ -2,6 +2,7 @@ package com.agricore.harvest;
 
 import com.agricore.farmaccess.FarmAccessClient;
 import com.agricore.harvest.infrastructure.messaging.OutboxPublisher;
+import com.agricore.harvest.infrastructure.messaging.OutboxRetryProperties;
 import com.agricore.harvest.infrastructure.persistence.OutboxJpaRepository;
 import com.agricore.harvest.infrastructure.persistence.entity.OutboxEventEntity;
 import org.junit.jupiter.api.Test;
@@ -88,7 +89,8 @@ class HarvestOutboxPublisherConcurrencyIntegrationTest {
                 outboxRepository,
                 kafkaTemplate,
                 transactionManager,
-                timeoutMillis
+                timeoutMillis,
+                new OutboxRetryProperties(100, 100, 10)
         );
     }
 }

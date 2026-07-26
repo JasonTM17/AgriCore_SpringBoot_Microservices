@@ -17,7 +17,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -35,12 +34,14 @@ public class OutboxPublisher {
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final TransactionTemplate transactionTemplate;
     private final long sendTimeoutMillis;
+    private final OutboxRetryProperties retryProperties;
 
     public OutboxPublisher(
             OutboxJpaRepository outboxRepository,
             KafkaTemplate<String, String> kafkaTemplate,
             PlatformTransactionManager transactionManager,
-            @Value("${agricore.outbox.publisher.send-timeout-ms:10000}") long sendTimeoutMillis
+            @Value("${agricore.outbox.publisher.send-timeout-ms:10000}") long sendTimeoutMillis,
+            OutboxRetryProperties retryProperties
     ) {
         if (sendTimeoutMillis <= 0) {
             throw new IllegalArgumentException("Outbox send timeout must be positive");
@@ -50,26 +51,29 @@ public class OutboxPublisher {
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.transactionTemplate.setTimeout(transactionTimeoutSeconds(sendTimeoutMillis));
         this.sendTimeoutMillis = sendTimeoutMillis;
+        this.retryProperties = retryProperties;
     }
 
     @Scheduled(fixedDelayString = "${agricore.outbox.publisher.poll-ms:1000}")
     public void publishPending() {
-        List<UUID> eventIds = outboxRepository.findUnpublishedEventIds(PageRequest.of(0, 50));
+        java.time.Instant now = outboxRepository.currentTimestamp();
+        List<UUID> eventIds = outboxRepository.findUnpublishedEventIds(now, PageRequest.of(0, 50));
         for (UUID eventId : eventIds) {
-            transactionTemplate.executeWithoutResult(ignored -> publishLocked(eventId));
+            transactionTemplate.executeWithoutResult(ignored -> publishLocked(eventId, now));
             if (Thread.currentThread().isInterrupted()) {
                 break;
             }
         }
     }
 
-    private void publishLocked(UUID eventId) {
-        outboxRepository.findByIdForPublish(eventId)
-                .filter(event -> event.getPublishedAt() == null)
-                .ifPresent(this::publish);
+    private void publishLocked(UUID eventId, java.time.Instant now) {
+        PublicationClock clock = PublicationClock.startingAt(outboxRepository.currentTimestamp());
+        outboxRepository.findByIdForPublish(eventId, now)
+                .filter(event -> event.isEligibleForPublish(now))
+                .ifPresent(event -> publish(event, clock));
     }
 
-    private void publish(OutboxEventEntity event) {
+    private void publish(OutboxEventEntity event, PublicationClock clock) {
         CompletableFuture<SendResult<String, String>> sendResult = null;
         try {
             sendResult = kafkaTemplate.send(event.getTopic(), event.getId().toString(), event.getPayload());
@@ -79,33 +83,100 @@ public class OutboxPublisher {
             log.debug("Published outbox event {} type={}", event.getId(), event.getEventType());
         } catch (TimeoutException ex) {
             sendResult.cancel(true);
-            markFailed(event, "Kafka send timed out after " + sendTimeoutMillis + " ms");
+            markFailed(event, "Kafka send timed out after " + sendTimeoutMillis + " ms", clock.now(), false);
         } catch (InterruptedException ex) {
-            markFailed(event, "Kafka send interrupted");
+            markFailed(event, "Kafka send interrupted", clock.now(), false);
             Thread.currentThread().interrupt();
         } catch (Exception ex) {
-            markFailed(event, failureMessage(ex));
+            markFailed(event, failureMessage(ex), clock.now(), isPermanentFailure(ex));
         }
     }
 
-    private void markFailed(OutboxEventEntity event, String message) {
-        event.markFailed(message);
+    private void markFailed(
+            OutboxEventEntity event,
+            String message,
+            java.time.Instant failedAt,
+            boolean permanentFailure
+    ) {
+        if (!retryProperties.writeStateEnabled()) {
+            event.markFailedWithoutRetryState(message);
+            outboxRepository.save(event);
+            log.warn("Failed to publish harvest outbox event {} while retry-state writes are disabled: {}",
+                    event.getId(), message);
+            return;
+        }
+        int failedAttempt = event.getPublishAttempts() + 1;
+        event.markFailed(
+                message,
+                failedAt,
+                retryProperties.delayForFailure(failedAttempt),
+                permanentFailure ? retryProperties.maxAttempts() : Integer.MAX_VALUE
+        );
         outboxRepository.save(event);
-        log.warn("Failed to publish outbox event {}: {}", event.getId(), message);
+        if (event.getQuarantinedAt() != null) {
+            log.error("Quarantined harvest outbox event {} after {} attempts: {}",
+                    event.getId(), event.getPublishAttempts(), message);
+        } else {
+            log.warn("Failed to publish harvest outbox event {} (retry at {}): {}",
+                    event.getId(), event.getNextAttemptAt(), message);
+        }
     }
 
     private static String failureMessage(Exception exception) {
-        Throwable cause = exception instanceof ExecutionException && exception.getCause() != null
-                ? exception.getCause()
-                : exception;
+        Throwable cause = failureCause(exception);
         String message = cause.getMessage();
-        return message == null || message.isBlank()
+        String diagnostic = message == null || message.isBlank()
                 ? cause.getClass().getSimpleName()
                 : message;
+        return boundedDiagnostic(diagnostic);
+    }
+
+    private static boolean isPermanentFailure(Exception exception) {
+        Throwable cause = exception;
+        for (int depth = 0; cause != null && depth < 16; depth++) {
+            if (cause instanceof org.apache.kafka.common.errors.SerializationException
+                    || cause instanceof org.apache.kafka.common.errors.RecordTooLargeException
+                    || cause instanceof org.apache.kafka.common.errors.InvalidTopicException) {
+                return true;
+            }
+            Throwable next = cause.getCause();
+            if (next == cause) {
+                break;
+            }
+            cause = next;
+        }
+        return false;
+    }
+
+    private static Throwable failureCause(Exception exception) {
+        Throwable cause = exception;
+        for (int depth = 0; depth < 16; depth++) {
+            Throwable next = cause.getCause();
+            if (next == null || next == cause) {
+                return cause;
+            }
+            cause = next;
+        }
+        return cause;
+    }
+
+    private static String boundedDiagnostic(String diagnostic) {
+        String bounded = diagnostic.substring(0, Math.min(diagnostic.length(), 1_000));
+        return bounded.replace('\r', ' ').replace('\n', ' ').replace('\t', ' ');
     }
 
     private static int transactionTimeoutSeconds(long sendTimeoutMillis) {
         long totalMillis = Math.addExact(sendTimeoutMillis, 6_000);
         return Math.toIntExact(Math.max(1, (totalMillis + 999) / 1_000));
+    }
+
+    private record PublicationClock(java.time.Instant databaseTime, long monotonicNanos) {
+        static PublicationClock startingAt(java.time.Instant databaseTime) {
+            return new PublicationClock(databaseTime, System.nanoTime());
+        }
+
+        java.time.Instant now() {
+            return databaseTime.plusNanos(System.nanoTime() - monotonicNanos);
+        }
     }
 }
