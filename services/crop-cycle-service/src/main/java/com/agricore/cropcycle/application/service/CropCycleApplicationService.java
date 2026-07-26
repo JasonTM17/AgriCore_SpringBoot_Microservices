@@ -11,6 +11,8 @@ import com.agricore.cropcycle.domain.model.CycleStatus;
 import com.agricore.cropcycle.domain.policy.CycleStageTransitionPolicy;
 import com.agricore.cropcycle.infrastructure.persistence.CropCycleJpaRepository;
 import com.agricore.cropcycle.infrastructure.persistence.entity.CropCycleEntity;
+import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -27,6 +29,7 @@ import java.util.UUID;
 @Service
 public class CropCycleApplicationService {
 
+    static final String ACTIVE_CYCLE_OVERLAP_CONSTRAINT = "crop_cycles_no_active_date_overlap";
     private static final Set<CycleStage> TERMINAL = EnumSet.of(CycleStage.COMPLETED, CycleStage.CANCELLED);
     private static final Set<CycleStatus> ACTIVE_STATUSES = EnumSet.of(CycleStatus.DRAFT, CycleStatus.ACTIVE);
     private static final LocalDate OPEN_END = LocalDate.of(9999, 12, 31);
@@ -69,11 +72,7 @@ public class CropCycleApplicationService {
                 OPEN_END
         );
         if (!overlaps.isEmpty()) {
-            throw new CropCycleException(
-                    "CROP_CYCLE_OVERLAP",
-                    "Plot already has an active crop cycle overlapping the requested dates",
-                    409
-            );
+            throw overlapConflict();
         }
 
         Instant now = Instant.now();
@@ -91,7 +90,14 @@ public class CropCycleApplicationService {
         cycle.setNotes(request.notes());
         cycle.setCreatedAt(now);
         cycle.setUpdatedAt(now);
-        cycle = cycleRepository.saveAndFlush(cycle);
+        try {
+            cycle = cycleRepository.saveAndFlush(cycle);
+        } catch (DataIntegrityViolationException exception) {
+            if (violatesConstraint(exception, ACTIVE_CYCLE_OVERLAP_CONSTRAINT)) {
+                throw overlapConflict();
+            }
+            throw exception;
+        }
 
         stageHistoryService.record(cycle, null, actor, request.notes());
         outboxWriter.enqueue(EventTypes.CROP_CYCLE_CREATED, cycle, null);
@@ -189,6 +195,26 @@ public class CropCycleApplicationService {
                 .orElseThrow(() -> new CropCycleException("CYCLE_NOT_FOUND", "Crop cycle not found", 404));
         accessGuard.requireFarmPlot(cycle.getFarmId(), cycle.getPlotId());
         return cycle;
+    }
+
+    private static boolean violatesConstraint(Throwable failure, String expectedConstraint) {
+        Throwable current = failure;
+        while (current != null) {
+            if (current instanceof ConstraintViolationException violation
+                    && expectedConstraint.equalsIgnoreCase(violation.getConstraintName())) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private static CropCycleException overlapConflict() {
+        return new CropCycleException(
+                "CROP_CYCLE_OVERLAP",
+                "Plot already has an active crop cycle overlapping the requested dates",
+                409
+        );
     }
 
     private CropCycleResponse toResponse(CropCycleEntity c) {
