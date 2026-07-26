@@ -6,6 +6,7 @@ import com.agricore.notification.application.service.NotificationApplicationServ
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -18,7 +19,16 @@ public class NotificationController {
         this.service = service;
     }
 
+    /**
+     * Sends an ad-hoc notification. Restricted to administrators: the caller chooses the recipient
+     * and the entire message body, so leaving it open to any authenticated token would make the
+     * platform an authenticated relay the moment the log sink is swapped for a real email adapter.
+     *
+     * <p>Event-driven notifications do not come through here — the Kafka listener calls the
+     * application service directly.
+     */
     @PostMapping
+    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<NotificationResponse> send(@Valid @RequestBody SendNotificationRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.send(request));
     }

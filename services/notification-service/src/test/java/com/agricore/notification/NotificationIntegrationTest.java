@@ -39,4 +39,27 @@ class NotificationIntegrationTest {
                 .andExpect(jsonPath("$.status").value("SENT"))
                 .andExpect(jsonPath("$.channel").value("EMAIL"));
     }
+
+    /**
+     * The caller picks the recipient and the whole message body, so this endpoint must not be open
+     * to every authenticated token — otherwise the lowest-privilege role can address arbitrary
+     * people once a real email adapter replaces the log sink.
+     */
+    @Test
+    void sendNotification_isRefusedForNonAdminRole() throws Exception {
+        mockMvc.perform(post("/api/v1/notifications")
+                        .header("X-Dev-User", "worker")
+                        .header("X-Dev-Roles", "FIELD_WORKER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "channel":"EMAIL",
+                                  "recipient":"victim@example.com",
+                                  "subject":"Phish",
+                                  "body":"Click here",
+                                  "correlationId":"corr-2"
+                                }
+                                """))
+                .andExpect(status().isForbidden());
+    }
 }
