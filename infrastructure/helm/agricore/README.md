@@ -74,6 +74,19 @@ kubectl create secret generic agricore-inventory-internal \
 Do not commit the token in a values file. Rotate it by updating the Secret and
 rolling the four consuming Deployments.
 
+## Optional assistant provider and RAG
+
+The assistant remains provider-free by default. To use DeepSeek V4 Flash, set
+`assistant.provider=openai`, `assistant.providerModel=deepseek-v4-flash`,
+`assistant.providerBaseUrl=https://api.deepseek.com`, and create the Secret
+named by `assistant.providerSecretName` with the key selected by
+`assistant.providerApiKeyKey`.
+
+Set `assistant.ragEnabled=true` to retrieve only the curated, versioned
+knowledge installed in the assistant database. Keep the bounded defaults unless
+load evidence supports a change. The chart never accepts the provider key in
+`values.yaml`.
+
 ## IoT TimescaleDB upgrades
 
 The chart requires an operator-provided `agricore_iot` database with the

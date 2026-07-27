@@ -21,7 +21,11 @@ cookies, fetch-SSE, CSP, and gateway routing remain consistent.
    are deployment inputs from environment variables or Kubernetes Secrets.
 4. Permit only authenticated, read-only farm calls to an allowlisted host.
    Forward caller JWT, bound rows/bytes/time, validate responses, and fail closed.
-5. Use idempotent generation submission and ordered fetch-SSE replay. Return safe
+5. Permit opt-in retrieval only from curated, versioned knowledge chunks in the
+   assistant-owned database. Use indexed terms, bounded top-k results, citation
+   identifiers stable within each persisted generation snapshot, prepared
+   statements, and the same evidence boundary as authorized farm facts.
+6. Use idempotent generation submission and ordered fetch-SSE replay. Return safe
    outcome codes instead of raw provider failures or unsafe output.
 
 ## Consequences
@@ -31,6 +35,8 @@ cookies, fetch-SSE, CSP, and gateway routing remain consistent.
 - The assistant boots and is testable without a provider secret.
 - Conversation ownership, replay, and budgets are platform-controlled.
 - Model output cannot directly mutate farm state.
+- Retrieval adds grounded product and operations context without another
+  credential, embedding provider, or cross-service database read.
 
 ### Negative
 
@@ -40,14 +46,14 @@ cookies, fetch-SSE, CSP, and gateway routing remain consistent.
 
 ### Neutral
 
-- Arbitrary URL fetching, autonomous writes, RAG ingestion, and cross-database
-  joins remain outside the accepted boundary.
+- Arbitrary URL fetching, autonomous writes, user-controlled RAG ingestion, and
+  cross-database joins remain outside the accepted boundary.
 
 ## Trade-offs
 
-The assistant sacrifices autonomous actions and unrestricted context for a
-smaller trust boundary, replayable behavior, and deterministic operation without
-an external key.
+The assistant sacrifices autonomous actions, arbitrary ingestion, and semantic
+embedding search for a smaller trust boundary, replayable evidence, indexed
+deterministic retrieval, and operation without an external embedding key.
 
 ## Alternatives considered
 
@@ -63,7 +69,8 @@ an external key.
 ## Verification
 
 - Assistant tests cover ownership, idempotency, replay, refusal, tool evidence,
-  and budget failure.
+  curated retrieval, H2/PostgreSQL migration, injection-safe query binding, and
+  budget failure.
 - Frontend tests and production CSP/build gates cover fetch-SSE behavior.
 - Compose and Helm keep provider credentials as deployment inputs.
 

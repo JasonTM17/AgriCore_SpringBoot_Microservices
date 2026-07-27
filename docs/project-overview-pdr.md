@@ -52,7 +52,8 @@ inside an independently owned service and database.
    retryable. Provide an authorized administrative inbox.
 10. Publish a public-safe QR read model without cross-service database queries.
 11. Provide an authenticated, persisted, read-only assistant with replayable SSE,
-    bounded tools, budgets, and safe provider-unavailable behavior.
+    bounded tools, curated cited retrieval, budgets, and safe
+    provider-unavailable behavior.
 12. Provide an accessible React operations console and reproducible local demo
     data/media.
 

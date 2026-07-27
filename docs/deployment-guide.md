@@ -102,7 +102,14 @@ values.
    ```
 
 6. Create each enabled non-gateway service's `databaseSecretName` and the
-   Gateway/Identity/Assistant client-IP signing Secret outside Git. The separate
+   Gateway/Identity/Assistant client-IP signing Secret outside Git. When using
+   DeepSeek, create the Assistant provider Secret outside Git under the name
+   configured by `assistant.providerSecretName`; store the credential under the
+   key configured by `assistant.providerApiKeyKey` (default `api-key`). Set the
+   provider base URL to `https://api.deepseek.com` and select the deployed model
+   explicitly. Enable curated retrieval with `assistant.ragEnabled=true`; keep
+   its result, query term, excerpt, and timeout bounds at the reviewed chart
+   defaults unless load tests justify a change. The separate
    `postgres.provisioning.credentialSecretName` is mounted only by bounded hook
    Jobs, never application Deployments. Review rendered Secrets, service
    accounts, security contexts, NetworkPolicies, Jobs, probes, PDBs, HPAs, and

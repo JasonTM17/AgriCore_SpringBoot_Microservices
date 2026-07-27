@@ -28,7 +28,7 @@
 | `iot-service` | Devices, telemetry, rules, alerts, offline detection | PostgreSQL time-series capability, MQTT, Kafka outbox | [README](../services/iot-service/README.md) |
 | `sales-service` | Farm-scoped customers, orders, inventory saga | PostgreSQL, Farm/Inventory REST, Kafka outbox | [README](../services/sales-service/README.md) |
 | `notification-service` | Email and persisted in-app delivery truth, inbox administration, event dedupe | PostgreSQL, SMTP, Kafka | [README](../services/notification-service/README.md) |
-| `assistant-service` | Conversations, generations, replay, tools | PostgreSQL, Redis, allowlisted Farm REST | [README](../services/assistant-service/README.md) |
+| `assistant-service` | Conversations, generations, replay, authorized tools, curated cited RAG | PostgreSQL knowledge/evidence, Redis budgets, allowlisted Farm REST | [README](../services/assistant-service/README.md) |
 | `apps/agricore-console` | Same-origin React operations console | Gateway APIs and fetch-SSE | [Platform README](../README.md) |
 
 The module guides provide local setup and repair orientation. Versioned

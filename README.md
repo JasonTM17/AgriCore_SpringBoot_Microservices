@@ -20,7 +20,7 @@ operational path and a public-safe traceability view.
   detection.
 - Durable sales reservation saga, truthful notifications, and compensation.
 - Persisted read-only assistant with replayable SSE, bounded farm tools,
-  budgets, retention, and provider-unavailable behavior.
+  curated cited RAG, budgets, retention, and provider-unavailable behavior.
 - Accessible React console, deterministic cross-service demo data, generated
   media/GIF, observability, Compose, Helm, and supply-chain gates.
 
@@ -393,8 +393,8 @@ AI references or secrets in commit messages or source.
 - The repository does not provision or claim a hosted production cluster.
   Production PostgreSQL, Kafka, Redis, MQTT, object storage, SMTP,
   observability, TLS, backups, and access policy are operator responsibilities.
-- Assistant tools are read-only; autonomous writes, arbitrary URLs, and RAG
-  ingestion are intentionally out of scope.
+- Assistant tools are read-only; autonomous writes, arbitrary URLs, and
+  user-controlled or runtime RAG ingestion are intentionally out of scope.
 - Raw/aggregate telemetry deletion, certification authority, tax/invoice,
   payment, and multi-region disaster-recovery policy require product or
   operations decisions.

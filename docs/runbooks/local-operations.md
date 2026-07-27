@@ -259,6 +259,13 @@ environment target.
 - Traceability is host-published at `http://localhost:8092`; public browser requests use `/public/api` through the console edge.
 - Provider settings are `ASSISTANT_PROVIDER`, `ASSISTANT_PROVIDER_MODEL`, `ASSISTANT_PROVIDER_BASE_URL`, and `ASSISTANT_PROVIDER_API_KEY`.
 - Provider `none` keeps the API available with a safe limited/unavailable outcome.
+- DeepSeek V4 Flash uses provider `openai`, model `deepseek-v4-flash`, and base
+  URL `https://api.deepseek.com`; keep its key only in ignored `.env` or a
+  Kubernetes Secret.
+- Curated retrieval is opt-in with `ASSISTANT_RAG_ENABLED=true`. Bounds are
+  `ASSISTANT_RAG_MAX_RESULTS` (1..4), `ASSISTANT_RAG_MAX_QUERY_TERMS` (1..20),
+  `ASSISTANT_RAG_MAX_EXCERPT_CHARACTERS` (80..240), and
+  `ASSISTANT_RAG_QUERY_TIMEOUT` (positive, at most ten seconds).
 - Tool calls are read-only farm reads, carry the caller JWT, and enforce host, row, response-size, and timeout bounds.
 - Archived conversations, audit events, and generation replay events carry
   explicit expiry timestamps. Defaults are `P90D`, `P365D`, and `PT24H`;

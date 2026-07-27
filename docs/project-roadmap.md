@@ -16,7 +16,7 @@ complete only after code, contract, migration, tests, operations, and docs agree
 | MQTT and IoT alerts | Authenticated ingestion, per-device admission quotas, idempotency, cooldown, offline flow, and TimescaleDB migration implemented |
 | Sales saga | Farm-scoped reservation/compensation, bounded timeout, durable retry recovery, fulfillment milestones, and contract fields implemented |
 | Notification | Identity welcome, Sales, Traceability, and IoT consumption implemented with requested/sent/failed truth, SMTP and persisted in-app adapters, administrative inbox endpoints, invalid-payload DLT handling, and source-event idempotency; external automatic delivery is at-most-once and ambiguous attempts fail as `DELIVERY_OUTCOME_UNKNOWN` |
-| Assistant | Persisted read-only boundary, budgets, SSE replay, safe provider-none behavior implemented |
+| Assistant | Persisted read-only boundary, budgets, SSE replay, curated indexed RAG with citations, and safe provider-none behavior implemented |
 | Console | Core workflows, assistant, Inventory, Sales, IoT, identity administration, permission-aware navigation, serialized auth/logout transitions, and responsive media variants implemented |
 | Platform | Compose and Helm tenant dependencies, read-only application filesystems, gateway Service alias, configurable egress policy, observability, security workflows, durable outbox retry migrations, and SHA-only dual-registry promotion with scan, digest-parity, signature, and bounded registry-retry gates |
 | Docs/demo | Repository media/GIF, regional seed, bounded cross-domain dataset, diagrams, ADRs, and platform release docs synchronized; all 13 Spring application READMEs provide service-local orientation and remain part of the final merged-revision accuracy gate |
@@ -38,8 +38,8 @@ These items require a product or operations decision before implementation:
   payment lifecycle.
 - Production multi-region topology, disaster recovery objectives, and managed
   secret rotation.
-- Assistant retrieval ingestion or write actions with explicit confirmation,
-  policy, audit, and compensation.
+- User-controlled assistant ingestion or write actions with explicit
+  confirmation, policy, audit, and compensation.
 - Analytics/warehouse pipeline for cross-service historical reporting.
 
 ## Release policy
