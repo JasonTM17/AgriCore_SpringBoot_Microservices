@@ -34,7 +34,7 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           build-mode: manual
-          queries: codeql/java-queries:AlertSuppression.ql,codeql/java-queries:AlertSuppressionAnnotations.ql
+          queries: github/codeql/java/ql/src/AlertSuppression.ql@373814b4300341b090f18e6a75c92a65cb2f193a,github/codeql/java/ql/src/AlertSuppressionAnnotations.ql@373814b4300341b090f18e6a75c92a65cb2f193a
 
       - name: Build (Maven, skip tests for SAST compile)
         run: ./mvnw -B -DskipTests package
