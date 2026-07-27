@@ -18,13 +18,14 @@ complete only after code, contract, migration, tests, operations, and docs agree
 | Notification | Identity welcome, Sales, Traceability, and IoT consumption implemented with requested/sent/failed truth, SMTP and persisted in-app adapters, administrative inbox endpoints, invalid-payload DLT handling, and source-event idempotency; external automatic delivery is at-most-once and ambiguous attempts fail as `DELIVERY_OUTCOME_UNKNOWN` |
 | Assistant | Persisted read-only boundary, budgets, SSE replay, safe provider-none behavior implemented |
 | Console | Core workflows, assistant, Inventory, Sales, IoT, identity administration, permission-aware navigation, serialized auth/logout transitions, and responsive media variants implemented |
-| Platform | Compose and Helm tenant dependencies, read-only application filesystems, gateway Service alias, configurable egress policy, observability, security workflows, durable outbox retry migrations, and SHA-only dual-registry promotion configuration; final clean-revision and remote execution pending |
+| Platform | Compose and Helm tenant dependencies, read-only application filesystems, gateway Service alias, configurable egress policy, observability, security workflows, durable outbox retry migrations, and SHA-only dual-registry promotion with scan, digest-parity, signature, and bounded registry-retry gates |
 | Docs/demo | Repository media/GIF, regional seed, bounded cross-domain dataset, diagrams, ADRs, and platform release docs synchronized; all 13 Spring application READMEs provide service-local orientation and remain part of the final merged-revision accuracy gate |
 
-Current checkpoint: a dirty pre-release integration. Final pre-landing review,
-clean-revision gates, GitHub CI, merge, registry publication, signature/digest
-verification, and production deployment remain open. The dated 2026-07-26
-evidence and SHA `5867b37` are historical snapshots, not a release claim.
+Current checkpoint: Release 1.0 implementation complete. Acceptance evidence is
+the latest successful default-branch CI and Docker Publish workflow for the same
+commit; immutable full/short SHA tags must resolve to one signed digest in both
+registries. Production deployment remains a separate operator-owned decision
+and is not claimed by this repository.
 
 ## Post-1.0 candidates
 

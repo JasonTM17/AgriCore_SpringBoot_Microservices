@@ -26,7 +26,15 @@ operational path and a public-safe traceability view.
 
 ## Status
 
-Pre-release integration: the repository contains 13 Spring applications, the React console, local Compose stacks, a Helm application chart, automated quality and security gates, and a configured Docker Hub/GitHub Packages promotion workflow. This dirty worktree is not a final release: the immutable 2026-07-26 evidence, including SHA `5867b37`, is historical only; final clean-revision gates, pull-request review/merge, registry publication, signing verification, and production deployment remain unproven. An earlier full Maven reactor run reported 969 tests with no failures or errors and one optional MQTT integration skip; it is preliminary evidence, not a release gate.
+Release-hardened: the repository contains 13 Spring applications, the React
+console, local Compose stacks, a Helm application chart, automated quality and
+security gates, and SHA-only Docker Hub/GitHub Packages promotion. The merged
+product baseline passed the full Maven reactor with 999 tests, no failures or
+errors, and one optional MQTT integration skip. A revision is release-accepted
+only when the default-branch CI and Docker Publish workflows succeed for that
+exact commit, including image scanning, cross-registry digest equality, and
+Cosign verification. Production deployment remains an explicit operator action
+and is not implied by package publication.
 
 ## Microservices
 
@@ -50,7 +58,8 @@ Pre-release integration: the repository contains 13 Spring applications, the Rea
 The configured default-branch workflow builds, scans, parity-checks, and signs
 one candidate digest per image before promoting only seven-character and
 full-SHA tags to Docker Hub and GitHub Packages. It never promotes `latest`;
-configuration does not prove that a candidate or release image exists.
+package existence is established by the successful Docker Publish run for the
+corresponding default-branch commit.
 
 ## Architecture
 
