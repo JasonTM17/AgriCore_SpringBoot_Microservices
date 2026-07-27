@@ -61,6 +61,17 @@ test("keeps refresh credentials HttpOnly, rotates them, and serves hardened brow
   await expect(page).not.toHaveURL(/\/login/);
 });
 
+test("renders the deterministic farm showcase through the real operations console", async ({ page }) => {
+  await login(page, "farms@example.com");
+  await page.goto("/farms");
+
+  await expect(page.getByText("3 nông trại", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "FARM-DL-01 Nông trại Đắk Lắk" }).click();
+
+  await expect(page.getByRole("heading", { name: "Lô cà phê Robusta" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Lô sầu riêng Ri6" })).toBeVisible();
+});
+
 test("reconnects a durable assistant SSE stream and completes without duplicate output", async ({ page }) => {
   const email = "reconnect@example.com";
   await login(page, email);
@@ -70,7 +81,7 @@ test("reconnects a durable assistant SSE stream and completes without duplicate 
   await page.locator("#assistant-prompt").press("Enter");
 
   await expect(page.getByText("Đã hoàn tất", { exact: true })).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText("Mock response after reconnect.", { exact: false })).toHaveCount(1);
+  await expect(page.getByText("Ưu tiên hôm nay:", { exact: false })).toHaveCount(1);
   await expect.poll(async () => (await generationState(page, email))?.streamConnections).toBe(2);
   await expect.poll(async () => (await generationState(page, email))?.status).toBe("COMPLETED");
 });
