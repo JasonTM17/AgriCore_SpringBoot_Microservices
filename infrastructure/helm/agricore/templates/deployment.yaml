@@ -32,9 +32,14 @@ spec:
   replicas: {{ $svc.replicaCount | default 1 }}
   minReadySeconds: 10
   progressDeadlineSeconds: 600
-  {{- if eq $name "iot" }}
+  {{- if or (eq $name "iot") (and (eq $name "assistant") (default false $svc.ragEnabled)) }}
+  {{- if and (eq $name "assistant") (default false $svc.ragEnabled) }}
+  # Persisted KNOWLEDGE evidence is unreadable by Assistant binaries before V5.
+  # Stop old readers before a RAG-enabled revision can write that evidence.
+  {{- else }}
   # IoT Flyway migrations can rewrite the readings table into a hypertable.
   # Stop old writers before starting the new revision.
+  {{- end }}
   strategy:
     type: Recreate
   {{- else }}
