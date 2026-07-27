@@ -34,6 +34,15 @@ class AssistantKnowledgeRetrievalIntegrationTest {
     }
 
     @Test
+    void normalizesVietnameseDWithStrokeForIndexedTerms() {
+        var facts = retriever.retrieve("đất");
+
+        assertThat(facts).isNotEmpty();
+        assertThat(facts.getFirst().fields())
+                .containsEntry("title", "Quản lý nông trại và lô đất");
+    }
+
+    @Test
     void returnsNoEvidenceForUnrelatedTerms() {
         assertThat(retriever.retrieve("quantum zeppelin xylophone")).isEmpty();
     }

@@ -3,7 +3,7 @@ CREATE TABLE assistant_knowledge_chunks (
     source_key VARCHAR(80) NOT NULL UNIQUE,
     title VARCHAR(160) NOT NULL,
     content VARCHAR(2000) NOT NULL,
-    source_uri VARCHAR(300) NOT NULL,
+    source_uri VARCHAR(256) NOT NULL,
     knowledge_version INTEGER NOT NULL DEFAULT 1,
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -11,7 +11,7 @@ CREATE TABLE assistant_knowledge_chunks (
     CONSTRAINT ck_knowledge_source_key CHECK (CHAR_LENGTH(source_key) BETWEEN 3 AND 80),
     CONSTRAINT ck_knowledge_title CHECK (CHAR_LENGTH(title) BETWEEN 3 AND 160),
     CONSTRAINT ck_knowledge_content CHECK (CHAR_LENGTH(content) BETWEEN 20 AND 2000),
-    CONSTRAINT ck_knowledge_source_uri CHECK (CHAR_LENGTH(source_uri) BETWEEN 3 AND 300),
+    CONSTRAINT ck_knowledge_source_uri CHECK (CHAR_LENGTH(source_uri) BETWEEN 3 AND 256),
     CONSTRAINT ck_knowledge_version CHECK (knowledge_version > 0)
 );
 

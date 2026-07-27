@@ -90,6 +90,7 @@ public class JdbcKnowledgeRetriever implements KnowledgeRetriever {
         String normalized = Normalizer.normalize(query == null ? "" : query, Normalizer.Form.NFD)
                 .toLowerCase(Locale.ROOT);
         normalized = DIACRITICS.matcher(normalized).replaceAll("");
+        normalized = normalized.replace('đ', 'd');
         LinkedHashSet<String> terms = new LinkedHashSet<>();
         for (String term : NON_TERM.split(normalized)) {
             if (term.length() >= 2 && !STOP_WORDS.contains(term)) {
