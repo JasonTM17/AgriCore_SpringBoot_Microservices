@@ -7,12 +7,12 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplicat
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.convert.converter.Converter;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -20,6 +20,10 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.csrf.CsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfFilter;
+import org.springframework.security.web.util.matcher.RequestMatcher;
+import org.springframework.util.StringUtils;
 
 /**
  * Shared resource-server security for AgriCore domain services.
@@ -32,6 +36,20 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableMethodSecurity
 @EnableConfigurationProperties(AgricoreSecurityProperties.class)
 public class DomainServiceSecurityConfig {
+
+    private static final String BEARER_AUTHORIZATION_PREFIX = "Bearer ";
+    private static final String DEV_USER_HEADER = "X-Dev-User";
+    private static final String INTERNAL_SERVICE_TOKEN_HEADER = "X-Internal-Service-Token";
+    private static final CsrfTokenRepository REJECTING_CSRF_TOKEN_REPOSITORY =
+            new StatelessRejectingCsrfTokenRepository();
+
+    static final RequestMatcher COOKIE_BACKED_CSRF_MATCHER = request ->
+            CsrfFilter.DEFAULT_CSRF_MATCHER.matches(request)
+                    && request.getCookies() != null
+                    && request.getCookies().length > 0
+                    && !hasBearerAuthorization(request.getHeader(HttpHeaders.AUTHORIZATION))
+                    && !StringUtils.hasText(request.getHeader(DEV_USER_HEADER))
+                    && !StringUtils.hasText(request.getHeader(INTERNAL_SERVICE_TOKEN_HEADER));
 
     @Bean
     @ConditionalOnMissingBean(JwtDecoder.class)
@@ -46,7 +64,6 @@ public class DomainServiceSecurityConfig {
 
     @Bean
     @ConditionalOnMissingBean(SecurityFilterChain.class)
-    @SuppressWarnings("codeql[java/spring-disabled-csrf-protection]")
     SecurityFilterChain domainServiceSecurityFilterChain(
             HttpSecurity http,
             AgricoreSecurityProperties properties,
@@ -54,10 +71,13 @@ public class DomainServiceSecurityConfig {
     ) throws Exception {
         DevHeadersAuthenticationFilter devFilter = new DevHeadersAuthenticationFilter(properties.isDevMode());
 
-        // This boundary accepts only explicit bearer/dev-header credentials and explicitly
-        // disables server sessions. Cookie-backed browser refresh is handled by Identity, where
-        // the allowed-origin policy and CSRF matcher protect its narrow web-auth routes.
-        http.csrf(AbstractHttpConfigurer::disable)
+        // Explicit bearer, development, and internal-token credentials remain stateless. Unsafe
+        // ambient-cookie requests without one of those credentials fail closed; domain services
+        // do not mint or persist browser CSRF state because Identity owns cookie authentication.
+        http.csrf(csrf -> csrf
+                        .csrfTokenRepository(REJECTING_CSRF_TOKEN_REPOSITORY)
+                        .requireCsrfProtectionMatcher(COOKIE_BACKED_CSRF_MATCHER)
+                )
                 .cors(Customizer.withDefaults())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
@@ -85,6 +105,20 @@ public class DomainServiceSecurityConfig {
                 .addFilterBefore(devFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    private static boolean hasBearerAuthorization(String authorization) {
+        if (!StringUtils.hasText(authorization)
+                || !authorization.regionMatches(
+                true,
+                0,
+                BEARER_AUTHORIZATION_PREFIX,
+                0,
+                BEARER_AUTHORIZATION_PREFIX.length()
+        )) {
+            return false;
+        }
+        return StringUtils.hasText(authorization.substring(BEARER_AUTHORIZATION_PREFIX.length()));
     }
 
     private Converter<Jwt, AbstractAuthenticationToken> jwtAuthenticationConverter() {
