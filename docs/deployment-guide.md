@@ -166,6 +166,36 @@ external deliveries manually against provider evidence before any resend.
   constraint over inclusive planned date ranges for `DRAFT` and `ACTIVE` rows.
   Resolve any pre-existing overlapping active rows before migration; otherwise
   PostgreSQL will reject the constraint installation.
+- Assistant migration V5 adds the persisted `KNOWLEDGE` evidence source. A
+  binary older than V5 cannot deserialize a generation containing that source.
+  Before downgrading, set `assistant.ragEnabled=false` and roll out the current
+  image, then wait until this query returns zero:
+
+  ```sql
+  SELECT COUNT(*)
+  FROM chat_generations
+  WHERE status IN ('QUEUED', 'RUNNING', 'CANCEL_REQUESTED');
+  ```
+
+  Back up `agricore_assistant`, stop Assistant writers, and neutralize affected
+  evidence snapshots inside an operator transaction:
+
+  ```sql
+  BEGIN;
+  UPDATE chat_generations
+  SET tool_evidence = '{"facts":[]}'
+  WHERE tool_evidence LIKE '%"source":"KNOWLEDGE"%';
+
+  SELECT COUNT(*) AS incompatible_evidence
+  FROM chat_generations
+  WHERE tool_evidence LIKE '%"source":"KNOWLEDGE"%';
+  COMMIT;
+  ```
+
+  Require `incompatible_evidence=0` before starting the older image. This
+  intentionally removes the complete evidence snapshot for affected
+  generations while retaining their messages and terminal state; restore the
+  backup instead of continuing if preserving that evidence is mandatory.
 - Durable outbox retry migrations add nullable `next_attempt_at` and
   `quarantined_at`; legacy null rows remain immediately eligible. Their partial
   retry/quarantine indexes use `CREATE INDEX CONCURRENTLY` with

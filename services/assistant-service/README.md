@@ -45,6 +45,11 @@ query terms, returns at most four `KB-*` citations, uses a two-second database
 query timeout, and merges results with authorized farm facts under the existing
 25-fact/24,000-character evidence ceilings. The curated migration is
 read-only at runtime; arbitrary URL fetch and document upload are not exposed.
+If retrieval fails after authorized farm facts were collected, those facts are
+retained as partial evidence and the RAG degradation reason is audited.
+Follow the
+[database rollback procedure](../../docs/deployment-guide.md#database-change-and-rollback)
+before downgrading to a binary that predates persisted `KNOWLEDGE` evidence.
 
 ## Run and verify
 
