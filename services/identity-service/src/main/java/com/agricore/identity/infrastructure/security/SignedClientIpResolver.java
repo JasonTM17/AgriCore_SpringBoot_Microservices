@@ -11,6 +11,8 @@ import org.springframework.stereotype.Component;
 @Component
 public final class SignedClientIpResolver {
 
+    private static final String AUDIENCE = ClientIpHeaderSigner.IDENTITY_SERVICE_AUDIENCE;
+
     private final String signingSecret;
 
     public SignedClientIpResolver(
@@ -27,6 +29,7 @@ public final class SignedClientIpResolver {
         return ClientIpHeaderSigner.verify(
                 request.getHeader(ClientIpHeaderSigner.CLIENT_IP_HEADER),
                 request.getHeader(ClientIpHeaderSigner.CLIENT_IP_SIGNATURE_HEADER),
+                AUDIENCE,
                 signingSecret
         ).orElse(fallback);
     }

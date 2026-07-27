@@ -21,10 +21,7 @@ public class RefreshCookieSupport {
     }
 
     public void requireAllowedBrowserOrigin(HttpServletRequest request) {
-        String origin = request.getHeader("Origin");
-        if (origin == null || origin.isBlank()) {
-            origin = originFromReferer(request.getHeader("Referer"));
-        }
+        String origin = browserOrigin(request);
         if (origin == null || origin.isBlank()) {
             throw new IdentityException(
                     "ORIGIN_REQUIRED",
@@ -32,12 +29,19 @@ public class RefreshCookieSupport {
                     403
             );
         }
-        List<String> allowed = securityProperties.webAllowedOriginList();
-        String normalized = normalizeOrigin(origin);
-        boolean match = allowed.stream().map(this::normalizeOrigin).anyMatch(normalized::equals);
-        if (!match) {
+        if (!isAllowedOrigin(origin)) {
             throw new IdentityException("ORIGIN_FORBIDDEN", "Origin is not allowed for browser auth", 403);
         }
+    }
+
+    /**
+     * Returns whether the request carries the exact browser origin that is allowed to use the
+     * HttpOnly refresh-cookie endpoints. Security configuration uses the same check as the
+     * controller so the CSRF matcher and the endpoint policy cannot drift apart.
+     */
+    public boolean isAllowedBrowserOrigin(HttpServletRequest request) {
+        String origin = browserOrigin(request);
+        return origin != null && !origin.isBlank() && isAllowedOrigin(origin);
     }
 
     public ResponseCookie buildRefreshCookie(String rawRefreshToken) {
@@ -100,6 +104,20 @@ public class RefreshCookieSupport {
         } catch (IllegalArgumentException ex) {
             return null;
         }
+    }
+
+    private String browserOrigin(HttpServletRequest request) {
+        String origin = request.getHeader("Origin");
+        if (origin == null || origin.isBlank()) {
+            origin = originFromReferer(request.getHeader("Referer"));
+        }
+        return origin;
+    }
+
+    private boolean isAllowedOrigin(String origin) {
+        List<String> allowed = securityProperties.webAllowedOriginList();
+        String normalized = normalizeOrigin(origin);
+        return allowed.stream().map(this::normalizeOrigin).anyMatch(normalized::equals);
     }
 
     private String normalizeOrigin(String origin) {

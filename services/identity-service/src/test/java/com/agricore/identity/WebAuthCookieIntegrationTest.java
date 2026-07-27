@@ -121,6 +121,17 @@ class WebAuthCookieIntegrationTest {
     }
 
     @Test
+    void webLogin_requiresBrowserOriginBeforeProcessingCredentials() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/web/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"origin-required@agricore.test","password":"Secret123!"}
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ORIGIN_REQUIRED"));
+    }
+
+    @Test
     void webRefresh_withoutCookie_returns401() throws Exception {
         mockMvc.perform(post("/api/v1/auth/web/refresh")
                         .header("Origin", ORIGIN))

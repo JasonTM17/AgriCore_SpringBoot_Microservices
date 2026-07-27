@@ -46,6 +46,7 @@ public class DomainServiceSecurityConfig {
 
     @Bean
     @ConditionalOnMissingBean(SecurityFilterChain.class)
+    @SuppressWarnings("codeql[java/spring-disabled-csrf-protection]")
     SecurityFilterChain domainServiceSecurityFilterChain(
             HttpSecurity http,
             AgricoreSecurityProperties properties,
@@ -53,6 +54,9 @@ public class DomainServiceSecurityConfig {
     ) throws Exception {
         DevHeadersAuthenticationFilter devFilter = new DevHeadersAuthenticationFilter(properties.isDevMode());
 
+        // This boundary accepts only explicit bearer/dev-header credentials and explicitly
+        // disables server sessions. Cookie-backed browser refresh is handled by Identity, where
+        // the allowed-origin policy and CSRF matcher protect its narrow web-auth routes.
         http.csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

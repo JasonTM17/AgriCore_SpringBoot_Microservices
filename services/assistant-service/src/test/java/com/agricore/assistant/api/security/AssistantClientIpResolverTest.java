@@ -26,7 +26,11 @@ class AssistantClientIpResolverTest {
         when(request.getRemoteAddr()).thenReturn("10.0.0.4");
         when(request.getHeader(ClientIpHeaderSigner.CLIENT_IP_HEADER)).thenReturn("203.0.113.10");
         when(request.getHeader(ClientIpHeaderSigner.CLIENT_IP_SIGNATURE_HEADER))
-                .thenReturn(ClientIpHeaderSigner.sign("203.0.113.11", SECRET));
+                .thenReturn(ClientIpHeaderSigner.sign(
+                        "203.0.113.11",
+                        ClientIpHeaderSigner.ASSISTANT_SERVICE_AUDIENCE,
+                        SECRET
+                ));
 
         assertThat(new AssistantClientIpResolver(SECRET).resolve(request)).isEqualTo("10.0.0.4");
     }
@@ -36,8 +40,26 @@ class AssistantClientIpResolverTest {
         when(request.getRemoteAddr()).thenReturn("10.0.0.4");
         when(request.getHeader(ClientIpHeaderSigner.CLIENT_IP_HEADER)).thenReturn("203.0.113.10");
         when(request.getHeader(ClientIpHeaderSigner.CLIENT_IP_SIGNATURE_HEADER))
-                .thenReturn(ClientIpHeaderSigner.sign("203.000.113.010", SECRET));
+                .thenReturn(ClientIpHeaderSigner.sign(
+                        "203.000.113.010",
+                        ClientIpHeaderSigner.ASSISTANT_SERVICE_AUDIENCE,
+                        SECRET
+                ));
 
         assertThat(new AssistantClientIpResolver(SECRET).resolve(request)).isEqualTo("203.0.113.10");
+    }
+
+    @Test
+    void identityAudienceSignatureFallsBackToImmediateRemoteAddress() {
+        when(request.getRemoteAddr()).thenReturn("10.0.0.4");
+        when(request.getHeader(ClientIpHeaderSigner.CLIENT_IP_HEADER)).thenReturn("203.0.113.10");
+        when(request.getHeader(ClientIpHeaderSigner.CLIENT_IP_SIGNATURE_HEADER))
+                .thenReturn(ClientIpHeaderSigner.sign(
+                        "203.0.113.10",
+                        ClientIpHeaderSigner.IDENTITY_SERVICE_AUDIENCE,
+                        SECRET
+                ));
+
+        assertThat(new AssistantClientIpResolver(SECRET).resolve(request)).isEqualTo("10.0.0.4");
     }
 }

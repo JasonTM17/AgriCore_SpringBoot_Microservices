@@ -40,7 +40,11 @@ public class GatewaySecurityConfig {
     private String audience;
 
     @Bean
+    @SuppressWarnings("codeql[java/spring-disabled-csrf-protection]")
     SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
+        // The gateway authenticates API calls with explicit bearer tokens and never creates a
+        // browser session. Its only cookie-backed route is proxied to Identity, which enforces
+        // the exact browser-origin policy and a CSRF matcher before rotating a refresh cookie.
         http.csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .cors(Customizer.withDefaults());
 

@@ -4,6 +4,8 @@ import com.agricore.common.security.ClientIpHeaderSigner;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
+import org.springframework.cloud.gateway.route.Route;
+import org.springframework.cloud.gateway.support.ServerWebExchangeUtils;
 import org.springframework.core.Ordered;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.server.reactive.ServerHttpRequest;
@@ -41,6 +43,10 @@ public final class GatewayClientIpSigningFilter implements GlobalFilter, Ordered
             "x-envoy-external-address",
             "x-original-forwarded-for"
     );
+    private static final Set<String> CLIENT_IP_AUDIENCE_ROUTE_IDS = Set.of(
+            ClientIpHeaderSigner.IDENTITY_SERVICE_AUDIENCE,
+            ClientIpHeaderSigner.ASSISTANT_SERVICE_AUDIENCE
+    );
 
     private final String signingSecret;
     private final Pattern trustedProxyAddressPattern;
@@ -59,8 +65,9 @@ public final class GatewayClientIpSigningFilter implements GlobalFilter, Ordered
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String clientIp = resolveClientIp(exchange.getRequest()).orElse(null);
+        String audience = clientIpAudience(exchange).orElse(null);
         ServerHttpRequest request = exchange.getRequest().mutate()
-                .headers(headers -> replaceClientAddressHeaders(headers, clientIp))
+                .headers(headers -> replaceClientAddressHeaders(headers, clientIp, audience))
                 .build();
         return chain.filter(exchange.mutate().request(request).build());
     }
@@ -98,15 +105,23 @@ public final class GatewayClientIpSigningFilter implements GlobalFilter, Ordered
         return ClientIpHeaderSigner.canonicalize(remoteAddress.getAddress().getHostAddress());
     }
 
-    private void replaceClientAddressHeaders(HttpHeaders headers, String clientIp) {
+    private static Optional<String> clientIpAudience(ServerWebExchange exchange) {
+        Object routeAttribute = exchange.getAttribute(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR);
+        if (!(routeAttribute instanceof Route route) || !CLIENT_IP_AUDIENCE_ROUTE_IDS.contains(route.getId())) {
+            return Optional.empty();
+        }
+        return Optional.of(route.getId());
+    }
+
+    private void replaceClientAddressHeaders(HttpHeaders headers, String clientIp, String audience) {
         headers.keySet().stream()
                 .filter(GatewayClientIpSigningFilter::isForwardingOrInternalHeader)
                 .toList()
                 .forEach(headers::remove);
-        if (clientIp != null) {
+        if (clientIp != null && audience != null) {
             headers.set(ClientIpHeaderSigner.CLIENT_IP_HEADER, clientIp);
             headers.set(ClientIpHeaderSigner.CLIENT_IP_SIGNATURE_HEADER,
-                    ClientIpHeaderSigner.sign(clientIp, signingSecret));
+                    ClientIpHeaderSigner.sign(clientIp, audience, signingSecret));
         }
     }
 

@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Canonicalizes IP literals and authenticates the Gateway-issued client address header.
+ * Canonicalizes IP literals and authenticates an audience-bound Gateway-issued client address header.
  *
  * <p>Only literal IPv4 and IPv6 values are accepted. Host names, ports, bracket notation, and
  * IPv6 scope identifiers are deliberately rejected so signing never performs name resolution.
@@ -20,8 +20,11 @@ public final class ClientIpHeaderSigner {
 
     public static final String CLIENT_IP_HEADER = "X-AgriCore-Client-IP";
     public static final String CLIENT_IP_SIGNATURE_HEADER = "X-AgriCore-Client-IP-Signature";
+    public static final String IDENTITY_SERVICE_AUDIENCE = "identity-service";
+    public static final String ASSISTANT_SERVICE_AUDIENCE = "assistant-service";
 
     private static final String HMAC_SHA_256 = "HmacSHA256";
+    private static final String SIGNING_CONTEXT = "agricore-client-ip/v1";
 
     private ClientIpHeaderSigner() {
     }
@@ -34,40 +37,49 @@ public final class ClientIpHeaderSigner {
         return Optional.ofNullable(ipv4 != null ? ipv4 : canonicalIpv6(literal));
     }
 
-    public static String sign(String clientIp, String signingSecret) {
+    public static String sign(String clientIp, String audience, String signingSecret) {
         String canonicalIp = canonicalize(clientIp)
                 .orElseThrow(() -> new IllegalArgumentException("client IP must be a strict IP literal"));
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(hmac(canonicalIp, signingSecret));
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(hmac(canonicalIp, audience, signingSecret));
     }
 
     /**
      * Returns the canonical client IP only when its signature verifies in constant time.
      */
-    public static Optional<String> verify(String clientIp, String signature, String signingSecret) {
+    public static Optional<String> verify(String clientIp, String signature, String audience, String signingSecret) {
         Optional<String> canonicalIp = canonicalize(clientIp);
         if (canonicalIp.isEmpty() || signature == null || signature.isBlank()) {
             return Optional.empty();
         }
         try {
             byte[] supplied = Base64.getUrlDecoder().decode(signature);
-            byte[] expected = hmac(canonicalIp.get(), signingSecret);
+            byte[] expected = hmac(canonicalIp.get(), audience, signingSecret);
             return MessageDigest.isEqual(expected, supplied) ? canonicalIp : Optional.empty();
         } catch (IllegalArgumentException exception) {
             return Optional.empty();
         }
     }
 
-    private static byte[] hmac(String canonicalIp, String signingSecret) {
+    private static byte[] hmac(String canonicalIp, String audience, String signingSecret) {
+        String validatedAudience = validatedAudience(audience);
         if (signingSecret == null || signingSecret.isBlank()) {
             throw new IllegalArgumentException("client IP signing secret must not be blank");
         }
         try {
             Mac mac = Mac.getInstance(HMAC_SHA_256);
             mac.init(new SecretKeySpec(signingSecret.getBytes(StandardCharsets.UTF_8), HMAC_SHA_256));
-            return mac.doFinal(canonicalIp.getBytes(StandardCharsets.UTF_8));
+            String payload = SIGNING_CONTEXT + ':' + validatedAudience.length() + ':' + validatedAudience + canonicalIp;
+            return mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
         } catch (GeneralSecurityException exception) {
             throw new IllegalStateException("HMAC-SHA-256 is unavailable", exception);
         }
+    }
+
+    private static String validatedAudience(String audience) {
+        if (audience == null || audience.isBlank() || !audience.equals(audience.strip())) {
+            throw new IllegalArgumentException("client IP signing audience must be a nonblank normalized value");
+        }
+        return audience;
     }
 
     private static String canonicalIpv4(String value) {

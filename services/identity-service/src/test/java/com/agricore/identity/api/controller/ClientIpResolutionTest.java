@@ -79,7 +79,11 @@ class ClientIpResolutionTest {
         request.addHeader(ClientIpHeaderSigner.CLIENT_IP_HEADER, GATEWAY_CLIENT);
         request.addHeader(
                 ClientIpHeaderSigner.CLIENT_IP_SIGNATURE_HEADER,
-                ClientIpHeaderSigner.sign("203.0.113.99", SECRET)
+                ClientIpHeaderSigner.sign(
+                        "203.0.113.99",
+                        ClientIpHeaderSigner.IDENTITY_SERVICE_AUDIENCE,
+                        SECRET
+                )
         );
 
         assertThat(resolvedApiIpFor(request)).isEqualTo("10.0.0.1");
@@ -91,7 +95,11 @@ class ClientIpResolutionTest {
         apiRequest.addHeader(ClientIpHeaderSigner.CLIENT_IP_HEADER, GATEWAY_CLIENT);
         apiRequest.addHeader(
                 ClientIpHeaderSigner.CLIENT_IP_SIGNATURE_HEADER,
-                ClientIpHeaderSigner.sign(GATEWAY_CLIENT, SECRET)
+                ClientIpHeaderSigner.sign(
+                        GATEWAY_CLIENT,
+                        ClientIpHeaderSigner.IDENTITY_SERVICE_AUDIENCE,
+                        SECRET
+                )
         );
         MockHttpServletRequest webRequest = new MockHttpServletRequest();
         webRequest.setRemoteAddr("10.0.0.1");
@@ -99,10 +107,30 @@ class ClientIpResolutionTest {
         webRequest.addHeader(ClientIpHeaderSigner.CLIENT_IP_HEADER, GATEWAY_CLIENT);
         webRequest.addHeader(
                 ClientIpHeaderSigner.CLIENT_IP_SIGNATURE_HEADER,
-                ClientIpHeaderSigner.sign(GATEWAY_CLIENT, SECRET)
+                ClientIpHeaderSigner.sign(
+                        GATEWAY_CLIENT,
+                        ClientIpHeaderSigner.IDENTITY_SERVICE_AUDIENCE,
+                        SECRET
+                )
         );
 
         assertThat(resolvedApiIpFor(apiRequest)).isEqualTo(GATEWAY_CLIENT);
         assertThat(resolvedWebIpFor(webRequest)).isEqualTo(GATEWAY_CLIENT);
+    }
+
+    @Test
+    void assistantAudienceSignatureFallsBackToImmediateRemoteAddress() {
+        MockHttpServletRequest request = request();
+        request.addHeader(ClientIpHeaderSigner.CLIENT_IP_HEADER, GATEWAY_CLIENT);
+        request.addHeader(
+                ClientIpHeaderSigner.CLIENT_IP_SIGNATURE_HEADER,
+                ClientIpHeaderSigner.sign(
+                        GATEWAY_CLIENT,
+                        ClientIpHeaderSigner.ASSISTANT_SERVICE_AUDIENCE,
+                        SECRET
+                )
+        );
+
+        assertThat(resolvedApiIpFor(request)).isEqualTo("10.0.0.1");
     }
 }
