@@ -83,6 +83,12 @@ agricore:
       read-timeout: ${ASSISTANT_TOOL_READ_TIMEOUT:PT3S}
       max-response-bytes: ${ASSISTANT_TOOL_MAX_RESPONSE_BYTES:32768}
       max-plots: ${ASSISTANT_TOOL_MAX_PLOTS:20}
+    rag:
+      enabled: ${ASSISTANT_RAG_ENABLED:false}
+      max-results: ${ASSISTANT_RAG_MAX_RESULTS:4}
+      max-query-terms: ${ASSISTANT_RAG_MAX_QUERY_TERMS:12}
+      max-excerpt-characters: ${ASSISTANT_RAG_MAX_EXCERPT_CHARACTERS:220}
+      query-timeout: ${ASSISTANT_RAG_QUERY_TIMEOUT:PT2S}
     budget:
       enabled: ${ASSISTANT_BUDGET_ENABLED:true}
       window: ${ASSISTANT_BUDGET_WINDOW:PT1M}

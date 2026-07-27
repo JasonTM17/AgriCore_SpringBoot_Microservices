@@ -9,5 +9,6 @@ public enum ToolSource {
     INVENTORY,
     IOT,
     SALES,
-    TRACEABILITY
+    TRACEABILITY,
+    KNOWLEDGE
 }

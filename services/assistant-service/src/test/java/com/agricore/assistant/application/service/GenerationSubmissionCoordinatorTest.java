@@ -123,7 +123,7 @@ class GenerationSubmissionCoordinatorTest {
         when(generationRepository.findActive(conversationId, owner)).thenReturn(Optional.empty());
         when(chatProvider.capabilities()).thenReturn(
                 new ProviderCapabilities("openai", true, true, null));
-        when(toolEvidenceCollector.collect(conversation))
+        when(toolEvidenceCollector.collect(conversation, "How is the crop?"))
                 .thenReturn(ToolEvidenceCollection.skipped("TOOLS_DISABLED"));
         when(retentionPolicy.generationEventRetention()).thenReturn(Duration.ofHours(1));
         when(generationPolicy.model()).thenReturn("test-model");

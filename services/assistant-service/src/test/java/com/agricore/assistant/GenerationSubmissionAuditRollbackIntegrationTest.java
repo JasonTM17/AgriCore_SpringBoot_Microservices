@@ -49,7 +49,7 @@ class GenerationSubmissionAuditRollbackIntegrationTest extends AssistantApiInteg
     void configureFailureAtTheTransactionalAuditBoundary() {
         when(chatProvider.capabilities())
                 .thenReturn(new ProviderCapabilities("test", true, true, null));
-        when(toolEvidenceCollector.collect(any()))
+        when(toolEvidenceCollector.collect(any(), any()))
                 .thenReturn(ToolEvidenceCollection.skipped("TOOLS_DISABLED"));
         doAnswer(invocation -> {
             AssistantAuditEvent event = invocation.getArgument(0);
