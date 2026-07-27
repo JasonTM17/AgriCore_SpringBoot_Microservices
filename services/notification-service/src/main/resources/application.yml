@@ -13,16 +13,43 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+    locations: classpath:db/migration,classpath:db/postgresql-migration
+    postgresql:
+      transactional-lock: false
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+  mail:
+    host: ${NOTIFICATION_SMTP_HOST:localhost}
+    port: ${NOTIFICATION_SMTP_PORT:1025}
+    username: ${NOTIFICATION_SMTP_USERNAME:}
+    password: ${NOTIFICATION_SMTP_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${NOTIFICATION_SMTP_AUTH:false}
+      mail.smtp.starttls.enable: ${NOTIFICATION_SMTP_STARTTLS:false}
+      mail.smtp.starttls.required: ${NOTIFICATION_SMTP_STARTTLS_REQUIRED:false}
+      mail.smtp.connectiontimeout: ${NOTIFICATION_SMTP_CONNECTION_TIMEOUT_MS:3000}
+      mail.smtp.timeout: ${NOTIFICATION_SMTP_READ_TIMEOUT_MS:5000}
+      mail.smtp.writetimeout: ${NOTIFICATION_SMTP_WRITE_TIMEOUT_MS:5000}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
-      group-id: notification-service
+      group-id: ${NOTIFICATION_KAFKA_GROUP_ID:notification-service}
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      enable-auto-commit: false
+    listener:
+      ack-mode: record
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+        max.block.ms: ${KAFKA_PRODUCER_MAX_BLOCK_MS:5000}
+        request.timeout.ms: ${KAFKA_PRODUCER_REQUEST_TIMEOUT_MS:5000}
+        delivery.timeout.ms: ${KAFKA_PRODUCER_DELIVERY_TIMEOUT_MS:10000}
 management:
   endpoints:
     web:
@@ -34,13 +61,50 @@ management:
         enabled: true
 
 agricore:
+  notification:
+    delivery:
+      provider: ${NOTIFICATION_DELIVERY_PROVIDER:smtp}
+      max-attempts: ${NOTIFICATION_DELIVERY_MAX_ATTEMPTS:3}
+      lease: ${NOTIFICATION_DELIVERY_LEASE:PT30S}
+      smtp:
+        from-address: ${NOTIFICATION_SMTP_FROM:no-reply@agricore.local}
+      recovery:
+        enabled: ${NOTIFICATION_DELIVERY_RECOVERY_ENABLED:true}
+        poll-ms: ${NOTIFICATION_DELIVERY_RECOVERY_POLL_MS:30000}
+        batch-size: ${NOTIFICATION_DELIVERY_RECOVERY_BATCH_SIZE:50}
   security:
     issuer: ${JWT_ISSUER:https://agricore.local/identity}
     jwk-set-uri: ${IDENTITY_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
     dev-mode: ${AGRICORE_DEV_MODE:false}
   kafka:
+    retry:
+      attempts: ${AGRICORE_KAFKA_RETRY_ATTEMPTS:4}
+      delay-ms: ${AGRICORE_KAFKA_RETRY_DELAY_MS:1000}
+      multiplier: ${AGRICORE_KAFKA_RETRY_MULTIPLIER:2}
+      max-delay-ms: ${AGRICORE_KAFKA_RETRY_MAX_DELAY_MS:8000}
+      timeout-ms: ${AGRICORE_KAFKA_RETRY_TIMEOUT_MS:30000}
+      auto-create-topics: ${AGRICORE_KAFKA_RETRY_AUTO_CREATE_TOPICS:false}
     consumer:
-      enabled: true
-      group-id: notification-service
+      enabled: ${NOTIFICATION_KAFKA_CONSUMER_ENABLED:true}
+      group-id: ${NOTIFICATION_KAFKA_GROUP_ID:notification-service}
     topics:
       identity-events: agricore.identity.events
+      sales-events: agricore.sales.events
+      traceability-events: agricore.traceability.events
+      iot-events: agricore.iot.events
+  outbox:
+    publisher:
+      enabled: ${NOTIFICATION_OUTBOX_PUBLISHER_ENABLED:true}
+      poll-ms: 1000
+      send-timeout-ms: ${OUTBOX_PUBLISHER_SEND_TIMEOUT_MS:10000}
+      retry:
+        write-state-enabled: ${OUTBOX_PUBLISHER_RETRY_WRITE_STATE_ENABLED:false}
+        base-delay-ms: ${OUTBOX_PUBLISHER_RETRY_BASE_DELAY_MS:1000}
+        max-delay-ms: ${OUTBOX_PUBLISHER_RETRY_MAX_DELAY_MS:60000}
+        max-attempts: ${OUTBOX_PUBLISHER_MAX_ATTEMPTS:10}
+    cleanup:
+      enabled: ${NOTIFICATION_OUTBOX_CLEANUP_ENABLED:true}
+      poll-ms: 3600000
+      retention: ${OUTBOX_RETENTION:P7D}
+      quarantine-retention: ${OUTBOX_QUARANTINE_RETENTION:P7D}
+      batch-size: 500

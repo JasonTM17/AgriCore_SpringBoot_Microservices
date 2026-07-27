@@ -34,11 +34,11 @@ class FarmErrorContractTest {
 
     @Test
     void malformedPathVariableIsABadRequest() throws Exception {
-        mockMvc.perform(get("/api/v1/farms/not-a-uuid")
+                mockMvc.perform(get("/api/v1/farms/not-a-uuid")
                         .header("X-Dev-User", "worker")
                         .header("X-Dev-Roles", "FIELD_WORKER"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"))
+                .andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"))
                 .andExpect(jsonPath("$.message").value(containsString("farmId")));
     }
 

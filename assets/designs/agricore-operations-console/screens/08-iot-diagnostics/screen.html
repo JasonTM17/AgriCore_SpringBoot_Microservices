@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AgriCore - Chẩn đoán IoT</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "error-container": "#ffdad6",
+                        "on-tertiary-fixed": "#2d1604",
+                        "on-secondary-fixed": "#291800",
+                        "surface-container-high": "#deece0",
+                        "on-primary": "#ffffff",
+                        "secondary-fixed": "#ffddb4",
+                        "surface-bright": "#effdf1",
+                        "error": "#ba1a1a",
+                        "primary-fixed": "#b1f0cd",
+                        "on-tertiary-fixed-variant": "#5e402a",
+                        "surface-variant": "#d8e6db",
+                        "surface": "#effdf1",
+                        "surface-container-highest": "#d8e6db",
+                        "on-surface-variant": "#404943",
+                        "tertiary-container": "#6b4c35",
+                        "on-error-container": "#93000a",
+                        "on-secondary-fixed-variant": "#633f00",
+                        "inverse-on-surface": "#e6f4e9",
+                        "surface-tint": "#2d694d",
+                        "outline": "#707972",
+                        "primary-fixed-dim": "#95d4b2",
+                        "surface-dim": "#d0ddd3",
+                        "primary": "#00452d",
+                        "surface-container-low": "#e9f7ec",
+                        "secondary-fixed-dim": "#ffb955",
+                        "on-secondary-container": "#714800",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-fixed-dim": "#e9bea1",
+                        "secondary": "#835500",
+                        "on-primary-fixed": "#002113",
+                        "on-secondary": "#ffffff",
+                        "primary-container": "#1f5d42",
+                        "secondary-container": "#fcb651",
+                        "on-tertiary-container": "#e9bea1",
+                        "inverse-surface": "#27332c",
+                        "on-primary-fixed-variant": "#0f5137",
+                        "inverse-primary": "#95d4b2",
+                        "tertiary": "#523520",
+                        "tertiary-fixed": "#ffdcc5",
+                        "on-tertiary": "#ffffff",
+                        "on-surface": "#121e17",
+                        "on-primary-container": "#95d4b1",
+                        "outline-variant": "#bfc9c1",
+                        "on-error": "#ffffff",
+                        "surface-container": "#e4f1e6",
+                        "on-background": "#121e17",
+                        "background": "#effdf1"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        "headline": ["Inter", "sans-serif"],
+                        "display": ["Inter", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"],
+                        "mono": ["JetBrains Mono", "monospace"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #F4F6F1; color: #121e17; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .tabular-nums { font-variant-numeric: tabular-nums; }
+    </style>
+</head>
+<body class="antialiased min-h-screen">
+<!-- Shell Layout -->
+<div class="flex h-screen overflow-hidden">
+<!-- SideNavBar -->
+<nav class="fixed left-0 top-0 h-screen w-[264px] bg-primary flex flex-col py-6 space-y-2 z-50">
+<div class="px-6 mb-8 flex flex-col gap-1">
+<div class="text-xl font-headline font-black text-primary-fixed">AgriCore</div>
+<div class="text-primary-fixed-dim font-body text-label-sm tracking-wide font-medium">Hệ thống vận hành</div>
+</div>
+<div class="flex-1 flex flex-col space-y-2 overflow-y-auto">
+<a class="text-primary-fixed-dim hover:text-primary-fixed hover:bg-primary-container/50 transition-colors px-4 py-3 mx-2 rounded-lg flex items-center gap-3 font-body text-label-sm tracking-wide font-medium" href="#">
+<span class="material-symbols-outlined">dashboard</span> Tổng quan
+                </a>
+<a class="text-primary-fixed-dim hover:text-primary-fixed hover:bg-primary-container/50 transition-colors px-4 py-3 mx-2 rounded-lg flex items-center gap-3 font-body text-label-sm tracking-wide font-medium" href="#">
+<span class="material-symbols-outlined">agriculture</span> Nông trại
+                </a>
+<a class="text-primary-fixed-dim hover:text-primary-fixed hover:bg-primary-container/50 transition-colors px-4 py-3 mx-2 rounded-lg flex items-center gap-3 font-body text-label-sm tracking-wide font-medium" href="#">
+<span class="material-symbols-outlined">calendar_today</span> Mùa vụ &amp; công việc
+                </a>
+<a class="text-primary-fixed-dim hover:text-primary-fixed hover:bg-primary-container/50 transition-colors px-4 py-3 mx-2 rounded-lg flex items-center gap-3 font-body text-label-sm tracking-wide font-medium" href="#">
+<span class="material-symbols-outlined">grass</span> Thu hoạch
+                </a>
+<a class="text-primary-fixed-dim hover:text-primary-fixed hover:bg-primary-container/50 transition-colors px-4 py-3 mx-2 rounded-lg flex items-center gap-3 font-body text-label-sm tracking-wide font-medium" href="#">
+<span class="material-symbols-outlined">inventory_2</span> Kho vận
+                </a>
+<a class="text-primary-fixed-dim hover:text-primary-fixed hover:bg-primary-container/50 transition-colors px-4 py-3 mx-2 rounded-lg flex items-center gap-3 font-body text-label-sm tracking-wide font-medium" href="#">
+<span class="material-symbols-outlined">shopping_cart</span> Bán hàng
+                </a>
+<a class="bg-surface-container-highest text-on-primary-fixed-variant font-bold rounded-lg px-4 py-3 mx-2 flex items-center gap-3 font-body text-label-sm tracking-wide scale-[0.98] transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">sensors</span> IoT
+                </a>
+<a class="text-primary-fixed-dim hover:text-primary-fixed hover:bg-primary-container/50 transition-colors px-4 py-3 mx-2 rounded-lg flex items-center gap-3 font-body text-label-sm tracking-wide font-medium" href="#">
+<span class="material-symbols-outlined">settings</span> Quản trị
+                </a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 ml-[264px] flex flex-col h-screen">
+<!-- TopNavBar -->
+<header class="fixed top-0 right-0 h-[72px] left-[264px] z-40 bg-surface-container-lowest border-b border-outline-variant flex justify-between items-center px-8 w-[calc(100%-264px)]">
+<div class="flex items-center gap-4">
+<div class="text-headline-sm font-bold text-primary hidden">AgriCore</div>
+<nav aria-label="Breadcrumb" class="font-headline text-body-md font-semibold">
+<ol class="flex items-center space-x-2">
+<li><a class="text-on-surface-variant" href="#">AgriCore</a></li>
+<li class="text-on-surface-variant">/</li>
+<li><a class="text-on-surface-variant" href="#">IoT</a></li>
+<li class="text-on-surface-variant">/</li>
+<li aria-current="page" class="text-primary font-bold">Chẩn đoán</li>
+</ol>
+</nav>
+</div>
+<div class="flex items-center gap-6">
+<div class="text-sm font-medium text-on-surface">Nông trại An Phú</div>
+<button class="text-on-surface-variant hover:bg-surface-container rounded-full p-2 transition-colors focus:ring-2 focus:ring-primary-fixed-dim">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="flex items-center gap-3 pl-4 border-l border-outline-variant">
+<div class="text-right hidden md:block">
+<div class="text-sm font-medium text-on-surface">Phạm Quốc An</div>
+<div class="text-xs text-on-surface-variant">Kỹ sư nông học</div>
+</div>
+<div class="w-8 h-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-sm">
+                            PQ
+                        </div>
+</div>
+</div>
+</header>
+<!-- Scrollable Content Canvas -->
+<main class="flex-1 mt-[72px] p-8 overflow-y-auto bg-[#F4F6F1]">
+<div class="max-w-7xl mx-auto space-y-6">
+<!-- Page Header -->
+<div class="flex items-start justify-between">
+<div>
+<div class="flex items-center gap-3 mb-2">
+<h1 class="text-3xl font-bold text-on-surface font-headline tracking-tight">Chẩn đoán &amp; gửi dữ liệu IoT</h1>
+<span class="bg-[#dcfce7] text-[#166534] text-xs font-bold px-2 py-1 rounded tracking-wide uppercase border border-[#bbf7d0]">AGRONOMIST</span>
+</div>
+<p class="text-on-surface-variant text-base">Kiểm tra luồng thiết bị → số đo → cảnh báo theo từng yêu cầu</p>
+</div>
+<div class="flex items-center gap-2 bg-surface-container-low border border-outline-variant px-3 py-1.5 rounded-full">
+<span class="w-2 h-2 rounded-full bg-primary-fixed-dim"></span>
+<span class="text-sm font-medium text-on-surface">API sẵn sàng</span>
+</div>
+</div>
+<!-- Neutral API Banner -->
+<div class="bg-[#e0f2fe] border border-[#bae6fd] rounded-lg p-4 flex items-start gap-3">
+<span class="material-symbols-outlined text-[#0369a1] mt-0.5">info</span>
+<div class="flex-1">
+<p class="text-sm text-[#0c4a6e]">IoT hiện chỉ hỗ trợ đăng ký thiết bị và gửi số đo; chưa có API danh sách thiết bị, lịch sử số đo hoặc cảnh báo.</p>
+</div>
+<a class="text-sm font-medium text-[#0369a1] hover:underline whitespace-nowrap" href="#">Xem phạm vi tích hợp</a>
+</div>
+<!-- Three-Column Operational Flow -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 relative">
+<!-- Column 1 -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col">
+<div class="p-5 border-b border-outline-variant bg-surface-container-low rounded-t-xl">
+<h2 class="text-lg font-bold text-on-surface flex items-center gap-2">
+<span class="w-6 h-6 rounded-full bg-primary text-on-primary flex items-center justify-center text-sm">1</span>
+                                    Đăng ký thiết bị
+                                </h2>
+</div>
+<div class="p-5 flex-1 space-y-4">
+<div>
+<label class="block text-sm font-medium text-on-surface mb-1">Mã thiết bị</label>
+<input class="w-full rounded-md border-outline-variant shadow-sm focus:border-primary focus:ring-primary sm:text-sm mono text-on-surface bg-surface-container-lowest" type="text" value="SENSOR-A3-SOIL-01"/>
+</div>
+<div>
+<label class="block text-sm font-medium text-on-surface mb-1">Tên thiết bị</label>
+<input class="w-full rounded-md border-outline-variant shadow-sm focus:border-primary focus:ring-primary sm:text-sm text-on-surface bg-surface-container-lowest" type="text" value="Cảm biến độ ẩm đất · Lô A3"/>
+</div>
+<div>
+<label class="block text-sm font-medium text-on-surface mb-1">Lô canh tác</label>
+<select class="w-full rounded-md border-outline-variant shadow-sm focus:border-primary focus:ring-primary sm:text-sm text-on-surface bg-surface-container-lowest">
+<option>A3 · Cà phê Robusta</option>
+</select>
+<p class="mt-1 text-xs text-on-surface-variant mono">plotId: 8f2b... (UUID)</p>
+</div>
+<button class="w-full bg-primary text-on-primary py-2 px-4 rounded-lg font-medium hover:bg-primary-container transition-colors mt-2">Đăng ký thiết bị</button>
+<div class="mt-4 bg-surface-container rounded p-3 text-xs mono text-on-surface-variant">
+<div class="flex justify-between mb-1"><span>deviceId:</span> <span class="text-on-surface font-medium">"d7a1..."</span></div>
+<div class="flex justify-between mb-1"><span>status:</span> <span class="text-primary font-bold">"ACTIVE"</span></div>
+<div class="flex justify-between"><span>lastSeenAt:</span> <span>"Chưa có dữ liệu"</span></div>
+</div>
+</div>
+</div>
+<!-- Column 2 -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col relative">
+<!-- Arrow Connector (Desktop) -->
+<div class="hidden lg:block absolute -left-4 top-1/2 -translate-y-1/2 z-10 text-outline-variant">
+<span class="material-symbols-outlined text-3xl">arrow_right_alt</span>
+</div>
+<div class="p-5 border-b border-outline-variant bg-surface-container-low rounded-t-xl">
+<h2 class="text-lg font-bold text-on-surface flex items-center gap-2">
+<span class="w-6 h-6 rounded-full bg-primary text-on-primary flex items-center justify-center text-sm">2</span>
+                                    Gửi số đo
+                                </h2>
+</div>
+<div class="p-5 flex-1 space-y-4">
+<div>
+<label class="block text-sm font-medium text-on-surface mb-1">Mã thiết bị</label>
+<div class="w-full rounded-md border border-outline-variant bg-surface-container-highest px-3 py-2 sm:text-sm mono text-on-surface-variant cursor-not-allowed">SENSOR-A3-SOIL-01</div>
+</div>
+<div>
+<label class="block text-sm font-medium text-on-surface mb-1">Loại chỉ số</label>
+<select class="w-full rounded-md border-outline-variant shadow-sm focus:border-primary focus:ring-primary sm:text-sm text-on-surface mono bg-surface-container-lowest">
+<option>SOIL_MOISTURE</option>
+</select>
+</div>
+<div class="grid grid-cols-3 gap-3">
+<div class="col-span-2">
+<label class="block text-sm font-medium text-on-surface mb-1">Giá trị</label>
+<input class="w-full rounded-md border-primary ring-1 ring-primary shadow-sm focus:border-primary focus:ring-primary sm:text-sm tabular-nums text-on-surface bg-surface-container-lowest" type="text" value="28.6"/>
+<p class="mt-1 text-xs text-error">Giá trị số bắt buộc</p>
+</div>
+<div>
+<label class="block text-sm font-medium text-on-surface mb-1">Đơn vị</label>
+<div class="w-full rounded-md border border-outline-variant bg-surface-container-highest px-3 py-2 sm:text-sm text-on-surface-variant text-center cursor-not-allowed">%</div>
+</div>
+</div>
+<div>
+<label class="block text-sm font-medium text-on-surface mb-1">Thời gian ghi nhận</label>
+<div class="w-full rounded-md border border-outline-variant bg-surface-container px-3 py-2 sm:text-sm tabular-nums text-on-surface flex justify-between items-center">
+                                        18/07/2026 08:45 <span class="material-symbols-outlined text-outline-variant text-sm">schedule</span>
+</div>
+</div>
+<button class="w-full bg-primary text-on-primary py-2 px-4 rounded-lg font-medium hover:bg-primary-container transition-colors mt-2">Gửi số đo</button>
+</div>
+</div>
+<!-- Column 3 -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col relative">
+<!-- Arrow Connector (Desktop) -->
+<div class="hidden lg:block absolute -left-4 top-1/2 -translate-y-1/2 z-10 text-outline-variant">
+<span class="material-symbols-outlined text-3xl">arrow_right_alt</span>
+</div>
+<div class="p-5 border-b border-outline-variant bg-surface-container-low rounded-t-xl">
+<h2 class="text-lg font-bold text-on-surface flex items-center gap-2">
+<span class="w-6 h-6 rounded-full bg-primary text-on-primary flex items-center justify-center text-sm">3</span>
+                                    Kết quả xử lý
+                                </h2>
+</div>
+<div class="p-5 flex-1 flex flex-col space-y-4">
+<div class="flex items-center gap-2 text-primary font-medium">
+<span class="material-symbols-outlined">check_circle</span> Đã tiếp nhận số đo
+                                </div>
+<div class="bg-surface-container rounded p-3 text-sm mono text-on-surface-variant space-y-2 flex-1">
+<div class="flex flex-col"><span class="text-xs text-outline">readingId:</span> <span class="text-on-surface">"r4k9..."</span></div>
+<div class="flex flex-col"><span class="text-xs text-outline">alertRaised:</span> <span class="text-[#854d0e] font-bold">"true"</span></div>
+<div class="flex flex-col"><span class="text-xs text-outline">alertId:</span> <span class="text-on-surface">"a2n8..."</span></div>
+<div class="flex flex-col"><span class="text-xs text-outline">alertStatus:</span> <span class="text-[#854d0e] font-bold">"OPEN"</span></div>
+<div class="flex flex-col"><span class="text-xs text-outline">message:</span> <span class="text-on-surface font-body text-xs mt-1">"Độ ẩm đất thấp hơn ngưỡng 30%"</span></div>
+</div>
+<div class="bg-[#fef3c7] border border-[#fde68a] rounded-lg p-3">
+<div class="flex items-center gap-2 text-[#92400e] font-medium text-sm mb-1">
+<span class="material-symbols-outlined text-[18px]">warning</span> Cảnh báo đã được tạo
+                                    </div>
+<p class="text-xs text-[#b45309]">Đây là phản hồi tức thời từ IngestResultResponse, không phải lịch sử đã lưu.</p>
+</div>
+<button class="w-full bg-transparent border border-outline text-primary py-2 px-4 rounded-lg font-medium hover:bg-surface-container-low transition-colors mt-auto flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]">content_copy</span> Sao chép kết quả
+                                </button>
+</div>
+</div>
+</div>
+<!-- Diagnostics Log -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+<div class="p-4 border-b border-outline-variant bg-surface-container flex items-center justify-between">
+<h3 class="text-base font-bold text-on-surface">Nhật ký phiên chẩn đoán</h3>
+<span class="bg-surface-variant text-on-surface-variant text-xs font-medium px-2 py-1 rounded">Chỉ trong phiên trình duyệt</span>
+</div>
+<div class="overflow-x-auto">
+<table class="min-w-full divide-y divide-outline-variant">
+<thead class="bg-surface-container-lowest">
+<tr>
+<th class="px-4 py-3 text-left text-xs font-medium text-on-surface-variant uppercase tracking-wider w-32" scope="col">Thời gian</th>
+<th class="px-4 py-3 text-left text-xs font-medium text-on-surface-variant uppercase tracking-wider" scope="col">Hành động</th>
+<th class="px-4 py-3 text-left text-xs font-medium text-on-surface-variant uppercase tracking-wider" scope="col">Kết quả HTTP</th>
+<th class="px-4 py-3 text-left text-xs font-medium text-on-surface-variant uppercase tracking-wider w-full" scope="col">Chi tiết</th>
+</tr>
+</thead>
+<tbody class="bg-surface-container-lowest divide-y divide-outline-variant">
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-4 py-3 whitespace-nowrap text-sm text-on-surface-variant tabular-nums">08:45:12</td>
+<td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-on-surface">Gửi số đo</td>
+<td class="px-4 py-3 whitespace-nowrap text-sm text-[#854d0e] font-mono">200 Cảnh báo mở</td>
+<td class="px-4 py-3 text-sm text-on-surface-variant truncate max-w-md font-mono text-xs">{"readingId":"r4k9...","alertRaised":true,"alertId":"a2n8..."}</td>
+</tr>
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-4 py-3 whitespace-nowrap text-sm text-on-surface-variant tabular-nums">08:44:05</td>
+<td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-on-surface">Đăng ký thiết bị</td>
+<td class="px-4 py-3 whitespace-nowrap text-sm text-primary font-mono">201 Thành công</td>
+<td class="px-4 py-3 text-sm text-on-surface-variant truncate max-w-md font-mono text-xs">{"deviceId":"d7a1...","status":"ACTIVE"}</td>
+</tr>
+<!-- Error Specimen -->
+<tr class="bg-error-container/20">
+<td class="px-4 py-3 whitespace-nowrap text-sm text-on-surface-variant tabular-nums">08:42:10</td>
+<td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-error">Gửi số đo</td>
+<td class="px-4 py-3 whitespace-nowrap text-sm text-error font-mono">404 Lỗi</td>
+<td class="px-4 py-3 text-sm text-error font-mono text-xs">DEVICE_NOT_FOUND — Kiểm tra mã thiết bị rồi gửi lại.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-4 border-t border-outline-variant bg-surface-container-lowest text-center">
+<p class="text-sm text-on-surface-variant flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">cloud_off</span>
+                                Không thể tải lịch sử từ máy chủ - Backend hiện chưa hỗ trợ API truy vấn lịch sử.
+                            </p>
+</div>
+</div>
+</div>
+<!-- Bottom padding for scroll -->
+<div class="h-12"></div>
+</main>
+</div>
+</div>
+</body></html>

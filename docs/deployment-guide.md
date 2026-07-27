@@ -1,140 +1,197 @@
-# Deployment Guide
+# AgriCore deployment guide
 
-Three paths: local compose (development), published images (demo/staging), Helm on Kubernetes
-(cluster). Local infrastructure ports are deliberately non-standard to avoid clashing with other
-stacks on the same machine.
+## Deployment models
 
-## 1. Local: infrastructure only
+| Model | Repository support | Intended use |
+|---|---|---|
+| Docker Compose | Application, infrastructure, simulator, observability profiles | Local development and acceptance evidence |
+| Helm chart | 13 Spring workloads, console, services, optional Ingress, policies/scaling/probes | Application deployment into an operator-managed cluster |
+
+The Helm chart does not install production databases, Kafka, MQTT, Redis, object
+storage, SMTP, ingress controller, certificate manager, or observability
+backends.
+
+## Required production inputs
+
+- PostgreSQL-compatible databases and application credentials per service.
+- TimescaleDB capability in the IoT database.
+- Redis with authentication and persistence policy.
+- Kafka topics, authorization, retention, and DLT operations.
+- MQTT TLS, device credential lifecycle, and per-device ACLs.
+- Private MinIO/S3-compatible object storage and bucket policy.
+- SMTP credentials and sender/domain configuration.
+- RSA signing key Secret, provider key Secret when enabled, and database Secret.
+- Assistant archived-conversation, audit, replay-event, and cleanup retention
+  policy approved for the deployment's legal and recovery requirements.
+- Ingress/TLS/DNS policy; a `GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN` matching
+  only the immediate trusted ingress/load-balancer peer; and a shared client-IP
+  signing Secret.
+- OTLP/metrics/log endpoints, sampling, storage, access, and retention.
+
+Never copy values from `.env.example` into production unchanged.
+Service-local READMEs provide module setup and troubleshooting orientation;
+deployment values, rendered manifests, and versioned contracts remain the
+authority for an actual release.
+
+### Authenticated client-IP propagation
+
+The Gateway strips or overwrites untrusted forwarding headers. It reads
+`X-Forwarded-For` only when its immediate remote peer matches
+`GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN`, canonicalizes the chosen IP, and HMAC-signs
+an audience-bound payload with `AGRICORE_CLIENT_IP_SIGNING_SECRET`. It emits the
+signed client-IP header pair only for the `identity-service` and
+`assistant-service` route IDs. Identity verifies the `identity-service`
+audience and Assistant verifies the `assistant-service` audience. A missing,
+malformed, invalid, or cross-audience header pair falls back to the direct peer.
+This is not a general original-client-IP provenance guarantee.
+
+Compose requires the signing secret only for Gateway, Identity, and Assistant.
+Its dedicated `client-ip-edge` network attaches only Console and Gateway: by
+default Gateway is `172.30.0.2`, Console is `172.30.0.3`, and
+`GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN=172[.]30[.]0[.]3` full-matches only
+Console. If the subnet changes, update `CLIENT_IP_EDGE_SUBNET`,
+`CLIENT_IP_EDGE_GATEWAY_IP`, `CLIENT_IP_EDGE_CONSOLE_IP`, and
+`GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN` together. For Helm, create the external
+Secret named by `clientIp.signingSecretName` with key
+`clientIp.signingSecretKey`; it is mounted only by Gateway, Identity, and
+Assistant. Never enable direct public ingress to Identity or Assistant.
+
+## Local deployment
 
 ```powershell
-.\scripts\dev-up.ps1        # Windows
-```
-
-```bash
-./scripts/dev-up.sh         # Linux/macOS
-```
-
-Starts PostgreSQL (host **5434**, multi-database), Redis (**6380**), Kafka (**9092**), and Kafka UI
-(<http://localhost:8088>). Services then run from your IDE or `mvn spring-boot:run`.
-
-Databases are created by `infrastructure/docker/postgres/init-databases.sql`; each service applies its
-own Flyway migrations at startup.
-
-## 2. Local: full stack in containers
-
-```bash
-docker compose up --build
-```
-
-Boots infrastructure plus all twelve services with healthcheck-gated startup ordering. The gateway
-listens on <http://localhost:8080>.
-
-Before first boot, generate stable JWT signing keys — without them identity generates ephemeral keys
-and every restart invalidates issued tokens:
-
-```powershell
+Copy-Item .env.example .env
 .\scripts\generate-jwt-keys.ps1
+docker compose up -d postgres redis kafka kafka-ui kafka-topics-init mqtt minio
+docker compose -f docker-compose.observability.yml up -d
+docker compose up -d --build
 ```
 
-Keys land in `infrastructure/jwt/` (gitignored) and are mounted read-only into the identity container.
+Use [the local operations runbook](runbooks/local-operations.md) for health,
+simulator, seed, verification, log, and cleanup commands.
 
-Observability is a separate opt-in file:
+## Helm release
+
+For a production Helm release with `ingress.enabled=true`, browser authentication
+requires `identity.webAllowedOrigins` to exactly equal
+`https://<ingress.host>` and `identity.refreshCookieSecure=true`. Rendering
+rejects a different origin, an HTTP origin, or a non-Secure refresh cookie. The
+local HTTP exception is explicit and non-ingress only: set
+`ingress.enabled=false`, `identity.refreshCookieSecure=false`, and a matching
+HTTP `identity.webAllowedOrigins`; do not carry that override into production
+values.
+
+1. Provision external dependencies and databases.
+2. Create namespace-scoped Secrets outside Git.
+3. Copy `values.yaml` to an environment-owned file and set every service image
+   to `repository@sha256:<digest>`, then configure endpoints, resources,
+   ingress/TLS, client-IP Secret/pattern, and observability.
+   The chart makes every application root filesystem read-only and supplies a
+   bounded writable `/tmp` `emptyDir`. Keep the `api-gateway` Service alias
+   because the Console image uses that portable upstream name.
+4. Decide egress policy. The default allows egress to operator-managed
+   dependencies. To restrict it, set `networkPolicy.restrictEgress=true` and
+   provide PostgreSQL, Redis, Kafka, SMTP, MQTT, object-storage, JWKS, and OTLP
+   rules through `networkPolicy.additionalEgress`; DNS and same-namespace
+   AgriCore traffic are included by the chart.
+5. Validate before applying:
+
+   ```bash
+   helm lint infrastructure/helm/agricore -f values-production.yaml
+   helm template agricore infrastructure/helm/agricore \
+     -f values-production.yaml > rendered.yaml
+   ```
+
+6. Create each enabled non-gateway service's `databaseSecretName` and the
+   Gateway/Identity/Assistant client-IP signing Secret outside Git. The separate
+   `postgres.provisioning.credentialSecretName` is mounted only by bounded hook
+   Jobs, never application Deployments. Review rendered Secrets, service
+   accounts, security contexts, NetworkPolicies, Jobs, probes, PDBs, HPAs, and
+   Ingress hosts.
+7. Deploy with an atomic timeout appropriate to migration duration:
+
+   ```bash
+   helm upgrade --install agricore infrastructure/helm/agricore \
+     --namespace agricore --create-namespace \
+     -f values-production.yaml --atomic --timeout 15m
+   ```
+
+8. Verify rollout, migrations, health, metrics, gateway JWT, public traceability,
+   Kafka lag/DLT, and object-storage access.
+
+## Notification delivery
+
+- Identity registration publishes `UserRegistered.v1` through its transactional
+  outbox. Notification validates the source and bounded payload before creating
+  an idempotent welcome-email delivery.
+- External channels use at-most-once automatic delivery. They receive one
+  automatic provider attempt; an adapter failure is persisted, and a stale
+  `DELIVERING` lease becomes `FAILED` with `DELIVERY_OUTCOME_UNKNOWN` instead
+  of being resent.
+- `IN_APP` delivery is a local idempotent write and may be retried within the
+  configured bounded attempt budget.
+- This policy prevents automatic duplicate email/SMS after an ambiguous
+  provider response. It does not guarantee that a provider delivered a
+  `DELIVERY_OUTCOME_UNKNOWN` message.
+
+Operators must monitor `FAILED` notification outcomes and reconcile ambiguous
+external deliveries manually against provider evidence before any resend.
+
+## Database change and rollback
+
+- Back up every affected database before an irreversible migration.
+- Rehearse restore with the exact engine/extension version.
+- Prefer expand/backfill/cutover/contract changes. Old application code must
+  tolerate the expanded schema during a rolling update.
+- Flyway migrations are forward-only. Application rollback does not automatically
+  undo schema or published events.
+- For a failed release, stop writers if data interpretation changed, restore the
+  compatible application image, and follow the migration-specific runbook.
+- Harvest and Inventory farm-scope migrations are additive. Harvest can
+  re-authorize a legacy row from its stored plot; mismatched stored scope is
+  masked as not found. Inventory fails closed when warehouse or processed-event
+  scope is unavailable.
+- Sales migration V8 is an executable release gate: it refuses to start while
+  any customer/order lacks `farm_id` or an order disagrees with its customer's
+  farm. Audit and explicitly backfill those rows from authoritative records
+  before deploying V8. On success it makes both columns non-null and installs a
+  composite foreign key so the mismatch cannot recur.
+- Crop-cycle PostgreSQL migration V5 installs `btree_gist` and an exclusion
+  constraint over inclusive planned date ranges for `DRAFT` and `ACTIVE` rows.
+  Resolve any pre-existing overlapping active rows before migration; otherwise
+  PostgreSQL will reject the constraint installation.
+- Durable outbox retry migrations add nullable `next_attempt_at` and
+  `quarantined_at`; legacy null rows remain immediately eligible. Their partial
+  retry/quarantine indexes use `CREATE INDEX CONCURRENTLY` with
+  `executeInTransaction=false`, so follow the service migration order and do
+  not wrap them in an operator transaction.
+- Testcontainers PostgreSQL coverage verifies the column types, valid partial
+  indexes, due/deferred/quarantined filtering, and `FOR UPDATE SKIP LOCKED`
+  non-blocking claims for Farm, Harvest, Identity, Notification, Sales,
+  Traceability, and Work. Docker is required to execute those tests.
+
+## Image verification
+
+The repository configures a release workflow that, after eligible
+default-branch CI, builds each image once and pushes a candidate to Docker Hub
+and GitHub Packages. It scans the exact candidate digest, verifies registry
+parity, signs it in both registries, promotes only short-SHA and full-SHA tags,
+and re-verifies each promoted reference. All 14 Dockerfiles pin their build and
+runtime bases by digest and accept `GIT_SHA` for the OCI revision label. It does
+not publish `latest`. This is a configured supply-chain path, not proof that an
+image has been published; production should deploy a verified full SHA tag or
+digest.
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.observability.yml up
+docker buildx imagetools inspect IMAGE@sha256:DIGEST
+cosign verify IMAGE@sha256:DIGEST \
+  --certificate-identity-regexp 'github.com/.+/.github/workflows/docker-publish.yml@refs/heads/(main|master)' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
-## 3. Verify a deployment
+Store the merged revision, image digests, rendered values checksum, migration
+versions, and verification evidence with the release record.
 
-```powershell
-.\scripts\verify-platform.ps1 -EvidenceDir C:\path\to\evidence
-```
-
-Builds and starts the full stack, runs the Maven suite, then executes the gateway JWT end-to-end path
-(farm → cycle → work → harvest → Kafka → inventory → QR) and writes an evidence bundle:
-`compose-ps.txt`, `mvn-test.log`, `e2e-flow.log`, `traceability.json`, `git-log.txt`.
-
-With the stack already up, `scripts/e2e-happy-path.ps1` runs the flow alone.
-
-## 4. Published images
-
-Images live under the `nguyenson1710` Docker Hub namespace, one per service
-(`nguyenson1710/agricore-<service>`), each tagged `latest`, short SHA, and full commit SHA.
-
-Publication is **causally gated**: `docker-publish.yml` triggers only on a completed `ci`
-`workflow_run` that was a `push` to `main`/`master`, concluded `success`, and came from this
-repository. It then checks out `workflow_run.head_sha` explicitly and builds that immutable revision —
-never a branch tip that may have moved. A failed, cancelled, or PR-triggered `ci` run publishes
-nothing.
-
-`ci` is necessary but no longer sufficient. Before building, `resolve-sha` reads back the `trivy`
-and `codeql` conclusions **for that same SHA** and requires both to be `completed` + `success`.
-Previously those two ran alongside `ci` and gated nothing, so a commit failing the CRITICAL/HIGH
-vulnerability scan or the SAST pass still shipped twelve public images.
-
-Two consequences worth knowing before wondering where an image went:
-
-- **A scan still running when `ci` finishes skips the publish** rather than waiting for it. Polling
-  would burn runner minutes on every push, and a skip is recoverable. The run log always names which
-  workflow blocked it and why.
-- **A missing scan run blocks.** Absence of evidence is not a pass, so a renamed workflow fails
-  closed instead of waving builds through.
-
-Recovery for either: `workflow_dispatch` on `main`. That path is deliberately exempt from the scan
-gate — it is the lever for a publish the gate skipped — and it logs that it bypassed.
-
-`ci` remains the only trigger. Listing all three workflows under `workflow_run` would fire this
-workflow three times per push, each firing aware only of its own trigger's conclusion, and the
-concurrency group serialises rather than cancels — so the same twelve images would be built and
-pushed three times.
-
-Required repository secrets (names only): `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`. Manage them at
-`Settings → Secrets and variables → Actions`. The scan check uses the built-in `GITHUB_TOKEN` with
-`actions: read`; no additional secret is needed.
-
-Manual `workflow_dispatch` is allowed but still refuses any ref other than `main`/`master`.
-
-## 5. Kubernetes (Helm)
-
-```bash
-helm upgrade --install agricore infrastructure/helm/agricore \
-  --set global.imageTag=<git-sha> \
-  --namespace agricore --create-namespace
-```
-
-The chart renders one Deployment per enabled service from `values.yaml`. Every pod receives the shared
-database, Kafka, and JWT issuer environment; identity additionally receives Redis and registration
-settings, sales receives the inventory URL, and the gateway receives every upstream service URL.
-
-Security posture baked into the template: `runAsNonRoot`, `runAsUser: 10001`,
-`seccompProfile: RuntimeDefault`, per-service CPU/memory requests and limits.
-
-Database credentials come from the `agricore-db` secret (`username`, `password`) — see
-`templates/secret-template.yaml`. Create it out of band; never commit real values.
-
-Pin `global.imageTag` to a SHA tag rather than `latest` so a rollback is a value change, not a rebuild.
-`infrastructure/k8s/network-policy.yaml` restricts pod-to-pod traffic and is applied separately.
-
-## 6. Configuration reference
-
-Shared across services: `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`,
-`KAFKA_BOOTSTRAP_SERVERS`, `JWT_ISSUER`, `IDENTITY_JWKS_URI`, `AGRICORE_DEV_MODE`.
-
-Service-specific variables and their defaults are documented in each service's README. Production
-must set `AGRICORE_DEV_MODE=false`, `AGRICORE_REGISTRATION_ENABLED=false`,
-`AGRICORE_RATE_LIMIT_FAIL_OPEN=false`, and real JWT key paths.
-
-## 7. Rollback
-
-- **Compose** — `docker compose down`, then bring up the previous image tags.
-- **Helm** — `helm rollback agricore <revision>`; because images are SHA-tagged, the previous revision
-  pulls the exact prior build.
-- **Database** — Flyway migrations are forward-only. A rollback that must undo a schema change needs a
-  new compensating migration, not a reverted file.
-
-## 8. Known gaps
-
-- `main` is not branch-protected, so CI is the only gate before publish. Tracked in
-  [project-roadmap.md](project-roadmap.md).
-- No staging environment: verification happens locally via `verify-platform` and in CI.
-- Notification delivery is a log sink; no SMTP or webhook adapter is deployed.
+Docker Hub publishing requires `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` as
+repository secrets. GitHub Packages uses the workflow token's package write
+permission. If either registry, scan, parity check, promotion, or signing step
+fails, do not treat the other registry or a candidate tag as a complete release.

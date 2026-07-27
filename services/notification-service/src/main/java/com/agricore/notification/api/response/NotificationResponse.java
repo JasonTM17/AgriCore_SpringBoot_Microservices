@@ -11,6 +11,11 @@ public record NotificationResponse(
         String status,
         String correlationId,
         Instant createdAt,
-        Instant sentAt
+        Instant sentAt,
+        Instant failedAt,
+        String errorCode,
+        String errorMessage,
+        Boolean failureRetryable,
+        int deliveryAttempts
 ) {
 }

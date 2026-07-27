@@ -1,120 +1,82 @@
 # Contributing to AgriCore
 
-Thanks for taking a look. This is a portfolio project, so the bar is "a reviewer should be able to
-read the diff and believe it" rather than "ship fast".
+AgriCore accepts focused changes that preserve service ownership, public
+contracts, and operational evidence.
 
-## Prerequisites
+## Before changing code
 
-- JDK 21+ (the compile target is 21 — `maven.compiler.release=21` stays even on a newer JDK)
-- Maven 3.9+ (or the bundled `./mvnw`)
-- Docker / Docker Compose, for the infrastructure stack and integration tests
+1. Read [the project overview](docs/project-overview-pdr.md), [architecture](docs/architecture/SYSTEM_ARCHITECTURE.md),
+   and [code standards](docs/code-standards.md).
+2. Create an intent-based branch such as `feature/inventory-transfer` or
+   `fix/harvest-event-deduplication`.
+3. For cross-module or risky work, add a plan under
+   `plans/<timestamp>-<descriptive-slug>/`.
+4. Check the relevant OpenAPI, AsyncAPI, event schema, migration history, and
+   neighboring tests before editing.
 
-## Getting set up
+## Change rules
+
+- Keep database ownership inside one service. Never query another service's
+  schema or share JPA entities.
+- Preserve backward compatibility unless the accepted change explicitly versions
+  the contract.
+- Add Flyway migrations; never edit or delete an applied migration.
+- Validate external input at the controller, message, or storage boundary.
+- Keep authentication and authorization at domain services even when the gateway
+  also rejects unauthenticated traffic.
+- Do not commit `.env`, tokens, private keys, provider keys, registry credentials,
+  production data, or personal information.
+- Generate clients from contracts; do not hand-edit files under
+  `apps/agricore-console/src/lib/api/generated/`.
+
+## Verification
+
+Run the narrowest affected test first, then the shared gates when a public or
+cross-service contract changes.
 
 ```bash
-# 1. Infrastructure: PostgreSQL (5434), Redis (6380), Kafka (9092), Kafka UI (8088)
-./scripts/dev-up.sh          # Linux/macOS
-.\scripts\dev-up.ps1         # Windows
-
-# 2. JWT keys for identity-service (once)
-.\scripts\generate-jwt-keys.ps1
-
-# 3. Build everything
-./mvnw verify
-```
-
-Integration tests need the compose Postgres running. `./mvnw test` on its own will fail on the
-integration suites if infrastructure is down.
-
-## Working on a change
-
-Run the narrowest useful test first, then broaden:
-
-```bash
-# One module. -am builds its dependencies, which you need because
-# common-lib/common-security are not installed to ~/.m2.
-./mvnw -B -am -pl services/identity-service test
-
-# Several modules
-./mvnw -B -am -pl services/identity-service,services/notification-service test
-
-# Everything (what CI runs)
+./mvnw -pl services/<service> -am test
 ./mvnw -B verify
+
+pnpm contracts:check
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
 ```
 
-`verify` writes a JaCoCo report per module to `target/site/jacoco/`.
+Infrastructure changes also require:
 
-## Coverage
-
-Coverage is **measured but not enforced** — the CI gate is advisory (`continue-on-error`) while the
-baseline is brought up. Do not let a change lower coverage on a module you touched. Target
-thresholds, for when the gate flips strict:
-
-| Module type | Lines | Branches |
-|-------------|-------|----------|
-| Services | ≥ 70% | ≥ 65% |
-| Critical (identity, sales) | ≥ 90% | ≥ 85% |
-
-## Commit messages
-
-[Conventional Commits](https://www.conventionalcommits.org/), enforced by review:
-
-```
-<type>(<scope>): <subject>
+```bash
+docker compose config --quiet
+helm lint infrastructure/helm/agricore
+helm template agricore infrastructure/helm/agricore
 ```
 
-- Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
-- Scope is the service or area: `feat(identity):`, `fix(harvest):`, `ci(publish):`
-- Subject ≤ 72 chars, imperative mood, no trailing period
-- Breaking changes: `feat(api)!:` or a `BREAKING CHANGE:` footer
-- The body explains **why**, wrapped at 100 columns
+Browser journeys use `pnpm --filter @agricore/console e2e`. Full-stack evidence
+uses `scripts/verify-platform.ps1` or `scripts/verify-platform.sh`.
 
-Example from this repo's history:
+Showcase-media changes also require:
 
-```
-feat(identity): publish UserRegistered through transactional outbox
-
-The outbox_events table shipped in V1 but nothing wrote to it. Registration now
-enqueues a UserRegistered.v1 envelope in the same transaction as the user insert,
-and a polling publisher ships it to agricore.identity.events.
+```bash
+node scripts/verify-showcase-media.mjs
 ```
 
-## Pull requests
+## Commits and pull requests
 
-`main` is protected. Open a PR from a branch; these checks must be green before merge:
+- Use focused conventional commits: `feat`, `fix`, `refactor`, `test`, `docs`,
+  `ci`, `build`, or `perf`.
+- Do not mention automated tooling or assistants in commit messages.
+- Separate migrations, behavior, generated contracts, and unrelated cleanup when
+  they can be reviewed independently.
+- Explain the problem, trust boundaries, migration/rollback path, and verification
+  evidence in the pull request.
+- A pull request is ready only when required CI, security, contract, Compose, and
+  Helm checks pass with no hidden failures.
 
-| Check | What it runs |
-|-------|--------------|
-| `ci / build-test` | `./mvnw -B verify` across the full reactor |
-| `ci / secret-scan` | Gitleaks over the diff |
-| `ci / compose-config` | `docker compose config` on all compose files |
-| `codeql` | SAST over Java sources |
-| `trivy` | Filesystem and dependency vulnerability scan |
+## Reporting security issues
 
-Keep a PR to one logical change. If a diff mixes a refactor with a behaviour change, split it.
-
-## Architecture rules
-
-These are load-bearing — a PR that breaks one will be sent back:
-
-- **Database per service.** No cross-service JPA relationships, no shared schema. Services
-  reference each other's aggregates by id only.
-- **`libs/common-lib` stays framework-free.** An ArchUnit test fails the build if anything under
-  `com.agricore.common..` gains a `org.springframework..` dependency.
-- **Events go through the transactional outbox.** Do not publish to Kafka directly from an
-  application service. See [`docs/adr/0004-transactional-outbox-polling.md`](docs/adr/0004-transactional-outbox-polling.md).
-- **Consumers are idempotent.** Every listener records a processed-event marker in the same
-  transaction as its side effect. See [`docs/adr/0005-idempotent-consumer.md`](docs/adr/0005-idempotent-consumer.md).
-- **Contracts are canonical.** Changing a REST route or event payload means updating
-  `contracts/openapi/` or `contracts/asyncapi/` in the same PR.
-
-An architectural decision that is not obvious from the code needs an ADR in `docs/adr/`, using
-[`docs/adr/template.md`](docs/adr/template.md). ADRs are append-only: supersede, never edit an
-accepted one.
-
-## Things that will not be merged
-
-- Secrets, dotenv files, keys, or credentials in the diff — even in tests or examples
-- A new service without a `README.md`, a healthcheck endpoint, and a Dockerfile
-- Documentation that describes behaviour the code does not implement
-- Commented-out code, or a `TODO` without an issue behind it
+Do not open a public issue containing an exploitable vulnerability, credential,
+or production data. Use the repository's private security-advisory channel. If
+that channel is unavailable, contact the repository owner privately and include
+only the minimum reproduction needed.

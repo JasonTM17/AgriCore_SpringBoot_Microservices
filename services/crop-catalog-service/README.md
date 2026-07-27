@@ -1,56 +1,38 @@
-# crop-catalog-service
+# Crop Catalog Service
 
 ## Purpose
 
-Reference catalogue of crop varieties (Robusta coffee, Ri6 durian, ST25 rice, and similar) that
-crop cycles and harvest batches point at. Read-mostly master data. Called by the gateway and
-referenced by crop-cycle-service; calls no other AgriCore service.
+Owns crops, varieties, and versioned care profiles used by crop planning.
+The service has its own PostgreSQL/Flyway history and no Kafka producer or
+consumer.
 
-## API surface
+## API
 
-- `POST /api/v1/crops` — register a crop variety
-- `GET /api/v1/crops` — list crops
-- `GET /api/v1/crops/{cropId}` — crop detail
-- `GET /api/v1/crops/by-code/{code}` — lookup by catalogue code
-- Contract: `contracts/openapi/crop-catalog-service.v1.yaml`
-- Events published: none (`CropCreated.v1` exists as a constant but this service has no outbox)
-- Events consumed: none
+- `/api/v1/crops` and `/api/v1/crops/{cropId}`: create, list, and read crops.
+- `/api/v1/crops/by-code/{code}`: code lookup.
+- `/api/v1/crops/{cropId}/varieties` and
+  `/api/v1/crop-varieties/{varietyId}`: variety management.
+- `/api/v1/crops/{cropId}/care-profile` and the guarded admin write path:
+  versioned agronomic guidance.
 
-## Env vars
+The [OpenAPI contract](../../contracts/openapi/crop-catalog-service.v1.yaml) is
+the request/response source of truth.
 
-| Name | Required | Default | Description |
-|------|----------|---------|-------------|
-| `CROP_CATALOG_PORT` | no | `8083` | HTTP listen port |
-| `POSTGRES_HOST` | no | `localhost` | Database host |
-| `POSTGRES_PORT` | no | `5434` | Database port |
-| `POSTGRES_USER` | no | `agricore` | Database user |
-| `POSTGRES_PASSWORD` | yes in prod | dev value | Database password |
-| `JWT_ISSUER` | no | `https://agricore.local/identity` | Expected `iss` claim |
-| `IDENTITY_JWKS_URI` | no | identity JWKS URL | Key source for local token verification |
-| `AGRICORE_DEV_MODE` | no | `false` | Dev shortcuts; keep `false` outside local work |
+## Configuration
 
-Database: `agricore_crop_catalog`. Seed crops load via Flyway migration.
+Database: `agricore_crop_catalog`. Core variables are `CROP_CATALOG_PORT`,
+`POSTGRES_*`, `IDENTITY_JWKS_URI`, `JWT_ISSUER`, and `AGRICORE_DEV_MODE`.
+Security stays enabled unless explicit local/test dev mode is active.
 
-## Run locally
-
-```bash
-./scripts/dev-up.sh
-mvn -pl services/crop-catalog-service spring-boot:run
-```
-
-## Test
+## Run and verify
 
 ```bash
 ./mvnw -B -pl services/crop-catalog-service -am test
-./mvnw -B -pl services/crop-catalog-service -am verify   # adds the JaCoCo report
+./mvnw -pl services/crop-catalog-service spring-boot:run
 ```
 
-Target once coverage gating is enforced: ≥ 70% lines / ≥ 65% branches.
+- Missing seed data: inspect `flyway_schema_history`; seed rows are migrations.
+- Duplicate crop or variety code: update the existing record or choose a new
+  normalized code.
 
-## Runbook
-
-- **Missing seed crops** — confirm Flyway ran (`flyway_schema_history` in `agricore_crop_catalog`);
-  seeds ship inside the migration, not a startup hook.
-- **Crop code conflicts** — codes are unique; resolve by patching the existing row rather than
-  inserting a duplicate variety.
-- **Reset local data** — drop and recreate `agricore_crop_catalog`, restart to replay migrations.
+See [code standards](../../docs/code-standards.md).

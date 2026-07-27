@@ -14,6 +14,7 @@
   "iot" .Values.iot
   "sales" .Values.sales
   "traceability" .Values.traceability
+  "assistant" .Values.assistant
   "gateway" .Values.gateway
 -}}
 {{- range $name, $svc := $services }}
@@ -29,15 +30,33 @@ metadata:
     app.kubernetes.io/component: microservice
 spec:
   replicas: {{ $svc.replicaCount | default 1 }}
+  minReadySeconds: 10
+  progressDeadlineSeconds: 600
+  {{- if eq $name "iot" }}
+  # IoT Flyway migrations can rewrite the readings table into a hypertable.
+  # Stop old writers before starting the new revision.
+  strategy:
+    type: Recreate
+  {{- else }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  {{- end }}
   selector:
     matchLabels:
       app.kubernetes.io/name: agricore-{{ $name }}
   template:
     metadata:
+      annotations:
+        checksum/runtime-config: {{ include (print $.Template.BasePath "/configmap.yaml") $ | sha256sum }}
       labels:
         app.kubernetes.io/name: agricore-{{ $name }}
         app.kubernetes.io/part-of: agricore
     spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
@@ -45,37 +64,87 @@ spec:
           type: RuntimeDefault
       containers:
         - name: {{ $name }}
-          image: "{{ $svc.image }}:{{ $.Values.global.imageTag }}"
+          image: {{ include "agricore.imageRef" (dict "image" $svc.image "tag" $.Values.global.imageTag "allowMutable" $.Values.global.allowMutableImages "requireDigest" $.Values.global.requireImageDigest) | quote }}
           imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
           ports:
             - containerPort: {{ $svc.port }}
               name: http
+          envFrom:
+            - configMapRef:
+                name: agricore-runtime-config
           env:
-            - name: POSTGRES_HOST
-              value: {{ $.Values.postgres.host | quote }}
-            - name: POSTGRES_PORT
-              value: {{ $.Values.postgres.port | quote }}
+            {{- if ne $name "gateway" }}
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
-                  name: agricore-db
+                  name: {{ required (printf "%s.databaseSecretName is required" $name) $svc.databaseSecretName | quote }}
                   key: username
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: agricore-db
+                  name: {{ required (printf "%s.databaseSecretName is required" $name) $svc.databaseSecretName | quote }}
                   key: password
-            - name: KAFKA_BOOTSTRAP_SERVERS
-              value: {{ $.Values.kafka.bootstrapServers | quote }}
-            - name: JWT_ISSUER
-              value: {{ $.Values.jwtIssuer | quote }}
-            - name: IDENTITY_JWKS_URI
-              value: {{ $.Values.identityJwksUri | quote }}
-            - name: AGRICORE_DEV_MODE
-              value: "false"
-            - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
-              value: "5"
+            {{- end }}
+            {{- if $.Values.observability.structuredLogging }}
+            - name: LOGGING_STRUCTURED_FORMAT_CONSOLE
+              value: "ecs"
+            - name: LOGGING_STRUCTURED_ECS_SERVICE_ENVIRONMENT
+              value: {{ $.Values.observability.environment | quote }}
+            {{- end }}
+            {{- if $.Values.observability.otlpTracingEndpoint }}
+            - name: MANAGEMENT_OTLP_TRACING_ENDPOINT
+              value: {{ $.Values.observability.otlpTracingEndpoint | quote }}
+            - name: MANAGEMENT_TRACING_SAMPLING_PROBABILITY
+              value: {{ $.Values.observability.samplingProbability | quote }}
+            {{- end }}
+            {{- if or (eq $name "crop-cycle") (eq $name "work") (eq $name "inventory") (eq $name "harvest") (eq $name "iot") (eq $name "sales") }}
+            - name: FARM_SERVICE_URL
+              value: {{ $.Values.farmAccess.serviceUrl | quote }}
+            - name: FARM_SERVICE_ALLOWED_HOSTS
+              value: {{ $.Values.farmAccess.allowedHosts | quote }}
+            - name: FARM_SERVICE_ALLOW_INSECURE_HTTP
+              value: {{ $.Values.farmAccess.allowInsecureHttp | quote }}
+            {{- end }}
+            {{- if eq $name "harvest" }}
+            - name: CROP_CYCLE_SERVICE_URL
+              value: {{ $.Values.cropCycleAccess.serviceUrl | quote }}
+            - name: CROP_CYCLE_SERVICE_ALLOWED_HOSTS
+              value: {{ $.Values.cropCycleAccess.allowedHosts | quote }}
+            - name: CROP_CYCLE_SERVICE_ALLOW_INSECURE_HTTP
+              value: {{ $.Values.cropCycleAccess.allowInsecureHttp | quote }}
+            - name: INVENTORY_SERVICE_URL
+              value: {{ $svc.inventoryServiceUrl | quote }}
+            - name: INVENTORY_SERVICE_ALLOWED_HOSTS
+              value: {{ $svc.inventoryServiceAllowedHosts | quote }}
+            - name: INVENTORY_SERVICE_ALLOW_INSECURE_HTTP
+              value: {{ $svc.inventoryServiceAllowInsecureHttp | quote }}
+            {{- end }}
+            {{- if or (eq $name "work") (eq $name "inventory") (eq $name "harvest") (eq $name "sales") }}
+            - name: INVENTORY_INTERNAL_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.inventory.internalCredentialSecretName | quote }}
+                  key: {{ $.Values.inventory.internalCredentialTokenKey | default "token" | quote }}
+            {{- end }}
             {{- if eq $name "identity" }}
+            {{- $webAllowedOrigins := required "identity.webAllowedOrigins is required" $svc.webAllowedOrigins }}
+            {{- if not (hasKey $svc "refreshCookieSecure") }}
+            {{- fail "identity.refreshCookieSecure is required" }}
+            {{- end }}
+            {{- $refreshCookieSecure := $svc.refreshCookieSecure }}
+            {{- if not (kindIs "bool" $refreshCookieSecure) }}
+            {{- fail "identity.refreshCookieSecure must be a boolean" }}
+            {{- end }}
+            {{- if $.Values.ingress.enabled }}
+            {{- $ingressHost := required "ingress.host is required when ingress.enabled=true" $.Values.ingress.host }}
+            {{- $expectedWebOrigin := printf "https://%s" $ingressHost }}
+            {{- if ne $webAllowedOrigins $expectedWebOrigin }}
+            {{- fail "identity.webAllowedOrigins must exactly equal https://<ingress.host> when ingress.enabled=true" }}
+            {{- end }}
+            {{- if not $refreshCookieSecure }}
+            {{- fail "identity.refreshCookieSecure must be true when ingress.enabled=true" }}
+            {{- end }}
+            {{- end }}
             - name: REDIS_HOST
               value: {{ $.Values.redis.host | default "redis" | quote }}
             - name: REDIS_PORT
@@ -86,14 +155,147 @@ spec:
               value: {{ $.Values.identity.registrationEnabled | default false | quote }}
             - name: AGRICORE_RATE_LIMIT_FAIL_OPEN
               value: "false"
-            - name: AGRICORE_TRUST_FORWARDED_HEADERS
-              value: {{ $.Values.identity.trustForwardedHeaders | default true | quote }}
+            - name: AGRICORE_REFRESH_COOKIE_SECURE
+              value: {{ $refreshCookieSecure | quote }}
+            - name: AGRICORE_WEB_ALLOWED_ORIGINS
+              value: {{ $webAllowedOrigins | quote }}
+            - name: AGRICORE_CLIENT_IP_SIGNING_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "clientIp.signingSecretName is required" $.Values.clientIp.signingSecretName | quote }}
+                  key: {{ required "clientIp.signingSecretKey is required" $.Values.clientIp.signingSecretKey | quote }}
+            - name: AGRICORE_JWT_PRIVATE_KEY_PATH
+              value: /var/run/secrets/agricore/jwt/private-key.pem
+            - name: AGRICORE_JWT_PUBLIC_KEY_PATH
+              value: /var/run/secrets/agricore/jwt/public-key.pem
             {{- end }}
             {{- if eq $name "sales" }}
             - name: INVENTORY_SERVICE_URL
               value: {{ $.Values.sales.inventoryServiceUrl | default "http://agricore-inventory:8086" | quote }}
             - name: SALES_PORT
               value: {{ $svc.port | quote }}
+            {{- end }}
+            {{- if eq $name "notification" }}
+            - name: NOTIFICATION_PORT
+              value: {{ $svc.port | quote }}
+            - name: NOTIFICATION_DELIVERY_PROVIDER
+              value: {{ $svc.deliveryProvider | default "smtp" | quote }}
+            - name: NOTIFICATION_SMTP_HOST
+              value: {{ $svc.smtp.host | quote }}
+            - name: NOTIFICATION_SMTP_PORT
+              value: {{ $svc.smtp.port | quote }}
+            - name: NOTIFICATION_SMTP_FROM
+              value: {{ $svc.smtp.fromAddress | quote }}
+            - name: NOTIFICATION_SMTP_AUTH
+              value: {{ $svc.smtp.auth | quote }}
+            - name: NOTIFICATION_SMTP_STARTTLS
+              value: {{ $svc.smtp.startTls | quote }}
+            - name: NOTIFICATION_SMTP_STARTTLS_REQUIRED
+              value: {{ $svc.smtp.startTlsRequired | quote }}
+            {{- if $svc.smtp.auth }}
+            - name: NOTIFICATION_SMTP_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $svc.smtp.credentialSecretName | quote }}
+                  key: {{ $svc.smtp.usernameKey | default "username" | quote }}
+            - name: NOTIFICATION_SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $svc.smtp.credentialSecretName | quote }}
+                  key: {{ $svc.smtp.passwordKey | default "password" | quote }}
+            {{- end }}
+            - name: NOTIFICATION_DELIVERY_MAX_ATTEMPTS
+              value: {{ $svc.delivery.maxAttempts | default 3 | quote }}
+            - name: NOTIFICATION_DELIVERY_LEASE
+              value: {{ $svc.delivery.lease | default "PT30S" | quote }}
+            - name: NOTIFICATION_DELIVERY_RECOVERY_POLL_MS
+              value: {{ $svc.delivery.recoveryPollMs | default 30000 | quote }}
+            - name: NOTIFICATION_DELIVERY_RECOVERY_BATCH_SIZE
+              value: {{ $svc.delivery.recoveryBatchSize | default 50 | quote }}
+            {{- end }}
+            {{- if and (eq $name "iot") $svc.mqtt.enabled }}
+            {{- if not $svc.mqtt.auth.enabled }}
+            {{- fail "iot.mqtt.auth.enabled must be true when MQTT ingestion is enabled" }}
+            {{- end }}
+            - name: IOT_MQTT_ENABLED
+              value: "true"
+            - name: IOT_MQTT_BROKER
+              value: {{ $svc.mqtt.broker | quote }}
+            - name: IOT_MQTT_ALLOW_INSECURE
+              value: {{ $svc.mqtt.allowInsecure | default false | quote }}
+            - name: IOT_MQTT_CLIENT_ID
+              {{- if $svc.mqtt.clientId }}
+              value: {{ $svc.mqtt.clientId | quote }}
+              {{- else }}
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+              {{- end }}
+            - name: IOT_MQTT_TOPIC
+              value: {{ $svc.mqtt.topic | quote }}
+            - name: IOT_MQTT_QOS
+              value: {{ $svc.mqtt.qos | default 1 | quote }}
+            - name: IOT_MQTT_MAX_READING_AGE
+              value: {{ $svc.mqtt.maxReadingAge | default "P30D" | quote }}
+            - name: IOT_MQTT_MAX_FUTURE_SKEW
+              value: {{ $svc.mqtt.maxFutureSkew | default "PT5M" | quote }}
+            {{- if $svc.mqtt.auth.enabled }}
+            - name: IOT_MQTT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $svc.mqtt.auth.credentialSecretName | quote }}
+                  key: {{ $svc.mqtt.auth.usernameKey | default "username" | quote }}
+            - name: IOT_MQTT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $svc.mqtt.auth.credentialSecretName | quote }}
+                  key: {{ $svc.mqtt.auth.passwordKey | default "password" | quote }}
+            {{- end }}
+            {{- end }}
+            {{- if eq $name "assistant" }}
+            - name: ASSISTANT_PORT
+              value: {{ $svc.port | quote }}
+            - name: REDIS_HOST
+              value: {{ $.Values.redis.host | default "redis" | quote }}
+            - name: REDIS_PORT
+              value: {{ $.Values.redis.port | default "6379" | quote }}
+            - name: ASSISTANT_PROVIDER
+              value: {{ $svc.provider | default "none" | quote }}
+            - name: ASSISTANT_PROVIDER_MODEL
+              value: {{ $svc.providerModel | default "" | quote }}
+            - name: ASSISTANT_PROVIDER_BASE_URL
+              value: {{ $svc.providerBaseUrl | default "" | quote }}
+            - name: ASSISTANT_PROVIDER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $svc.providerSecretName | quote }}
+                  key: {{ $svc.providerApiKeyKey | default "api-key" | quote }}
+                  optional: true
+            - name: ASSISTANT_TOOLS_ENABLED
+              value: {{ $svc.toolsEnabled | default false | quote }}
+            - name: ASSISTANT_FARM_TOOL_BASE_URL
+              value: {{ $svc.farmToolBaseUrl | quote }}
+            - name: ASSISTANT_TOOL_ALLOWED_HOSTS
+              value: {{ $svc.toolAllowedHosts | quote }}
+            - name: ASSISTANT_TOOL_ALLOW_INSECURE_HTTP
+              value: {{ $svc.toolAllowInsecureHttp | default false | quote }}
+            - name: AGRICORE_CLIENT_IP_SIGNING_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "clientIp.signingSecretName is required" $.Values.clientIp.signingSecretName | quote }}
+                  key: {{ required "clientIp.signingSecretKey is required" $.Values.clientIp.signingSecretKey | quote }}
+            - name: ASSISTANT_ARCHIVED_CONVERSATION_RETENTION
+              value: {{ $svc.archivedConversationRetention | quote }}
+            - name: ASSISTANT_AUDIT_RETENTION
+              value: {{ $svc.auditRetention | quote }}
+            - name: ASSISTANT_GENERATION_EVENT_RETENTION
+              value: {{ $svc.generationEventRetention | quote }}
+            - name: ASSISTANT_RETENTION_CLEANUP_ENABLED
+              value: {{ $svc.retentionCleanupEnabled | quote }}
+            - name: ASSISTANT_RETENTION_CLEANUP_INTERVAL
+              value: {{ $svc.retentionCleanupInterval | quote }}
+            - name: ASSISTANT_RETENTION_CLEANUP_BATCH_SIZE
+              value: {{ $svc.retentionCleanupBatchSize | quote }}
             {{- end }}
             {{- if eq $name "gateway" }}
             - name: IDENTITY_SERVICE_URL
@@ -118,20 +320,45 @@ spec:
               value: {{ $.Values.gateway.salesServiceUrl | default "http://agricore-sales:8091" | quote }}
             - name: TRACEABILITY_SERVICE_URL
               value: {{ $.Values.gateway.traceabilityServiceUrl | default "http://agricore-traceability:8092" | quote }}
+            - name: ASSISTANT_SERVICE_URL
+              value: {{ $.Values.gateway.assistantServiceUrl | default "http://agricore-assistant:8093" | quote }}
             - name: GATEWAY_PORT
               value: {{ $svc.port | quote }}
+            - name: AGRICORE_CLIENT_IP_SIGNING_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "clientIp.signingSecretName is required" $.Values.clientIp.signingSecretName | quote }}
+                  key: {{ required "clientIp.signingSecretKey is required" $.Values.clientIp.signingSecretKey | quote }}
+            - name: GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN
+              value: {{ $.Values.gateway.trustedProxyAddressPattern | quote }}
             {{- end }}
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
+          volumeMounts:
+            {{- if eq $name "identity" }}
+            - name: identity-jwt
+              mountPath: /var/run/secrets/agricore/jwt
+              readOnly: true
+            {{- end }}
+            - name: tmp
+              mountPath: /tmp
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 30
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness
               port: http
             initialDelaySeconds: 45
             periodSeconds: 15
+            timeoutSeconds: 5
             failureThreshold: 5
           readinessProbe:
             httpGet:
@@ -139,9 +366,24 @@ spec:
               port: http
             initialDelaySeconds: 25
             periodSeconds: 10
+            timeoutSeconds: 5
             failureThreshold: 6
           resources:
             {{- toYaml ($svc.resources | default (dict "requests" (dict "cpu" "100m" "memory" "256Mi") "limits" (dict "cpu" "500m" "memory" "512Mi"))) | nindent 12 }}
+      volumes:
+        {{- if eq $name "identity" }}
+        - name: identity-jwt
+          secret:
+            secretName: {{ required "identity.jwtSigningSecretName is required" $.Values.identity.jwtSigningSecretName | quote }}
+            items:
+              - key: {{ $.Values.identity.jwtPrivateKeyKey | quote }}
+                path: private-key.pem
+              - key: {{ $.Values.identity.jwtPublicKeyKey | quote }}
+                path: public-key.pem
+        {{- end }}
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
 ---
 apiVersion: v1
 kind: Service
@@ -158,4 +400,25 @@ spec:
       targetPort: http
       name: http
 {{- end }}
+{{- end }}
+
+{{- if .Values.gateway.enabled }}
+---
+# The production Console image uses the same upstream DNS name as Compose.
+# Keep that immutable image portable by providing a Kubernetes service alias.
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  labels:
+    app.kubernetes.io/name: agricore-gateway
+    app.kubernetes.io/part-of: agricore
+    app.kubernetes.io/component: gateway-alias
+spec:
+  selector:
+    app.kubernetes.io/name: agricore-gateway
+  ports:
+    - port: {{ .Values.gateway.port }}
+      targetPort: http
+      name: http
 {{- end }}

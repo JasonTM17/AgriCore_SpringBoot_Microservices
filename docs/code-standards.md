@@ -1,154 +1,118 @@
-# Code Standards
+# AgriCore code standards
 
-Conventions this repository actually follows. Deviations are bugs, not style preferences.
+## Design order
 
-## Language and build
+Use YAGNI, then KISS, then DRY. Extend an existing boundary before creating a
+generic framework. Split files above roughly 200 lines when a real responsibility
+boundary exists; configuration, migrations, scripts, and prose are exceptions.
 
-- Java 21 (`maven.compiler.release=21`). The host JDK may be newer; the release target is not raised
-  to match it.
-- Maven multi-module reactor; every service and library is a module in the root `pom.xml`.
-- Dependency versions are declared **only** in the root `pom.xml` (`dependencyManagement` +
-  properties). Service poms never carry a `<version>`.
-- Two version pins are security decisions, not upgrade laziness — do not bump them casually:
-  `spring-boot.version` (Actuator CVEs) and `spring-kafka.version` (deserialization CVE). Both carry
-  an explanatory comment at the declaration site.
+## Service structure
 
-## Package structure
+Spring services use responsibility-oriented packages:
 
 ```text
 com.agricore.<service>
-  api/            controllers + request/response records
-  application/    application services, outbox writers
-  domain/         entities, value objects, enums, domain exceptions
-  infrastructure/ persistence, messaging, security, configuration
+  api/             controllers and transport records
+  application/     use cases and ports
+  domain/          models, policies, and domain exceptions
+  infrastructure/  persistence, messaging, security, and configuration
 ```
 
-- Controllers hold no business logic — validate, delegate, map.
-- Application services orchestrate; they do not build event JSON (that is an outbox writer's job).
-- Domain code has no Spring or JPA imports where avoidable, and never imports another service.
-- An ArchUnit test in `libs/common-lib` enforces that the shared library stays framework-free: no
-  class under `com.agricore.common..` may depend on `org.springframework..`. Per-service hexagonal
-  rules are not yet enforced by tests.
+Dependencies point inward. A service never imports another service's domain or
+JPA model. Keep module-local setup, environment-variable, test, and repair notes
+in `services/<service>/README.md`, and verify them against the controller,
+configuration, contracts, and migrations whenever behavior changes.
 
-## Modularization
+## Java and Spring
 
-- A file past ~200 lines is a signal to extract a collaborator. `CropCycleOutboxWriter` and
-  `IdentityOutboxWriter` exist for exactly this reason.
-- Extract by responsibility, not by line count: envelope construction, persistence mapping, policy
-  checks are natural seams.
-
-## Naming
-
-- Services are named for responsibility, never for implementation technology (`identity-service`, not
-  `auth-java`).
-- Event types are `PascalCase.vN` string constants in `EventTypes` — `UserRegistered.v1`. The version
-  suffix is part of the name.
-- Topics are `agricore.<domain>.events`; dead-letter topics are `<topic>.DLT`.
-- Kebab-case for file and directory names outside Java; Java keeps PascalCase types.
-- Database identifiers are `snake_case`; JPA maps explicitly with `@Column(name = ...)`.
+- Target Java 21 and use constructor injection.
+- Controllers own HTTP mapping, Bean Validation, authentication context, and
+  response codes. Business transitions belong in application/domain services.
+- Transactions end before remote calls. Never keep a database transaction open
+  across another service or broker.
+- Use typed exceptions and the shared API error envelope; do not return stack
+  traces or raw downstream bodies.
+- Use `BigDecimal` for quantities and prices. State the scale and rounding policy
+  at the domain boundary.
+- Normalize business codes once and enforce matching database uniqueness.
+- Use UTC `Instant` for event timestamps and audit moments; use `LocalDate` only
+  for calendar dates without time-of-day meaning.
+- Keep security enabled by default. Development headers require the explicit
+  dev-mode flag and remain off in Compose/Helm application profiles.
 
 ## Persistence
 
-- Database per service. No cross-service foreign keys, no shared schema, no cross-service joins.
-- Flyway migrations are append-only: `V<N>__<description>.sql`. Never edit an applied migration;
-  add the next one.
-- `spring.jpa.hibernate.ddl-auto=validate` in every service — schema comes from migrations only.
-- Optimistic locking (`@Version`) where concurrent updates are plausible (inventory stock).
+- One service owns one database and Flyway history.
+- Migrations are immutable after merge. Add expand/backfill/contract migrations
+  for existing data and document non-trivial rollback.
+- Add indexes for foreign keys, queue scans, frequent filters, and idempotency
+  keys; verify with PostgreSQL tests when locking or SQL dialect matters.
+- Every mutable aggregate has an explicit concurrency policy. Do not use locking
+  as decoration.
+- Inventory quantity changes always produce a movement with business reference.
+- Store credentials only as strong hashes where recovery is not required.
 
-## Events
+## APIs and events
 
-- Publish through the transactional outbox: the domain write and the `outbox_events` row commit in one
-  transaction. Never write to Kafka inside a business transaction.
-- Envelope shape is fixed: `eventId`, `eventType`, `eventVersion`, `occurredAt`, `producer`, `payload`.
-- Consumers are idempotent on `eventId` via `processed_events`, keyed by `(event_id, consumer_name)`.
-- The marker row and the effect commit in the same transaction, otherwise a crash drops work.
-- Payloads carry no credentials, tokens, or password hashes. Personal data is limited to what the
-  consumer demonstrably needs, and that choice is documented in the AsyncAPI contract.
+- Version public contracts and keep runtime, gateway, generated clients, and docs
+  synchronized.
+- Validate unknown JSON fields when silent acceptance could hide contract drift.
+- Use page/size bounds for collections; sorting fields are allowlisted.
+- All domain events use the shared envelope and immutable schema version.
+- Producers commit an outbox row with the aggregate change. Pollers use bounded
+  batches, row locks, send timeouts, backlog metrics, and repairable failures.
+- Consumers validate exact type/version, commit side effect plus processed marker,
+  and route invalid/exhausted records through the documented DLT path.
+- Event payloads include only data the consumer proves it needs. Identity's
+  `UserRegistered.v1` welcome-notification payload must never contain password,
+  token, or credential material.
+- Do not automatically resend an external notification after an ambiguous
+  outcome. Mark it `FAILED` with `DELIVERY_OUTCOME_UNKNOWN`; only idempotent
+  local channels such as `IN_APP` may reclaim a stale delivery lease.
 
-## Errors
+## TypeScript and React
 
-- Domain failures throw a service-local exception carrying a stable code and HTTP status
-  (`IdentityException("EMAIL_ALREADY_EXISTS", ..., 409)`).
-- Error codes are part of the public contract — renaming one is a breaking change.
-- Responses use the shared `ApiError` envelope from `common-lib`. Every servlet service has a
-  `@RestControllerAdvice`; the gateway does not, because it is WebFlux.
-- Platform-wide codes every service emits: `VALIDATION_FAILED` (400), `INVALID_PARAMETER` (400),
-  `MALFORMED_REQUEST` (400), `ACCESS_DENIED` (403), `DUPLICATE_RESOURCE` (409),
-  `INTERNAL_ERROR` (500).
-- A duplicate unique key is `DUPLICATE_RESOURCE`, not a 500. Pre-insert existence checks are not
-  locks, so two concurrent requests can both pass one and the database rejects the loser.
-  `ConstraintViolations` in `common-lib` classifies by SQLState (`23505` unique, `23503` foreign key,
-  `23502` not null) rather than by exception subtype — Hibernate's JPA dialect collapses all three
-  into one `DataIntegrityViolationException` and never narrows to `DuplicateKeyException`. Only a
-  unique violation becomes 409; the other two stay 500, because they are service defects.
-- Error bodies never carry a constraint name, table name, or SQLState. Those identify the schema and
-  go to the log, where an operator can act on them.
-- A 401 is not `ApiError`-shaped anywhere: it comes from the security filter chain's authentication
-  entry point, which runs before the DispatcherServlet and so before any advice.
-- **An `@ExceptionHandler(Exception.class)` catch-all must first re-dispatch `ErrorResponse`.**
-  Declaring a handler for `Exception` takes precedence over Spring's `DefaultHandlerExceptionResolver`,
-  so it silently captures the framework's own web exceptions — unknown path, unsupported method,
-  unreadable body — which already carry a correct status, and reports each as 500. Spring 6 marks
-  those with the `ErrorResponse` interface, so the catch-all forwards `errorResponse.getStatusCode()`
-  before falling through to `INTERNAL_ERROR`.
-- Two exceptions need their own handler because they do **not** implement `ErrorResponse` and would
-  otherwise still land on the catch-all as 500. Both were found by probing, not by reading:
-  `MethodArgumentTypeMismatchException` → 400 `INVALID_PARAMETER`, naming the parameter without
-  repeating the rejected value; and `HttpMessageNotReadableException` → 400 `MALFORMED_REQUEST` for
-  a body that is absent or is not valid JSON. Its message quotes the offending payload, so it is
-  logged rather than returned.
-- Confirmed as `ErrorResponse` implementors, and therefore handled by the re-dispatch:
-  `NoResourceFoundException` (404), `HttpRequestMethodNotSupportedException` (405),
-  `HttpMediaTypeNotSupportedException` (415), `HttpMediaTypeNotAcceptableException` (406). When
-  adding a handler, probe the exception rather than assuming — the interface is not applied
-  uniformly.
-- The envelope is declared in the contract, not only in code. Every file under `contracts/openapi/`
-  carries an identical `ApiError` schema and references it from each error response. Adding a status
-  to a service means adding it to that service's contract in the same change — CI enforces the paths
-  match and the schema copies are identical.
+- Keep strict TypeScript; do not add `any` without a narrow documented boundary.
+- Use generated OpenAPI types and React Query for server state.
+- Every route handles loading, empty, error, unauthorized, and stale mutation
+  outcomes.
+- Forms use persistent labels, field errors, keyboard focus, and disabled/pending
+  states. Do not rely on placeholder text as a label.
+- Lazy-load route modules and non-critical images. Give media fixed aspect ratios,
+  meaningful alt text, a broken-image fallback, and width-based `srcset`/`sizes`
+  variants.
+- Serialize login behind an active logout and invalidate stale refresh results
+  with a session generation/epoch. A late authentication response must never
+  restore a cleared or replaced session.
+- Backend authorization remains authoritative; hiding a control is only a user
+  experience aid.
 
-## API contract
+## Tests
 
-- `contracts/openapi/*.v1.yaml` is canonical, one file per service, each standing alone.
-- `tools/check-openapi-contract-drift.py` runs in CI as the `contracts` job and fails the build on:
-  a declared endpoint no controller implements; an implemented endpoint no contract declares; a
-  missing or divergent `ApiError` schema; a 4xx/5xx response with no schema; a status declared twice
-  in one `responses:` block; a service with no contract or a contract with no service.
-- **The code is the reference.** When the two disagree, the contract is what changes — unless the
-  contract describes an intended feature, in which case it goes to the roadmap rather than being
-  quietly implemented to satisfy the document.
-- The checker refuses to run on a mapping annotation form it does not understand rather than
-  skipping it. Extend the checker; do not work around it.
-- What it does **not** check: path-variable *names* (`{id}` vs `{cropId}` both pass), request and
-  response body schemas, or the `ApiError` copies against `ApiError.java`. Keep the copies in step
-  with the Java record by hand — changing that record is a deliberate platform-wide event.
+- Unit-test policies, canonicalization, and failure classification.
+- Integration-test controllers, transactions, migrations, authorization, and
+  persistence invariants.
+- Use PostgreSQL/TimescaleDB Testcontainers for dialect, locking, index, or
+  migration behavior; H2 is not evidence for those properties.
+- Test duplicate messages, concurrent mutations, cross-farm UUID guessing,
+  timeouts, compensation, and partial downstream failures.
+- Contract drift, lint, typecheck, unit tests, production build, and critical
+  browser journeys are release gates.
+- Never weaken an assertion or disable a check to make CI green.
 
-## Configuration
+## Security and operations
 
-- Every externally settable value is an env var with a safe default:
-  `${AGRICORE_REGISTRATION_ENABLED:true}`.
-- Security-relevant defaults fail closed (`AGRICORE_DEV_MODE:false`,
-  `AGRICORE_RATE_LIMIT_FAIL_OPEN:false`, `AGRICORE_TRUST_FORWARDED_HEADERS:false`).
-- Optional infrastructure integrations are guarded by `@ConditionalOnProperty` so tests run without a
-  broker: `agricore.outbox.publisher.enabled`, `agricore.kafka.consumer.enabled`.
-- No secret values in `application.yml`, compose files, docs, or tests. Names only.
+- Never log passwords, bearer/refresh tokens, cookies, provider output containing
+  secrets, or private object URLs.
+- Secrets come from local ignored environment files or deployment secret stores.
+- Bound request size, collection size, retries, timeouts, queues, log rotation,
+  and cleanup.
+- Emit trace/correlation identifiers, metrics for backlog/terminal outcomes, and
+  actionable health signals without high-cardinality labels.
 
-## Testing
+## Git
 
-- Unit tests drive real objects with mocked collaborators; they do not assert mock interactions when a
-  real assertion is available.
-- Contract/characterization tests lock event envelopes field by field — a rename must fail a test
-  before it reaches a consumer.
-- Integration tests use H2 with Flyway (`@ActiveProfiles("test")`), except where real PostgreSQL
-  behavior is the point (`InventoryPostgresIdempotencyTest`, which **fails closed** without Docker).
-- No `assumeTrue` / `@Disabled` to make a suite look green. A test that cannot run must fail.
-- Test names read as behavior: `register_duplicateEmail_writesNoAdditionalEvent`.
-
-## Commits
-
-- Conventional Commits: `<type>(<scope>): <subject>`, imperative, ≤ 72 chars, no trailing period.
-- Body explains **why**, wrapped at ~100 columns.
-- One logical change per commit, each landing after its own validation gate.
-- No AI/co-author trailers. `JasonTM17 <jasonbmt06@gmail.com>` is the only author.
-- No plan ids, phase numbers, or audit labels in code comments, migration names, test names, or commit
-  messages — describe the invariant instead.
+- Branch names describe intent: `feature/...`, `fix/...`, `release/...`.
+- Commits are conventional, focused, and contain no automated-author references.
+- Preserve unrelated user changes and never rewrite shared history without
+  explicit approval.

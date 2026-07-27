@@ -1,0 +1,140 @@
+{
+  "generatedAt": "2026-07-23",
+  "optimizedAt": "2026-07-26",
+  "generator": "OpenAI built-in image generation workflow",
+  "derivativeGenerator": "ImageMagick 7 responsive WebP pipeline; metadata stripped; quality 74-78",
+  "license": "Repository-owned generated assets; no user data or external source media",
+  "assets": [
+    {
+      "file": "agricore-farm-sunrise.webp",
+      "mimeType": "image/webp",
+      "width": 1672,
+      "height": 941,
+      "bytes": 252782,
+      "sha256": "7658C6E6CFAC87C69E29BDFF669FF8C6D121628CBA7D3CF8C9E6C579B0F5C467",
+      "role": "source for console hero and farm overview"
+    },
+    {
+      "file": "agricore-farm-sunrise-thumbnail-240w.webp",
+      "mimeType": "image/webp",
+      "width": 240,
+      "height": 135,
+      "bytes": 5572,
+      "sha256": "8E33E3E0A623D898633533A9BD83BC322150BCA9524BE25BCD851B38420EDBC3",
+      "role": "dashboard farm overview thumbnail",
+      "derivedFrom": "agricore-farm-sunrise.webp"
+    },
+    {
+      "file": "agricore-farm-sunrise-480w.webp",
+      "mimeType": "image/webp",
+      "width": 480,
+      "height": 270,
+      "bytes": 20596,
+      "sha256": "573A49DEF71F094C9F995F3314E9A0EEF17084580BFDA08F08458B8B0F620D42",
+      "role": "dashboard hero for small viewports",
+      "derivedFrom": "agricore-farm-sunrise.webp"
+    },
+    {
+      "file": "agricore-farm-sunrise-960w.webp",
+      "mimeType": "image/webp",
+      "width": 960,
+      "height": 540,
+      "bytes": 77566,
+      "sha256": "BCA3A1CB04DDC23BABC41225A46541EB1F4A8F344FE56AEE1C506813569A7DCE",
+      "role": "dashboard hero for medium viewports",
+      "derivedFrom": "agricore-farm-sunrise.webp"
+    },
+    {
+      "file": "agricore-harvest-packing.webp",
+      "mimeType": "image/webp",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 220304,
+      "sha256": "9792AD158E70E6EC3D0023BE2291CC6A48B4D901D8E244C1F6C2E54F65844DC3",
+      "role": "source for harvest and cold-chain showcase"
+    },
+    {
+      "file": "agricore-harvest-packing-thumbnail-240w.webp",
+      "mimeType": "image/webp",
+      "width": 240,
+      "height": 160,
+      "bytes": 8994,
+      "sha256": "C206E8DC9BE1FDFCE821D0DC0768D84A99CC794DD39F11EEE218BAA78F3D8FCD",
+      "role": "dashboard harvest workflow thumbnail",
+      "derivedFrom": "agricore-harvest-packing.webp"
+    },
+    {
+      "file": "agricore-harvest-packing-480w.webp",
+      "mimeType": "image/webp",
+      "width": 480,
+      "height": 320,
+      "bytes": 29638,
+      "sha256": "561E6E638E5F594B665DE0DD1B738BFEBA0A68407DCDF79E60B33741F05EB64C",
+      "role": "harvest showcase for small viewports",
+      "derivedFrom": "agricore-harvest-packing.webp"
+    },
+    {
+      "file": "agricore-harvest-packing-960w.webp",
+      "mimeType": "image/webp",
+      "width": 960,
+      "height": 640,
+      "bytes": 86092,
+      "sha256": "521189147BB172DB8D0514494660704323EC01DBE6992B85FFFE92D16B1824B9",
+      "role": "harvest showcase for large viewports",
+      "derivedFrom": "agricore-harvest-packing.webp"
+    },
+    {
+      "file": "agricore-traceability-produce.webp",
+      "mimeType": "image/webp",
+      "width": 1122,
+      "height": 1402,
+      "bytes": 141024,
+      "sha256": "5E49569C5E72F86F2D72AB8B4E0A7B2D5239F90615B61B72D6FCA46A6D4817B6",
+      "role": "source for public traceability showcase"
+    },
+    {
+      "file": "agricore-traceability-produce-thumbnail-240w.webp",
+      "mimeType": "image/webp",
+      "width": 240,
+      "height": 300,
+      "bytes": 10410,
+      "sha256": "ACA2A3215DFEA27782DAF8B07925F0C67CE28B549C1393A3D79EBAB4FADCA9D9",
+      "role": "public traceability produce thumbnail",
+      "derivedFrom": "agricore-traceability-produce.webp"
+    },
+    {
+      "file": "agricore-traceability-produce-480w.webp",
+      "mimeType": "image/webp",
+      "width": 480,
+      "height": 600,
+      "bytes": 27704,
+      "sha256": "B9D2094500B8D946ACC928E1619FC10D0567DDE419B994A8179AEB90756AAED9",
+      "role": "public traceability showcase for small viewports",
+      "derivedFrom": "agricore-traceability-produce.webp"
+    },
+    {
+      "file": "agricore-traceability-produce-960w.webp",
+      "mimeType": "image/webp",
+      "width": 960,
+      "height": 1200,
+      "bytes": 79624,
+      "sha256": "DDB938BA357C11FDB35D41821F65994099A7EEC04645CF4F2A927F0CBB384424",
+      "role": "public traceability showcase for large viewports",
+      "derivedFrom": "agricore-traceability-produce.webp"
+    },
+    {
+      "file": "agricore-farm-story.gif",
+      "mimeType": "image/gif",
+      "width": 960,
+      "height": 540,
+      "frames": 3,
+      "frameDelayCentiseconds": 120,
+      "durationSeconds": 3.6,
+      "framesPerSecond": 0.8333,
+      "loopCount": 0,
+      "bytes": 648358,
+      "sha256": "7D81F16920CDFB0467A67B802695609181C87213A337759191E1AC91B8E7F524",
+      "role": "bounded three-frame farm story preview"
+    }
+  ]
+}

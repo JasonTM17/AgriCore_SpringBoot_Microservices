@@ -1,0 +1,99 @@
+server:
+  port: ${ASSISTANT_PORT:8093}
+spring:
+  application:
+    name: assistant-service
+  ai:
+    model:
+      chat: none
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5434}/agricore_assistant
+    username: ${POSTGRES_USER:agricore}
+    password: ${POSTGRES_PASSWORD:agricore_dev_change_me}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      repositories:
+        enabled: false
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+agricore:
+  client-ip:
+    signing-secret: ${AGRICORE_CLIENT_IP_SIGNING_SECRET:}
+  assistant:
+    provider:
+      type: ${ASSISTANT_PROVIDER:none}
+      model: ${ASSISTANT_PROVIDER_MODEL:}
+      api-key: ${ASSISTANT_PROVIDER_API_KEY:}
+      base-url: ${ASSISTANT_PROVIDER_BASE_URL:}
+      connect-timeout: ${ASSISTANT_PROVIDER_CONNECT_TIMEOUT:PT5S}
+      read-timeout: ${ASSISTANT_PROVIDER_READ_TIMEOUT:PT60S}
+      max-generation-duration: ${ASSISTANT_MAX_GENERATION_DURATION:PT90S}
+      circuit-open-duration: ${ASSISTANT_PROVIDER_CIRCUIT_OPEN_DURATION:PT30S}
+      max-input-characters: ${ASSISTANT_MAX_INPUT_CHARACTERS:40000}
+      max-output-tokens: ${ASSISTANT_MAX_OUTPUT_TOKENS:1024}
+      circuit-failure-threshold: ${ASSISTANT_PROVIDER_CIRCUIT_FAILURE_THRESHOLD:5}
+      temperature: ${ASSISTANT_PROVIDER_TEMPERATURE:0.2}
+    retention:
+      archived-conversation: ${ASSISTANT_ARCHIVED_CONVERSATION_RETENTION:P90D}
+      audit-event: ${ASSISTANT_AUDIT_RETENTION:P365D}
+      generation-event: ${ASSISTANT_GENERATION_EVENT_RETENTION:PT24H}
+      cleanup-enabled: ${ASSISTANT_RETENTION_CLEANUP_ENABLED:true}
+      cleanup-interval: ${ASSISTANT_RETENTION_CLEANUP_INTERVAL:PT1H}
+      cleanup-batch-size: ${ASSISTANT_RETENTION_CLEANUP_BATCH_SIZE:250}
+    worker:
+      enabled: ${ASSISTANT_WORKER_ENABLED:true}
+      recovery-enabled: ${ASSISTANT_WORKER_RECOVERY_ENABLED:true}
+      concurrency: ${ASSISTANT_WORKER_CONCURRENCY:4}
+      queue-capacity: ${ASSISTANT_WORKER_QUEUE_CAPACITY:512}
+      recovery-batch-size: ${ASSISTANT_WORKER_RECOVERY_BATCH_SIZE:100}
+      recovery-interval: ${ASSISTANT_WORKER_RECOVERY_INTERVAL:PT5S}
+      lease-duration: ${ASSISTANT_WORKER_LEASE_DURATION:PT30S}
+      heartbeat-interval: ${ASSISTANT_WORKER_HEARTBEAT_INTERVAL:PT10S}
+      delta-batch-size: ${ASSISTANT_WORKER_DELTA_BATCH_SIZE:16}
+      delta-flush-interval: ${ASSISTANT_WORKER_DELTA_FLUSH_INTERVAL:PT0.1S}
+    streaming:
+      max-connections: ${ASSISTANT_STREAM_MAX_CONNECTIONS:64}
+      scheduler-threads: ${ASSISTANT_STREAM_SCHEDULER_THREADS:2}
+      batch-size: ${ASSISTANT_STREAM_BATCH_SIZE:100}
+      poll-interval: ${ASSISTANT_STREAM_POLL_INTERVAL:PT0.75S}
+      heartbeat-interval: ${ASSISTANT_STREAM_HEARTBEAT_INTERVAL:PT15S}
+      max-connection-duration: ${ASSISTANT_STREAM_MAX_CONNECTION_DURATION:PT5M}
+    tools:
+      enabled: ${ASSISTANT_TOOLS_ENABLED:false}
+      farm-base-url: ${ASSISTANT_FARM_TOOL_BASE_URL:http://localhost:8082}
+      allowed-hosts: ${ASSISTANT_TOOL_ALLOWED_HOSTS:localhost,127.0.0.1,::1,farm-service}
+      allow-insecure-http: ${ASSISTANT_TOOL_ALLOW_INSECURE_HTTP:false}
+      connect-timeout: ${ASSISTANT_TOOL_CONNECT_TIMEOUT:PT2S}
+      read-timeout: ${ASSISTANT_TOOL_READ_TIMEOUT:PT3S}
+      max-response-bytes: ${ASSISTANT_TOOL_MAX_RESPONSE_BYTES:32768}
+      max-plots: ${ASSISTANT_TOOL_MAX_PLOTS:20}
+    budget:
+      enabled: ${ASSISTANT_BUDGET_ENABLED:true}
+      window: ${ASSISTANT_BUDGET_WINDOW:PT1M}
+      max-requests: ${ASSISTANT_BUDGET_MAX_REQUESTS:20}
+      max-tokens: ${ASSISTANT_BUDGET_MAX_TOKENS:20000}
+      key-prefix: ${ASSISTANT_BUDGET_KEY_PREFIX:rl:assistant}
+  farm-access:
+    base-url: ${FARM_SERVICE_URL:http://localhost:8082}
+    allowed-hosts: ${FARM_SERVICE_ALLOWED_HOSTS:localhost,127.0.0.1,::1,farm-service}
+    allow-insecure-http: ${FARM_SERVICE_ALLOW_INSECURE_HTTP:false}
+  security:
+    issuer: ${JWT_ISSUER:https://agricore.local/identity}
+    jwk-set-uri: ${IDENTITY_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
+    dev-mode: ${AGRICORE_DEV_MODE:false}

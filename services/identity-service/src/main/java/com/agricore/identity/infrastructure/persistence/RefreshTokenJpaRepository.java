@@ -14,11 +14,16 @@ public interface RefreshTokenJpaRepository extends JpaRepository<RefreshTokenEnt
 
     Optional<RefreshTokenEntity> findByTokenHash(String tokenHash);
 
-    @Modifying
+    @Query("SELECT r.userId FROM RefreshTokenEntity r WHERE r.tokenHash = :tokenHash")
+    Optional<UUID> findUserIdByTokenHash(@Param("tokenHash") String tokenHash);
+
+    long countByFamilyIdAndRevokedAtIsNull(UUID familyId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE RefreshTokenEntity r SET r.revokedAt = :now WHERE r.familyId = :familyId AND r.revokedAt IS NULL")
     int revokeFamily(@Param("familyId") UUID familyId, @Param("now") Instant now);
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE RefreshTokenEntity r SET r.revokedAt = :now WHERE r.userId = :userId AND r.revokedAt IS NULL")
     int revokeAllForUser(@Param("userId") UUID userId, @Param("now") Instant now);
 }

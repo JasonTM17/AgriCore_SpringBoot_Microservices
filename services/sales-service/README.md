@@ -1,64 +1,47 @@
-# sales-service
+# Sales Service
 
 ## Purpose
 
-Owns customers and sales orders, and orchestrates the stock side of an order as a saga: reserve
-inventory, then confirm it once the order is accepted, releasing on failure. Called by the gateway;
-calls inventory-service over HTTP (orchestration, not choreography — ADR-0006).
+Owns farm-scoped customers, orders, immutable price snapshots, order items, and
+the durable Inventory reservation saga. Sales verifies Farm scope, makes a
+bounded reserve/confirm attempt, and persists recovery/compensation state
+instead of using a cross-service transaction.
 
-## API surface
+## API and events
 
-- `POST /api/v1/sales/customers` — create a customer
-- `POST /api/v1/sales/orders` — create an order (reserves then confirms inventory)
-- `GET /api/v1/sales/orders/{orderId}` — order detail
-- `POST /api/v1/sales/orders/{orderId}/reconcile` — release/settle a reservation left stuck by a
-  failed order
-- Contract: `contracts/openapi/sales-service.v1.yaml`
-- Events published: none (`SalesOrderCreated.v1` and siblings exist as constants)
-- Events consumed: none — the inventory interaction is synchronous HTTP
+- `/api/v1/sales/customers`: create and list farm customers.
+- `/api/v1/sales/orders`: create and list orders.
+- `/api/v1/sales/orders/{orderId}`: scoped order and saga state.
+- `/api/v1/sales/orders/{orderId}/reconcile`: explicit manual resolution.
 
-## Env vars
+See [OpenAPI](../../contracts/openapi/sales-service.v1.yaml).
+Published through the outbox: `SalesOrderCreated.v1`,
+`SalesOrderConfirmed.v1`, and `SalesOrderCancelled.v1`; Notification consumes
+the confirmed/cancelled events. Sales consumes no Kafka events.
 
-| Name | Required | Default | Description |
-|------|----------|---------|-------------|
-| `SALES_PORT` | no | `8091` | HTTP listen port |
-| `POSTGRES_HOST` | no | `localhost` | Database host |
-| `POSTGRES_PORT` | no | `5434` | Database port |
-| `POSTGRES_USER` | no | `agricore` | Database user |
-| `POSTGRES_PASSWORD` | yes in prod | dev value | Database password |
-| `INVENTORY_SERVICE_URL` | no | `http://localhost:8086` | Inventory base URL for the saga |
-| `JWT_ISSUER` | no | `https://agricore.local/identity` | Expected `iss` claim |
-| `IDENTITY_JWKS_URI` | no | identity JWKS URL | Key source for local token verification |
-| `AGRICORE_DEV_MODE` | no | `false` | Dev shortcuts; keep `false` outside local work |
+## Saga and configuration
 
-Database: `agricore_sales`. The caller's bearer token is forwarded to inventory; `X-Dev` headers are
-only used when dev-mode is on.
+Inventory remains authoritative for reservation truth. Ambiguous calls move to
+bounded durable recovery with lease, backoff, business-reference lookup, and
+compensation. Exhausted ambiguity becomes operator-visible manual
+reconciliation rather than a guessed terminal state.
 
-## Run locally
+Core variables are `SALES_PORT`, `POSTGRES_*`, `FARM_SERVICE_URL`,
+`INVENTORY_SERVICE_URL`, `INVENTORY_INTERNAL_SERVICE_TOKEN`,
+`INVENTORY_*_TIMEOUT`, `SALES_SAGA_RECOVERY_*`,
+`KAFKA_BOOTSTRAP_SERVERS`, `IDENTITY_JWKS_URI`, and `JWT_ISSUER`.
 
-```bash
-./scripts/dev-up.sh
-mvn -pl services/identity-service spring-boot:run
-mvn -pl services/inventory-service spring-boot:run
-mvn -pl services/sales-service spring-boot:run
-```
-
-## Test
+## Run and verify
 
 ```bash
 ./mvnw -B -pl services/sales-service -am test
-./mvnw -B -pl services/sales-service -am verify   # adds the JaCoCo report
+./mvnw -pl services/sales-service spring-boot:run
 ```
 
-Covers the reserve → confirm path and the reconcile route for stuck reservations. Target once
-coverage gating is enforced: ≥ 90% lines / ≥ 85% branches as a critical module.
+- Do not infer cancellation after a lost confirm response; reconcile Inventory
+  `FULFILLED` versus `RELEASED`.
+- Do not edit Inventory rows from Sales recovery.
 
-## Runbook
-
-- **Order created but stock never deducted** — the confirm leg failed; call the reconcile endpoint for
-  that order rather than editing inventory rows.
-- **Reservation held with no order** — same reconcile path; it exists precisely because a crash between
-  reserve and confirm leaves a hold.
-- **Inventory unreachable** — orders fail closed rather than committing an unbacked sale; check
-  `INVENTORY_SERVICE_URL` and the inventory container's health.
-- **Reset local data** — drop and recreate `agricore_sales`, restart to replay migrations.
+See the [saga ADR](../../docs/adr/0006-sales-saga-orchestration.md),
+[authoritative reconciliation ADR](../../docs/adr/0008-authoritative-inventory-reservation-reconciliation.md),
+and [AsyncAPI](../../contracts/asyncapi/agricore-events.yaml).

@@ -3,6 +3,7 @@ package com.agricore.cropcycle;
 import com.agricore.common.event.EventTypes;
 import com.agricore.cropcycle.infrastructure.persistence.OutboxJpaRepository;
 import com.agricore.cropcycle.infrastructure.persistence.entity.OutboxEventEntity;
+import com.agricore.farmaccess.FarmAccessClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -11,6 +12,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -38,6 +40,8 @@ class CropCycleOutboxContractTest {
     private ObjectMapper objectMapper;
     @Autowired
     private OutboxJpaRepository outboxRepository;
+    @MockitoBean
+    private FarmAccessClient farmAccessClient;
 
     @Test
     void create_writesCropCycleCreatedEnvelope() throws Exception {
@@ -72,6 +76,7 @@ class CropCycleOutboxContractTest {
         assertThat(event.getTopic()).isEqualTo("agricore.crop-cycle.events");
 
         JsonNode envelope = objectMapper.readTree(event.getPayload());
+        assertThat(envelope.get("eventId").asText()).isEqualTo(event.getId().toString());
         assertThat(envelope.get("eventType").asText()).isEqualTo(EventTypes.CROP_CYCLE_CREATED);
         assertThat(envelope.get("eventVersion").asInt()).isEqualTo(1);
         assertThat(envelope.get("producer").asText()).isEqualTo("crop-cycle-service");
@@ -129,6 +134,7 @@ class CropCycleOutboxContractTest {
         OutboxEventEntity event = findLatestForCycle(cycleId);
         assertThat(event.getEventType()).isEqualTo(EventTypes.CROP_CYCLE_STAGE_CHANGED);
         JsonNode envelope = objectMapper.readTree(event.getPayload());
+        assertThat(envelope.get("eventId").asText()).isEqualTo(event.getId().toString());
         assertThat(envelope.get("eventType").asText()).isEqualTo(EventTypes.CROP_CYCLE_STAGE_CHANGED);
         assertThat(envelope.get("payload").get("previousStage").asText()).isEqualTo("PLANNED");
         assertThat(envelope.get("payload").get("stage").asText()).isEqualTo("LAND_PREPARATION");

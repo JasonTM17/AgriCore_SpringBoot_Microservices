@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>01 — Đăng nhập - AgriCore</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "secondary-container": "#fcb651",
+                      "on-error-container": "#93000a",
+                      "primary-container": "#1f5d42",
+                      "surface-dim": "#d0ddd3",
+                      "secondary": "#835500",
+                      "on-tertiary-fixed": "#2d1604",
+                      "on-tertiary": "#ffffff",
+                      "primary-fixed": "#b1f0cd",
+                      "surface-bright": "#effdf1",
+                      "on-secondary-fixed": "#291800",
+                      "on-error": "#ffffff",
+                      "tertiary-container": "#6b4c35",
+                      "surface-container-high": "#deece0",
+                      "on-secondary-container": "#714800",
+                      "tertiary": "#523520",
+                      "outline-variant": "#bfc9c1",
+                      "surface-container-highest": "#d8e6db",
+                      "inverse-surface": "#27332c",
+                      "primary-fixed-dim": "#95d4b2",
+                      "on-primary-container": "#95d4b1",
+                      "surface-container": "#e4f1e6",
+                      "tertiary-fixed-dim": "#e9bea1",
+                      "secondary-fixed-dim": "#ffb955",
+                      "surface-container-low": "#e9f7ec",
+                      "on-secondary-fixed-variant": "#633f00",
+                      "surface-tint": "#2d694d",
+                      "on-surface": "#121e17",
+                      "on-background": "#121e17",
+                      "surface-container-lowest": "#ffffff",
+                      "surface": "#effdf1",
+                      "on-tertiary-fixed-variant": "#5e402a",
+                      "surface-variant": "#d8e6db",
+                      "on-tertiary-container": "#e9bea1",
+                      "error-container": "#ffdad6",
+                      "on-surface-variant": "#404943",
+                      "on-primary": "#ffffff",
+                      "inverse-primary": "#95d4b2",
+                      "inverse-on-surface": "#e6f4e9",
+                      "primary": "#00452d",
+                      "on-secondary": "#ffffff",
+                      "on-primary-fixed-variant": "#0f5137",
+                      "on-primary-fixed": "#002113",
+                      "secondary-fixed": "#ffddb4",
+                      "outline": "#707972",
+                      "background": "#effdf1",
+                      "error": "#ba1a1a",
+                      "tertiary-fixed": "#ffdcc5"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {},
+              "fontFamily": {
+                      "headline": [
+                              "Inter"
+                      ],
+                      "display": [
+                              "Inter"
+                      ],
+                      "body": [
+                              "Inter"
+                      ],
+                      "label": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {}
+      },
+          },
+        }
+      </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F4F6F1; /* Warm canvas */
+        }
+        .pattern-bg {
+            background-image:
+                linear-gradient(45deg, rgba(182, 122, 22, 0.05) 25%, transparent 25%),
+                linear-gradient(-45deg, rgba(182, 122, 22, 0.05) 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, rgba(182, 122, 22, 0.05) 75%),
+                linear-gradient(-45deg, transparent 75%, rgba(182, 122, 22, 0.05) 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col md:flex-row antialiased text-on-surface">
+<!-- Left Panel: Branding & Value Props -->
+<div class="hidden md:flex flex-col w-[45%] bg-[#123B2A] text-white p-12 lg:p-16 relative overflow-hidden">
+<!-- Abstract Pattern Overlay -->
+<div class="absolute inset-0 pattern-bg opacity-30 mix-blend-overlay"></div>
+<div class="absolute -top-32 -right-32 w-96 h-96 bg-primary-container rounded-full blur-3xl opacity-20"></div>
+<!-- Header -->
+<div class="relative z-10 flex flex-col h-full justify-between">
+<div>
+<div class="flex items-center gap-3 mb-12">
+<img alt="AgriCore Logo" class="w-12 h-12 object-contain" data-alt="AgriCore stylized logo featuring abstract agricultural fields and a leaf in forest green and harvest amber." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5lxwmtXXFDUxSmiGN45ESkJab0r8IH83rGTr2Aonk-kuauy7I7y3OyrKTwQe3fp2JI_q-p1rnZW4alCAS4QTpPty4K9DWv2kWjsisIjuEdBTomNGvS4467VXuDu48tOxvxnsSW7dpGyEPXpz5DZO9WH5kHZPyXqVtovuZb4XXSWZeVZzXyttoRs7cGJyMuwh4-2r7_mTn-EnNeky0yO0rXsoCjOR5XJVbVNzji86orCje-p8fSh8iB1uru8U-bjT4s-K0qHvwbmLj"/>
+<span class="font-headline font-bold text-3xl tracking-tight">AgriCore</span>
+</div>
+<h1 class="text-[28px] leading-tight font-bold mb-6 text-surface-container-low">
+                    Vận hành nông nghiệp, rõ ràng từ đồng ruộng đến thị trường
+                </h1>
+<p class="text-[16px] leading-relaxed text-surface-container-low/80 mb-12 max-w-md">
+                    Quản lý nông trại, mùa vụ, công việc, kho vận và truy xuất trên một nền tảng thống nhất.
+                </p>
+<!-- Value Props -->
+<div class="space-y-6">
+<div class="flex items-start gap-4">
+<div class="p-2 bg-primary-container/50 rounded-lg">
+<span class="material-symbols-outlined text-primary-fixed-dim" style="font-variation-settings: 'FILL' 1;">groups</span>
+</div>
+<div>
+<h3 class="font-medium text-surface-bright">Theo dõi theo vai trò</h3>
+<p class="text-sm text-surface-container-low/60 mt-1">Phân quyền chi tiết, phù hợp thực tế.</p>
+</div>
+</div>
+<div class="flex items-start gap-4">
+<div class="p-2 bg-primary-container/50 rounded-lg">
+<span class="material-symbols-outlined text-primary-fixed-dim" style="font-variation-settings: 'FILL' 1;">database</span>
+</div>
+<div>
+<h3 class="font-medium text-surface-bright">Dữ liệu xuyên suốt</h3>
+<p class="text-sm text-surface-container-low/60 mt-1">Kết nối chuỗi cung ứng liền mạch.</p>
+</div>
+</div>
+<div class="flex items-start gap-4">
+<div class="p-2 bg-primary-container/50 rounded-lg">
+<span class="material-symbols-outlined text-primary-fixed-dim" style="font-variation-settings: 'FILL' 1;">verified</span>
+</div>
+<div>
+<h3 class="font-medium text-surface-bright">Truy xuất minh bạch</h3>
+<p class="text-sm text-surface-container-low/60 mt-1">Rõ ràng nguồn gốc, chuẩn xuất khẩu.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-auto pt-12 text-sm text-surface-container-low/50">
+                AgriCore Operations Console · 2026
+            </div>
+</div>
+</div>
+<!-- Right Panel: Login Form -->
+<div class="w-full md:w-[55%] flex flex-col justify-center items-center p-6 sm:p-12 relative">
+<!-- Mobile Logo (Visible only on small screens) -->
+<div class="md:hidden flex items-center gap-3 mb-8 self-start">
+<img alt="AgriCore Logo" class="w-10 h-10 object-contain" data-alt="AgriCore stylized logo featuring abstract agricultural fields and a leaf in forest green and harvest amber." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5lxwmtXXFDUxSmiGN45ESkJab0r8IH83rGTr2Aonk-kuauy7I7y3OyrKTwQe3fp2JI_q-p1rnZW4alCAS4QTpPty4K9DWv2kWjsisIjuEdBTomNGvS4467VXuDu48tOxvxnsSW7dpGyEPXpz5DZO9WH5kHZPyXqVtovuZb4XXSWZeVZzXyttoRs7cGJyMuwh4-2r7_mTn-EnNeky0yO0rXsoCjOR5XJVbVNzji86orCje-p8fSh8iB1uru8U-bjT4s-K0qHvwbmLj"/>
+<span class="font-headline font-bold text-2xl text-primary">AgriCore</span>
+</div>
+<div class="w-full max-w-[440px]">
+<!-- Login Card -->
+<div class="bg-surface-container-lowest border border-[#D9DED8] rounded-[12px] shadow-sm p-8 sm:p-10 mb-6">
+<div class="mb-8">
+<h2 class="text-2xl font-bold text-on-surface mb-2 font-headline">Đăng nhập vào AgriCore</h2>
+<p class="text-sm text-on-surface-variant">Sử dụng tài khoản được quản trị viên cấp</p>
+</div>
+<!-- Error Alert -->
+<div class="bg-error-container/30 border-l-4 border-error p-4 rounded-r-md mb-6 flex items-start gap-3">
+<span class="material-symbols-outlined text-error mt-0.5">error</span>
+<div>
+<p class="text-sm font-medium text-on-error-container">Không thể đăng nhập. Kiểm tra email hoặc mật khẩu và thử lại.</p>
+<p class="text-xs text-error font-mono mt-1">Mã lỗi: INVALID_CREDENTIALS</p>
+</div>
+</div>
+<form action="#" class="space-y-5" method="POST">
+<div>
+<label class="block text-sm font-medium text-on-surface mb-1.5" for="email">Email công việc</label>
+<input class="block w-full rounded-md border-outline-variant shadow-sm focus:border-[#2E6E83] focus:ring focus:ring-[#2E6E83]/20 focus:ring-opacity-50 text-sm py-2.5 px-3 bg-surface-container-lowest" id="email" name="email" placeholder="ten@doanhnghiep.vn" required="" type="email" value="admin@nongtraint.vn"/>
+</div>
+<div>
+<label class="block text-sm font-medium text-on-surface mb-1.5" for="password">Mật khẩu</label>
+<div class="relative">
+<input class="block w-full rounded-md border-outline-variant shadow-sm focus:border-[#2E6E83] focus:ring focus:ring-[#2E6E83]/20 focus:ring-opacity-50 text-sm py-2.5 px-3 pr-10 bg-surface-container-lowest" id="password" name="password" placeholder="••••••••" required="" type="password"/>
+<button class="absolute inset-y-0 right-0 pr-3 flex items-center text-on-surface-variant hover:text-on-surface" type="button">
+<span class="material-symbols-outlined text-[20px]">visibility_off</span>
+</button>
+</div>
+</div>
+<div class="flex items-center justify-between mt-4">
+<div class="flex items-center">
+<input checked="" class="h-4 w-4 rounded border-outline-variant text-[#1F5D42] focus:ring-[#1F5D42]" id="remember-me" name="remember-me" type="checkbox"/>
+<label class="ml-2 block text-sm text-on-surface-variant" for="remember-me">
+                                Ghi nhớ đăng nhập
+                            </label>
+</div>
+<div class="text-sm">
+<a class="font-medium text-primary hover:text-primary-container transition-colors" href="#">Quên mật khẩu?</a>
+</div>
+</div>
+<div class="pt-2">
+<button class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#1F5D42] hover:bg-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1F5D42] transition-colors h-[48px] items-center" type="submit">
+                            Đăng nhập
+                        </button>
+</div>
+</form>
+<div class="mt-8 pt-6 border-t border-outline-variant/30 text-center">
+<p class="text-xs text-on-surface-variant">Bạn cần quyền truy cập? <a class="font-medium text-primary hover:underline" href="#">Liên hệ quản trị viên hệ thống.</a></p>
+</div>
+</div>
+<!-- Security Info Card -->
+<div class="bg-surface-container rounded-lg p-4 flex items-start gap-3 border border-outline-variant/50">
+<span class="material-symbols-outlined text-primary-container mt-0.5" style="font-variation-settings: 'FILL' 1;">shield_lock</span>
+<p class="text-sm text-on-surface-variant">Tài khoản sẽ tạm khóa 15 phút sau 5 lần đăng nhập không thành công.</p>
+</div>
+<!-- Bottom Links -->
+<div class="mt-8 flex items-center justify-between text-sm text-on-surface-variant px-2">
+<div class="flex items-center gap-1 cursor-pointer hover:text-on-surface">
+<span class="material-symbols-outlined text-[18px]">language</span>
+<span>Tiếng Việt</span>
+<span class="material-symbols-outlined text-[18px]">expand_more</span>
+</div>
+<div class="flex gap-4">
+<a class="hover:text-on-surface transition-colors" href="#">Bảo mật</a>
+<a class="hover:text-on-surface transition-colors" href="#">Trợ giúp</a>
+</div>
+</div>
+</div>
+</div>
+</body></html>

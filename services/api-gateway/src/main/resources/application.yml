@@ -4,65 +4,80 @@ server:
 spring:
   application:
     name: api-gateway
+  cloud:
+    gateway:
+      server:
+        webflux:
+          forwarded:
+            enabled: false
+          x-forwarded:
+            enabled: false
+          httpclient:
+            connect-timeout: ${GATEWAY_CONNECT_TIMEOUT_MS:5000}
+            response-timeout: ${GATEWAY_RESPONSE_TIMEOUT:30m}
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                allowedOriginPatterns: "${CORS_ALLOWED_ORIGINS:http://localhost:*,http://127.0.0.1:*}"
+                allowedMethods: "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+                allowedHeaders: "*"
+                allowCredentials: true
+          routes:
+            - id: identity-service
+              uri: ${IDENTITY_SERVICE_URL:http://localhost:8081}
+              predicates:
+                - Path=/api/v1/auth/**,/api/v1/users/**,/api/v1/admin/**,/.well-known/jwks.json
+            - id: assistant-service
+              uri: ${ASSISTANT_SERVICE_URL:http://localhost:8093}
+              predicates:
+                - Path=/api/v1/assistant/**
+              metadata:
+                response-timeout: ${ASSISTANT_RESPONSE_TIMEOUT:30m}
+            - id: farm-service
+              uri: ${FARM_SERVICE_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/v1/enterprises/**,/api/v1/farms/**,/api/v1/plots/**
+            - id: crop-catalog-service
+              uri: ${CROP_CATALOG_SERVICE_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/v1/crops/**
+            - id: crop-cycle-service
+              uri: ${CROP_CYCLE_SERVICE_URL:http://localhost:8084}
+              predicates:
+                - Path=/api/v1/crop-cycles/**
+            - id: work-service
+              uri: ${WORK_SERVICE_URL:http://localhost:8085}
+              predicates:
+                - Path=/api/v1/work-tasks/**
+            - id: inventory-service
+              uri: ${INVENTORY_SERVICE_URL:http://localhost:8086}
+              predicates:
+                - Path=/api/v1/inventory/**
+            - id: harvest-service
+              uri: ${HARVEST_SERVICE_URL:http://localhost:8087}
+              predicates:
+                - Path=/api/v1/harvests/**
+            - id: traceability-service
+              uri: ${TRACEABILITY_SERVICE_URL:http://localhost:8092}
+              predicates:
+                - Path=/api/v1/traceability/**,/public/api/v1/traceability/**
+            - id: iot-service
+              uri: ${IOT_SERVICE_URL:http://localhost:8090}
+              predicates:
+                - Path=/api/v1/iot/**
+            - id: sales-service
+              uri: ${SALES_SERVICE_URL:http://localhost:8091}
+              predicates:
+                - Path=/api/v1/sales/**
+            - id: notification-service
+              uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8089}
+              predicates:
+                - Path=/api/v1/notifications/**
   security:
     oauth2:
       resourceserver:
         jwt:
           jwk-set-uri: ${IDENTITY_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
-  cloud:
-    gateway:
-      globalcors:
-        cors-configurations:
-          '[/**]':
-            allowedOriginPatterns: "${CORS_ALLOWED_ORIGINS:http://localhost:*,http://127.0.0.1:*}"
-            allowedMethods: "GET,POST,PUT,PATCH,DELETE,OPTIONS"
-            allowedHeaders: "*"
-            allowCredentials: true
-      routes:
-        - id: identity-service
-          uri: ${IDENTITY_SERVICE_URL:http://localhost:8081}
-          predicates:
-            - Path=/api/v1/auth/**,/api/v1/users/**,/api/v1/admin/**,/.well-known/jwks.json
-        - id: farm-service
-          uri: ${FARM_SERVICE_URL:http://localhost:8082}
-          predicates:
-            - Path=/api/v1/farms/**,/api/v1/plots/**
-        - id: crop-catalog-service
-          uri: ${CROP_CATALOG_SERVICE_URL:http://localhost:8083}
-          predicates:
-            - Path=/api/v1/crops/**
-        - id: crop-cycle-service
-          uri: ${CROP_CYCLE_SERVICE_URL:http://localhost:8084}
-          predicates:
-            - Path=/api/v1/crop-cycles/**
-        - id: work-service
-          uri: ${WORK_SERVICE_URL:http://localhost:8085}
-          predicates:
-            - Path=/api/v1/work-tasks/**
-        - id: inventory-service
-          uri: ${INVENTORY_SERVICE_URL:http://localhost:8086}
-          predicates:
-            - Path=/api/v1/inventory/**
-        - id: harvest-service
-          uri: ${HARVEST_SERVICE_URL:http://localhost:8087}
-          predicates:
-            - Path=/api/v1/harvests/**
-        - id: traceability-service
-          uri: ${TRACEABILITY_SERVICE_URL:http://localhost:8092}
-          predicates:
-            - Path=/api/v1/traceability/**,/public/api/v1/traceability/**
-        - id: iot-service
-          uri: ${IOT_SERVICE_URL:http://localhost:8090}
-          predicates:
-            - Path=/api/v1/iot/**
-        - id: sales-service
-          uri: ${SALES_SERVICE_URL:http://localhost:8091}
-          predicates:
-            - Path=/api/v1/sales/**
-        - id: notification-service
-          uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8089}
-          predicates:
-            - Path=/api/v1/notifications/**
 
 management:
   endpoints:
@@ -79,6 +94,10 @@ management:
         enabled: true
 
 agricore:
+  gateway:
+    client-ip:
+      signing-secret: ${AGRICORE_CLIENT_IP_SIGNING_SECRET:}
+      trusted-proxy-address-pattern: ${GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN:}
   security:
     jwt-enabled: ${GATEWAY_JWT_ENABLED:true}
     jwk-set-uri: ${IDENTITY_JWKS_URI:http://localhost:8081/.well-known/jwks.json}

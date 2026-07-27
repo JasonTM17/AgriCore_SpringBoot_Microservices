@@ -12,13 +12,25 @@ spring:
         dialect: org.hibernate.dialect.H2Dialect
   flyway:
     enabled: true
+    locations: classpath:db/migration
 
 agricore:
+  notification:
+    delivery:
+      provider: stub
+      max-attempts: 3
+      lease: PT30S
+      recovery:
+        enabled: false
   security:
     dev-mode: true
     issuer: https://agricore.test/identity
     jwk-set-uri: http://localhost:8081/.well-known/jwks.json
-  # No broker in tests; the listener is exercised directly as a unit
   kafka:
     consumer:
+      enabled: false
+  outbox:
+    publisher:
+      enabled: false
+    cleanup:
       enabled: false

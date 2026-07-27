@@ -4,18 +4,23 @@ import com.agricore.common.api.ApiError;
 import com.agricore.common.persistence.ConstraintViolations;
 import com.agricore.identity.domain.exception.IdentityException;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.ErrorResponse;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.List;
@@ -38,39 +43,6 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(ex.getHttpStatus()).body(body);
     }
 
-    /**
-     * A body that will not parse - malformed JSON, or none at all - is the caller's mistake. It
-     * does not implement {@link org.springframework.web.ErrorResponse}, so without an explicit
-     * handler it reaches the catch-all below and answers 500.
-     *
-     * <p>The exception message quotes the offending payload back, so it is logged rather than
-     * returned.
-     */
-    @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ApiError> handleUnreadableBody(
-            HttpMessageNotReadableException ex,
-            HttpServletRequest request
-    ) {
-        log.debug("Unreadable request body on {}", request.getRequestURI(), ex);
-        return ResponseEntity.badRequest().body(ApiError.of(
-                400, "Bad Request", "MALFORMED_REQUEST",
-                "Request body is missing or is not valid JSON",
-                request.getRequestURI(), null
-        ));
-    }
-
-    /**
-     * Registration rejects a taken email before inserting, but that check is not a lock: two
-     * simultaneous registrations for one address both pass it and {@code uk_users_email} rejects
-     * the second. A 500 there invites the client to retry a request that can never succeed.
-     *
-     * <p>Deliberately does not distinguish which value collided. Email is the only caller-supplied
-     * unique column on this service, so a response naming the constraint would confirm to an
-     * unauthenticated caller that an address is registered.
-     *
-     * <p>Only unique violations become 409. A foreign-key or not-null failure reaching this point
-     * is a defect in this service and stays a 500 via the catch-all below.
-     */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiError> handleDataIntegrity(
             DataIntegrityViolationException ex,
@@ -79,12 +51,25 @@ public class GlobalExceptionHandler {
         if (!ConstraintViolations.isUniqueViolation(ex)) {
             return handleGeneric(ex, request);
         }
-        log.warn("Duplicate key on {}: {}", request.getRequestURI(), ex.getMostSpecificCause().getMessage());
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.of(
-                409, "Conflict", "DUPLICATE_RESOURCE",
+        return error(
+                HttpStatus.CONFLICT,
+                "DUPLICATE_RESOURCE",
                 "A record with the supplied identifier already exists",
-                request.getRequestURI(), null
-        ));
+                request
+        );
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiError> handleAccessDenied(
+            AccessDeniedException ex,
+            HttpServletRequest request
+    ) {
+        return error(
+                HttpStatus.FORBIDDEN,
+                "ACCESS_DENIED",
+                "You do not have permission to perform this operation",
+                request
+        );
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -97,40 +82,71 @@ public class GlobalExceptionHandler {
         );
     }
 
-    /**
-     * A path variable or query parameter that will not convert is the caller's mistake, not a
-     * server fault. Without this, an admin route given a malformed user id answers 500.
-     *
-     * <p>The rejected value is not echoed back — only the parameter name, which this service
-     * defines.
-     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiError> handleMalformedJson(
+            HttpMessageNotReadableException ex,
+            HttpServletRequest request
+    ) {
+        return error(HttpStatus.BAD_REQUEST, "MALFORMED_JSON", "Malformed JSON request", request);
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiError> handleUnsupportedMediaType(
+            HttpMediaTypeNotSupportedException ex,
+            HttpServletRequest request
+    ) {
+        return error(
+                HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                "UNSUPPORTED_MEDIA_TYPE",
+                "Content-Type is not supported",
+                request
+        );
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiError> handleMethodNotAllowed(
+            HttpRequestMethodNotSupportedException ex,
+            HttpServletRequest request
+    ) {
+        return error(
+                HttpStatus.METHOD_NOT_ALLOWED,
+                "METHOD_NOT_ALLOWED",
+                "Request method is not supported",
+                request
+        );
+    }
+
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiError> handleTypeMismatch(
             MethodArgumentTypeMismatchException ex,
             HttpServletRequest request
     ) {
-        return ResponseEntity.badRequest().body(ApiError.of(
-                400, "Bad Request", "INVALID_PARAMETER",
-                "Parameter '" + ex.getName() + "' has an invalid value",
-                request.getRequestURI(), null
-        ));
+        return error(
+                HttpStatus.BAD_REQUEST,
+                "INVALID_ARGUMENT",
+                "Invalid request parameter: " + ex.getName(),
+                request
+        );
+    }
+
+    @ExceptionHandler({HandlerMethodValidationException.class, ConstraintViolationException.class})
+    public ResponseEntity<ApiError> handleMethodValidation(Exception ex, HttpServletRequest request) {
+        return error(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", "Request validation failed", request);
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleGeneric(Exception ex, HttpServletRequest request) {
-        // Spring's own web exceptions already know the status they should answer with — unknown
-        // path 404, wrong method 405, unreadable body 400. Declaring a handler for Exception takes
-        // precedence over DefaultHandlerExceptionResolver, so without this branch every one of them
-        // would be reported as a server fault. On the auth endpoints that also means a malformed
-        // login body would look like an outage rather than a bad request.
         if (ex instanceof ErrorResponse errorResponse) {
             HttpStatusCode statusCode = errorResponse.getStatusCode();
-            HttpStatus resolved = HttpStatus.resolve(statusCode.value());
-            String reason = resolved != null ? resolved.getReasonPhrase() : "Error";
+            HttpStatus status = HttpStatus.resolve(statusCode.value());
+            String reason = status != null ? status.getReasonPhrase() : "Error";
             return ResponseEntity.status(statusCode).body(ApiError.of(
-                    statusCode.value(), reason,
-                    resolved != null ? resolved.name() : "HTTP_" + statusCode.value(),
-                    reason, request.getRequestURI(), null
+                    statusCode.value(),
+                    reason,
+                    status != null ? status.name() : "HTTP_" + statusCode.value(),
+                    reason,
+                    request.getRequestURI(),
+                    null
             ));
         }
         log.error("Unhandled error on {}", request.getRequestURI(), ex);
@@ -147,5 +163,21 @@ public class GlobalExceptionHandler {
 
     private ApiError.FieldViolation toViolation(FieldError error) {
         return new ApiError.FieldViolation(error.getField(), error.getDefaultMessage(), error.getRejectedValue());
+    }
+
+    private ResponseEntity<ApiError> error(
+            HttpStatus status,
+            String code,
+            String message,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(status).body(ApiError.of(
+                status.value(),
+                status.getReasonPhrase(),
+                code,
+                message,
+                request.getRequestURI(),
+                null
+        ));
     }
 }

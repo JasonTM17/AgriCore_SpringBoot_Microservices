@@ -1,0 +1,33 @@
+services:
+  mqtt:
+    environment:
+      MQTT_DEVICE_COUNT: ${MQTT_DEVICE_COUNT:-1}
+      MQTT_DEVICE_PREFIX: ${MQTT_DEVICE_PREFIX:-DEMO-SOIL}
+      MQTT_DEVICE_USERS: ${MQTT_DEVICE_USERS:-}
+
+  iot-mqtt-simulator:
+    image: eclipse-mosquitto:2.0.20
+    container_name: agricore-iot-mqtt-simulator
+    profiles: [simulator]
+    depends_on:
+      mqtt:
+        condition: service_healthy
+    environment:
+      MQTT_BROKER: mqtt
+      MQTT_PORT: 1883
+      MQTT_DEVICE_PASSWORD_SEED: ${MQTT_DEVICE_PASSWORD_SEED:-agricore_device_seed_dev_change_me}
+      MQTT_DEVICE_COUNT: ${MQTT_DEVICE_COUNT:-1}
+      MQTT_ITERATIONS: ${MQTT_ITERATIONS:-1}
+      MQTT_INTERVAL_SECONDS: ${MQTT_INTERVAL_SECONDS:-5}
+      MQTT_DEVICE_PREFIX: ${MQTT_DEVICE_PREFIX:-DEMO-SOIL}
+      MQTT_PLOT_MAP: ${MQTT_PLOT_MAP:-DEMO-SOIL-001=PLOT-DEMO-001}
+      MQTT_MIN_VALUE: ${MQTT_MIN_VALUE:-30}
+      MQTT_MAX_VALUE: ${MQTT_MAX_VALUE:-70}
+      MQTT_ANOMALY_MIN_VALUE: ${MQTT_ANOMALY_MIN_VALUE:-5}
+      MQTT_ANOMALY_MAX_VALUE: ${MQTT_ANOMALY_MAX_VALUE:-18}
+      MQTT_ANOMALY_PROBABILITY_PERCENT: ${MQTT_ANOMALY_PROBABILITY_PERCENT:-20}
+      MQTT_SEED: ${MQTT_SEED:-42}
+      MQTT_RECORDED_AT: ${MQTT_RECORDED_AT:-}
+    volumes:
+      - ./infrastructure/docker/mqtt/simulator.sh:/opt/agricore/simulator.sh:ro
+    entrypoint: ["/bin/sh", "/opt/agricore/simulator.sh"]

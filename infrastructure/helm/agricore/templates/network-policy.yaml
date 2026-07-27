@@ -1,0 +1,49 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: agricore-default-deny-ingress
+  labels:
+    app.kubernetes.io/name: agricore-network-policy
+    app.kubernetes.io/part-of: agricore
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: agricore
+  policyTypes:
+    - Ingress
+{{- if .Values.networkPolicy.restrictEgress }}
+    - Egress
+{{- end }}
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: agricore
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+{{- if .Values.networkPolicy.restrictEgress }}
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: agricore
+    {{- with .Values.networkPolicy.additionalEgress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}
+{{- end }}

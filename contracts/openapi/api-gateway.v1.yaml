@@ -1,16 +1,24 @@
 openapi: 3.1.0
 info:
   title: AgriCore API Gateway
-  version: 1.0.0
+  version: 2.0.0
   description: |
     Edge routes for the AgriCore microservices portfolio.
     The gateway validates JWT (RS256 via Identity JWKS) then proxies path prefixes
-    to domain services. This contract documents the public/edge surface — domain
-    request/response schemas live in per-service OpenAPI files under contracts/openapi/.
+    to domain services. This contract documents the public edge surface. Verified
+    domain operations are incorporated from per-service OpenAPI contracts. Version 2
+    includes lifecycle-aware harvest responses and requires warehouse scope for inventory
+    harvest acknowledgements.
 servers:
   - url: http://localhost:8080
     description: Local gateway
+security:
+  - bearerAuth: []
 paths:
+  /api/v1/enterprises:
+    $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1enterprises'
+  /api/v1/enterprises/{enterpriseId}:
+    $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1enterprises~1{enterpriseId}'
   /api/v1/auth/{proxy+}:
     description: Proxied to identity-service (register, login, refresh, logout)
     parameters:
@@ -24,14 +32,22 @@ paths:
       responses:
         '200': { description: Auth response from identity }
         '201': { description: Registered }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
   /.well-known/jwks.json:
     get:
       summary: JWKS published by identity (public)
       security: []
       responses:
         '200': { description: JWK set }
-        default: { $ref: '#/components/responses/UnexpectedError' }
   /api/v1/users/{proxy+}:
     parameters:
       - name: proxy+
@@ -43,7 +59,6 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         '200': { description: OK }
-        default: { $ref: '#/components/responses/UnexpectedError' }
   /api/v1/admin/{proxy+}:
     parameters:
       - name: proxy+
@@ -55,81 +70,104 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         '200': { description: OK }
-        default: { $ref: '#/components/responses/UnexpectedError' }
-  /api/v1/farms/{proxy+}:
-    parameters:
-      - name: proxy+
-        in: path
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    patch:
+      summary: Admin updates via identity
+      security: [{ bearerAuth: [] }]
+      requestBody:
         required: true
-        schema: { type: string }
-    get:
-      summary: Farms and nested plots (farm-service)
-      security: [{ bearerAuth: [] }]
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
       responses:
-        '200': { description: OK }
-        default: { $ref: '#/components/responses/UnexpectedError' }
-    post:
-      summary: Create farm/plot
-      security: [{ bearerAuth: [] }]
-      responses:
-        '201': { description: Created }
-        default: { $ref: '#/components/responses/UnexpectedError' }
-  /api/v1/plots/{proxy+}:
-    parameters:
-      - name: proxy+
-        in: path
-        required: true
-        schema: { type: string }
-    get:
-      summary: Plots (farm-service)
-      security: [{ bearerAuth: [] }]
-      responses:
-        '200': { description: OK }
-        default: { $ref: '#/components/responses/UnexpectedError' }
-  /api/v1/crops/{proxy+}:
-    parameters:
-      - name: proxy+
-        in: path
-        required: true
-        schema: { type: string }
-    get:
-      summary: Crop catalog
-      security: [{ bearerAuth: [] }]
-      responses:
-        '200': { description: OK }
-        default: { $ref: '#/components/responses/UnexpectedError' }
-  /api/v1/crop-cycles/{proxy+}:
-    parameters:
-      - name: proxy+
-        in: path
-        required: true
-        schema: { type: string }
-    get:
-      summary: Crop cycles
-      security: [{ bearerAuth: [] }]
-      responses:
-        '200': { description: OK }
-        default: { $ref: '#/components/responses/UnexpectedError' }
-    post:
-      summary: Create cycle or change stage
-      security: [{ bearerAuth: [] }]
-      responses:
-        '200': { description: OK }
-        '201': { description: Created }
-        '409': { $ref: '#/components/responses/Conflict' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
-  /api/v1/work-tasks/{proxy+}:
-    parameters:
-      - name: proxy+
-        in: path
-        required: true
-        schema: { type: string }
-    get:
-      summary: Work tasks
-      security: [{ bearerAuth: [] }]
-      responses:
-        '200': { description: OK }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+        '200': { description: Updated }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+  /api/v1/farms:
+    $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1farms'
+  /api/v1/farms/{farmId}:
+    $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1farms~1{farmId}'
+  /api/v1/farms/{farmId}/areas:
+    $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1farms~1{farmId}~1areas'
+  /api/v1/farms/{farmId}/areas/{areaId}:
+    $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1farms~1{farmId}~1areas~1{areaId}'
+  /api/v1/farms/{farmId}/plots:
+    $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1farms~1{farmId}~1plots'
+  /api/v1/farms/{farmId}/memberships:
+    $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1farms~1{farmId}~1memberships'
+  /api/v1/farms/{farmId}/memberships/{membershipId}:
+    $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1farms~1{farmId}~1memberships~1{membershipId}'
+  /api/v1/plots/{plotId}:
+    $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1plots~1{plotId}'
+  /api/v1/plots/{plotId}/soil-profiles:
+    $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1plots~1{plotId}~1soil-profiles'
+  /api/v1/plots/{plotId}/soil-profiles/{profileId}:
+    $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1plots~1{plotId}~1soil-profiles~1{profileId}'
+  /api/v1/plots/{plotId}/irrigation-zones:
+    $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1plots~1{plotId}~1irrigation-zones'
+  /api/v1/plots/{plotId}/irrigation-zones/{zoneId}:
+    $ref: './farm-service.v1.yaml#/paths/~1api~1v1~1plots~1{plotId}~1irrigation-zones~1{zoneId}'
+  /api/v1/crops:
+    $ref: './crop-catalog-service.v1.yaml#/paths/~1api~1v1~1crops'
+  /api/v1/crops/{cropId}:
+    $ref: './crop-catalog-service.v1.yaml#/paths/~1api~1v1~1crops~1{cropId}'
+  /api/v1/crops/{cropId}/varieties:
+    $ref: './crop-catalog-service.v1.yaml#/paths/~1api~1v1~1crops~1{cropId}~1varieties'
+  /api/v1/crops/{cropId}/care-profile:
+    $ref: './crop-catalog-service.v1.yaml#/paths/~1api~1v1~1crops~1{cropId}~1care-profile'
+  /api/v1/admin/crops/{cropId}/care-profile:
+    $ref: './crop-catalog-service.v1.yaml#/paths/~1api~1v1~1admin~1crops~1{cropId}~1care-profile'
+  /api/v1/crops/by-code/{code}:
+    $ref: './crop-catalog-service.v1.yaml#/paths/~1api~1v1~1crops~1by-code~1{code}'
+  /api/v1/crop-varieties/{varietyId}:
+    $ref: './crop-catalog-service.v1.yaml#/paths/~1api~1v1~1crop-varieties~1{varietyId}'
+  /api/v1/crop-cycles:
+    $ref: './crop-cycle-service.v1.yaml#/paths/~1api~1v1~1crop-cycles'
+  /api/v1/crop-cycles/{cycleId}:
+    $ref: './crop-cycle-service.v1.yaml#/paths/~1api~1v1~1crop-cycles~1{cycleId}'
+  /api/v1/crop-cycles/{cycleId}/stage:
+    $ref: './crop-cycle-service.v1.yaml#/paths/~1api~1v1~1crop-cycles~1{cycleId}~1stage'
+  /api/v1/crop-cycles/{cycleId}/cancel:
+    $ref: './crop-cycle-service.v1.yaml#/paths/~1api~1v1~1crop-cycles~1{cycleId}~1cancel'
+  /api/v1/crop-cycles/{cycleId}/stage-history:
+    $ref: './crop-cycle-service.v1.yaml#/paths/~1api~1v1~1crop-cycles~1{cycleId}~1stage-history'
+  /api/v1/crop-cycles/{cycleId}/observations:
+    $ref: './crop-cycle-service.v1.yaml#/paths/~1api~1v1~1crop-cycles~1{cycleId}~1observations'
+  /api/v1/work-tasks:
+    $ref: './work-service.v1.yaml#/paths/~1api~1v1~1work-tasks'
+  /api/v1/work-tasks/{taskId}:
+    $ref: './work-service.v1.yaml#/paths/~1api~1v1~1work-tasks~1{taskId}'
+  /api/v1/work-tasks/{taskId}/assign:
+    $ref: './work-service.v1.yaml#/paths/~1api~1v1~1work-tasks~1{taskId}~1assign'
+  /api/v1/work-tasks/{taskId}/assignments:
+    $ref: './work-service.v1.yaml#/paths/~1api~1v1~1work-tasks~1{taskId}~1assignments'
+  /api/v1/work-tasks/{taskId}/executions:
+    $ref: './work-service.v1.yaml#/paths/~1api~1v1~1work-tasks~1{taskId}~1executions'
+  /api/v1/work-tasks/{taskId}/attachments:
+    $ref: './work-service.v1.yaml#/paths/~1api~1v1~1work-tasks~1{taskId}~1attachments'
+  /api/v1/work-tasks/{taskId}/attachments/{attachmentId}/download:
+    $ref: './work-service.v1.yaml#/paths/~1api~1v1~1work-tasks~1{taskId}~1attachments~1{attachmentId}~1download'
+  /api/v1/work-tasks/{taskId}/start:
+    $ref: './work-service.v1.yaml#/paths/~1api~1v1~1work-tasks~1{taskId}~1start'
+  /api/v1/work-tasks/{taskId}/complete:
+    $ref: './work-service.v1.yaml#/paths/~1api~1v1~1work-tasks~1{taskId}~1complete'
+  /api/v1/work-tasks/{taskId}/cancel:
+    $ref: './work-service.v1.yaml#/paths/~1api~1v1~1work-tasks~1{taskId}~1cancel'
   /api/v1/inventory/{proxy+}:
     parameters:
       - name: proxy+
@@ -141,57 +179,50 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         '200': { description: OK }
-        default: { $ref: '#/components/responses/UnexpectedError' }
-  /api/v1/harvests/{proxy+}:
-    parameters:
-      - name: proxy+
-        in: path
-        required: true
-        schema: { type: string }
-    post:
-      summary: Harvest batches (outbox → Kafka)
-      security: [{ bearerAuth: [] }]
-      responses:
-        '201': { description: Created }
-        default: { $ref: '#/components/responses/UnexpectedError' }
-  /api/v1/traceability/{proxy+}:
-    parameters:
-      - name: proxy+
-        in: path
-        required: true
-        schema: { type: string }
-    post:
-      summary: Traceability batch write (role-gated at service)
-      security: [{ bearerAuth: [] }]
-      responses:
-        '201': { description: Created }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+  /api/v1/inventory/warehouses:
+    $ref: './inventory-service.v1.yaml#/paths/~1api~1v1~1inventory~1warehouses'
+  /api/v1/inventory/items:
+    $ref: './inventory-service.v1.yaml#/paths/~1api~1v1~1inventory~1items'
+  /api/v1/inventory/items/{itemId}:
+    $ref: './inventory-service.v1.yaml#/paths/~1api~1v1~1inventory~1items~1{itemId}'
+  /api/v1/inventory/stock-in:
+    $ref: './inventory-service.v1.yaml#/paths/~1api~1v1~1inventory~1stock-in'
+  /api/v1/inventory/stock-out:
+    $ref: './inventory-service.v1.yaml#/paths/~1api~1v1~1inventory~1stock-out'
+  /api/v1/inventory/reservations:
+    $ref: './inventory-service.v1.yaml#/paths/~1api~1v1~1inventory~1reservations'
+  /api/v1/inventory/reservations/by-reference:
+    $ref: './inventory-service.v1.yaml#/paths/~1api~1v1~1inventory~1reservations~1by-reference'
+  /api/v1/inventory/reservations/{id}/release:
+    $ref: './inventory-service.v1.yaml#/paths/~1api~1v1~1inventory~1reservations~1{id}~1release'
+  /api/v1/inventory/reservations/{id}/confirm:
+    $ref: './inventory-service.v1.yaml#/paths/~1api~1v1~1inventory~1reservations~1{id}~1confirm'
+  /api/v1/inventory/events/harvest-completed:
+    $ref: './inventory-service.v1.yaml#/paths/~1api~1v1~1inventory~1events~1harvest-completed'
+  /api/v1/inventory/events/harvest-completed/{eventId}/acknowledgement:
+    $ref: './inventory-service.v1.yaml#/paths/~1api~1v1~1inventory~1events~1harvest-completed~1{eventId}~1acknowledgement'
+  /api/v1/harvests:
+    $ref: './harvest-service.v1.yaml#/paths/~1api~1v1~1harvests'
+  /api/v1/harvests/complete:
+    $ref: './harvest-service.v1.yaml#/paths/~1api~1v1~1harvests~1complete'
+  /api/v1/harvests/{harvestId}:
+    $ref: './harvest-service.v1.yaml#/paths/~1api~1v1~1harvests~1{harvestId}'
+  /api/v1/harvests/{harvestId}/complete:
+    $ref: './harvest-service.v1.yaml#/paths/~1api~1v1~1harvests~1{harvestId}~1complete'
+  /api/v1/harvests/{harvestId}/completion-event:
+    $ref: './harvest-service.v1.yaml#/paths/~1api~1v1~1harvests~1{harvestId}~1completion-event'
+  /api/v1/harvests/{harvestId}/completion-event/republish:
+    $ref: './harvest-service.v1.yaml#/paths/~1api~1v1~1harvests~1{harvestId}~1completion-event~1republish'
+  /api/v1/traceability/events/harvest-completed/{eventId}/acknowledgement:
+    $ref: './traceability-service.v1.yaml#/paths/~1api~1v1~1traceability~1events~1harvest-completed~1{eventId}~1acknowledgement'
   /public/api/v1/traceability/{traceabilityCode}:
-    get:
-      summary: Public QR lookup (no auth)
-      security: []
-      parameters:
-        - name: traceabilityCode
-          in: path
-          required: true
-          schema: { type: string }
-      responses:
-        '200': { description: Public batch projection }
-        '404': { $ref: '#/components/responses/NotFound' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
-  /api/v1/iot/{proxy+}:
-    parameters:
-      - name: proxy+
-        in: path
-        required: true
-        schema: { type: string }
-    get:
-      summary: IoT devices and readings
-      security: [{ bearerAuth: [] }]
-      responses:
-        '200': { description: OK }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+    $ref: './traceability-service.v1.yaml#/paths/~1public~1api~1v1~1traceability~1{traceabilityCode}'
+  /public/api/v1/traceability/{traceabilityCode}/qr:
+    $ref: './traceability-service.v1.yaml#/paths/~1public~1api~1v1~1traceability~1{traceabilityCode}~1qr'
+  /api/v1/iot/devices:
+    $ref: './iot-service.v1.yaml#/paths/~1api~1v1~1iot~1devices'
+  /api/v1/iot/readings:
+    $ref: './iot-service.v1.yaml#/paths/~1api~1v1~1iot~1readings'
   /api/v1/sales/{proxy+}:
     parameters:
       - name: proxy+
@@ -203,14 +234,12 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         '200': { description: OK }
-        default: { $ref: '#/components/responses/UnexpectedError' }
     post:
       summary: Place order or reconcile stuck reservation
       security: [{ bearerAuth: [] }]
       responses:
         '200': { description: Reconciled }
         '201': { description: Order created }
-        default: { $ref: '#/components/responses/UnexpectedError' }
   /api/v1/notifications/{proxy+}:
     parameters:
       - name: proxy+
@@ -222,14 +251,30 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         '200': { description: OK }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+  /api/v1/assistant/capabilities:
+    $ref: './assistant-service.v1.yaml#/paths/~1api~1v1~1assistant~1capabilities'
+  /api/v1/assistant/conversations:
+    $ref: './assistant-service.v1.yaml#/paths/~1api~1v1~1assistant~1conversations'
+  /api/v1/assistant/conversations/{conversationId}:
+    $ref: './assistant-service.v1.yaml#/paths/~1api~1v1~1assistant~1conversations~1{conversationId}'
+  /api/v1/assistant/conversations/{conversationId}/archive:
+    $ref: './assistant-service.v1.yaml#/paths/~1api~1v1~1assistant~1conversations~1{conversationId}~1archive'
+  /api/v1/assistant/conversations/{conversationId}/messages:
+    $ref: './assistant-service.v1.yaml#/paths/~1api~1v1~1assistant~1conversations~1{conversationId}~1messages'
+  /api/v1/assistant/conversations/{conversationId}/generations:
+    $ref: './assistant-service.v1.yaml#/paths/~1api~1v1~1assistant~1conversations~1{conversationId}~1generations'
+  /api/v1/assistant/conversations/{conversationId}/generations/{generationId}:
+    $ref: './assistant-service.v1.yaml#/paths/~1api~1v1~1assistant~1conversations~1{conversationId}~1generations~1{generationId}'
+  /api/v1/assistant/conversations/{conversationId}/generations/{generationId}/cancel:
+    $ref: './assistant-service.v1.yaml#/paths/~1api~1v1~1assistant~1conversations~1{conversationId}~1generations~1{generationId}~1cancel'
+  /api/v1/assistant/conversations/{conversationId}/generations/{generationId}/events:
+    $ref: './assistant-service.v1.yaml#/paths/~1api~1v1~1assistant~1conversations~1{conversationId}~1generations~1{generationId}~1events'
   /actuator/health:
     get:
       summary: Gateway health
       security: []
       responses:
         '200': { description: Health }
-        default: { $ref: '#/components/responses/UnexpectedError' }
 components:
   securitySchemes:
     bearerAuth:
@@ -237,6 +282,87 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: RS256 access token from identity; aud=agricore-api, iss=JWT_ISSUER
+  responses:
+    BadRequest:
+      description: The request is malformed, invalid, or fails validation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Unauthorized:
+      description: Bearer credential missing, expired, or invalid. The security filter chain may return this response without a body.
+    Forbidden:
+      description: Authenticated, but missing the required role or permission.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotFound:
+      description: The requested resource does not exist or is not visible to the caller.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotAcceptable:
+      description: The requested response media type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Conflict:
+      description: The request conflicts with existing resource or domain state.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Gone:
+      description: The requested resource or replay window is no longer available.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    PayloadTooLarge:
+      description: The request body exceeds the supported size.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    UnsupportedMediaType:
+      description: The request Content-Type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Locked:
+      description: The resource is temporarily locked by an in-progress operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    RateLimitExceeded:
+      description: The caller exceeded an enforced request or concurrency limit.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    InternalServerError:
+      description: The service could not complete the request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    BadGateway:
+      description: An upstream dependency returned an invalid response.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    ServiceUnavailable:
+      description: The service or a required dependency is temporarily unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
   schemas:
     ApiError:
       type: object
@@ -262,30 +388,6 @@ components:
             properties:
               field: { type: string }
               message: { type: string }
-              rejectedValue: { description: Whatever the caller sent; untyped by design }
         details:
           type: object
           additionalProperties: true
-  responses:
-    Conflict:
-      description: |
-        The request collides with existing state. A losing race on a unique index reports
-        DUPLICATE_RESOURCE; services also use 409 for their own domain conflicts.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    Forbidden:
-      description: Authenticated but lacking the required role (code ACCESS_DENIED).
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    NotFound:
-      description: No such resource. The code is service-specific.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    UnexpectedError:
-      description: Any other failure, including 500 INTERNAL_ERROR and 405 METHOD_NOT_ALLOWED.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }

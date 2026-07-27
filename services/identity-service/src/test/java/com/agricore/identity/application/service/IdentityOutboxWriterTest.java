@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -75,6 +76,14 @@ class IdentityOutboxWriterTest {
     void enqueueUserRegistered_buildsExactEnvelope() throws Exception {
         JsonNode envelope = MAPPER.readTree(capture(user(Set.of(role("FIELD_WORKER")))).getPayload());
 
+        assertThat(fieldNames(envelope)).containsExactlyInAnyOrder(
+                "eventId",
+                "eventType",
+                "eventVersion",
+                "occurredAt",
+                "producer",
+                "payload"
+        );
         assertThat(envelope.get("eventType").asText()).isEqualTo("UserRegistered.v1");
         assertThat(envelope.get("eventVersion").asInt()).isEqualTo(1);
         assertThat(envelope.get("producer").asText()).isEqualTo("identity-service");
@@ -82,6 +91,13 @@ class IdentityOutboxWriterTest {
         assertThat(Instant.parse(envelope.get("occurredAt").asText())).isNotNull();
 
         JsonNode payload = envelope.get("payload");
+        assertThat(fieldNames(payload)).containsExactlyInAnyOrder(
+                "userId",
+                "email",
+                "fullName",
+                "roles",
+                "registeredAt"
+        );
         assertThat(payload.get("userId").asText()).isEqualTo("11111111-2222-3333-4444-555555555555");
         assertThat(payload.get("email").asText()).isEqualTo("worker@agricore.test");
         assertThat(payload.get("fullName").asText()).isEqualTo("Field Worker");
@@ -115,5 +131,11 @@ class IdentityOutboxWriterTest {
         assertThat(roles.get(0).asText()).isEqualTo("AGRONOMIST");
         assertThat(roles.get(1).asText()).isEqualTo("FIELD_WORKER");
         assertThat(roles.get(2).asText()).isEqualTo("WAREHOUSE_MANAGER");
+    }
+
+    private static ArrayList<String> fieldNames(JsonNode node) {
+        ArrayList<String> names = new ArrayList<>();
+        node.fieldNames().forEachRemaining(names::add);
+        return names;
     }
 }

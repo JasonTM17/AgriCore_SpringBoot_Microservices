@@ -11,6 +11,7 @@ import java.util.UUID;
  */
 public record HarvestCompletedCommand(
         @NotBlank String eventId,
+        @NotNull UUID farmId,
         @NotNull UUID harvestBatchId,
         @NotNull UUID warehouseId,
         @NotBlank String productCode,

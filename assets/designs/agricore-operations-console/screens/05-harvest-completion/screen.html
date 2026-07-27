@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+
+<html class="light" lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>05 — Hoàn tất thu hoạch - AgriCore</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container-high": "#deece0",
+                    "on-primary-fixed": "#002113",
+                    "surface-container-lowest": "#ffffff",
+                    "tertiary": "#523520",
+                    "error-container": "#ffdad6",
+                    "surface-container-highest": "#d8e6db",
+                    "on-background": "#121e17",
+                    "surface-tint": "#2d694d",
+                    "on-error": "#ffffff",
+                    "tertiary-fixed": "#ffdcc5",
+                    "on-tertiary-fixed": "#2d1604",
+                    "on-secondary-fixed-variant": "#633f00",
+                    "on-primary-fixed-variant": "#0f5137",
+                    "surface-container-low": "#e9f7ec",
+                    "primary": "#00452d",
+                    "tertiary-container": "#6b4c35",
+                    "on-secondary-fixed": "#291800",
+                    "on-surface-variant": "#404943",
+                    "on-secondary-container": "#714800",
+                    "surface-bright": "#effdf1",
+                    "secondary-fixed": "#ffddb4",
+                    "on-tertiary-container": "#e9bea1",
+                    "on-tertiary-fixed-variant": "#5e402a",
+                    "inverse-primary": "#95d4b2",
+                    "secondary-fixed-dim": "#ffb955",
+                    "on-error-container": "#93000a",
+                    "on-primary": "#ffffff",
+                    "surface-dim": "#d0ddd3",
+                    "primary-fixed-dim": "#95d4b2",
+                    "on-surface": "#121e17",
+                    "on-tertiary": "#ffffff",
+                    "on-primary-container": "#95d4b1",
+                    "tertiary-fixed-dim": "#e9bea1",
+                    "outline": "#707972",
+                    "on-secondary": "#ffffff",
+                    "surface": "#effdf1",
+                    "secondary": "#835500",
+                    "primary-fixed": "#b1f0cd",
+                    "error": "#ba1a1a",
+                    "inverse-on-surface": "#e6f4e9",
+                    "secondary-container": "#fcb651",
+                    "primary-container": "#1f5d42",
+                    "surface-variant": "#d8e6db",
+                    "inverse-surface": "#27332c",
+                    "background": "#effdf1",
+                    "surface-container": "#e4f1e6",
+                    "outline-variant": "#bfc9c1"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Inter", "sans-serif"],
+                    "display": ["Inter", "sans-serif"],
+                    "body": ["Inter", "sans-serif"],
+                    "label": ["Inter", "sans-serif"],
+                    "mono": ["JetBrains Mono", "monospace"]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+          font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.filled {
+          font-variation-settings: 'FILL' 1;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body antialiased min-h-screen flex">
+<!-- Shell Container -->
+<div class="flex w-full min-h-screen">
+<!-- SideNavBar -->
+<nav class="fixed left-0 top-0 h-screen w-[264px] bg-primary flex flex-col py-6 space-y-2 z-50">
+<!-- Brand -->
+<div class="px-6 mb-8 flex items-center gap-3">
+<div class="w-10 h-10 rounded bg-primary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined filled text-primary">eco</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xl font-headline font-black text-primary-fixed">AgriCore</span>
+<span class="text-xs text-primary-fixed-dim font-medium">Hệ thống vận hành</span>
+</div>
+</div>
+<!-- Tabs -->
+<div class="flex-1 overflow-y-auto w-full px-2">
+<!-- Tường quan -->
+<a class="flex items-center gap-3 px-4 py-3 mx-2 rounded-lg text-primary-fixed-dim hover:bg-primary-container/50 hover:text-primary-fixed transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+<span class="font-body text-label-sm tracking-wide font-medium">Tổng quan</span>
+</a>
+<!-- Nông trại -->
+<a class="flex items-center gap-3 px-4 py-3 mx-2 rounded-lg text-primary-fixed-dim hover:bg-primary-container/50 hover:text-primary-fixed transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">agriculture</span>
+<span class="font-body text-label-sm tracking-wide font-medium">Nông trại</span>
+</a>
+<!-- Mùa vụ & công việc -->
+<a class="flex items-center gap-3 px-4 py-3 mx-2 rounded-lg text-primary-fixed-dim hover:bg-primary-container/50 hover:text-primary-fixed transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">calendar_today</span>
+<span class="font-body text-label-sm tracking-wide font-medium">Mùa vụ &amp; công việc</span>
+</a>
+<!-- Thu hoạch (Active) -->
+<a class="flex items-center gap-3 px-4 py-3 mx-2 rounded-lg bg-surface-container-highest text-on-primary-fixed-variant font-bold transition-transform duration-150 scale-[0.98]" href="#">
+<span class="material-symbols-outlined text-[20px]">grass</span>
+<span class="font-body text-label-sm tracking-wide">Thu hoạch</span>
+</a>
+<!-- Kho vận -->
+<a class="flex items-center gap-3 px-4 py-3 mx-2 rounded-lg text-primary-fixed-dim hover:bg-primary-container/50 hover:text-primary-fixed transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">inventory_2</span>
+<span class="font-body text-label-sm tracking-wide font-medium">Kho vận</span>
+</a>
+<!-- Bán hàng -->
+<a class="flex items-center gap-3 px-4 py-3 mx-2 rounded-lg text-primary-fixed-dim hover:bg-primary-container/50 hover:text-primary-fixed transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">shopping_cart</span>
+<span class="font-body text-label-sm tracking-wide font-medium">Bán hàng</span>
+</a>
+<!-- IoT -->
+<a class="flex items-center gap-3 px-4 py-3 mx-2 rounded-lg text-primary-fixed-dim hover:bg-primary-container/50 hover:text-primary-fixed transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">sensors</span>
+<span class="font-body text-label-sm tracking-wide font-medium">IoT</span>
+</a>
+<!-- Quản trị -->
+<a class="flex items-center gap-3 px-4 py-3 mx-2 rounded-lg text-primary-fixed-dim hover:bg-primary-container/50 hover:text-primary-fixed transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+<span class="font-body text-label-sm tracking-wide font-medium">Quản trị</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 ml-[264px] min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<header class="fixed top-0 right-0 h-[72px] left-[264px] z-40 bg-surface-container-lowest border-b border-outline-variant flex justify-between items-center px-8">
+<!-- Breadcrumb -->
+<div class="flex items-center gap-2 font-headline text-body-md font-semibold">
+<span class="text-on-surface-variant">AgriCore / Mùa vụ / Lúa ST25 · Hè Thu 2026 / </span>
+<span class="text-primary font-bold">Hoàn tất thu hoạch</span>
+</div>
+<!-- Right Actions -->
+<div class="flex items-center gap-4">
+<div class="hidden md:flex items-center gap-2 bg-surface-container-low px-3 py-1.5 rounded-full border border-outline-variant/30">
+<span class="material-symbols-outlined text-sm text-primary">location_on</span>
+<span class="text-sm font-medium text-primary">Nông trại An Phú</span>
+</div>
+<button class="w-10 h-10 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant transition-colors focus:ring-2 focus:ring-primary-fixed-dim">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="h-8 w-px bg-outline-variant/50 mx-1"></div>
+<button class="flex items-center gap-3 hover:bg-surface-container p-1 pr-3 rounded-full transition-colors focus:ring-2 focus:ring-primary-fixed-dim">
+<div class="w-9 h-9 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-sm">
+                            NA
+                        </div>
+<div class="flex flex-col items-start hidden lg:flex">
+<span class="text-sm font-bold text-on-surface">Nguyễn Minh Anh</span>
+<span class="text-xs text-on-surface-variant">Quản lý nông trại</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-sm">expand_more</span>
+</button>
+</div>
+</header>
+<!-- Scrollable Canvas -->
+<div class="mt-[72px] p-8 w-full max-w-[1440px] mx-auto flex-1 flex flex-col relative pb-32">
+<!-- Page Header -->
+<div class="mb-8 flex flex-col gap-4">
+<a class="inline-flex items-center gap-1 text-sm font-medium text-on-surface-variant hover:text-primary transition-colors w-fit" href="#">
+<span class="material-symbols-outlined text-[18px]">arrow_back</span>
+                        Chi tiết mùa vụ
+                    </a>
+<div class="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6">
+<div class="flex flex-col gap-2">
+<h1 class="text-[28px] leading-tight font-bold font-headline text-on-surface">Hoàn tất thu hoạch</h1>
+<p class="text-on-surface-variant">Ghi nhận lô thu hoạch và kết thúc mùa vụ Lúa ST25 · Hè Thu 2026</p>
+<div class="flex flex-wrap items-center gap-2 mt-2">
+<span class="inline-flex items-center px-2.5 py-1 rounded bg-surface-container text-on-surface text-xs font-medium border border-outline-variant/30">
+                                    Lô A2 · 24,0 ha
+                                </span>
+<span class="inline-flex items-center px-2.5 py-1 rounded bg-primary text-on-primary text-xs font-bold shadow-sm">
+                                    Giai đoạn: THU HOẠCH
+                                </span>
+<span class="inline-flex items-center px-2.5 py-1 rounded bg-surface-variant text-on-surface-variant text-xs font-mono border border-outline-variant/50">
+                                    Phiên bản 12
+                                </span>
+</div>
+</div>
+<!-- Stage Tracker -->
+<div class="flex items-center gap-0 bg-surface-container-lowest border border-outline-variant rounded-lg p-1 shadow-sm">
+<div class="flex items-center gap-2 px-4 py-2 bg-primary-container text-on-primary-container rounded-md">
+<span class="material-symbols-outlined text-[18px]">sync</span>
+<span class="text-sm font-bold">THU HOẠCH</span>
+</div>
+<span class="material-symbols-outlined text-outline-variant mx-1">chevron_right</span>
+<div class="flex items-center gap-2 px-4 py-2 text-on-surface-variant rounded-md opacity-60">
+<span class="material-symbols-outlined text-[18px]">flag</span>
+<span class="text-sm font-medium">HOÀN TẤT</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Main Layout Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+<!-- Left Column (Form) -->
+<div class="lg:col-span-8 flex flex-col gap-6">
+<!-- Card: Thông tin lô thu hoạch -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant p-6 flex flex-col gap-6">
+<h2 class="text-lg font-bold font-headline text-on-surface border-b border-outline-variant/50 pb-4">Thông tin lô thu hoạch</h2>
+<!-- Row 1: Codes (Readonly) -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-medium text-on-surface-variant">Mã lô thu hoạch</label>
+<input class="w-full h-11 bg-surface-container-low border-outline-variant/50 text-on-surface font-mono text-sm rounded-lg shadow-inner focus:ring-0 cursor-not-allowed" readonly="" type="text" value="HV-AP01-20260718-01"/>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-medium text-on-surface-variant">Mã sản phẩm</label>
+<input class="w-full h-11 bg-surface-container-low border-outline-variant/50 text-on-surface font-mono text-sm rounded-lg shadow-inner focus:ring-0 cursor-not-allowed" readonly="" type="text" value="RICE-ST25"/>
+</div>
+</div>
+<!-- Row 2: Context (Readonly) -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-medium text-on-surface-variant">Mùa vụ</label>
+<div class="h-11 flex items-center px-3 bg-surface-container-lowest border border-outline-variant rounded-lg text-on-surface text-sm opacity-80">
+                                        Lúa ST25 · Hè Thu 2026
+                                    </div>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-medium text-on-surface-variant">Lô canh tác</label>
+<div class="h-11 flex items-center px-3 bg-surface-container-lowest border border-outline-variant rounded-lg text-on-surface text-sm opacity-80">
+                                        A2 · Nông trại An Phú
+                                    </div>
+</div>
+</div>
+<hr class="border-outline-variant/30"/>
+<!-- Field: Kho tiếp nhận -->
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-bold text-on-surface">Kho tiếp nhận <span class="text-error">*</span></label>
+<div class="relative">
+<select class="w-full h-11 pl-3 pr-10 bg-surface-container-lowest border border-outline-variant text-on-surface text-sm rounded-lg focus:border-primary focus:ring-1 focus:ring-primary appearance-none">
+<option selected="" value="wh-ap-01">Kho trung tâm An Phú · WH-AP-01</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-2.5 text-on-surface-variant pointer-events-none">arrow_drop_down</span>
+</div>
+<p class="text-xs text-[#B67A16] flex items-start gap-1 mt-1">
+<span class="material-symbols-outlined text-[14px]">warning</span>
+<span>Backend chưa có API danh sách kho; lựa chọn cần được cấp từ context hoặc lookup mới.</span>
+</p>
+</div>
+<!-- Row: Weights -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-5 bg-surface-container-low rounded-xl border border-primary-fixed-dim/30">
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-bold text-on-surface">Khối lượng tổng <span class="text-error">*</span></label>
+<div class="relative flex items-center">
+<input class="w-full h-11 pl-3 pr-12 bg-surface-container-lowest border border-outline-variant text-on-surface font-mono text-right rounded-lg focus:border-primary focus:ring-1 focus:ring-primary shadow-sm" type="text" value="128.500"/>
+<span class="absolute right-4 text-sm font-medium text-on-surface-variant">kg</span>
+</div>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-bold text-on-surface">Khối lượng tịnh <span class="text-error">*</span></label>
+<div class="relative flex items-center">
+<input class="w-full h-11 pl-3 pr-12 bg-surface-container-lowest border border-outline-variant text-on-surface font-mono text-right rounded-lg focus:border-primary focus:ring-1 focus:ring-primary shadow-sm" type="text" value="124.200"/>
+<span class="absolute right-4 text-sm font-medium text-on-surface-variant">kg</span>
+</div>
+<p class="text-xs text-on-surface-variant mt-1">Khối lượng tịnh không được lớn hơn khối lượng tổng.</p>
+</div>
+</div>
+<!-- Field: Phân hạng chất lượng -->
+<div class="flex flex-col gap-2">
+<label class="text-sm font-bold text-on-surface">Phân hạng chất lượng</label>
+<div class="flex items-center gap-0 bg-surface-container-lowest border border-outline-variant rounded-lg p-1 w-fit">
+<button class="px-6 py-2 rounded-md bg-primary text-on-primary font-bold text-sm shadow-sm">Hạng A</button>
+<button class="px-6 py-2 rounded-md text-on-surface-variant hover:bg-surface-container font-medium text-sm transition-colors">Hạng B</button>
+<button class="px-6 py-2 rounded-md text-on-surface-variant hover:bg-surface-container font-medium text-sm transition-colors">Hạng C</button>
+</div>
+</div>
+<!-- Field: Ghi chú nội bộ -->
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-bold text-on-surface">Ghi chú nội bộ</label>
+<textarea class="w-full bg-surface-container-lowest border border-outline-variant text-on-surface text-sm rounded-lg focus:border-primary focus:ring-1 focus:ring-primary p-3 shadow-sm" rows="3">Độ ẩm 13,8%, bao 50 kg, kiểm tra ngẫu nhiên đạt.</textarea>
+</div>
+<!-- Section: Thông tin truy xuất công khai -->
+<div class="border border-outline-variant rounded-xl p-5 mt-2 bg-surface-bright flex flex-col gap-5">
+<div class="flex items-center gap-2 pb-3 border-b border-outline-variant/40">
+<span class="material-symbols-outlined text-primary">qr_code_scanner</span>
+<h3 class="text-base font-bold text-on-surface">Thông tin truy xuất công khai</h3>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="flex flex-col gap-1">
+<span class="text-xs font-medium text-on-surface-variant">Tên nông trại</span>
+<span class="text-sm font-semibold text-on-surface">Nông trại An Phú</span>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-xs font-medium text-on-surface-variant">Mã lô</span>
+<span class="text-sm font-semibold text-on-surface">A2</span>
+</div>
+<div class="flex flex-col gap-1 md:col-span-2">
+<span class="text-xs font-medium text-on-surface-variant">Tên sản phẩm</span>
+<span class="text-sm font-semibold text-on-surface">Gạo ST25</span>
+</div>
+<div class="flex flex-col gap-1.5 md:col-span-2">
+<label class="text-xs font-medium text-on-surface-variant">Tóm tắt chăm sóc</label>
+<textarea class="w-full bg-surface-container-lowest border border-outline-variant text-on-surface text-sm rounded-lg focus:border-primary focus:ring-1 focus:ring-primary p-2 shadow-sm" rows="2">Canh tác hữu cơ, không sử dụng thuốc trừ sâu hóa học. Nguồn nước tưới từ hệ thống tuần hoàn kín.</textarea>
+</div>
+</div>
+<div class="flex items-start gap-2 bg-surface-container px-3 py-2 rounded-lg mt-1 border border-outline-variant/30">
+<span class="material-symbols-outlined text-[16px] text-primary mt-0.5">info</span>
+<p class="text-xs text-on-surface-variant italic">Chỉ thông tin an toàn sẽ xuất hiện trên QR; không đưa ID nội bộ, chi phí hoặc dữ liệu cá nhân.</p>
+</div>
+</div>
+<!-- Checkbox Confirmation -->
+<div class="flex items-start gap-3 mt-4 bg-surface-container-low p-4 rounded-lg border border-primary-fixed-dim/50">
+<div class="flex items-center h-5 mt-0.5">
+<input checked="" class="w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary bg-surface-container-lowest" id="confirm-check" type="checkbox"/>
+</div>
+<label class="text-sm font-bold text-on-surface cursor-pointer" for="confirm-check">
+                                    Tôi đã đối chiếu khối lượng, chất lượng và kho tiếp nhận. <span class="text-error">*</span>
+</label>
+</div>
+</div>
+</div>
+<!-- Right Column (Context & Sticky Actions) -->
+<div class="lg:col-span-4 flex flex-col gap-6 sticky top-[96px]">
+<!-- Card: Tóm tắt -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant p-5 flex flex-col gap-4">
+<h3 class="text-sm font-bold text-on-surface uppercase tracking-wider">Tóm tắt</h3>
+<ul class="flex flex-col gap-3">
+<li class="flex justify-between items-center py-1 border-b border-outline-variant/30">
+<span class="text-sm text-on-surface-variant">Mùa vụ</span>
+<span class="text-sm font-semibold text-on-surface">Lúa ST25 · HT26</span>
+</li>
+<li class="flex justify-between items-center py-1 border-b border-outline-variant/30">
+<span class="text-sm text-on-surface-variant">Lô</span>
+<span class="text-sm font-semibold text-on-surface">A2</span>
+</li>
+<li class="flex justify-between items-center py-1 border-b border-outline-variant/30">
+<span class="text-sm text-on-surface-variant">Khối lượng tịnh</span>
+<span class="text-sm font-bold text-primary">124,2 t</span>
+</li>
+<li class="flex justify-between items-center py-1 border-b border-outline-variant/30">
+<span class="text-sm text-on-surface-variant">Năng suất (Ước tính)</span>
+<span class="text-sm font-semibold text-on-surface">5,18 t/ha</span>
+</li>
+<li class="flex justify-between items-center py-1 border-b border-outline-variant/30">
+<span class="text-sm text-on-surface-variant">Hạng</span>
+<span class="inline-flex items-center justify-center w-6 h-6 rounded bg-primary-container text-on-primary-container text-xs font-bold">A</span>
+</li>
+<li class="flex justify-between items-center py-1">
+<span class="text-sm text-on-surface-variant">Kho đích</span>
+<span class="text-sm font-semibold text-on-surface">WH-AP-01</span>
+</li>
+</ul>
+</div>
+<!-- Outlined Card: Sau khi xác nhận -->
+<div class="bg-transparent rounded-xl border border-outline-variant p-5 flex flex-col gap-4">
+<h3 class="text-sm font-bold text-on-surface">Sau khi xác nhận</h3>
+<div class="relative pl-6 flex flex-col gap-6 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-outline-variant/30">
+<!-- Step 1 -->
+<div class="relative">
+<div class="absolute -left-[29px] top-0 w-[18px] h-[18px] rounded-full bg-surface-container-lowest border-2 border-primary z-10 flex items-center justify-center">
+<div class="w-1.5 h-1.5 rounded-full bg-primary"></div>
+</div>
+<p class="text-sm font-medium text-on-surface">1. Hoàn tất mùa vụ</p>
+</div>
+<!-- Step 2 -->
+<div class="relative">
+<div class="absolute -left-[29px] top-0 w-[18px] h-[18px] rounded-full bg-surface-container-lowest border-2 border-outline-variant z-10"></div>
+<p class="text-sm font-medium text-on-surface flex items-center gap-2">
+                                        2. Phát sự kiện
+                                        <span class="bg-surface-container text-on-surface-variant text-[10px] px-1.5 py-0.5 rounded font-mono border border-outline-variant/50">Async</span>
+</p>
+<p class="text-xs text-on-surface-variant font-mono mt-1">HarvestCompleted.v1</p>
+</div>
+<!-- Step 3 -->
+<div class="relative">
+<div class="absolute -left-[29px] top-0 w-[18px] h-[18px] rounded-full bg-surface-container-lowest border-2 border-outline-variant z-10"></div>
+<p class="text-sm font-medium text-on-surface flex items-center gap-2">
+                                        3. Tạo tồn kho &amp; trang truy xuất
+                                        <span class="bg-surface-container text-on-surface-variant text-[10px] px-1.5 py-0.5 rounded font-mono border border-outline-variant/50">Async</span>
+</p>
+</div>
+</div>
+</div>
+<!-- Info Card (Teal/Pale Blue variation using theme colors) -->
+<div class="bg-surface-container-low border border-primary-fixed-dim rounded-xl p-4 flex gap-3 shadow-sm">
+<span class="material-symbols-outlined text-primary shrink-0 mt-0.5">info</span>
+<p class="text-sm text-on-surface-variant leading-relaxed">
+<strong class="text-on-surface">Thông báo hệ thống:</strong> Không thể xác nhận ngay trạng thái đồng bộ kho/QR vì backend chưa có API projection status. Sau khi gửi, hiển thị trạng thái 'Đang xử lý' và cho phép thử mở chi tiết bằng ID/QR.
+                            </p>
+</div>
+<!-- Error Widget -->
+<div class="bg-error-container border border-error/30 rounded-xl p-4 flex flex-col gap-3 shadow-sm">
+<div class="flex items-start gap-2">
+<span class="material-symbols-outlined text-error shrink-0 mt-0.5">error</span>
+<p class="text-sm font-medium text-on-error-container leading-relaxed">
+                                    Không thể hoàn tất: dữ liệu đã thay đổi. Tải lại phiên bản mới.
+                                </p>
+</div>
+<div class="flex justify-end gap-2 mt-1">
+<button class="px-3 py-1.5 text-sm font-bold text-on-surface-variant hover:bg-surface-container-highest rounded transition-colors">Hủy</button>
+<button class="px-3 py-1.5 text-sm font-bold text-error bg-error/10 hover:bg-error/20 rounded transition-colors">Tải lại</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Sticky Footer Actions -->
+<div class="fixed bottom-0 left-[264px] right-0 h-20 bg-surface-container-lowest border-t border-outline-variant/50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-40 px-8 flex items-center justify-between">
+<div class="text-sm text-on-surface-variant">
+                    Bản nháp tự động lưu lúc 14:23
+                </div>
+<div class="flex items-center gap-4">
+<!-- Tooltip wrapper -->
+<div class="relative group">
+<button class="h-11 px-6 rounded-lg font-bold text-sm bg-surface-container border border-outline-variant text-on-surface-variant opacity-50 cursor-not-allowed" disabled="">
+                            Lưu nháp
+                        </button>
+<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-inverse-surface text-inverse-on-surface text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                            Backend chưa hỗ trợ lưu nháp
+                            <!-- Arrow -->
+<div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-inverse-surface"></div>
+</div>
+</div>
+<button class="h-11 px-6 rounded-lg font-bold text-sm bg-primary text-on-primary shadow-sm hover:bg-on-primary-fixed-variant transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">check_circle</span>
+                        Hoàn tất thu hoạch
+                    </button>
+</div>
+</div>
+</main>
+</div>
+</body></html>

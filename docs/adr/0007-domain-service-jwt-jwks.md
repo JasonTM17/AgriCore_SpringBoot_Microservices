@@ -15,28 +15,39 @@ Domain services initially trusted gateway-only auth or decoded JWT payloads with
 Introduce `libs/common-security` auto-configuration for servlet domain services:
 
 - Production: Spring Security OAuth2 Resource Server with RS256 `JwtDecoder` from identity JWKS (`agricore.security.jwk-set-uri`) and issuer validation.
+- Map string entries in JWT `roles` to `ROLE_*` and `permissions` to `PERMISSION_*`; ignore malformed or blank entries and deduplicate authorities.
 - Dev/test only: `X-Dev-User` / `X-Dev-Roles` when `agricore.security.dev-mode=true`.
 - Never accept unsigned JWT base64 payloads.
 - Public paths remain limited to `/actuator/health/**`, `/actuator/prometheus`, `/public/**`.
 
-Identity and API Gateway keep service-specific security configurations.
+Identity and API Gateway keep service-specific security configurations but apply the same role-and-permission mapping. Identity computes the sorted distinct permission union from the user's roles when issuing an access token.
 
 ## Consequences
 
 ### Positive
 
 - Forged JWT without private key is rejected at each service boundary.
-- Single shared security primitive reduces drift across services.
+- Shared role-and-permission conversion reduces drift between the gateway and servlet domain services.
 - Tests stay simple with explicit dev headers.
 
 ### Negative
 
 - Domain services need network access to identity JWKS (or cached keys).
 - Local unit tests without JWKS must set `dev-mode=true` and avoid real Bearer tokens.
+- Role-grant changes do not alter existing token snapshots; updated permissions appear only in a newly issued token, such as after login or refresh. The old token remains valid with its prior claims until expiry (900 seconds by default).
 
 ### Neutral
 
 - Gateway continues to validate JWT for external clients; service-level validation is defense in depth.
+- Permission authorities are active at domain controller boundaries. The console also filters navigation using the effective permission snapshot; farm membership remains a separate resource-scope check.
+
+## Trade-offs
+
+Every protected service performs signature and claim validation, adding JWKS
+cache/network configuration and a small amount of request CPU. That cost is
+accepted so a reachable internal service does not have to trust that every
+caller traversed the gateway. Short token lifetime bounds stale permission
+snapshots without requiring a synchronous authorization call on every request.
 
 ## Alternatives considered
 

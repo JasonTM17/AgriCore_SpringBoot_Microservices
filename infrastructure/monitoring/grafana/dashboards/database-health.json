@@ -1,0 +1,18 @@
+{
+  "annotations": {"list": []},
+  "editable": false,
+  "panels": [
+    {"type": "timeseries", "title": "Active database connections", "id": 1, "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}, "targets": [{"expr": "hikaricp_connections_active", "legendFormat": "{{job}} / {{pool}}"}]},
+    {"type": "timeseries", "title": "Pending database connections", "id": 2, "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}, "targets": [{"expr": "hikaricp_connections_pending", "legendFormat": "{{job}} / {{pool}}"}]},
+    {"type": "timeseries", "title": "Average connection acquire latency", "id": 3, "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8}, "targets": [{"expr": "sum by (job) (rate(hikaricp_connections_acquire_seconds_sum[5m])) / sum by (job) (rate(hikaricp_connections_acquire_seconds_count[5m]))", "legendFormat": "{{job}}"}], "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []}}
+  ],
+  "refresh": "15s",
+  "schemaVersion": 39,
+  "tags": ["agricore", "database"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "AgriCore Database Health",
+  "uid": "agricore-database-health",
+  "version": 1
+}

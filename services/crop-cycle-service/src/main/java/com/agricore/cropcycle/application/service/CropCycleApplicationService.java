@@ -11,6 +11,8 @@ import com.agricore.cropcycle.domain.model.CycleStatus;
 import com.agricore.cropcycle.domain.policy.CycleStageTransitionPolicy;
 import com.agricore.cropcycle.infrastructure.persistence.CropCycleJpaRepository;
 import com.agricore.cropcycle.infrastructure.persistence.entity.CropCycleEntity;
+import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -20,29 +22,38 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 
 @Service
 public class CropCycleApplicationService {
 
+    static final String ACTIVE_CYCLE_OVERLAP_CONSTRAINT = "crop_cycles_no_active_date_overlap";
     private static final Set<CycleStage> TERMINAL = EnumSet.of(CycleStage.COMPLETED, CycleStage.CANCELLED);
     private static final Set<CycleStatus> ACTIVE_STATUSES = EnumSet.of(CycleStatus.DRAFT, CycleStatus.ACTIVE);
     private static final LocalDate OPEN_END = LocalDate.of(9999, 12, 31);
 
     private final CropCycleJpaRepository cycleRepository;
     private final CropCycleOutboxWriter outboxWriter;
+    private final CropCycleAccessGuard accessGuard;
+    private final CropCycleStageHistoryService stageHistoryService;
 
     public CropCycleApplicationService(
             CropCycleJpaRepository cycleRepository,
-            CropCycleOutboxWriter outboxWriter
+            CropCycleOutboxWriter outboxWriter,
+            CropCycleAccessGuard accessGuard,
+            CropCycleStageHistoryService stageHistoryService
     ) {
         this.cycleRepository = cycleRepository;
         this.outboxWriter = outboxWriter;
+        this.accessGuard = accessGuard;
+        this.stageHistoryService = stageHistoryService;
     }
 
     @Transactional
-    public CropCycleResponse create(CreateCropCycleRequest request) {
+    public CropCycleResponse create(CreateCropCycleRequest request, String actor) {
+        accessGuard.requireFarmPlot(request.farmId(), request.plotId());
         String code = request.code().trim().toUpperCase();
         if (cycleRepository.existsByCodeIgnoreCase(code)) {
             throw new CropCycleException("CYCLE_CODE_EXISTS", "Crop cycle code already exists", 409);
@@ -61,11 +72,7 @@ public class CropCycleApplicationService {
                 OPEN_END
         );
         if (!overlaps.isEmpty()) {
-            throw new CropCycleException(
-                    "CROP_CYCLE_OVERLAP",
-                    "Plot already has an active crop cycle overlapping the requested dates",
-                    409
-            );
+            throw overlapConflict();
         }
 
         Instant now = Instant.now();
@@ -83,8 +90,16 @@ public class CropCycleApplicationService {
         cycle.setNotes(request.notes());
         cycle.setCreatedAt(now);
         cycle.setUpdatedAt(now);
-        cycleRepository.save(cycle);
+        try {
+            cycle = cycleRepository.saveAndFlush(cycle);
+        } catch (DataIntegrityViolationException exception) {
+            if (violatesConstraint(exception, ACTIVE_CYCLE_OVERLAP_CONSTRAINT)) {
+                throw overlapConflict();
+            }
+            throw exception;
+        }
 
+        stageHistoryService.record(cycle, null, actor, request.notes());
         outboxWriter.enqueue(EventTypes.CROP_CYCLE_CREATED, cycle, null);
         return toResponse(cycle);
     }
@@ -96,8 +111,11 @@ public class CropCycleApplicationService {
 
     @Transactional(readOnly = true)
     public PageResponse<CropCycleResponse> list(UUID farmId, UUID plotId, Pageable pageable) {
+        accessGuard.requireListScope(farmId, plotId);
         Page<CropCycleEntity> page;
-        if (plotId != null) {
+        if (farmId != null && plotId != null) {
+            page = cycleRepository.findByFarmIdAndPlotId(farmId, plotId, pageable);
+        } else if (plotId != null) {
             page = cycleRepository.findByPlotId(plotId, pageable);
         } else if (farmId != null) {
             page = cycleRepository.findByFarmId(farmId, pageable);
@@ -113,23 +131,24 @@ public class CropCycleApplicationService {
     }
 
     @Transactional
-    public CropCycleResponse changeStage(UUID id, ChangeStageRequest request) {
+    public CropCycleResponse changeStage(UUID id, ChangeStageRequest request, String actor) {
         CropCycleEntity cycle = require(id);
-        if (TERMINAL.contains(cycle.getStage())) {
+        CycleStage previous = cycle.getStage();
+        String requestedStage = request.stage().trim().toUpperCase(Locale.ROOT);
+        if (previous.name().equals(requestedStage)) {
+            return toResponse(cycle);
+        }
+        if (TERMINAL.contains(previous)) {
             throw new CropCycleException("CYCLE_TERMINAL", "Cannot change stage of a terminal cycle", 409);
         }
 
         CycleStage next;
         try {
-            next = CycleStage.valueOf(request.stage().trim().toUpperCase());
+            next = CycleStage.valueOf(requestedStage);
         } catch (IllegalArgumentException ex) {
             throw new CropCycleException("INVALID_STAGE", "Unknown stage: " + request.stage(), 400);
         }
 
-        CycleStage previous = cycle.getStage();
-        if (previous == next) {
-            return toResponse(cycle);
-        }
         if (!CycleStageTransitionPolicy.canTransition(previous, next)) {
             throw new CropCycleException(
                     "INVALID_STAGE_TRANSITION",
@@ -160,14 +179,42 @@ public class CropCycleApplicationService {
         }
 
         cycle.setUpdatedAt(Instant.now());
-        cycleRepository.save(cycle);
+        cycle = cycleRepository.saveAndFlush(cycle);
+        stageHistoryService.record(cycle, previous, actor, request.notes());
         outboxWriter.enqueue(eventType, cycle, previous.name());
         return toResponse(cycle);
     }
 
+    @Transactional
+    public CropCycleResponse cancel(UUID id, String actor) {
+        return changeStage(id, new ChangeStageRequest(CycleStage.CANCELLED.name(), null), actor);
+    }
+
     private CropCycleEntity require(UUID id) {
-        return cycleRepository.findById(id)
+        CropCycleEntity cycle = cycleRepository.findById(id)
                 .orElseThrow(() -> new CropCycleException("CYCLE_NOT_FOUND", "Crop cycle not found", 404));
+        accessGuard.requireFarmPlot(cycle.getFarmId(), cycle.getPlotId());
+        return cycle;
+    }
+
+    private static boolean violatesConstraint(Throwable failure, String expectedConstraint) {
+        Throwable current = failure;
+        while (current != null) {
+            if (current instanceof ConstraintViolationException violation
+                    && expectedConstraint.equalsIgnoreCase(violation.getConstraintName())) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private static CropCycleException overlapConflict() {
+        return new CropCycleException(
+                "CROP_CYCLE_OVERLAP",
+                "Plot already has an active crop cycle overlapping the requested dates",
+                409
+        );
     }
 
     private CropCycleResponse toResponse(CropCycleEntity c) {

@@ -10,6 +10,7 @@ public record UserResponse(
         String fullName,
         String status,
         List<String> roles,
+        List<String> permissions,
         Instant lastLoginAt,
         Instant createdAt
 ) {

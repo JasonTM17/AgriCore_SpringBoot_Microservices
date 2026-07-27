@@ -1,77 +1,109 @@
-# Project Overview (PDR)
+# AgriCore project overview and product requirements
 
-## Problem
+**Status:** Active pre-release
 
-Commercial crop production is tracked across disconnected tools: plots in spreadsheets, field work on
-paper or chat, harvest weights in a warehouse ledger, sales in another system, and nothing tying a
-delivered box back to the plot it grew on. The cost shows up as unverifiable provenance claims, stock
-that does not match reality, and no audit trail when a buyer asks where produce came from.
+**Last verified:** 2026-07-26
 
-AgriCore models the whole chain — farm → plot → crop cycle → field work → harvest → inventory → sale —
-in one platform, with a public traceability record as the visible output.
+## Product problem
 
-## Users and roles
+Agricultural enterprises often split farm maps, crop plans, field work, material
+stock, harvests, sensor alerts, sales, and origin evidence across spreadsheets
+and disconnected tools. That makes stock correctness, audit history, farm-level
+access, and public traceability difficult to prove.
 
-Seven roles ship seeded; new registrations receive `FIELD_WORKER` and are promoted by an admin.
+AgriCore provides one operational platform while keeping each business capability
+inside an independently owned service and database.
 
-| Role | Uses the platform to |
-|------|----------------------|
-| `SYSTEM_ADMIN` | Manage users and role assignments |
-| `FARM_MANAGER` | Own farms, plots, and crop cycle planning |
-| `AGRONOMIST` | Drive cycle stages and field work decisions |
-| `FIELD_WORKER` | Execute and complete assigned tasks |
-| `WAREHOUSE_MANAGER` | Receive harvests, manage stock and reservations |
-| `SALES_STAFF` | Manage customers and orders |
-| `AUDITOR` | Read-only review across domains |
+## Users
 
-Plus an unauthenticated consumer who scans a QR code and sees a deliberately narrow public trace.
+| Persona | Primary outcomes |
+|---|---|
+| System administrator | Identity, role/permission policy, deployment, audit |
+| Farm manager | Enterprise, farm, plot, cycle, work, harvest oversight |
+| Agronomist | Crop requirements, observations, task and IoT decisions |
+| Field worker | Assigned task execution and evidence attachment |
+| Warehouse manager | Batch stock, reservations, movements, harvest receipt |
+| Sales staff | Customers, orders, inventory saga status |
+| Auditor | Read-only operational and traceability evidence |
+| Produce consumer | Public QR origin information without internal data |
 
-## Product decisions
+## Functional requirements
 
-- **Traceability is the differentiator.** The public read model is a first-class projection maintained
-  from harvest events, not a report generated on demand.
-- **Inventory truth beats convenience.** Stock changes flow from harvest events and reservation
-  confirmation, so a sale can never silently exceed physical stock. A crash between reserve and confirm
-  is recoverable through an explicit reconcile action rather than manual row edits.
-- **Provenance data is public; everything else is not.** The QR response exposes farm name, plot code,
-  product, and harvest data — never internal ids, prices, customers, or users.
-- **Registration is closed by default in production.** Open self-registration exists for local demos
-  only; production creates users through an admin.
+1. Authenticate with short-lived RS256 access tokens and rotated opaque refresh
+   tokens.
+2. Scope protected farm data by role, permission, and authoritative farm
+   membership.
+3. Manage enterprise/farm/area/plot/soil/irrigation and agronomic catalog data.
+4. Track crop cycles, observations, stage history, work assignments, execution,
+   materials, and private image evidence.
+5. Complete farm-scoped harvest batches and project authoritative farm events
+   idempotently into Inventory and Traceability.
+6. Keep stock movements and expiry-aware lots; prevent negative and duplicate
+   mutations under concurrency.
+7. Ingest authenticated MQTT telemetry, enforce per-device admission quotas,
+   deduplicate readings, evaluate versioned thresholds, suppress alert storms,
+   and detect offline devices.
+8. Orchestrate farm-scoped Sales inventory reservations without a distributed
+   transaction.
+9. Publish `UserRegistered.v1` atomically with Identity registration and consume
+   it as an idempotent welcome-email intent. Persist email and in-app delivery
+   outcomes instead of reporting attempted sends as successful; external
+   automatic delivery is at-most-once, while local `IN_APP` recovery is safely
+   retryable. Provide an authorized administrative inbox.
+10. Publish a public-safe QR read model without cross-service database queries.
+11. Provide an authenticated, persisted, read-only assistant with replayable SSE,
+    bounded tools, budgets, and safe provider-unavailable behavior.
+12. Provide an accessible React operations console and reproducible local demo
+    data/media.
 
-## Architecture commitments
+## Non-functional requirements
 
-Database per service, Kafka domain events through a transactional outbox, idempotent consumers with
-dead-letter topics, RS256 JWT with JWKS verified locally by each service, no service registry, no
-shared domain library. Rationale per decision lives in [the ADRs](adr/); the runtime picture is in
-[System Architecture](architecture/SYSTEM_ARCHITECTURE.md).
+- Java 21, Spring Boot, PostgreSQL/Flyway, Redis, Kafka, MQTT, MinIO-compatible
+  object storage, and a React/TypeScript console.
+- Database per service; REST for immediate decisions and Kafka for implemented
+  domain events.
+- Transactional outbox for producers and persistent idempotency for consumers.
+- External notification ambiguity becomes
+  `FAILED`/`DELIVERY_OUTCOME_UNKNOWN`; recovery must not automatically resend a
+  message the provider may already have accepted.
+- Optimistic or pessimistic locking selected from the actual contention
+  invariant.
+- Versioned OpenAPI, AsyncAPI, and JSON Schema contracts.
+- Structured logs, metrics, traces, health probes, bounded retries, DLT repair,
+  and no committed secret.
+- Explicit assistant retention/cleanup controls; telemetry deletion remains
+  unset until a product-owned retention horizon and storage budget are approved.
+- Docker Compose for local evidence and a hardened Helm application chart for
+  operator-provided clusters.
+- Focused conventional commits and reproducible verification from a clean
+  revision.
 
-## Scope boundaries
+## Release acceptance
 
-**In scope:** crop production operations, harvest-to-stock flow, order-to-reservation flow, device and
-sensor reading capture, public traceability, role-based access.
+- Every mandatory capability has direct implementation, contract, migration,
+  test, runtime, or workflow evidence.
+- Full Maven, frontend, browser, Compose, Helm, secret, dependency, and container
+  gates pass.
+- A gateway JWT path and broker-backed harvest projection are reproducible.
+- The bounded Large dataset is idempotent at 32 farms, 768 plots, 32
+  production flows, 128 work tasks, 640 readings, and 16 confirmed sales
+  orders, with repository-owned media stored through the Work attachment
+  boundary.
+- Platform docs, service-local README files, diagrams, generated clients, and
+  environment examples match the released revision.
+- Docker Hub and GitHub Packages publish immutable SHA images only after default
+  branch CI succeeds. Only full and short SHA tags are promoted; signatures,
+  SBOM, and provenance are verifiable.
+- Production operators explicitly supply secrets, TLS, database backups, Kafka
+  authorization, storage, SMTP, and observability retention.
 
-**Out of scope (deliberately):**
+## Out of scope for this repository
 
-- Accounting, payroll, invoicing, tax.
-- Logistics, route planning, fleet.
-- Marketplace, buyer-side commerce, payments.
-- Agronomic prediction and yield modelling.
-- Native mobile applications — responsive web only.
+- A hosted production cluster or managed infrastructure account.
+- Autonomous assistant writes or arbitrary external URL access.
+- Cross-service database joins and distributed ACID transactions.
+- Product-specific telemetry retention, legal certification authority, tax, and
+  invoice compliance policies without an accepted business decision.
 
-## What "done" means
-
-The platform is judged by an end-to-end path, not by feature count: register → create farm and plot →
-start a crop cycle → assign and complete field work → complete a harvest → stock appears in inventory
-via Kafka → a public QR code returns that batch's provenance. `scripts/verify-platform.ps1` runs
-exactly this path and writes an evidence bundle.
-
-## Non-functional expectations
-
-- Every service: own database, Flyway migrations, `/actuator/health`, `/actuator/prometheus`.
-- Cross-service writes never dual-write: database and event commit in one transaction.
-- Duplicate event delivery must not double-count stock.
-- No secrets in git; security-relevant configuration defaults to fail-closed.
-- Container images: multi-stage build, non-root user, healthcheck, published only from a
-  CI-verified commit.
-
-Current gaps and their reasons are tracked in [project-roadmap.md](project-roadmap.md).
+See [the roadmap](project-roadmap.md) for evidence status and
+[system architecture](architecture/SYSTEM_ARCHITECTURE.md) for boundaries.

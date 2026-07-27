@@ -14,6 +14,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
@@ -33,10 +34,14 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @SpringBootTest
 @ActiveProfiles("test")
+@WithMockUser(username = "system-admin", roles = "SYSTEM_ADMIN")
 class PlotStatusChangeEventTest {
 
     @Autowired
-    private FarmApplicationService service;
+    private FarmApplicationService farmService;
+
+    @Autowired
+    private PlotApplicationService plotService;
 
     @Autowired
     private OutboxJpaRepository outboxRepository;
@@ -46,8 +51,8 @@ class PlotStatusChangeEventTest {
 
     @Test
     void creatingAFarmAndPlotEnqueuesOneEventEach() {
-        FarmResponse farm = service.createFarm(farmRequest());
-        PlotResponse plot = service.createPlot(farm.id(), plotRequest());
+        FarmResponse farm = farmService.createFarm(farmRequest());
+        PlotResponse plot = plotService.create(farm.id(), plotRequest());
 
         assertThat(eventsFor(farm.id().toString()))
                 .extracting(OutboxEventEntity::getEventType)
@@ -62,7 +67,7 @@ class PlotStatusChangeEventTest {
         PlotResponse plot = newPlot();
         assertThat(plot.status()).isEqualTo("AVAILABLE");
 
-        service.updatePlot(plot.id(), statusPatch("IN_USE"));
+        plotService.update(plot.id(), statusPatch(plot, "IN_USE"));
 
         List<OutboxEventEntity> events = eventsFor(plot.id().toString());
         assertThat(events).extracting(OutboxEventEntity::getEventType)
@@ -82,11 +87,11 @@ class PlotStatusChangeEventTest {
     @Test
     void resendingTheSameStatusEnqueuesNothing() {
         PlotResponse plot = newPlot();
-        service.updatePlot(plot.id(), statusPatch("IN_USE"));
+        plot = plotService.update(plot.id(), statusPatch(plot, "IN_USE"));
         int afterRealChange = eventsFor(plot.id().toString()).size();
 
-        service.updatePlot(plot.id(), statusPatch("IN_USE"));
-        service.updatePlot(plot.id(), statusPatch("in_use"));
+        plot = plotService.update(plot.id(), statusPatch(plot, "IN_USE"));
+        plotService.update(plot.id(), statusPatch(plot, "in_use"));
 
         assertThat(eventsFor(plot.id().toString()))
                 .as("a no-op status write is not a state transition")
@@ -102,8 +107,14 @@ class PlotStatusChangeEventTest {
         PlotResponse plot = newPlot();
         int afterCreate = eventsFor(plot.id().toString()).size();
 
-        service.updatePlot(plot.id(), new UpdatePlotRequest(
-                "Renamed block", new BigDecimal("9.75"), "CLAY", null, 11.0, 107.0));
+        UpdatePlotRequest request = new UpdatePlotRequest();
+        request.setVersion(plot.version());
+        request.setName("Renamed block");
+        request.setAreaInHectares(new BigDecimal("9.75"));
+        request.setSoilType("CLAY");
+        request.setLatitude(11.0);
+        request.setLongitude(107.0);
+        plotService.update(plot.id(), request);
 
         assertThat(eventsFor(plot.id().toString())).hasSize(afterCreate);
     }
@@ -114,11 +125,14 @@ class PlotStatusChangeEventTest {
      */
     @Test
     void updatingAFarmEnqueuesNothing() {
-        FarmResponse farm = service.createFarm(farmRequest());
+        FarmResponse farm = farmService.createFarm(farmRequest());
         int afterCreate = eventsFor(farm.id().toString()).size();
 
-        service.updateFarm(farm.id(),
-                new UpdateFarmRequest("Renamed", null, null, null, null, null, "INACTIVE"));
+        UpdateFarmRequest request = new UpdateFarmRequest();
+        request.setVersion(farm.version());
+        request.setName("Renamed");
+        request.setStatus("INACTIVE");
+        farmService.updateFarm(farm.id(), request);
 
         assertThat(eventsFor(farm.id().toString())).hasSize(afterCreate);
     }
@@ -130,7 +144,7 @@ class PlotStatusChangeEventTest {
      */
     @Test
     void theEventCarriesTheStandardEnvelope() {
-        FarmResponse farm = service.createFarm(farmRequest());
+        FarmResponse farm = farmService.createFarm(farmRequest());
 
         JsonNode envelope = envelopeOf(eventsFor(farm.id().toString()).get(0));
 
@@ -143,7 +157,7 @@ class PlotStatusChangeEventTest {
     }
 
     private PlotResponse newPlot() {
-        return service.createPlot(service.createFarm(farmRequest()).id(), plotRequest());
+        return plotService.create(farmService.createFarm(farmRequest()).id(), plotRequest());
     }
 
     private List<OutboxEventEntity> eventsFor(String aggregateId) {
@@ -165,13 +179,16 @@ class PlotStatusChangeEventTest {
         return envelopeOf(event).get("payload");
     }
 
-    private static UpdatePlotRequest statusPatch(String status) {
-        return new UpdatePlotRequest(null, null, null, status, null, null);
+    private static UpdatePlotRequest statusPatch(PlotResponse plot, String status) {
+        UpdatePlotRequest request = new UpdatePlotRequest();
+        request.setVersion(plot.version());
+        request.setStatus(status);
+        return request;
     }
 
     private static CreateFarmRequest farmRequest() {
         return new CreateFarmRequest(
-                "EVT-" + System.nanoTime(), "Event Farm", "Dak Lak", "Dak Lak",
+                "EVT-" + System.nanoTime(), "Event Farm", null, "Dak Lak", "Dak Lak",
                 new BigDecimal("10.5"), 12.6667, 108.05);
     }
 

@@ -8,4 +8,5 @@ import java.util.UUID;
 public interface SensorAlertJpaRepository extends JpaRepository<SensorAlertEntity, UUID> {
     Optional<SensorAlertEntity> findFirstByFingerprintAndStatusOrderByCreatedAtDesc(String fingerprint, String status);
     long countByDeviceIdAndStatus(UUID deviceId, String status);
+    long countByStatus(String status);
 }

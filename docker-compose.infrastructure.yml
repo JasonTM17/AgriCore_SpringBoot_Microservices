@@ -1,18 +1,33 @@
 # Infrastructure only — databases, cache, messaging, observability
 # Project name comes from parent docker-compose.yml when included.
 
+x-bounded-logging: &bounded-logging
+  driver: json-file
+  options:
+    max-size: ${DOCKER_LOG_MAX_SIZE:-10m}
+    max-file: ${DOCKER_LOG_MAX_FILES:-3}
+
+x-timescale-image: &timescale-image timescale/timescaledb:2.27.0-pg16@sha256:51eb3bcdfc41f481c797026813d9d457fb5cbc8ea370a65640d8cda13a4040c1
+
 services:
   postgres:
-    image: postgres:16-alpine
+    image: *timescale-image
     container_name: agricore-postgres
-    command: ["postgres", "-c", "max_connections=200"]
+    logging: *bounded-logging
+    command:
+      - postgres
+      - -c
+      - max_connections=200
+      - -c
+      - shared_preload_libraries=timescaledb
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-agricore}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agricore_dev_change_me}
     ports:
-      - "${POSTGRES_PORT:-5434}:5432"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-5434}:5432"
     volumes:
       - agricore_pg_data:/var/lib/postgresql/data
+      - ./infrastructure/docker/postgres/disable-template-timescaledb-install.sh:/docker-entrypoint-initdb.d/000_install_timescaledb.sh:ro
       - ./infrastructure/docker/postgres/init-databases.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-agricore}"]
@@ -20,11 +35,61 @@ services:
       timeout: 5s
       retries: 10
 
+  iot-timescale-init:
+    image: *timescale-image
+    container_name: agricore-iot-timescale-init
+    logging: *bounded-logging
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER:-agricore}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-agricore_dev_change_me}
+      IOT_TIMESCALE_INIT_MAX_ATTEMPTS: ${IOT_TIMESCALE_INIT_MAX_ATTEMPTS:-60}
+      IOT_TIMESCALE_INIT_RETRY_SECONDS: ${IOT_TIMESCALE_INIT_RETRY_SECONDS:-2}
+    entrypoint: ["/bin/sh", "/opt/agricore/provision-iot-timescale.sh"]
+    volumes:
+      - ./infrastructure/docker/postgres/provision-iot-timescale.sh:/opt/agricore/provision-iot-timescale.sh:ro
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+
+  assistant-database-init:
+    image: *timescale-image
+    container_name: agricore-assistant-database-init
+    logging: *bounded-logging
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER:-agricore}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-agricore_dev_change_me}
+    entrypoint:
+      - psql
+      - -d
+      - postgres
+      - -v
+      - ON_ERROR_STOP=1
+      - -f
+      - /opt/agricore/provision-assistant-database.sql
+    volumes:
+      - ./infrastructure/docker/postgres/provision-assistant-database.sql:/opt/agricore/provision-assistant-database.sql:ro
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+
   redis:
     image: redis:7-alpine
     container_name: agricore-redis
+    logging: *bounded-logging
     ports:
-      - "${REDIS_PORT:-6380}:6379"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:${REDIS_PORT:-6380}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -34,8 +99,9 @@ services:
   kafka:
     image: apache/kafka:3.8.1
     container_name: agricore-kafka
+    logging: *bounded-logging
     ports:
-      - "9092:9092"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:${KAFKA_PORT:-9092}:9092"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -60,14 +126,64 @@ services:
   kafka-ui:
     image: provectuslabs/kafka-ui:v0.7.2
     container_name: agricore-kafka-ui
+    logging: *bounded-logging
     depends_on:
       kafka:
         condition: service_started
     ports:
-      - "8088:8080"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:${KAFKA_UI_PORT:-8088}:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: agricore
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:19092
 
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    container_name: agricore-minio
+    logging: *bounded-logging
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-agricore_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-agricore_minio_dev_change_me}
+    ports:
+      - "${MINIO_BIND:-127.0.0.1}:${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_BIND:-127.0.0.1}:${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - agricore_minio_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    mem_limit: 512m
+    cpus: 0.50
+
+  mqtt:
+    image: eclipse-mosquitto:2.0.20
+    container_name: agricore-mqtt
+    logging: *bounded-logging
+    environment:
+      MQTT_SERVICE_USERNAME: ${MQTT_SERVICE_USERNAME:-agricore_iot}
+      MQTT_SERVICE_PASSWORD: ${MQTT_SERVICE_PASSWORD:-agricore_iot_dev_change_me}
+      MQTT_DEVICE_PASSWORD_SEED: ${MQTT_DEVICE_PASSWORD_SEED:-agricore_device_seed_dev_change_me}
+      MQTT_DEVICE_COUNT: ${MQTT_DEVICE_COUNT:-1}
+      MQTT_DEVICE_PREFIX: ${MQTT_DEVICE_PREFIX:-DEMO-SOIL}
+      MQTT_DEVICE_USERS: ${MQTT_DEVICE_USERS:-}
+    entrypoint: ["/bin/sh", "/opt/agricore/broker-entrypoint.sh"]
+    ports:
+      - "${MQTT_BIND:-127.0.0.1}:${MQTT_PORT:-1883}:1883"
+    volumes:
+      - ./infrastructure/docker/mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./infrastructure/docker/mqtt/broker-entrypoint.sh:/opt/agricore/broker-entrypoint.sh:ro
+      - agricore_mqtt_data:/mosquitto/data
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_pub -h 127.0.0.1 -p 1883 -u \"$$MQTT_SERVICE_USERNAME\" -P \"$$MQTT_SERVICE_PASSWORD\" -t agricore/health -n -q 0"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
 volumes:
   agricore_pg_data:
+  agricore_minio_data:
+  agricore_mqtt_data:

@@ -2,21 +2,21 @@ package com.agricore.iot.api.advice;
 
 import com.agricore.common.api.ApiError;
 import com.agricore.common.persistence.ConstraintViolations;
+import com.agricore.farmaccess.FarmAccessException;
 import com.agricore.iot.domain.exception.IotException;
 import jakarta.servlet.http.HttpServletRequest;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
-
-    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(IotException.class)
     public ResponseEntity<ApiError> handle(IotException ex, HttpServletRequest request) {
@@ -26,32 +26,59 @@ public class GlobalExceptionHandler {
         ));
     }
 
-    /**
-     * A losing race on a unique index is the caller's conflict, not a server fault. Device
-     * registration checks for an existing code first, but that check is not a lock: two requests
-     * can both pass it and the database rejects the second.
-     *
-     * <p>Only unique violations become 409. A foreign-key or not-null failure reaching this point
-     * is a defect in this service and stays a 500 — answering "already exists" to either would
-     * replace one wrong answer with another.
-     */
-    @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<ApiError> dataIntegrity(DataIntegrityViolationException ex, HttpServletRequest request) {
-        if (!ConstraintViolations.isUniqueViolation(ex)) {
-            log.error("Constraint failure on {}", request.getRequestURI(), ex);
-            return ResponseEntity.internalServerError().body(ApiError.of(
-                    500, "Internal Server Error", "INTERNAL_ERROR", "An unexpected error occurred",
-                    request.getRequestURI(), null
-            ));
-        }
-        // The constraint name identifies the index and therefore the schema. Operators need it,
-        // callers do not: the response says only that the value is taken.
-        log.warn("Duplicate key on {}: {}", request.getRequestURI(), ex.getMostSpecificCause().getMessage());
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.of(
-                409, "Conflict", "DUPLICATE_RESOURCE",
-                "A record with the supplied identifier already exists",
-                request.getRequestURI(), null
+    @ExceptionHandler(FarmAccessException.class)
+    public ResponseEntity<ApiError> handleFarmAccess(FarmAccessException ex, HttpServletRequest request) {
+        return ResponseEntity.status(ex.getHttpStatus()).body(ApiError.of(
+                ex.getHttpStatus(), HttpStatus.valueOf(ex.getHttpStatus()).getReasonPhrase(),
+                ex.getCode(), ex.getMessage(), request.getRequestURI(), null
         ));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiError> dataIntegrity(
+            DataIntegrityViolationException ex,
+            HttpServletRequest request
+    ) {
+        if (!ConstraintViolations.isUniqueViolation(ex)) {
+            return error(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "DATA_INTEGRITY_ERROR",
+                    "The request could not be persisted",
+                    request
+            );
+        }
+        return error(
+                HttpStatus.CONFLICT,
+                "DUPLICATE_RESOURCE",
+                "A record with the supplied identifier already exists",
+                request
+        );
+    }
+
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    public ResponseEntity<ApiError> handleAuthorizationDenied(
+            AuthorizationDeniedException ex,
+            HttpServletRequest request
+    ) {
+        return error(
+                HttpStatus.FORBIDDEN,
+                "ACCESS_DENIED",
+                "Insufficient privileges for this operation",
+                request
+        );
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiError> malformedJson(HttpMessageNotReadableException ex, HttpServletRequest request) {
+        return error(HttpStatus.BAD_REQUEST, "MALFORMED_JSON", "Malformed JSON request", request);
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiError> unsupportedMediaType(
+            HttpMediaTypeNotSupportedException ex,
+            HttpServletRequest request
+    ) {
+        return error(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "UNSUPPORTED_MEDIA_TYPE", "Content-Type is not supported", request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -62,5 +89,21 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(
                 ApiError.validation("Request validation failed", request.getRequestURI(), null, violations)
         );
+    }
+
+    private ResponseEntity<ApiError> error(
+            HttpStatus status,
+            String code,
+            String message,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(status).body(ApiError.of(
+                status.value(),
+                status.getReasonPhrase(),
+                code,
+                message,
+                request.getRequestURI(),
+                null
+        ));
     }
 }

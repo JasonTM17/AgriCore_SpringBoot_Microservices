@@ -26,6 +26,8 @@ public class ProcessedEventEntity {
         return e;
     }
 
+    public Instant getProcessedAt() { return processedAt; }
+
     public static class Pk implements Serializable {
         private String eventId;
         private String consumerName;

@@ -1,8 +1,11 @@
 openapi: 3.1.0
 info:
   title: AgriCore Inventory Service API
-  version: 1.0.0
-  description: Warehouses, stock movements, reservations; Kafka HarvestCompleted consumer is idempotent
+  version: 2.0.0
+  description: |
+    Farm-scoped warehouses, stock movements, reservations, and an idempotent
+    HarvestCompleted consumer. Version 2 requires warehouseId when reading harvest
+    acknowledgements so pending and completed states share the same authorization boundary.
 servers:
   - url: http://localhost:8086
 paths:
@@ -17,23 +20,24 @@ paths:
           application/json:
             schema:
               type: object
-              required: [code, name]
+              additionalProperties: false
+              required: [farmId, code, name]
               properties:
-                code: { type: string }
-                name: { type: string }
+                farmId: { type: string, format: uuid }
+                code: { type: string, minLength: 1, maxLength: 64 }
+                name: { type: string, minLength: 1, maxLength: 200 }
       responses:
         '201':
           description: Created
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '409': { $ref: '#/components/responses/Conflict' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WarehouseResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /api/v1/inventory/items:
     post:
-      summary: Create inventory item
-      description: Requires SYSTEM_ADMIN or WAREHOUSE_MANAGER. SKU is unique per warehouse.
-      operationId: createItem
+      summary: Create an inventory item in a warehouse
       security:
         - bearerAuth: []
       requestBody:
@@ -41,28 +45,23 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [warehouseId, sku, name, itemType, unit]
-              properties:
-                warehouseId: { type: string, format: uuid }
-                sku: { type: string, maxLength: 64 }
-                name: { type: string, maxLength: 200 }
-                itemType: { type: string }
-                unit: { type: string, maxLength: 16 }
+              $ref: '#/components/schemas/CreateInventoryItemRequest'
       responses:
         '201':
-          description: Created
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+          description: Inventory item created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryItemResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /api/v1/inventory/stock-in:
     post:
-      summary: Record a stock-in movement
-      description: Requires SYSTEM_ADMIN or WAREHOUSE_MANAGER. Returns the updated item.
-      operationId: stockIn
+      summary: Add stock and record the referenced ledger movement
       security:
         - bearerAuth: []
       requestBody:
@@ -70,25 +69,109 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [inventoryItemId, quantity, referenceType, referenceId]
-              properties:
-                inventoryItemId: { type: string, format: uuid }
-                quantity: { type: number, minimum: 0.001 }
-                referenceType: { type: string }
-                referenceId: { type: string }
-                note: { type: string }
+              $ref: '#/components/schemas/StockInRequest'
       responses:
         '200':
-          description: Updated item
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+          description: Updated inventory balance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryItemResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/inventory/stock-out:
+    post:
+      summary: Deduct available stock idempotently by business reference
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockOutRequest'
+      responses:
+        '200':
+          description: Updated inventory balance or the result of an idempotent replay
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryItemResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /internal/api/v1/inventory/stock-out:
+    post:
+      summary: Deduct task material from the authoritative farm inventory
+      description: >-
+        Internal Work service contract. The caller supplies the farm resolved from the task plot;
+        Inventory returns 404 when the item is absent or belongs to another farm.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: header
+          name: X-Internal-Service-Token
+          required: true
+          schema: { type: string, minLength: 32 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InternalStockOutRequest'
+      responses:
+        '200':
+          description: Stock deducted or an idempotent replay resolved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryItemResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /internal/api/v1/inventory/warehouses/{warehouseId}/scope:
+    get:
+      summary: Resolve authoritative warehouse farm scope
+      description: >-
+        Internal Harvest contract. Returns the owning farm for a usable warehouse without
+        exposing warehouse metadata. Legacy warehouses without farm scope fail closed.
+      parameters:
+        - in: path
+          name: warehouseId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: X-Internal-Service-Token
+          required: true
+          schema: { type: string, minLength: 32 }
+      responses:
+        '200':
+          description: Authoritative warehouse scope
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalWarehouseScopeResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/inventory/reservations:
     post:
-      summary: Reserve stock (optimistic concurrency)
+      summary: Reserve stock idempotently by business reference
+      description: >-
+        Repeating the same referenceType/referenceId with the same item and quantity returns the
+        authoritative reservation without increasing the hold. Reusing a reference for a different
+        request returns 409.
       security:
         - bearerAuth: []
       requestBody:
@@ -97,40 +180,198 @@ paths:
           application/json:
             schema:
               type: object
+              additionalProperties: false
               required: [inventoryItemId, quantity, referenceType, referenceId]
               properties:
                 inventoryItemId: { type: string, format: uuid }
-                quantity: { type: number }
-                referenceType: { type: string }
-                referenceId: { type: string }
+                quantity: { type: number, minimum: 0.001, maximum: 999999999999999.999, multipleOf: 0.001 }
+                referenceType: { type: string, minLength: 1, maxLength: 64 }
+                referenceId: { type: string, minLength: 1, maxLength: 100 }
       responses:
         '201':
           description: Reserved
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
-  /api/v1/inventory/reservations/{reservationId}/release:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /internal/api/v1/inventory/reservations:
+    post:
+      summary: Reserve stock for an explicit authoritative farm
+      description: >-
+        Internal Sales contract. Inventory locks the item and verifies its warehouse belongs
+        to farmId before creating or replaying the business-reference reservation.
+      parameters:
+        - in: header
+          name: X-Internal-Service-Token
+          required: true
+          schema: { type: string, minLength: 32 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InternalReserveStockRequest'
+      responses:
+        '200':
+          description: Existing scoped reservation replay
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationResponse'
+        '201':
+          description: Reservation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /internal/api/v1/inventory/reservations/by-reference:
+    get:
+      summary: Resolve a reservation only within an explicit farm
+      parameters:
+        - in: header
+          name: X-Internal-Service-Token
+          required: true
+          schema: { type: string, minLength: 32 }
+        - in: query
+          name: farmId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: referenceType
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 64 }
+        - in: query
+          name: referenceId
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 100 }
+      responses:
+        '200':
+          description: Current scoped reservation state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /internal/api/v1/inventory/reservations/{id}/release:
+    post:
+      summary: Release a reservation only within an explicit farm
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: farmId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: X-Internal-Service-Token
+          required: true
+          schema: { type: string, minLength: 32 }
+      responses:
+        '200':
+          description: Current scoped reservation state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationReleaseResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /internal/api/v1/inventory/reservations/{id}/confirm:
+    post:
+      summary: Confirm a reservation only within an explicit farm
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: farmId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: X-Internal-Service-Token
+          required: true
+          schema: { type: string, minLength: 32 }
+      responses:
+        '200':
+          description: Fulfilled scoped reservation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/inventory/reservations/by-reference:
+    get:
+      summary: Resolve the authoritative reservation for a business reference
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: referenceType
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 64 }
+        - in: query
+          name: referenceId
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 100 }
+      responses:
+        '200':
+          description: Current reservation state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/inventory/reservations/{id}/release:
     post:
       summary: Release reservation
       security:
         - bearerAuth: []
       parameters:
         - in: path
-          name: reservationId
+          name: id
           required: true
           schema: { type: string, format: uuid }
       responses:
         '200':
-          description: Released
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
-  /api/v1/inventory/reservations/{reservationId}/confirm:
+          description: >-
+            Current reservation state. RELEASED means the stock hold was removed;
+            FULFILLED means inventory was already committed and can no longer be released.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationReleaseResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/inventory/reservations/{id}/confirm:
     post:
       summary: Confirm reservation (fulfill - decrement on-hand and reserved)
       description: Sales saga confirm step. Idempotent when already FULFILLED.
@@ -138,18 +379,20 @@ paths:
         - bearerAuth: []
       parameters:
         - in: path
-          name: reservationId
+          name: id
           required: true
           schema: { type: string, format: uuid }
       responses:
         '200':
           description: Fulfilled
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /api/v1/inventory/events/harvest-completed:
     post:
       summary: Sync adapter for HarvestCompleted (same path as Kafka consumer)
@@ -164,11 +407,46 @@ paths:
       responses:
         '200':
           description: Stock applied (idempotent on eventId)
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryItemResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/inventory/events/harvest-completed/{eventId}/acknowledgement:
+    get:
+      operationId: getInventoryHarvestProjectionAcknowledgement
+      summary: Read inventory acknowledgement for a harvest event
+      description: Marker absence means inventory has not acknowledged the event; it does not prove failure or DLT routing.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: warehouseId
+          required: true
+          description: Warehouse scope used to authorize both pending and acknowledged states.
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Current inventory consumer acknowledgement state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryHarvestProjectionAcknowledgementResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/inventory/items/{itemId}:
     get:
       summary: Get inventory item
@@ -182,17 +460,358 @@ paths:
       responses:
         '200':
           description: Item with onHand and reserved quantities
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryItemResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/inventory/warehouses/{warehouseId}/items:
+    get:
+      summary: List inventory items in a warehouse
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: warehouseId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 0, maximum: 10000, default: 0 }
+        - in: query
+          name: size
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - in: query
+          name: sort
+          schema:
+            type: string
+            pattern: '^(sku|name|createdAt|updatedAt),(asc|desc)$'
+            default: sku,asc
+      responses:
+        '200':
+          description: Paged warehouse inventory
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryItemPage'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/inventory/items/{itemId}/movements:
+    get:
+      summary: List stock movements for an inventory item
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 0, maximum: 10000, default: 0 }
+        - in: query
+          name: size
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - in: query
+          name: sort
+          schema:
+            type: string
+            pattern: '^(createdAt|quantity|movementType),(asc|desc)$'
+            default: createdAt,desc
+      responses:
+        '200':
+          description: Paged immutable stock ledger movements
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockMovementPage'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  responses:
+    BadRequest:
+      description: The request is malformed, invalid, or fails validation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Unauthorized:
+      description: Bearer credential missing, expired, or invalid. The security filter chain may return this response without a body.
+    Forbidden:
+      description: Authenticated, but missing the required role or permission.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotFound:
+      description: The requested resource does not exist or is not visible to the caller.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotAcceptable:
+      description: The requested response media type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Conflict:
+      description: The request conflicts with existing resource or domain state.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Gone:
+      description: The requested resource or replay window is no longer available.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    PayloadTooLarge:
+      description: The request body exceeds the supported size.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    UnsupportedMediaType:
+      description: The request Content-Type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Locked:
+      description: The resource is temporarily locked by an in-progress operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    RateLimitExceeded:
+      description: The caller exceeded an enforced request or concurrency limit.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    InternalServerError:
+      description: The service could not complete the request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    BadGateway:
+      description: An upstream dependency returned an invalid response.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    ServiceUnavailable:
+      description: The service or a required dependency is temporarily unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
   schemas:
+    CreateInventoryItemRequest:
+      type: object
+      additionalProperties: false
+      required: [warehouseId, sku, name, itemType, unit]
+      properties:
+        warehouseId: { type: string, format: uuid }
+        sku: { type: string, minLength: 1, maxLength: 64 }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        itemType: { type: string, minLength: 1 }
+        unit: { type: string, minLength: 1, maxLength: 16 }
+    StockInRequest:
+      type: object
+      additionalProperties: false
+      required: [inventoryItemId, quantity, referenceType, referenceId]
+      description: |
+        Adds stock to an expiry-aware lot. Omitting lotCode derives a deterministic
+        lot identity from referenceType/referenceId. Omitting expiresAt means the lot
+        is not expiry-managed.
+      properties:
+        inventoryItemId: { type: string, format: uuid }
+        quantity: { type: number, minimum: 0.001, maximum: 999999999999999.999, multipleOf: 0.001 }
+        referenceType: { type: string, minLength: 1, maxLength: 64 }
+        referenceId: { type: string, minLength: 1, maxLength: 100 }
+        note: { type: [string, 'null'], maxLength: 1000 }
+        lotCode: { type: string, maxLength: 100 }
+        expiresAt: { type: string, format: date-time }
+    StockOutRequest:
+      allOf:
+        - $ref: '#/components/schemas/StockMutationRequest'
+    StockMutationRequest:
+      type: object
+      additionalProperties: false
+      required: [inventoryItemId, quantity, referenceType, referenceId]
+      properties:
+        inventoryItemId: { type: string, format: uuid }
+        quantity: { type: number, minimum: 0.001, maximum: 999999999999999.999, multipleOf: 0.001 }
+        referenceType: { type: string, minLength: 1, maxLength: 64 }
+        referenceId: { type: string, minLength: 1, maxLength: 100 }
+        note: { type: [string, 'null'], maxLength: 1000 }
+    WarehouseResponse:
+      type: object
+      additionalProperties: false
+      required: [id, farmId, code, name, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        farmId: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        createdAt: { type: string, format: date-time }
+    InternalWarehouseScopeResponse:
+      type: object
+      additionalProperties: false
+      required: [warehouseId, farmId]
+      properties:
+        warehouseId: { type: string, format: uuid }
+        farmId: { type: string, format: uuid }
+    InternalStockOutRequest:
+      type: object
+      additionalProperties: false
+      required: [farmId, inventoryItemId, quantity, referenceType, referenceId]
+      properties:
+        farmId: { type: string, format: uuid }
+        inventoryItemId: { type: string, format: uuid }
+        quantity: { type: number, minimum: 0.001, multipleOf: 0.001 }
+        referenceType: { type: string, minLength: 1, maxLength: 64 }
+        referenceId: { type: string, minLength: 1, maxLength: 100 }
+        note: { type: [string, 'null'], maxLength: 1000 }
+    InternalReserveStockRequest:
+      type: object
+      additionalProperties: false
+      required: [farmId, inventoryItemId, quantity, referenceType, referenceId]
+      properties:
+        farmId: { type: string, format: uuid }
+        inventoryItemId: { type: string, format: uuid }
+        quantity: { type: number, minimum: 0.001, maximum: 999999999999999.999, multipleOf: 0.001 }
+        referenceType: { type: string, minLength: 1, maxLength: 64 }
+        referenceId: { type: string, minLength: 1, maxLength: 100 }
+    InventoryItemResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - warehouseId
+        - sku
+        - name
+        - itemType
+        - unit
+        - onHandQuantity
+        - reservedQuantity
+        - availableQuantity
+        - version
+      properties:
+        id: { type: string, format: uuid }
+        warehouseId: { type: string, format: uuid }
+        sku: { type: string }
+        name: { type: string }
+        itemType: { type: string }
+        unit: { type: string }
+        onHandQuantity: { type: number }
+        reservedQuantity: { type: number }
+        availableQuantity: { type: number }
+        version: { type: integer, format: int64, minimum: 0 }
+    InventoryItemPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMetadata'
+        - type: object
+          required: [content]
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/InventoryItemResponse'
+    StockMovementPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMetadata'
+        - type: object
+          required: [content]
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/StockMovementResponse'
+    StockMovementResponse:
+      type: object
+      additionalProperties: false
+      required: [id, itemId, type, quantity, referenceType, referenceId, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        itemId: { type: string, format: uuid }
+        batchId: { type: [string, 'null'], format: uuid }
+        type: { type: string, enum: [STOCK_IN, STOCK_OUT, RESERVE, RELEASE, CONFIRM] }
+        quantity: { type: number, minimum: 0 }
+        referenceType: { type: string }
+        referenceId: { type: string }
+        note: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+    PageMetadata:
+      type: object
+      additionalProperties: false
+      required: [page, size, totalElements, totalPages, first, last]
+      properties:
+        page: { type: integer, minimum: 0 }
+        size: { type: integer, minimum: 1 }
+        totalElements: { type: integer, format: int64, minimum: 0 }
+        totalPages: { type: integer, minimum: 0 }
+        first: { type: boolean }
+        last: { type: boolean }
+    ReservationResponse:
+      type: object
+      additionalProperties: false
+      required: [id, inventoryItemId, quantity, status, referenceType, referenceId]
+      properties:
+        id: { type: string, format: uuid }
+        inventoryItemId: { type: string, format: uuid }
+        quantity: { type: number }
+        status: { type: string, enum: [ACTIVE, RELEASED, FULFILLED] }
+        referenceType: { type: string }
+        referenceId: { type: string }
+    ReservationReleaseResponse:
+      type: object
+      additionalProperties: false
+      required: [id, inventoryItemId, quantity, status, referenceType, referenceId]
+      properties:
+        id: { type: string, format: uuid }
+        inventoryItemId: { type: string, format: uuid }
+        quantity: { type: number }
+        status: { type: string, enum: [RELEASED, FULFILLED] }
+        referenceType: { type: string }
+        referenceId: { type: string }
+    InventoryHarvestProjectionAcknowledgementResponse:
+      type: object
+      additionalProperties: false
+      required: [eventId, projection, state, acknowledgedAt]
+      properties:
+        eventId: { type: string, format: uuid }
+        projection: { type: string, enum: [INVENTORY] }
+        state: { type: string, enum: [ACKNOWLEDGED, NOT_ACKNOWLEDGED] }
+        acknowledgedAt: { type: [string, 'null'], format: date-time }
+    HarvestCompletedCommand:
+      type: object
+      additionalProperties: false
+      required: [eventId, farmId, harvestBatchId, warehouseId, productCode, netWeightKg]
+      properties:
+        eventId: { type: string, minLength: 1 }
+        farmId: { type: string, format: uuid }
+        harvestBatchId: { type: string, format: uuid }
+        warehouseId: { type: string, format: uuid }
+        productCode: { type: string, minLength: 1 }
+        netWeightKg: { type: number, minimum: 0.001 }
+        qualityGrade: { type: [string, 'null'] }
     ApiError:
       type: object
       description: |
@@ -217,52 +836,6 @@ components:
             properties:
               field: { type: string }
               message: { type: string }
-              rejectedValue: { description: Whatever the caller sent; untyped by design }
         details:
           type: object
           additionalProperties: true
-    HarvestCompletedCommand:
-      type: object
-      required: [eventId, harvestBatchId, warehouseId, productCode, netWeightKg]
-      properties:
-        eventId: { type: string }
-        harvestBatchId: { type: string, format: uuid }
-        warehouseId: { type: string, format: uuid }
-        productCode: { type: string }
-        netWeightKg: { type: number }
-        qualityGrade: { type: string }
-  responses:
-    Conflict:
-      description: |
-        The request collides with existing state. A losing race on a unique index reports
-        DUPLICATE_RESOURCE; services also use 409 for their own domain conflicts.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    Forbidden:
-      description: Authenticated but lacking the required role (code ACCESS_DENIED).
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    NotFound:
-      description: No such resource. The code is service-specific.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    Unauthorized:
-      description: |
-        Bearer credential missing, expired, or invalid. Produced by the security filter chain
-        before the DispatcherServlet, so this is the one error on the platform that is NOT
-        ApiError-shaped and carries no body.
-    UnexpectedError:
-      description: Any other failure, including 500 INTERNAL_ERROR and 405 METHOD_NOT_ALLOWED.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    ValidationFailed:
-      description: |
-        Request body failed validation (code VALIDATION_FAILED, with violations populated), or a
-        path variable or query parameter would not convert (code INVALID_PARAMETER).
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }

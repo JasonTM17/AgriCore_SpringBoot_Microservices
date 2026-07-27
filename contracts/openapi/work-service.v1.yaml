@@ -1,135 +1,729 @@
 openapi: 3.1.0
 info:
   title: AgriCore Work Service API
-  version: 1.0.0
-  description: Field work tasks assignment and completion
+  version: 1.7.0
+  description: Verified field-work task creation, immutable assignment, execution, and image attachment history, explicit lifecycle, completion, cancellation, and query contract.
 servers:
   - url: http://localhost:8085
+    description: Direct local service endpoint
+security:
+  - bearerAuth: []
+tags:
+  - name: Work Tasks
 paths:
   /api/v1/work-tasks:
-    post:
-      summary: Create work task
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [code, cropCycleId, plotId, taskType, title]
-              properties:
-                code: { type: string }
-                cropCycleId: { type: string, format: uuid }
-                plotId: { type: string, format: uuid }
-                taskType: { type: string }
-                title: { type: string }
-                priority: { type: string }
-      responses:
-        '201':
-          description: Created
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '409': { $ref: '#/components/responses/Conflict' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
     get:
+      tags: [Work Tasks]
+      operationId: listWorkTasks
       summary: List work tasks
-      security:
-        - bearerAuth: []
+      description: Non-system administrators must provide an accessible plotId scope. SYSTEM_ADMIN may use global or cropCycleId-only views.
       parameters:
         - in: query
           name: cropCycleId
+          required: false
           schema: { type: string, format: uuid }
         - in: query
-          name: page
-          schema: { type: integer, default: 0 }
-        - in: query
-          name: size
-          description: Clamped to 100 by the service
-          schema: { type: integer, default: 20 }
-      responses:
-        '200':
-          description: Paged work tasks
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
-  /api/v1/work-tasks/{taskId}:
-    get:
-      summary: Get work task
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: taskId
-          required: true
+          name: plotId
+          required: false
+          description: Authoritative plot scope required for non-system administrators.
           schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
       responses:
         '200':
-          description: Work task detail
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
-  /api/v1/work-tasks/{taskId}/assign:
+          description: Work tasks ordered by creation time descending.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkTaskPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
     post:
-      summary: Assign task to employee
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: taskId
-          required: true
-          schema: { type: string, format: uuid }
+      tags: [Work Tasks]
+      operationId: createWorkTask
+      summary: Create a work task
+      description: Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST with access to the task plot.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [assignedEmployeeId]
-              properties:
-                assignedEmployeeId: { type: string, format: uuid }
+              $ref: '#/components/schemas/CreateWorkTaskRequest'
+      responses:
+        '201':
+          description: Work task created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkTaskResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/work-tasks/{taskId}:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    get:
+      tags: [Work Tasks]
+      operationId: getWorkTask
+      summary: Get a work task
+      description: Requires access to the task's authoritative plot. Missing and inaccessible tasks both return 404.
       responses:
         '200':
-          description: Assigned
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
-  /api/v1/work-tasks/{taskId}/complete:
+          description: Work task found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkTaskResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/work-tasks/{taskId}/assign:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
     post:
-      summary: Complete task
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: taskId
-          required: true
-          schema: { type: string, format: uuid }
+      tags: [Work Tasks]
+      operationId: assignWorkTask
+      summary: Assign a work task
+      description: >-
+        Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST with access to the task plot. Assignment is allowed
+        from CREATED, ASSIGNED, or OVERDUE. Repeating the same assignment is idempotent.
       requestBody:
+        required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                notes: { type: string }
+              $ref: '#/components/schemas/AssignTaskRequest'
       responses:
         '200':
-          description: Completed
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+          description: Task assigned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkTaskResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/work-tasks/{taskId}/assignments:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    get:
+      tags: [Work Tasks]
+      operationId: listWorkTaskAssignments
+      summary: List immutable assignment history
+      description: >-
+        Returns newest task versions first after verifying access to the task's authoritative plot.
+        Repeating the same assignment does not append a duplicate history record.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Assignment history page.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkAssignmentPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/work-tasks/{taskId}/executions:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    get:
+      tags: [Work Tasks]
+      operationId: listTaskExecutions
+      summary: List immutable task execution history
+      description: >-
+        Returns lifecycle executions by newest committed task version after verifying access to the task's
+        authoritative plot. Idempotent lifecycle retries do not append duplicate execution records.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Task execution history page.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskExecutionPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/work-tasks/{taskId}/attachments:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    get:
+      tags: [Work Tasks]
+      operationId: listTaskAttachments
+      summary: List immutable task image attachments
+      description: Returns the bounded attachment list after verifying access to the task's authoritative plot.
+      responses:
+        '200':
+          description: Task attachment list ordered by upload time.
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 100
+                items:
+                  $ref: '#/components/schemas/TaskAttachmentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    post:
+      tags: [Work Tasks]
+      operationId: uploadTaskAttachment
+      summary: Upload a task evidence image
+      description: >-
+        Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or FIELD_WORKER with task plot access. The service
+        validates size, file name, declared type, image structure, and SHA-256 before storing JPEG, PNG, or WebP
+        bytes in private object storage. Re-uploading identical bytes is idempotent. Terminal tasks are locked.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Attachment stored, or the existing attachment returned for identical task bytes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskAttachmentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/work-tasks/{taskId}/attachments/{attachmentId}/download:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+      - in: path
+        name: attachmentId
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Work Tasks]
+      operationId: downloadTaskAttachment
+      summary: Create a private attachment download redirect
+      description: Verifies task plot access before redirecting to a short-lived signed object URL.
+      responses:
+        '302':
+          description: Short-lived private object download URL.
+          headers:
+            Location:
+              required: true
+              schema: { type: string, format: uri }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/work-tasks/{taskId}/start:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    post:
+      tags: [Work Tasks]
+      operationId: startWorkTask
+      summary: Start an assigned work task
+      description: >-
+        Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or FIELD_WORKER with access to the task plot.
+        Transitions ASSIGNED or OVERDUE to IN_PROGRESS and records actualStart. Repeating the start is idempotent.
+      responses:
+        '200':
+          description: Task started or returned unchanged when already in progress.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkTaskResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/work-tasks/{taskId}/complete:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    post:
+      tags: [Work Tasks]
+      operationId: completeWorkTask
+      summary: Complete a work task
+      description: >-
+        Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or FIELD_WORKER with access to the task plot.
+        The task must be IN_PROGRESS. The request body is optional. Material retries must repeat the same item
+        and quantity set; successful deductions are not repeated.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteTaskRequest'
+      responses:
+        '200':
+          description: Task completed, or returned unchanged when already completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkTaskResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/work-tasks/{taskId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    post:
+      tags: [Work Tasks]
+      operationId: cancelWorkTask
+      summary: Cancel a work task
+      description: >-
+        Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST with access to the task plot. Cancellation is
+        idempotent and records actualEnd when work had started. A completed task or a task with material
+        processing cannot be cancelled.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelTaskRequest'
+      responses:
+        '200':
+          description: Task cancelled or returned unchanged when already cancelled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkTaskResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  parameters:
+    TaskId:
+      in: path
+      name: taskId
+      required: true
+      schema: { type: string, format: uuid }
+    Page:
+      in: query
+      name: page
+      description: Zero-based page index.
+      schema: { type: integer, format: int32, minimum: 0, default: 0 }
+    Size:
+      in: query
+      name: size
+      description: Number of records per page.
+      schema: { type: integer, format: int32, minimum: 1, maximum: 100, default: 20 }
+  responses:
+    BadRequest:
+      description: Invalid path, query, JSON, task type, validation input, or missing required plot scope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Unauthorized:
+      description: Authentication is required or the bearer token is invalid.
+    Forbidden:
+      description: The authenticated user lacks the required role or plot membership.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotFound:
+      description: Work task, plot, or farm not found or not visible to the caller.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Conflict:
+      description: Duplicate code, invalid lifecycle transition, unsafe cancellation, changed material retry, or a concurrent task update requiring reload.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    UnsupportedMediaType:
+      description: Request Content-Type or attachment bytes are not supported, or declared attachment type does not match its bytes.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    InternalServerError:
+      description: Failed to persist the transactional outbox event.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    PayloadTooLarge:
+      description: Task attachment exceeds the configured upload limit.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    ServiceUnavailable:
+      description: Authoritative farm access verification, material stock consumption, or private attachment storage is temporarily unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotAcceptable:
+      description: The requested response media type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Gone:
+      description: The requested resource or replay window is no longer available.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Locked:
+      description: The resource is temporarily locked by an in-progress operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    RateLimitExceeded:
+      description: The caller exceeded an enforced request or concurrency limit.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    BadGateway:
+      description: An upstream dependency returned an invalid response.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
   schemas:
+    TaskType:
+      type: string
+      enum: [LAND_PREPARATION, SOWING, IRRIGATION, FERTILIZING, PESTICIDE, PRUNING, INSPECTION, PEST_CONTROL, HARVEST, MAINTENANCE]
+    TaskStatus:
+      type: string
+      enum: [CREATED, ASSIGNED, IN_PROGRESS, COMPLETED, CANCELLED, OVERDUE]
+    CreateWorkTaskRequest:
+      type: object
+      required: [code, cropCycleId, plotId, taskType, title, priority]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 64 }
+        cropCycleId: { type: string, format: uuid }
+        plotId: { type: string, format: uuid }
+        taskType:
+          $ref: '#/components/schemas/TaskType'
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: [string, 'null'] }
+        priority: { type: string, minLength: 1, maxLength: 32 }
+        scheduledStart: { type: [string, 'null'], format: date-time }
+        scheduledEnd: { type: [string, 'null'], format: date-time }
+    AssignTaskRequest:
+      type: object
+      required: [assignedEmployeeId]
+      properties:
+        assignedEmployeeId: { type: string, format: uuid }
+    CancelTaskRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        notes: { type: [string, 'null'], maxLength: 2000 }
+    CompleteTaskRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        notes: { type: [string, 'null'], maxLength: 2000 }
+        materials:
+          type: array
+          maxItems: 50
+          description: Omit or send an empty array when the task consumes no inventory materials.
+          items:
+            $ref: '#/components/schemas/MaterialUsageRequest'
+    MaterialUsageRequest:
+      type: object
+      additionalProperties: false
+      required: [inventoryItemId, quantity]
+      properties:
+        inventoryItemId: { type: string, format: uuid }
+        quantity: { type: number, minimum: 0.001, multipleOf: 0.001 }
+    WorkTaskResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - code
+        - cropCycleId
+        - plotId
+        - taskType
+        - title
+        - description
+        - priority
+        - assignedEmployeeId
+        - scheduledStart
+        - scheduledEnd
+        - actualStart
+        - actualEnd
+        - status
+        - notes
+        - createdAt
+        - version
+        - materials
+        - attachments
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string, maxLength: 64 }
+        cropCycleId: { type: string, format: uuid }
+        plotId: { type: string, format: uuid }
+        taskType:
+          $ref: '#/components/schemas/TaskType'
+        title: { type: string, maxLength: 200 }
+        description: { type: [string, 'null'] }
+        priority: { type: string, maxLength: 32 }
+        assignedEmployeeId: { type: [string, 'null'], format: uuid }
+        scheduledStart: { type: [string, 'null'], format: date-time }
+        scheduledEnd: { type: [string, 'null'], format: date-time }
+        actualStart: { type: [string, 'null'], format: date-time }
+        actualEnd: { type: [string, 'null'], format: date-time }
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        notes: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+        version: { type: integer, format: int64, minimum: 0 }
+        materials:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaterialUsageResponse'
+        attachments:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/TaskAttachmentResponse'
+    MaterialUsageResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - inventoryItemId
+        - quantity
+        - unit
+        - status
+        - inventoryReferenceId
+        - lastError
+        - consumedAt
+      properties:
+        id: { type: string, format: uuid }
+        inventoryItemId: { type: string, format: uuid }
+        quantity: { type: number }
+        unit: { type: [string, 'null'], maxLength: 16 }
+        status: { type: string, enum: [PENDING, CONSUMED, FAILED] }
+        inventoryReferenceId: { type: string, maxLength: 100 }
+        lastError: { type: [string, 'null'], maxLength: 1000 }
+        consumedAt: { type: [string, 'null'], format: date-time }
+    WorkAssignmentResponse:
+      type: object
+      additionalProperties: false
+      required: [id, workTaskId, employeeId, assignedBy, assignedAt, taskVersion]
+      properties:
+        id: { type: string, format: uuid }
+        workTaskId: { type: string, format: uuid }
+        employeeId: { type: string, format: uuid }
+        assignedBy: { type: string, minLength: 1, maxLength: 255 }
+        assignedAt: { type: string, format: date-time }
+        taskVersion: { type: integer, format: int64, minimum: 0 }
+    WorkAssignmentPageResponse:
+      type: object
+      additionalProperties: false
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkAssignmentResponse'
+        page: { type: integer, format: int32, minimum: 0 }
+        size: { type: integer, format: int32, minimum: 1, maximum: 100 }
+        totalElements: { type: integer, format: int64, minimum: 0 }
+        totalPages: { type: integer, format: int32, minimum: 0 }
+        first: { type: boolean }
+        last: { type: boolean }
+    TaskExecutionResponse:
+      type: object
+      additionalProperties: false
+      required: [id, workTaskId, action, previousStatus, status, notes, executedBy, executedAt, taskVersion]
+      properties:
+        id: { type: integer, format: int64, minimum: 1 }
+        workTaskId: { type: string, format: uuid }
+        action: { type: string, enum: [STARTED, COMPLETED, CANCELLED] }
+        previousStatus:
+          oneOf:
+            - $ref: '#/components/schemas/TaskStatus'
+            - type: 'null'
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        notes: { type: [string, 'null'], maxLength: 2000 }
+        executedBy: { type: string, minLength: 1, maxLength: 255 }
+        executedAt: { type: string, format: date-time }
+        taskVersion: { type: integer, format: int64, minimum: 0 }
+    TaskExecutionPageResponse:
+      type: object
+      additionalProperties: false
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskExecutionResponse'
+        page: { type: integer, format: int32, minimum: 0 }
+        size: { type: integer, format: int32, minimum: 1, maximum: 100 }
+        totalElements: { type: integer, format: int64, minimum: 0 }
+        totalPages: { type: integer, format: int32, minimum: 0 }
+        first: { type: boolean }
+        last: { type: boolean }
+    TaskAttachmentResponse:
+      type: object
+      additionalProperties: false
+      required: [id, workTaskId, fileName, contentType, sizeBytes, sha256, uploadedBy, uploadedAt, downloadPath]
+      properties:
+        id: { type: string, format: uuid }
+        workTaskId: { type: string, format: uuid }
+        fileName: { type: string, minLength: 1, maxLength: 255 }
+        contentType: { type: string, enum: [image/jpeg, image/png, image/webp] }
+        sizeBytes: { type: integer, format: int64, minimum: 1, maximum: 52428800 }
+        sha256: { type: string, pattern: '^[0-9a-f]{64}$' }
+        uploadedBy: { type: string, minLength: 1, maxLength: 255 }
+        uploadedAt: { type: string, format: date-time }
+        downloadPath: { type: string, pattern: '^/api/v1/work-tasks/' }
+    WorkTaskPageResponse:
+      type: object
+      additionalProperties: false
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkTaskResponse'
+        page: { type: integer, format: int32, minimum: 0 }
+        size: { type: integer, format: int32, minimum: 1, maximum: 100 }
+        totalElements: { type: integer, format: int64, minimum: 0 }
+        totalPages: { type: integer, format: int32, minimum: 0 }
+        first: { type: boolean }
+        last: { type: boolean }
     ApiError:
       type: object
       description: |
@@ -154,42 +748,13 @@ components:
             properties:
               field: { type: string }
               message: { type: string }
-              rejectedValue: { description: Whatever the caller sent; untyped by design }
         details:
           type: object
           additionalProperties: true
-  responses:
-    Conflict:
-      description: |
-        The request collides with existing state. A losing race on a unique index reports
-        DUPLICATE_RESOURCE; services also use 409 for their own domain conflicts.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    Forbidden:
-      description: Authenticated but lacking the required role (code ACCESS_DENIED).
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    NotFound:
-      description: No such resource. The code is service-specific.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    Unauthorized:
-      description: |
-        Bearer credential missing, expired, or invalid. Produced by the security filter chain
-        before the DispatcherServlet, so this is the one error on the platform that is NOT
-        ApiError-shaped and carries no body.
-    UnexpectedError:
-      description: Any other failure, including 500 INTERNAL_ERROR and 405 METHOD_NOT_ALLOWED.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    ValidationFailed:
-      description: |
-        Request body failed validation (code VALIDATION_FAILED, with violations populated), or a
-        path variable or query parameter would not convert (code INVALID_PARAMETER).
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
+    FieldViolation:
+      type: object
+      additionalProperties: false
+      required: [field, message]
+      properties:
+        field: { type: string }
+        message: { type: string }

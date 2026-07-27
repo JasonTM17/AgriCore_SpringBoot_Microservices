@@ -10,3 +10,6 @@ agricore:
   kafka:
     consumer:
       enabled: false
+  outbox:
+    publisher:
+      enabled: false

@@ -1,0 +1,228 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "id": "14249723284313228807",
+    "name": "projects/14249723284313228807",
+    "title": "AgriCore Operations Console — 2026",
+    "visibility": "PRIVATE"
+  },
+  "designSystem": {
+    "id": "13013554324954331763",
+    "name": "assets/13013554324954331763",
+    "displayName": "AgriCore Operations Console"
+  },
+  "unusedSourceUploads": [
+    {
+      "screenId": "15315967679765020560",
+      "title": "DESIGN.md",
+      "reason": "Initial source upload; superseded by the shared design-system asset."
+    },
+    {
+      "screenId": "8724028090724902434",
+      "title": "DESIGN.md",
+      "reason": "Retry source upload; superseded by the shared design-system asset."
+    }
+  ],
+  "screens": [
+    {
+      "sequence": 1,
+      "slug": "login",
+      "title": "01 — Đăng nhập",
+      "sessionId": "18214089352546831613",
+      "deviceType": "DESKTOP",
+      "dimensions": { "width": 2560, "height": 2048 },
+      "screen": {
+        "id": "08b8055310fb44e7bc3959c0e208d5fd",
+        "name": "projects/14249723284313228807/screens/08b8055310fb44e7bc3959c0e208d5fd"
+      },
+      "screenshot": {
+        "remoteName": "projects/14249723284313228807/files/e7fee78656024b4182a5d419e4423e00",
+        "localPath": "screens/01-login/screen.png"
+      },
+      "html": {
+        "remoteName": "projects/14249723284313228807/files/f6fd98c3461147958cadfa7cfeb5e809",
+        "localPath": "screens/01-login/screen.html"
+      }
+    },
+    {
+      "sequence": 2,
+      "slug": "dashboard",
+      "title": "02 — Tổng quan điều hành",
+      "sessionId": "13325508844836637061",
+      "deviceType": "DESKTOP",
+      "dimensions": { "width": 2560, "height": 3082 },
+      "screen": {
+        "id": "3155f73197024573ae55850dfb476e57",
+        "name": "projects/14249723284313228807/screens/3155f73197024573ae55850dfb476e57"
+      },
+      "screenshot": {
+        "remoteName": "projects/14249723284313228807/files/f3eeea20709247589e95e30c2a1567b8",
+        "localPath": "screens/02-dashboard/screen.png"
+      },
+      "html": {
+        "remoteName": "projects/14249723284313228807/files/5ec17df6b8b941d7b151a1af2eeea0de",
+        "localPath": "screens/02-dashboard/screen.html"
+      }
+    },
+    {
+      "sequence": 3,
+      "slug": "farms-plots",
+      "title": "03 — Nông trại & lô canh tác",
+      "sessionId": "17975043115334477670",
+      "deviceType": "DESKTOP",
+      "dimensions": { "width": 2560, "height": 2048 },
+      "screen": {
+        "id": "20866bb339694355addb3fd765264994",
+        "name": "projects/14249723284313228807/screens/20866bb339694355addb3fd765264994"
+      },
+      "screenshot": {
+        "remoteName": "projects/14249723284313228807/files/bd734040aaed496fb0737dedb188bd45",
+        "localPath": "screens/03-farms-plots/screen.png"
+      },
+      "html": {
+        "remoteName": "projects/14249723284313228807/files/9c861f415edf48c89b922b71cef5599e",
+        "localPath": "screens/03-farms-plots/screen.html"
+      }
+    },
+    {
+      "sequence": 4,
+      "slug": "crop-cycle-work",
+      "title": "04 — Chi tiết mùa vụ & công việc",
+      "sessionId": "438713319845779396",
+      "deviceType": "DESKTOP",
+      "dimensions": { "width": 2560, "height": 2048 },
+      "screen": {
+        "id": "f5dfe22781ab4d2a98f123df90c0bf02",
+        "name": "projects/14249723284313228807/screens/f5dfe22781ab4d2a98f123df90c0bf02"
+      },
+      "screenshot": {
+        "remoteName": "projects/14249723284313228807/files/32de385cd0ed4338b67974dad61e09a8",
+        "localPath": "screens/04-crop-cycle-work/screen.png"
+      },
+      "html": {
+        "remoteName": "projects/14249723284313228807/files/4b260c3fe59e433eb3fd065aaa77a47d",
+        "localPath": "screens/04-crop-cycle-work/screen.html"
+      }
+    },
+    {
+      "sequence": 5,
+      "slug": "harvest-completion",
+      "title": "05 — Hoàn tất thu hoạch",
+      "sessionId": "7069609459725683693",
+      "deviceType": "DESKTOP",
+      "dimensions": { "width": 2560, "height": 3484 },
+      "screen": {
+        "id": "97e087ae901b4e148d6a657b858cc5f5",
+        "name": "projects/14249723284313228807/screens/97e087ae901b4e148d6a657b858cc5f5"
+      },
+      "screenshot": {
+        "remoteName": "projects/14249723284313228807/files/faf45039bd924107a52090fb96b32f47",
+        "localPath": "screens/05-harvest-completion/screen.png"
+      },
+      "html": {
+        "remoteName": "projects/14249723284313228807/files/5f45f9559b424704b4a73cb277d70598",
+        "localPath": "screens/05-harvest-completion/screen.html"
+      }
+    },
+    {
+      "sequence": 6,
+      "slug": "inventory-reservation",
+      "title": "06 — Chi tiết tồn kho & giữ hàng",
+      "sessionId": "9185915219241912153",
+      "deviceType": "DESKTOP",
+      "dimensions": { "width": 3088, "height": 2640 },
+      "screen": {
+        "id": "10c199c651d749388da45fa92a4fb386",
+        "name": "projects/14249723284313228807/screens/10c199c651d749388da45fa92a4fb386"
+      },
+      "screenshot": {
+        "remoteName": "projects/14249723284313228807/files/e0893eb5c8b54d6584683c5f9f527649",
+        "localPath": "screens/06-inventory-reservation/screen.png"
+      },
+      "html": {
+        "remoteName": "projects/14249723284313228807/files/be8b57ddab3840829de055febefde024",
+        "localPath": "screens/06-inventory-reservation/screen.html"
+      }
+    },
+    {
+      "sequence": 7,
+      "slug": "sales-saga",
+      "title": "07 — Chi tiết đơn bán & saga",
+      "sessionId": "9474669674182938820",
+      "deviceType": "DESKTOP",
+      "dimensions": { "width": 2560, "height": 2912 },
+      "screen": {
+        "id": "b2d3608d1db64a9aba3fb4ab41d64b3f",
+        "name": "projects/14249723284313228807/screens/b2d3608d1db64a9aba3fb4ab41d64b3f"
+      },
+      "screenshot": {
+        "remoteName": "projects/14249723284313228807/files/a7cfc367c9724ac9869a585625278765",
+        "localPath": "screens/07-sales-saga/screen.png"
+      },
+      "html": {
+        "remoteName": "projects/14249723284313228807/files/e3599bc1174042e9bb325c12de199070",
+        "localPath": "screens/07-sales-saga/screen.html"
+      }
+    },
+    {
+      "sequence": 8,
+      "slug": "iot-diagnostics",
+      "title": "08 — Chẩn đoán IoT",
+      "sessionId": "18285173249441450339",
+      "deviceType": "DESKTOP",
+      "dimensions": { "width": 2560, "height": 2048 },
+      "screen": {
+        "id": "190db415587b46c99f821508dc036874",
+        "name": "projects/14249723284313228807/screens/190db415587b46c99f821508dc036874"
+      },
+      "screenshot": {
+        "remoteName": "projects/14249723284313228807/files/472479e1215a4c27aff74cba886c0dad",
+        "localPath": "screens/08-iot-diagnostics/screen.png"
+      },
+      "html": {
+        "remoteName": "projects/14249723284313228807/files/7d8e763806564f91b7f8d3e7b86bab5f",
+        "localPath": "screens/08-iot-diagnostics/screen.html"
+      }
+    },
+    {
+      "sequence": 9,
+      "slug": "user-role-admin",
+      "title": "09 — Quản trị người dùng & vai trò",
+      "sessionId": "17066267754904642723",
+      "deviceType": "DESKTOP",
+      "dimensions": { "width": 2560, "height": 2048 },
+      "screen": {
+        "id": "e74f246ac7254b7d92e9970f8bda7ca8",
+        "name": "projects/14249723284313228807/screens/e74f246ac7254b7d92e9970f8bda7ca8"
+      },
+      "screenshot": {
+        "remoteName": "projects/14249723284313228807/files/90aca44aedfc437e9946bb4eb2442246",
+        "localPath": "screens/09-user-role-admin/screen.png"
+      },
+      "html": {
+        "remoteName": "projects/14249723284313228807/files/ffe6e8e2d9be45028fd5b8c1a83f29c7",
+        "localPath": "screens/09-user-role-admin/screen.html"
+      }
+    },
+    {
+      "sequence": 10,
+      "slug": "public-traceability",
+      "title": "10 — Truy xuất nguồn gốc công khai",
+      "sessionId": "11111273014241773965",
+      "deviceType": "MOBILE",
+      "dimensions": { "width": 780, "height": 3596 },
+      "screen": {
+        "id": "06a365df2af9461091e0a1c9f9a56a1c",
+        "name": "projects/14249723284313228807/screens/06a365df2af9461091e0a1c9f9a56a1c"
+      },
+      "screenshot": {
+        "remoteName": "projects/14249723284313228807/files/47930a4278aa4cdab83c79486dc8dc19",
+        "localPath": "screens/10-public-traceability/screen.png"
+      },
+      "html": {
+        "remoteName": "projects/14249723284313228807/files/904520deccfe46efab6ba1f17ecf4f7c",
+        "localPath": "screens/10-public-traceability/screen.html"
+      }
+    }
+  ]
+}

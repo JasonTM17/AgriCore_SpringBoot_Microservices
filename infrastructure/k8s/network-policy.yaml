@@ -2,6 +2,9 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: agricore-default-deny-ingress
+  labels:
+    app.kubernetes.io/name: agricore-network-policy
+    app.kubernetes.io/part-of: agricore
 spec:
   podSelector:
     matchLabels:
@@ -13,5 +16,12 @@ spec:
         - podSelector:
             matchLabels:
               app.kubernetes.io/part-of: agricore
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
       ports:
         - protocol: TCP

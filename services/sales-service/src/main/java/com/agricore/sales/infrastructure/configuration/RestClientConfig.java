@@ -4,35 +4,40 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestClientCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 
+import java.net.http.HttpClient;
 import java.time.Duration;
 
-/**
- * Bounds every outbound call the order saga makes.
- *
- * <p>Without timeouts an inventory instance that accepts the connection and then stalls holds the
- * calling request thread indefinitely. That is worse here than a plain slow dependency: the saga
- * blocks between reserving and confirming, so the reservation stays open for as long as the socket
- * does, and enough concurrent orders exhaust the servlet pool.
- *
- * <p>Registered as a customizer rather than by declaring a {@code RestClient.Builder} bean.
- * Declaring the builder shadows Boot's auto-configured one and silently drops the customizers it
- * carries; a customizer composes with them instead.
- */
 @Configuration
 public class RestClientConfig {
 
+    private static final Duration MAX_TIMEOUT = Duration.ofSeconds(30);
+
     @Bean
     RestClientCustomizer inventoryClientTimeouts(
-            @Value("${agricore.inventory.connect-timeout-ms:2000}") long connectTimeoutMs,
-            @Value("${agricore.inventory.read-timeout-ms:5000}") long readTimeoutMs
+            @Value("${agricore.inventory.connect-timeout:PT2S}") Duration connectTimeout,
+            @Value("${agricore.inventory.read-timeout:PT5S}") Duration readTimeout
     ) {
+        validateTimeout("connect-timeout", connectTimeout);
+        validateTimeout("read-timeout", readTimeout);
+
         return builder -> {
-            SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-            factory.setConnectTimeout(Duration.ofMillis(connectTimeoutMs));
-            factory.setReadTimeout(Duration.ofMillis(readTimeoutMs));
-            builder.requestFactory(factory);
+            HttpClient httpClient = HttpClient.newBuilder()
+                    .connectTimeout(connectTimeout)
+                    .build();
+            JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
+            requestFactory.setReadTimeout(readTimeout);
+            builder.requestFactory(requestFactory);
         };
+    }
+
+    private static void validateTimeout(String property, Duration timeout) {
+        if (timeout == null || timeout.isZero() || timeout.isNegative()
+                || timeout.compareTo(MAX_TIMEOUT) > 0) {
+            throw new IllegalArgumentException(
+                    "agricore.inventory." + property + " must be between PT0S and PT30S"
+            );
+        }
     }
 }

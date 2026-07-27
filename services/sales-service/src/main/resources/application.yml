@@ -13,6 +13,20 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+    locations: classpath:db/migration,classpath:db/postgresql-migration
+    postgresql:
+      transactional-lock: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+        max.block.ms: ${KAFKA_PRODUCER_MAX_BLOCK_MS:5000}
+        request.timeout.ms: ${KAFKA_PRODUCER_REQUEST_TIMEOUT_MS:5000}
+        delivery.timeout.ms: ${KAFKA_PRODUCER_DELIVERY_TIMEOUT_MS:10000}
 management:
   endpoints:
     web:
@@ -29,7 +43,35 @@ agricore:
     dev-mode: ${AGRICORE_DEV_MODE:false}
   inventory:
     base-url: ${INVENTORY_SERVICE_URL:http://localhost:8086}
-    # Bounds the saga's reserve/confirm/release calls. Read timeout is the one that matters:
-    # a stalled inventory would otherwise hold the request thread and the reservation open.
-    connect-timeout-ms: ${INVENTORY_CONNECT_TIMEOUT_MS:2000}
-    read-timeout-ms: ${INVENTORY_READ_TIMEOUT_MS:5000}
+    internal-service-token: ${INVENTORY_INTERNAL_SERVICE_TOKEN:}
+    connect-timeout: ${INVENTORY_CONNECT_TIMEOUT:PT2S}
+    read-timeout: ${INVENTORY_READ_TIMEOUT:PT5S}
+  farm-access:
+    base-url: ${FARM_SERVICE_URL:http://localhost:8082}
+    allowed-hosts: ${FARM_SERVICE_ALLOWED_HOSTS:localhost,127.0.0.1,::1,farm-service}
+    allow-insecure-http: ${FARM_SERVICE_ALLOW_INSECURE_HTTP:false}
+  saga:
+    recovery:
+      enabled: ${SALES_SAGA_RECOVERY_ENABLED:true}
+      poll-ms: ${SALES_SAGA_RECOVERY_POLL_MS:5000}
+      max-attempts: ${SALES_SAGA_RECOVERY_MAX_ATTEMPTS:5}
+      batch-size: ${SALES_SAGA_RECOVERY_BATCH_SIZE:50}
+      execution-lease: ${SALES_SAGA_RECOVERY_EXECUTION_LEASE:PT30S}
+      initial-delay: ${SALES_SAGA_RECOVERY_INITIAL_DELAY:PT5S}
+      maximum-delay: ${SALES_SAGA_RECOVERY_MAXIMUM_DELAY:PT1M}
+  outbox:
+    publisher:
+      enabled: true
+      poll-ms: 1000
+      send-timeout-ms: ${OUTBOX_PUBLISHER_SEND_TIMEOUT_MS:10000}
+      retry:
+        write-state-enabled: ${OUTBOX_PUBLISHER_RETRY_WRITE_STATE_ENABLED:false}
+        base-delay-ms: ${OUTBOX_PUBLISHER_RETRY_BASE_DELAY_MS:1000}
+        max-delay-ms: ${OUTBOX_PUBLISHER_RETRY_MAX_DELAY_MS:60000}
+        max-attempts: ${OUTBOX_PUBLISHER_MAX_ATTEMPTS:10}
+    cleanup:
+      enabled: true
+      poll-ms: 3600000
+      retention: ${OUTBOX_RETENTION:P7D}
+      quarantine-retention: ${OUTBOX_QUARANTINE_RETENTION:P7D}
+      batch-size: 500

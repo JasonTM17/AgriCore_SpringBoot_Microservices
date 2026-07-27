@@ -1,207 +1,392 @@
 # AgriCore – Agricultural Enterprise Management Platform
 
-Portfolio-grade **Java 21 / Spring Boot microservices** platform for enterprise crop production: farms, plots, crop catalog, seasons, field work, harvest, inventory, IoT, sales, and QR traceability.
+## Project overview
+
+AgriCore is a Java 21 and Spring Boot microservices platform for farm operations: farms, crop catalog, crop cycles, field work, harvest, inventory, IoT, sales, notifications, QR traceability, and a bounded assistant. A React console provides the browser interface through a same-origin Nginx edge.
+
+## Problem
+
+Agricultural enterprises often split farm maps, crop plans, field evidence,
+stock, telemetry, sales, and origin records across disconnected tools. AgriCore
+keeps those capabilities independently owned while providing one authenticated
+operational path and a public-safe traceability view.
+
+## Features
+
+- Farm-scoped identity, roles, permissions, plots, crop cycles, and field work.
+- Private image evidence, expiry-aware inventory, harvest projection, and QR
+  traceability.
+- Authenticated MQTT/HTTP telemetry, deduplication, alerts, and offline
+  detection.
+- Durable sales reservation saga, truthful notifications, and compensation.
+- Persisted read-only assistant with replayable SSE, bounded farm tools,
+  budgets, retention, and provider-unavailable behavior.
+- Accessible React console, deterministic cross-service demo data, generated
+  media/GIF, observability, Compose, Helm, and supply-chain gates.
 
 ## Status
 
-**Full 12-service portfolio live** on `main`: compose stack, gateway JWT e2e (farm→cycle→work→harvest→Kafka→inventory→QR), Helm charts, CI (Maven + Gitleaks + Compose config), CodeQL, Trivy FS, and Docker Hub images under `nguyenson1710/agricore-*`.
+Pre-release integration: the repository contains 13 Spring applications, the React console, local Compose stacks, a Helm application chart, automated quality and security gates, and a configured Docker Hub/GitHub Packages promotion workflow. This dirty worktree is not a final release: the immutable 2026-07-26 evidence, including SHA `5867b37`, is historical only; final clean-revision gates, pull-request review/merge, registry publication, signing verification, and production deployment remain unproven. An earlier full Maven reactor run reported 969 tests with no failures or errors and one optional MQTT integration skip; it is preliminary evidence, not a release gate.
 
-| Service | Port | Image |
-|---------|------|--------|
-| api-gateway | 8080 | `nguyenson1710/agricore-gateway` |
-| identity-service | 8081 | `nguyenson1710/agricore-identity` |
-| farm-service | 8082 | `nguyenson1710/agricore-farm` |
-| crop-catalog-service | 8083 | `nguyenson1710/agricore-crop-catalog` |
-| crop-cycle-service | 8084 | `nguyenson1710/agricore-crop-cycle` |
-| work-service | 8085 | `nguyenson1710/agricore-work` |
-| inventory-service | 8086 | `nguyenson1710/agricore-inventory` |
-| harvest-service | 8087 | `nguyenson1710/agricore-harvest` |
-| notification-service | 8089 | `nguyenson1710/agricore-notification` |
-| iot-service | 8090 | `nguyenson1710/agricore-iot` |
-| sales-service | 8091 | `nguyenson1710/agricore-sales` |
-| traceability-service | 8092 | `nguyenson1710/agricore-traceability` |
+## Microservices
 
-Tags: `latest`, short git SHA, full commit SHA. Images publish only after successful default-branch `ci`.
+| Application | Port | Image |
+|---|---:|---|
+| API gateway | 8080, internal in Compose | `nguyenson1710/agricore-gateway` |
+| Identity service | 8081 | `nguyenson1710/agricore-identity` |
+| Farm service | 8082 | `nguyenson1710/agricore-farm` |
+| Crop catalog service | 8083 | `nguyenson1710/agricore-crop-catalog` |
+| Crop cycle service | 8084 | `nguyenson1710/agricore-crop-cycle` |
+| Work service | 8085 | `nguyenson1710/agricore-work` |
+| Inventory service | 8086 | `nguyenson1710/agricore-inventory` |
+| Harvest service | 8087 | `nguyenson1710/agricore-harvest` |
+| Notification service | 8089 | `nguyenson1710/agricore-notification` |
+| IoT service | 8090 | `nguyenson1710/agricore-iot` |
+| Sales service | 8091 | `nguyenson1710/agricore-sales` |
+| Traceability service | 8092 | `nguyenson1710/agricore-traceability` |
+| Assistant service | 8093, internal | `nguyenson1710/agricore-assistant` |
+| React console | 3000 on host | `nguyenson1710/agricore-console` |
+
+The configured default-branch workflow builds, scans, parity-checks, and signs
+one candidate digest per image before promoting only seven-character and
+full-SHA tags to Docker Hub and GitHub Packages. It never promotes `latest`;
+configuration does not prove that a candidate or release image exists.
 
 ## Architecture
 
 ```text
-Client → API Gateway (:8080)  JWT RS256 / JWKS
-            ├─ Identity (outbox) → Kafka → Notification
-            ├─ Farm, Crop Catalog, Crop Cycle, Work
-            ├─ Harvest (outbox) → Kafka → Inventory + Traceability
-            ├─ Sales (HTTP saga reserve→confirm inventory)
-            └─ IoT
+Browser :3000 ── Nginx ── /api, /public/api ── API Gateway :8080
+                                                ├─ Identity, Farm, Catalog
+                                                ├─ Cycle, Work, Harvest, Inventory
+                                                └─ Traceability, IoT, Sales, Notification, Assistant
+
+Identity transactional outbox ── UserRegistered.v1 ── Notification
+Harvest transactional outbox ── Kafka ── Inventory + Traceability
+Sales ── bounded reserve/confirm ── durable recovery
 ```
 
-- **Database per service** (PostgreSQL)
-- **Transactional outbox** on identity / farm / crop-cycle / work / harvest
-- **Idempotent Kafka consumers** (inventory, traceability, notification + DLT)
-- Every service has its own README with endpoints, env vars, and a runbook
-- Docs: [Codebase Summary](docs/codebase-summary.md) · [System Architecture](docs/architecture/SYSTEM_ARCHITECTURE.md) ·
-  [Deployment](docs/deployment-guide.md) · [Code Standards](docs/code-standards.md) ·
-  [Design Guidelines](docs/design-guidelines.md) · [Roadmap](docs/project-roadmap.md) ·
-  [Overview/PDR](docs/project-overview-pdr.md) · [ADRs](docs/adr/)
+- Database per service with PostgreSQL and Flyway.
+- Kafka event mesh: Identity registration, Sales, Traceability, and IoT feed
+  Notification; Harvest feeds Inventory and Traceability. Every event producer
+  uses a transactional outbox.
+- Transactional outbox publishers across identity, farm, crop-cycle, work,
+  harvest, inventory, IoT, traceability, sales, and notification.
+- Farm-scoped `HarvestCompleted.v1` consumers in Inventory and Traceability,
+  plus Notification consumers for Identity, Sales, Traceability, and IoT
+  events. Invalid notification envelopes/payloads bypass retry topics and go
+  to the DLT without creating a delivery or processed marker.
+- External notification delivery is at-most-once automatically: an ambiguous
+  stale delivery becomes `FAILED` with `DELIVERY_OUTCOME_UNKNOWN` instead of
+  being resent. Persisted `IN_APP` delivery can be reclaimed safely.
+- Versioned JSON Schema and AsyncAPI contracts for implemented domain events.
+- RS256 JWTs, JWKS validation, canonical permission guards, permission-aware console navigation, and farm membership authorization.
+- Persisted assistant with authenticated replayable SSE, read-only farm tools, and Redis-backed budgets.
+- PostgreSQL excludes overlapping `DRAFT`/`ACTIVE` crop-cycle date ranges for
+  one plot, closing the concurrent-insert race left by application checks alone.
 
-## Prerequisites
+See [System Architecture](docs/architecture/SYSTEM_ARCHITECTURE.md), [ADRs](docs/adr/), and [local operations](docs/runbooks/local-operations.md).
 
-- JDK 21+ (compile target 21)
-- Maven 3.9+
-- Docker / Docker Compose
+### Service references
+
+Each Spring application has module-local setup and runbook notes. Versioned
+contracts and the platform docs remain authoritative for cross-service
+behavior.
+
+| | | |
+|---|---|---|
+| [API gateway](services/api-gateway/README.md) | [Identity](services/identity-service/README.md) | [Farm](services/farm-service/README.md) |
+| [Crop catalog](services/crop-catalog-service/README.md) | [Crop cycle](services/crop-cycle-service/README.md) | [Work](services/work-service/README.md) |
+| [Harvest](services/harvest-service/README.md) | [Inventory](services/inventory-service/README.md) | [Traceability](services/traceability-service/README.md) |
+| [IoT](services/iot-service/README.md) | [Sales](services/sales-service/README.md) | [Notification](services/notification-service/README.md) |
+| [Assistant](services/assistant-service/README.md) | | |
+
+## Technology stack
+
+- Java 21, Spring Boot 3.5.16, Spring Cloud 2025.0.2, Maven, JUnit,
+  Testcontainers, Mockito, AssertJ, and ArchUnit.
+- PostgreSQL 16/TimescaleDB, Flyway, Redis 7, Kafka, MQTT, and
+  MinIO-compatible object storage.
+- React 19, TypeScript 5.9, Vite 8, pnpm 11, Vitest, Testing Library, and
+  Playwright.
+- Docker Compose, Helm, GitHub Actions, Trivy, Gitleaks, CodeQL, Cosign,
+  Prometheus, Tempo, Loki, Alloy, and Grafana.
+
+## Event documentation
+
+Async event channels and messages are defined in
+[`contracts/asyncapi`](contracts/asyncapi/), with JSON Schema payloads under
+[`contracts/event-schemas`](contracts/event-schemas/) and compatibility checks
+in the Maven reactor. The
+[service dependency diagram](docs/diagrams/service-dependencies.md) and
+[Kafka retry/DLT runbook](docs/runbooks/kafka-dlq.md) describe the implemented
+topology and repair boundary.
+
+## Visual showcase
+
+The repository includes a small, optimized media set for demos and product
+walkthroughs. These are generated, repository-owned visuals; they contain no
+production data or scannable identifiers.
+
+![AgriCore farm at sunrise](assets/media/agricore-showcase/agricore-farm-sunrise.webp)
+
+![AgriCore three-frame farm story](assets/media/agricore-showcase/agricore-farm-story.gif)
+
+- [Farm sunrise hero](assets/media/agricore-showcase/agricore-farm-sunrise.webp)
+- [Harvest packing workflow](assets/media/agricore-showcase/agricore-harvest-packing.webp)
+- [Public traceability produce](assets/media/agricore-showcase/agricore-traceability-produce.webp)
+- [Three-frame farm story GIF](assets/media/agricore-showcase/agricore-farm-story.gif)
+- [Asset manifest and checksums](assets/media/agricore-showcase/manifest.json)
+
+## System requirements
+
+- JDK 21+
+- Maven 3.9+ or the included Maven wrapper
+- Node.js 22.13.0+
+- pnpm 11+
+- Docker with Docker Compose
+- OpenSSL for local JWT key generation
+
+## Environment variables
+
+Copy [`.env.example`](.env.example) only for local development. It documents database, Redis, Kafka, MQTT, SMTP, MinIO, JWT, observability, assistant provider, budget, retention,
+required `AGRICORE_CLIENT_IP_SIGNING_SECRET`, and client-IP edge values. Set the secret before Compose starts.
+The local `client-ip-edge` attaches only Console and Gateway at default `172.30.0.2`/`172.30.0.3`; change all four
+`CLIENT_IP_EDGE_*`/`GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN` values together when changing the subnet.
+Keep `.env`, RSA private keys, registry tokens, database credentials, and provider keys outside Git. Helm consumes environment-owned values and pre-created Kubernetes Secrets.
 
 ## Quick start
 
-### 1. Infrastructure
+Create local configuration and JWT keys once:
 
 ```powershell
-# Windows
-.\scripts\dev-up.ps1
-```
-
-```bash
-# Linux/macOS
-./scripts/dev-up.sh
-```
-
-Starts PostgreSQL (multi-DB on host **5434**), Redis (**6380**), Kafka (**9092**), Kafka UI (`http://localhost:8088`).
-
-> Ports 5434/6380 avoid clashes with other local stacks. Override via `.env` if needed.
-
-### 2. Build & test
-
-```bash
-mvn verify
-```
-
-JaCoCo reports one coverage file per module during `verify`. Thresholds are measured but not yet
-enforced — see [Roadmap](docs/project-roadmap.md) for the current baseline and the strict-flip plan.
-
-### 3. Run services locally
-
-```bash
-# terminals
-mvn -pl services/identity-service spring-boot:run
-mvn -pl services/farm-service spring-boot:run
-mvn -pl services/crop-catalog-service spring-boot:run
-mvn -pl services/api-gateway spring-boot:run
-```
-
-### 4. Full Docker stack
-
-```bash
-# Local build
-docker compose up --build
-
-# Or pull published images (after login to Docker Hub if private)
-docker pull nguyenson1710/agricore-gateway:latest
-```
-
-JWT keys for identity (once):
-
-```powershell
+Copy-Item .env.example .env
 .\scripts\generate-jwt-keys.ps1
 ```
 
-Gateway: `http://localhost:8080`
-
-### 5. Platform verification (gating)
-
-One script builds/starts the **full** compose stack (infra + all app services with healthchecks), runs Maven tests, and executes the gateway JWT e2e happy path, writing an evidence bundle:
+Start infrastructure first so Compose creates the `agricore_default` network, then observability, then the applications:
 
 ```powershell
-# Windows — evidence dir is where compose-ps.txt, traceability.json, mvn-test.log land
+docker compose up -d postgres redis kafka kafka-ui kafka-topics-init mqtt minio
+docker compose -f docker-compose.observability.yml up -d
+docker compose up -d --build
+```
+
+| Endpoint | URL |
+|---|---|
+| Console | `http://localhost:3000` |
+| API and JWKS through the same-origin edge | `http://localhost:3000` |
+| Kafka UI | `http://localhost:8088` |
+| Mailpit | `http://localhost:8025` |
+| MQTT broker | `tcp://localhost:1883` |
+| MinIO API | `http://localhost:9000` |
+| MinIO console | `http://localhost:9001` |
+| Grafana | `http://localhost:3001` |
+| Prometheus | `http://localhost:9090` |
+| Tempo | `http://localhost:3200` |
+
+The gateway and assistant are not host-published by Compose. Use the console
+edge at `http://localhost:3000`; it proxies `/api`, `/public/api`, and
+`/.well-known/jwks.json`. `ASSISTANT_PROVIDER=none` is the safe default;
+provider type, model, base URL, and API key belong only in a local `.env`,
+secret manager, or Kubernetes Secret.
+
+Assistant data has explicit retention controls: archived conversations default
+to 90 days, audit events to 365 days, and replay events to 24 hours. A bounded
+hourly cleanup job exposes purged-record and failure counters. Review
+`ASSISTANT_*_RETENTION` and cleanup settings against the deployment's legal and
+operational requirements before production use.
+
+Local email delivery uses Mailpit. Notification state is persisted as
+`REQUESTED` before delivery and ends as `SENT` or `FAILED`; captured development
+email is visible in the Mailpit UI. External channels receive at most one
+automatic delivery attempt. If the process loses the provider result, recovery
+records `FAILED` with `DELIVERY_OUTCOME_UNKNOWN` instead of risking a duplicate
+send. Event-driven `IN_APP` deliveries are persisted in the administrative
+inbox and can be retried safely. A `SYSTEM_ADMIN` with
+`NOTIFICATION_ADMIN` can page `GET /api/v1/notifications/in-app` and mark an
+entry read with
+`PATCH /api/v1/notifications/in-app/{notificationId}/read`.
+
+For deterministic demo data, set a local-only `AGRICORE_SEED_PASSWORD`, preview
+with `.\scripts\seed-data.ps1 -Profile Large -DryRun`, then remove `-DryRun`.
+`Smoke`/`Quick`, `Demo`/`Showcase`, and `Large` are bounded aliases. Large
+creates or reuses 32 farms, 768 plots, 32 production flows, 128 tasks with
+repository WebP evidence, 32 harvest-to-inventory/traceability projections,
+640 IoT readings, 16 confirmed sales sagas with notifications, and one
+assistant conversation. It checks free space throughout, throttles writes, and
+can be run repeatedly without duplicating authoritative records. See the
+[local operations runbook](docs/runbooks/local-operations.md#deterministic-development-dataset).
+
+IoT devices publish authenticated QoS 1 JSON to `agricore/telemetry/{deviceCode}/reading`. Every MQTT payload requires a stable `readingId`, and `iot-service` deduplicates redelivery by that ID while rejecting ID reuse with different telemetry. Local Mosquitto bootstraps non-anonymous service/device users from environment variables and restricts each device user to its own topic. IoT admission also applies a per-device token bucket and in-flight limit before queued processing, with bounded tracked-device state. Run a deterministic simulator with `./scripts/sensor-simulator.ps1 -DeviceCount 3 -Iterations 10 -FrequencySeconds 2 -MinimumValue 30 -MaximumValue 70 -AnomalyProbabilityPercent 20 -Seed 42`; the POSIX equivalent is the `iot-mqtt-simulator` Compose profile. Register the mapped device codes first. Production must provide authenticated TLS plus broker ACLs managed outside this repository.
+
+For an existing PostgreSQL volume, follow the [assistant database provisioning runbook](docs/runbooks/assistant-database-provisioning.md).
+
+## Testing
+
+Backend:
+
+```bash
+./mvnw -B verify
+```
+
+The durable-outbox PostgreSQL migration tests use Testcontainers, so Docker must be available for a complete Maven verification.
+
+Frontend:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm contracts:check
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+The CI browser gate additionally installs Playwright Chromium and runs `pnpm e2e`.
+
+Full platform verification builds and starts the application stack, runs Maven tests, and executes gateway/service auth negative checks plus the authenticated Kafka resilience path (duplicate projections, notification dedupe, and DLT):
+
+```powershell
 .\scripts\verify-platform.ps1 -EvidenceDir C:\path\to\evidence
 ```
 
 ```bash
-# Linux/macOS (requires pwsh for e2e)
 export EVIDENCE_DIR=./.verify-evidence
 ./scripts/verify-platform.sh
 ```
 
-Artifacts produced under the evidence directory:
-
-| File | Content |
-|------|---------|
-| `compose-ps.txt` | `docker compose ps` including **app** containers (identity, farm, harvest, inventory, traceability, gateway, …) |
-| `mvn-test.log` | full `./mvnw test` |
-| `e2e-flow.log` | gateway JWT farm→cycle→harvest→Kafka flow |
-| `traceability.json` | public QR response body (`farmName`, `plotCode`, `productName`) |
-| `git-log.txt` | recent conventional commits |
-
-Standalone e2e (stack already up):
+For an already-running stack:
 
 ```powershell
 .\scripts\e2e-happy-path.ps1 -EvidenceDir C:\path\to\evidence
 ```
 
-## Auth examples
+For a bounded public traceability read profile, install
+[k6](https://grafana.com/docs/k6/latest/set-up/install-k6/) and use a real
+persisted projection code:
+
+```powershell
+$env:TRACEABILITY_CODE = "<persisted-code>"
+k6 run .\scripts\load\public-traceability-read-smoke.js
+Remove-Item Env:TRACEABILITY_CODE
+```
+
+## Observability
+
+```text
+13 Spring applications ── /actuator/prometheus ── Prometheus ── Grafana
+        │
+        └─ Micrometer tracing bridge ── OTLP/HTTP ── Tempo ─────┘
+
+Application logs ── ECS JSON ── container stdout ── Alloy ── Loki ── Grafana
+```
+
+Local Compose exports traces to `http://tempo:4318/v1/traces` with sampling probability `1.0`. Prometheus scrapes the internal gateway and assistant over the Compose network and the 11 development-published services over the host bridge. Grafana provisions Prometheus, Tempo, and Loki datasources plus seven read-only dashboards. Custom meters cover transactional outbox backlog, Kafka dead-letter recovery attempts, harvest processing latency, inventory outcomes, IoT ingestion and alerts, sales sagas, notification delivery, assistant generations, and assistant retention cleanup.
+
+Alloy discovers only this project's Docker containers, enriches their structured stdout, and forwards it to persistent local Loki storage. Loki keeps 72 hours of local logs, while Docker files are independently bounded to three 10 MiB files per container by default. MinIO provides persistent, loopback-bound local object storage; application media integration is documented separately as it is delivered. See [local operations](docs/runbooks/local-operations.md) for verification commands and the exact metric catalog.
+
+## API documentation
+
+Versioned OpenAPI contracts for the gateway and services live in
+[`contracts/openapi`](contracts/openapi/). The console clients are generated
+from those files and `pnpm contracts:check` fails on drift. Protected browser
+requests use the same-origin `/api` path; the public traceability contract uses
+`/public/api`.
+
+### Authentication example
 
 ```bash
-# Register
-curl -s -X POST http://localhost:8080/api/v1/auth/register \
+curl -s -X POST http://localhost:3000/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"manager@agricore.local","password":"Secret123!","fullName":"Farm Manager"}'
 
-# Login
-curl -s -X POST http://localhost:8080/api/v1/auth/login \
+curl -s -X POST http://localhost:3000/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"manager@agricore.local","password":"Secret123!"}'
 ```
 
-JWKS: `GET /.well-known/jwks.json`
+JWKS: `GET http://localhost:3000/.well-known/jwks.json`
 
-## Default roles
+Default roles: `SYSTEM_ADMIN`, `FARM_MANAGER`, `AGRONOMIST`, `FIELD_WORKER`, `WAREHOUSE_MANAGER`, `SALES_STAFF`, and `AUDITOR`. New users receive `FIELD_WORKER`; administrators manage roles through `PATCH /api/v1/admin/users/{id}/roles`.
 
-`SYSTEM_ADMIN` · `FARM_MANAGER` · `AGRONOMIST` · `FIELD_WORKER` · `WAREHOUSE_MANAGER` · `SALES_STAFF` · `AUDITOR`
+### Permission administration
 
-New users receive `FIELD_WORKER`. Promote via `PATCH /api/v1/admin/users/{id}/roles` (admin only).
+Identity owns the permission catalog and role grants. The Identity OpenAPI 1.3.0 contract documents these `SYSTEM_ADMIN`-only routes:
 
-## Seeded crops
+| Route | Behavior |
+|---|---|
+| `GET /api/v1/admin/permissions` | List the permission catalog. |
+| `POST /api/v1/admin/permissions` | Create a uniquely coded permission. |
+| `GET /api/v1/admin/roles/{roleCode}/permissions` | Read a role's grants. |
+| `PUT /api/v1/admin/roles/{roleCode}/permissions` | Atomically replace a role's grants; unknown codes leave existing grants unchanged. |
 
-Robusta coffee, Ri6 durian, red dragon fruit, ST25 rice, lettuce, tomato, black pepper.
+New access tokens include `permissions`, the sorted distinct union granted through the user's roles. Tokens are snapshots: a grant change appears only in a newly issued access token, such as after login or refresh; the old token keeps its previous claims until it expires (900 seconds by default). Identity, the gateway, and servlet domain services map valid claim entries to `ROLE_*` and `PERMISSION_*` authorities, and domain controllers enforce the canonical permission guards. The console uses the same effective permission snapshot to hide unauthorized navigation. See the [authorization model](docs/security/microservices-authz.md) and [Identity contract](contracts/openapi/identity-service.v1.yaml).
+
+## Kubernetes deployment
+
+The chart at `infrastructure/helm/agricore` renders Deployments and Services for all 13 Spring applications and the console, plus an optional same-origin Ingress. Spring containers run with read-only root filesystems and bounded writable `/tmp` volumes; an `api-gateway` Service alias keeps the immutable Console image portable between Compose and Kubernetes. It also includes an idempotent pre-install/pre-upgrade Job for the assistant database.
+
+The chart does not install PostgreSQL, Redis, Kafka, MinIO, Tempo, Prometheus, Loki, Alloy, or Grafana. Operators must provide those dependencies, a separate `databaseSecretName` for each enabled non-gateway service, and the separate `postgres.provisioning` Secret only for bounded hook Jobs. Release values require each image as `repository@sha256:<digest>`; CI temporarily permits full-SHA tags only while linting/rendering the chart. NetworkPolicy denies unauthorized ingress by default; egress remains open unless `networkPolicy.restrictEgress=true`, in which case operators must supply external dependency rules through `networkPolicy.additionalEgress`. Configure the notification chart's external SMTP host, TLS, and username/password Secret before enabling delivery; SMTP defaults are intentionally placeholders. OTLP trace export is disabled until `observability.otlpTracingEndpoint` is set; the chart's sampling default is `0.1`.
+
+## CI, security, and publishing
+
+GitHub Actions define these release gates:
+
+- `ci.yml`: Maven `verify`; generated contract drift check; frontend lint, typecheck, unit tests, production build, and Playwright journeys; Gitleaks; filesystem Trivy; Java CodeQL; Compose runtime-contract validation; Helm lint/render; and build-plus-Trivy scans for all 14 application images.
+- `codeql.yml` and `trivy.yml`: scheduled and manual defense-in-depth scans in addition to the aggregate pull-request/default-branch gates.
+- `docker-publish.yml`: is configured to build one candidate per image, scan and sign its exact digest, then promote matching full-SHA and short-SHA tags only for an eligible successful default-branch CI revision. It never promotes `latest`; configuration is not publication evidence.
+
+Docker Hub credentials must be repository secrets named `DOCKERHUB_USERNAME`
+and `DOCKERHUB_TOKEN`; GHCR uses the workflow token with package write
+permission. Never put registry credentials in `.env`, Compose, or Helm values.
 
 ## Project layout
 
 ```text
-services/          Spring Boot microservices
-libs/common-lib/   API errors, event envelope (no domain)
-libs/common-security/  JWT resource-server validation shared by every service
-contracts/         OpenAPI / AsyncAPI schemas
-infrastructure/    Docker, Helm chart, K8s network policy, monitoring
-docs/              Architecture, ADRs, runbooks
-scripts/           Dev stack, JWT key generation, platform verification
+apps/agricore-console/      React/Vite console and Nginx edge
+services/                   Spring Boot applications
+libs/                       Shared API, security, and farm-access libraries
+contracts/                  OpenAPI and AsyncAPI contracts
+infrastructure/docker/      Database initialization and local assets
+infrastructure/helm/        Application Helm chart
+infrastructure/monitoring/  Tempo, Prometheus, Loki, Alloy, and Grafana configuration
+docs/                       Architecture, ADRs, evidence, and runbooks
+scripts/                    Local setup, verification, and seed tools
 ```
 
-## Security notes
+## Security
 
-- Passwords: BCrypt (cost 12 production)
-- Access tokens: short-lived RS256 JWT
-- Refresh tokens: opaque, hashed, rotated; reuse revokes family
-- Account lockout after failed logins
-- Login rate limit via Redis
-- **Never commit** `.env`, private keys, or production secrets
+- Passwords use BCrypt; production cost is 12.
+- Access tokens are short-lived RS256 JWTs.
+- Refresh tokens are opaque, hashed, rotated, and family-revoked on reuse.
+- Login rate limiting uses Redis and fails closed in the local stack.
+- Never commit `.env`, private keys, tokens, provider credentials, or production secrets.
 
-## CI
+## Project roadmap
 
-GitHub Actions on every push and PR: `ci` (Maven build + test, Gitleaks secret scan, OpenAPI
-contract check, compose config validation), `codeql` (SAST), and `trivy` (filesystem + dependency
-scan).
-
-Images publish only when **all three** succeed for that exact commit. `ci` triggers the publish
-workflow, which then reads back the `trivy` and `codeql` conclusions for the same SHA; a failed,
-missing, or still-running scan blocks the publish and the run log says which one and why.
-
-The contract check fails the build when `contracts/openapi/` stops describing the controllers —
-in either direction — or when the shared `ApiError` schema drifts between service contracts.
+See the [evidence-based roadmap](docs/project-roadmap.md) for release status and
+post-1.0 decisions. A capability is complete only when implementation,
+contracts, migrations, tests, operations, and documentation agree.
 
 ## Contributing
 
-Setup, test commands, commit conventions, and the architecture rules a PR must respect are in
-[CONTRIBUTING.md](CONTRIBUTING.md). Please read [SECURITY.md](SECURITY.md) before reporting a
-vulnerability — report privately, not as a public issue. Participation is covered by the
-[Code of Conduct](CODE_OF_CONDUCT.md). Notable changes are recorded in [CHANGELOG.md](CHANGELOG.md).
+Follow [CONTRIBUTING.md](CONTRIBUTING.md) for branch, commit, test, contract,
+security, and pull-request expectations. Keep commits focused and never include
+AI references or secrets in commit messages or source.
+
+## Known limitations
+
+- The repository does not provision or claim a hosted production cluster.
+  Production PostgreSQL, Kafka, Redis, MQTT, object storage, SMTP,
+  observability, TLS, backups, and access policy are operator responsibilities.
+- Assistant tools are read-only; autonomous writes, arbitrary URLs, and RAG
+  ingestion are intentionally out of scope.
+- Raw/aggregate telemetry deletion, certification authority, tax/invoice,
+  payment, and multi-region disaster-recovery policy require product or
+  operations decisions.
+- Compose publishes domain service ports for development, but browser traffic
+  is supported only through the same-origin console edge.
 
 ## License
 
-[MIT](LICENSE) © Nguyen Tien Son
+[MIT](LICENSE)

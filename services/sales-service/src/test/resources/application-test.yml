@@ -12,6 +12,7 @@ spring:
         dialect: org.hibernate.dialect.H2Dialect
   flyway:
     enabled: true
+    locations: classpath:db/migration
 agricore:
   security:
     dev-mode: true
@@ -19,3 +20,13 @@ agricore:
     jwk-set-uri: http://localhost:8081/.well-known/jwks.json
   inventory:
     base-url: http://localhost:18086
+    internal-service-token: test-inventory-sales-service-token-012345678901234567890123
+  saga:
+    recovery:
+      enabled: true
+      poll-ms: 3600000
+  outbox:
+    publisher:
+      enabled: false
+    cleanup:
+      enabled: false

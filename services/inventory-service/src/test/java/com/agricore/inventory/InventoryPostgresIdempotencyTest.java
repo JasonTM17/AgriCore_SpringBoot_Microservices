@@ -6,8 +6,11 @@ import com.agricore.inventory.api.request.HarvestCompletedCommand;
 import com.agricore.inventory.api.request.ReserveStockRequest;
 import com.agricore.inventory.api.response.InventoryItemResponse;
 import com.agricore.inventory.application.service.InventoryApplicationService;
+import com.agricore.inventory.domain.exception.InventoryException;
+import com.agricore.inventory.infrastructure.persistence.InventoryReservationJpaRepository;
 import com.agricore.inventory.infrastructure.persistence.WarehouseJpaRepository;
 import com.agricore.inventory.infrastructure.persistence.entity.WarehouseEntity;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -28,6 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -40,7 +44,7 @@ import static org.assertj.core.api.Assertions.catchThrowableOfType;
  * Real PostgreSQL integration:
  * 1) Prefer compose Postgres on 127.0.0.1:5434 (stable for full-stack verify)
  * 2) Else Testcontainers if Docker API is usable
- * Never silent-skip — either executes 2 tests or fails class init.
+ * Never silent-skip — executes the PostgreSQL tests or fails class initialization.
  */
 @SpringBootTest
 @ActiveProfiles("testcontainers")
@@ -142,21 +146,14 @@ class InventoryPostgresIdempotencyTest {
     private InventoryApplicationService inventoryService;
 
     @Autowired
+    private InventoryReservationJpaRepository reservationRepository;
+
+    @Autowired
     private WarehouseJpaRepository warehouseRepository;
 
-    /**
-     * Pins the SQLState the duplicate-key handler keys on against a real PostgreSQL server.
-     *
-     * <p>The handler classifies by SQLState rather than by exception subtype, because Hibernate's
-     * JPA dialect collapses every class 23 failure into one {@code DataIntegrityViolationException}
-     * and never narrows it to {@code DuplicateKeyException}. Every other test in the suite runs on
-     * H2 in PostgreSQL mode, which is not proof of what PostgreSQL itself reports — so this asserts
-     * it directly.
-     *
-     * <p>Goes through the repository rather than the application service on purpose: the service
-     * checks for an existing code first, and that check is exactly what a concurrent request slips
-     * past. Bypassing it reproduces the losing side of that race deterministically.
-     */
+    @Autowired
+    private MeterRegistry meterRegistry;
+
     @Test
     void duplicateWarehouseCode_reportsUniqueViolationSqlState_onPostgres() {
         String sharedCode = "WH-DUP-" + System.nanoTime();
@@ -176,10 +173,6 @@ class InventoryPostgresIdempotencyTest {
         assertThat(ConstraintViolations.isNotNullViolation(thrown)).isFalse();
     }
 
-    /**
-     * The other half of the classification: a missing required value must not be reported as a
-     * duplicate, or the handler would answer "already exists" to a service-side defect.
-     */
     @Test
     void missingRequiredColumn_isNotReportedAsDuplicate_onPostgres() {
         WarehouseEntity noName = warehouse("WH-NULL-" + System.nanoTime());
@@ -194,11 +187,13 @@ class InventoryPostgresIdempotencyTest {
         assertThat(ConstraintViolations.isUniqueViolation(thrown))
                 .as("a not-null violation is a server fault, not a caller conflict")
                 .isFalse();
+        assertThat(ConstraintViolations.isNotNullViolation(thrown)).isTrue();
     }
 
     private static WarehouseEntity warehouse(String code) {
         WarehouseEntity entity = new WarehouseEntity();
         entity.setId(UUID.randomUUID());
+        entity.setFarmId(UUID.randomUUID());
         entity.setCode(code);
         entity.setName("Constraint Probe WH");
         entity.setCreatedAt(Instant.now());
@@ -208,11 +203,14 @@ class InventoryPostgresIdempotencyTest {
     @Test
     void harvestCompleted_twice_addsStockOnce_onPostgres() {
         var warehouse = inventoryService.createWarehouse(
-                new CreateWarehouseRequest("WH-TC-" + System.nanoTime(), "TC Warehouse"));
+                new CreateWarehouseRequest(
+                        UUID.randomUUID(), "WH-TC-" + System.nanoTime(), "TC Warehouse"
+                ));
         String eventId = UUID.randomUUID().toString();
 
         HarvestCompletedCommand cmd = new HarvestCompletedCommand(
                 eventId,
+                warehouse.farmId(),
                 UUID.randomUUID(),
                 warehouse.id(),
                 "COFFEE-ROBUSTA",
@@ -231,9 +229,12 @@ class InventoryPostgresIdempotencyTest {
     @Test
     void concurrentReserve_ofRemainingStock_allowsOnlyOneSuccess() throws Exception {
         var warehouse = inventoryService.createWarehouse(
-                new CreateWarehouseRequest("WH-RACE-" + System.nanoTime(), "TC Race WH"));
+                new CreateWarehouseRequest(
+                        UUID.randomUUID(), "WH-RACE-" + System.nanoTime(), "TC Race WH"
+                ));
         var stocked = inventoryService.processHarvestCompleted(new HarvestCompletedCommand(
                 UUID.randomUUID().toString(),
+                warehouse.farmId(),
                 UUID.randomUUID(),
                 warehouse.id(),
                 "RICE-ST25",
@@ -275,5 +276,96 @@ class InventoryPostgresIdempotencyTest {
         assertThat(after.availableQuantity()).isEqualByComparingTo("0.000");
         assertThat(after.onHandQuantity().subtract(after.reservedQuantity()).signum())
                 .isGreaterThanOrEqualTo(0);
+    }
+
+    @Test
+    void concurrentSameReferenceForDifferentItemsCommitsOneReservationAndOneMetric() throws Exception {
+        var warehouse = inventoryService.createWarehouse(
+                new CreateWarehouseRequest(
+                        UUID.randomUUID(), "WH-REF-RACE-" + System.nanoTime(), "Reference Race WH"
+                ));
+        InventoryItemResponse firstItem = stockedItem(
+                warehouse.farmId(), warehouse.id(), "REF-RACE-A");
+        InventoryItemResponse secondItem = stockedItem(
+                warehouse.farmId(), warehouse.id(), "REF-RACE-B");
+        String referenceId = UUID.randomUUID().toString();
+        CountDownLatch start = new CountDownLatch(1);
+        AtomicInteger successes = new AtomicInteger();
+        AtomicInteger conflicts = new AtomicInteger();
+        double successMetricBefore = reservationSuccessMetric();
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+
+        Callable<Void> first = reserveWithReference(
+                firstItem.id(), referenceId, start, successes, conflicts);
+        Callable<Void> second = reserveWithReference(
+                secondItem.id(), referenceId, start, successes, conflicts);
+
+        try {
+            Future<Void> firstResult = pool.submit(first);
+            Future<Void> secondResult = pool.submit(second);
+            start.countDown();
+            firstResult.get();
+            secondResult.get();
+        } finally {
+            pool.shutdownNow();
+        }
+
+        assertThat(successes.get()).isEqualTo(1);
+        assertThat(conflicts.get()).isEqualTo(1);
+        assertThat(reservationRepository.findByReferenceTypeAndReferenceId("SalesOrder", referenceId))
+                .isPresent();
+        BigDecimal totalReserved = inventoryService.getItem(firstItem.id()).reservedQuantity()
+                .add(inventoryService.getItem(secondItem.id()).reservedQuantity());
+        assertThat(totalReserved).isEqualByComparingTo("5.000");
+        assertThat(reservationSuccessMetric() - successMetricBefore).isEqualTo(1.0d);
+    }
+
+    private InventoryItemResponse stockedItem(UUID farmId, UUID warehouseId, String productCode) {
+        return inventoryService.processHarvestCompleted(new HarvestCompletedCommand(
+                UUID.randomUUID().toString(),
+                farmId,
+                UUID.randomUUID(),
+                warehouseId,
+                productCode,
+                new BigDecimal("20.000"),
+                "GRADE_A"
+        ));
+    }
+
+    private Callable<Void> reserveWithReference(
+            UUID itemId,
+            String referenceId,
+            CountDownLatch start,
+            AtomicInteger successes,
+            AtomicInteger conflicts
+    ) {
+        return () -> {
+            start.await();
+            try {
+                inventoryService.reserve(new ReserveStockRequest(
+                        itemId,
+                        new BigDecimal("5.000"),
+                        "SalesOrder",
+                        referenceId
+                ));
+                successes.incrementAndGet();
+            } catch (RuntimeException exception) {
+                boolean referenceConflict = exception instanceof DataIntegrityViolationException
+                        || exception instanceof InventoryException inventoryException
+                        && "RESERVATION_REFERENCE_CONFLICT".equals(inventoryException.getCode());
+                if (!referenceConflict) {
+                    throw exception;
+                }
+                conflicts.incrementAndGet();
+            }
+            return null;
+        };
+    }
+
+    private double reservationSuccessMetric() {
+        return meterRegistry.get("agricore.inventory.reservations")
+                .tag("outcome", "success")
+                .counter()
+                .count();
     }
 }

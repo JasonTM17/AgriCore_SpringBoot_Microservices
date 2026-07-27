@@ -1,57 +1,45 @@
-# iot-service
+# IoT Service
 
 ## Purpose
 
-Registers field devices and ingests sensor readings (soil moisture, temperature, and similar), keeping
-the latest reading per device for operational dashboards. Called by the gateway and by devices through
-it; calls no other AgriCore service.
+Owns farm-scoped devices, TimescaleDB-backed readings, versioned threshold
+rules, alert cooldown, and offline detection. HTTP and authenticated MQTT QoS 1
+ingestion share the same bounded, idempotent application path.
 
-## API surface
+## API and events
 
-- `POST /api/v1/iot/devices` — register a device against a farm/plot
-- `POST /api/v1/iot/readings` — ingest a sensor reading
-- Contract: `contracts/openapi/iot-service.v1.yaml`
-- Events published: none today. `SensorReadingReceived.v1`, `SensorThresholdExceeded.v1`, and
-  `DeviceOfflineDetected.v1` exist as constants with no producer — threshold alerting is not implemented.
-- Events consumed: none
+- `/api/v1/iot/devices`: register and list devices.
+- `/api/v1/iot/readings`: ingest and query readings/operational state as defined
+  by the [OpenAPI contract](../../contracts/openapi/iot-service.v1.yaml).
+- MQTT topic: `agricore/telemetry/{deviceCode}/reading`; stable `readingId`
+  deduplicates QoS 1 redelivery and rejects conflicting ID reuse.
 
-## Env vars
+Published through the outbox: `SensorReadingReceived.v1`,
+`SensorThresholdExceeded.v1`, and `DeviceOfflineDetected.v1`.
+Notification consumes threshold/offline events. See
+[event AsyncAPI](../../contracts/asyncapi/agricore-events.yaml) and
+[MQTT AsyncAPI](../../contracts/asyncapi/agricore-mqtt.yaml).
 
-| Name | Required | Default | Description |
-|------|----------|---------|-------------|
-| `IOT_PORT` | no | `8090` | HTTP listen port |
-| `POSTGRES_HOST` | no | `localhost` | Database host |
-| `POSTGRES_PORT` | no | `5434` | Database port |
-| `POSTGRES_USER` | no | `agricore` | Database user |
-| `POSTGRES_PASSWORD` | yes in prod | dev value | Database password |
-| `JWT_ISSUER` | no | `https://agricore.local/identity` | Expected `iss` claim |
-| `IDENTITY_JWKS_URI` | no | identity JWKS URL | Key source for local token verification |
-| `AGRICORE_DEV_MODE` | no | `false` | Dev shortcuts; keep `false` outside local work |
+## Configuration
 
-Database: `agricore_iot`.
+Database: `agricore_iot`; TimescaleDB migration creates the reading hypertable.
+Core groups are `IOT_MQTT_*`, `IOT_ALERT_COOLDOWN_MINUTES`,
+`IOT_OFFLINE_*`, `POSTGRES_*`, `KAFKA_BOOTSTRAP_SERVERS`,
+`FARM_SERVICE_URL`, `IDENTITY_JWKS_URI`, and `JWT_ISSUER`.
+The repository selects no telemetry deletion policy.
 
-## Run locally
-
-```bash
-./scripts/dev-up.sh
-mvn -pl services/iot-service spring-boot:run
-```
-
-## Test
+## Run and verify
 
 ```bash
 ./mvnw -B -pl services/iot-service -am test
-./mvnw -B -pl services/iot-service -am verify   # adds the JaCoCo report
+./mvnw -pl services/iot-service spring-boot:run
 ```
 
-Target once coverage gating is enforced: ≥ 70% lines / ≥ 65% branches.
+- Register the mapped device code before HTTP or MQTT ingestion.
+- Rate-limited device records are acknowledged and counted; global queue
+  saturation disconnects so broker redelivery can apply backpressure.
+- Production requires MQTT TLS, managed device credentials, and per-device
+  broker ACLs.
 
-## Runbook
-
-- **Readings rejected** — the device must be registered first; an unknown device id is refused rather
-  than auto-created.
-- **No alerting on bad readings** — expected: threshold evaluation and notification fan-out are not
-  implemented. Do not document them as working.
-- **High ingest volume** — readings are written synchronously to PostgreSQL; there is no buffering
-  layer, so sustained high-rate ingest needs a design change, not a config tweak.
-- **Reset local data** — drop and recreate `agricore_iot`, restart to replay migrations.
+See the [IoT ADR](../../docs/adr/0015-authenticated-mqtt-iot-ingestion.md) and
+[local simulator runbook](../../docs/runbooks/local-operations.md#mqtt-telemetry-smoke-test).

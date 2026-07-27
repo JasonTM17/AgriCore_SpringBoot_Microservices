@@ -11,5 +11,10 @@ import java.util.UUID;
 public interface CropJpaRepository extends JpaRepository<CropEntity, UUID> {
     Optional<CropEntity> findByCodeIgnoreCase(String code);
     Page<CropEntity> findByCategoryIgnoreCase(String category, Pageable pageable);
+    Page<CropEntity> findByCategoryIgnoreCaseAndNameContainingIgnoreCase(
+            String category,
+            String name,
+            Pageable pageable
+    );
     Page<CropEntity> findByNameContainingIgnoreCase(String name, Pageable pageable);
 }

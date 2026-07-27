@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agricore.local/schemas/NotificationRequested.v1.json",
+  "title": "NotificationRequested.v1",
+  "allOf": [
+    { "$ref": "DomainEventEnvelope.v1.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "NotificationRequested.v1" },
+        "eventVersion": { "const": 1 },
+        "producer": { "const": "notification-service" },
+        "payload": {
+          "type": "object",
+          "required": ["notificationId", "sourceEventId", "sourceEventType", "channel", "recipient", "subject", "correlationId", "requestedAt"],
+          "properties": {
+            "notificationId": { "type": "string", "format": "uuid" },
+            "sourceEventId": { "type": "string", "format": "uuid" },
+            "sourceEventType": { "type": "string", "minLength": 1 },
+            "channel": { "type": "string", "minLength": 1, "maxLength": 32 },
+            "recipient": { "type": "string", "minLength": 1, "maxLength": 320 },
+            "subject": { "type": "string", "minLength": 1, "maxLength": 300 },
+            "correlationId": { "type": ["string", "null"], "maxLength": 100 },
+            "requestedAt": { "type": "string", "format": "date-time" }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}

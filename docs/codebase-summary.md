@@ -1,102 +1,123 @@
-# Codebase Summary
+# AgriCore codebase summary
 
-Orientation map for the AgriCore monorepo. Architecture rationale lives in
-[System Architecture](architecture/SYSTEM_ARCHITECTURE.md) and the [ADRs](adr/) — this file is the
-"where is what" index.
+**Current source scan:** 2026-07-27 (dirty pre-release worktree)
 
-## Layout
+## Build roots
 
-```text
-services/          12 Spring Boot services, one Maven module each
-libs/common-lib/   API error envelope, event envelope, event type constants (no domain types)
-libs/common-security/  Shared JWT resource-server config for domain services
-contracts/         OpenAPI per service, AsyncAPI for topics, JSON Schema for the event envelope
-infrastructure/    Docker (Postgres init), Helm chart, monitoring config, K8s network policy
-scripts/           dev-up, JWT key generation, platform verification, e2e happy path
-docs/              This documentation set, ADRs, runbooks, security review
-plans/             ClaudeKit implementation plans (gitignored — local only)
-```
+| Path | Purpose |
+|---|---|
+| `pom.xml` | Java 21 Maven reactor and dependency alignment |
+| `package.json`, `pnpm-workspace.yaml` | Console and generated-contract tooling |
+| `docker-compose*.yml` | Local application, infrastructure, observability, simulator |
+| `infrastructure/helm/agricore/` | Application Kubernetes chart |
+| `.github/workflows/` | CI, CodeQL, Trivy, and gated image publishing |
 
-## Services
+## Applications
 
-| Service | Port | Database | Role |
-|---------|------|----------|------|
-| api-gateway | 8080 | — | Edge routing + JWT validation |
-| identity-service | 8081 | `agricore_identity` | Users, roles, tokens, JWKS |
-| farm-service | 8082 | `agricore_farm` | Farms and plots |
-| crop-catalog-service | 8083 | `agricore_crop_catalog` | Crop varieties |
-| crop-cycle-service | 8084 | `agricore_crop_cycle` | Growing cycles and stages |
-| work-service | 8085 | `agricore_work` | Field tasks |
-| inventory-service | 8086 | `agricore_inventory` | Warehouses, stock, reservations |
-| harvest-service | 8087 | `agricore_harvest` | Harvest batches |
-| notification-service | 8089 | `agricore_notification` | Notification records |
-| iot-service | 8090 | `agricore_iot` | Devices and sensor readings |
-| sales-service | 8091 | `agricore_sales` | Customers, orders, inventory saga |
-| traceability-service | 8092 | `agricore_traceability` | Public QR trace read model |
+| Module | Boundary | Data/integration | Module guide |
+|---|---|---|---|
+| `api-gateway` | External route and JWT boundary | JWKS, Redis rate limits | [README](../services/api-gateway/README.md) |
+| `identity-service` | Users, roles, permissions, tokens | PostgreSQL, Redis, Kafka outbox | [README](../services/identity-service/README.md) |
+| `farm-service` | Enterprise, farms, areas, plots, memberships | PostgreSQL, Kafka outbox | [README](../services/farm-service/README.md) |
+| `crop-catalog-service` | Crops, varieties, care knowledge | PostgreSQL | [README](../services/crop-catalog-service/README.md) |
+| `crop-cycle-service` | Cycles, stages, observations, history, overlap exclusion | PostgreSQL, Farm REST, Kafka outbox | [README](../services/crop-cycle-service/README.md) |
+| `work-service` | Tasks, assignments, executions, materials, images | PostgreSQL, Farm/Inventory REST, MinIO, Kafka outbox | [README](../services/work-service/README.md) |
+| `inventory-service` | Warehouses, lots, movements, reservations | PostgreSQL, Farm REST, Kafka | [README](../services/inventory-service/README.md) |
+| `harvest-service` | Farm-scoped harvest batches and completion repair | PostgreSQL, Farm/Crop-cycle REST, Kafka outbox | [README](../services/harvest-service/README.md) |
+| `traceability-service` | Public QR read model | PostgreSQL, Kafka | [README](../services/traceability-service/README.md) |
+| `iot-service` | Devices, telemetry, rules, alerts, offline detection | PostgreSQL time-series capability, MQTT, Kafka outbox | [README](../services/iot-service/README.md) |
+| `sales-service` | Farm-scoped customers, orders, inventory saga | PostgreSQL, Farm/Inventory REST, Kafka outbox | [README](../services/sales-service/README.md) |
+| `notification-service` | Email and persisted in-app delivery truth, inbox administration, event dedupe | PostgreSQL, SMTP, Kafka | [README](../services/notification-service/README.md) |
+| `assistant-service` | Conversations, generations, replay, tools | PostgreSQL, Redis, allowlisted Farm REST | [README](../services/assistant-service/README.md) |
+| `apps/agricore-console` | Same-origin React operations console | Gateway APIs and fetch-SSE | [Platform README](../README.md) |
 
-Each service has its own README with endpoints, env vars, and a runbook.
+The module guides provide local setup and repair orientation. Versioned
+contracts, runtime code, and the platform documents in this directory remain
+authoritative for cross-service behavior.
 
-## Package layout inside a service
+## Shared Java libraries
 
-```text
-com.agricore.<service>
-  api/            controllers, request/response records
-  application/    application services (orchestration), outbox writers
-  domain/         entities/value objects, domain exceptions, enums
-  infrastructure/ persistence (JPA entities + repositories), messaging, security, configuration
-```
+| Module | Purpose |
+|---|---|
+| `libs/common-lib` | Shared API error/event primitives and architecture rules |
+| `libs/common-security` | Domain resource-server JWT/authority conversion and stateless ambient-cookie mutation rejection |
+| `libs/farm-access-client` | Bearer-forwarding fail-closed farm/plot access adapter |
 
-Rules that hold across services: no cross-service JPA relationships, no shared domain model, no
-schema sharing. Services reference each other's aggregates by id only.
+Shared modules do not contain service JPA entities.
 
-One architectural rule is test-enforced today: `PackageArchitectureTest` in `libs/common-lib` fails
-if the shared library gains a Spring dependency. The per-service layering above is convention,
-reviewed by hand.
+## Contracts and generated code
 
-## Event flow (runtime, not aspirational)
+- `contracts/openapi/`: service and gateway HTTP contracts.
+- `contracts/asyncapi/`: Kafka event and MQTT ingress contracts.
+- `contracts/event-schemas/`: immutable event-envelope/payload JSON Schemas.
+- `apps/agricore-console/src/lib/api/generated/`: generated TypeScript types;
+  regenerated by `pnpm contracts:generate`.
 
-```text
-identity   ──UserRegistered.v1──▶ agricore.identity.events   ──▶ notification (welcome record)
-farm       ──Farm*/Plot*────────▶ agricore.farm.events
-crop-cycle ──CropCycle*─────────▶ agricore.crop-cycle.events
-work       ──WorkTask*──────────▶ agricore.work.events
-harvest    ──HarvestCompleted───▶ agricore.harvest.events    ──▶ inventory (stock-in)
-                                                             ──▶ traceability (public read model)
-sales      ──reserve/confirm───▶ inventory over HTTP (orchestrated saga, no events)
-```
+## Important runtime patterns
 
-Every publisher uses the transactional outbox with a polling publisher. Every consumer dedupes on
-`eventId` through a `processed_events` table and routes poison messages to `<topic>.DLT`.
+- RS256 access JWT plus JWKS; opaque rotated refresh tokens.
+- Controller-generated API errors require `timestamp`, `status`, `error`,
+  `code`, `message`, and `path`; nullable trace, detail, and violation fields
+  are omitted. Validation serializes only field/message violations and never
+  echoes rejected input. A gateway/security-chain 401 may have no body.
+- Authenticated REST for immediate decisions and farm access.
+- Transactional outbox for implemented producers.
+- Durable publisher retries use nullable `next_attempt_at` and
+  `quarantined_at`; legacy null rows remain eligible. This is separate from
+  Kafka consumer retry/DLT routing.
+- At-least-once Kafka consumers with persistent idempotency and retry/DLT.
+- Identity registration writes `UserRegistered.v1` in the user transaction;
+  Notification validates the Identity producer and bounded payload before it
+  creates the idempotent welcome-email intent.
+- External notification channels use at-most-once automatic delivery. Ambiguous
+  stale attempts become `FAILED` with `DELIVERY_OUTCOME_UNKNOWN`; local
+  `IN_APP` delivery can be reclaimed safely.
+- Sales-owned orchestration saga with Inventory as reservation authority.
+- Harvest events, Inventory reservation calls, and Sales saga recovery carry
+  authoritative farm scope; additive migrations leave legacy nulls fail-closed
+  until they are mapped.
+- PostgreSQL exclusion prevents concurrent overlapping active crop cycles per
+  plot.
+- MQTT ingress uses per-device token buckets/in-flight quotas before the bounded
+  processing queue.
+- Gateway strips/overwrites untrusted forwarding input, accepts
+  `X-Forwarded-For` only from an immediate peer matching its trusted-proxy
+  pattern, and HMAC-signs an audience-bound canonical client-IP payload only
+  for the `identity-service` and `assistant-service` route IDs. Identity
+  verifies the `identity-service` audience and Assistant verifies the
+  `assistant-service` audience; missing, malformed, invalid, or cross-audience
+  header pairs fall back to the direct peer. The shared signing secret is used
+  only by Gateway, Identity, and Assistant.
+- Gateway and servlet domain services fail closed for unsafe ambient-cookie
+  requests without explicit header credentials and persist no CSRF session or
+  cookie state. Gateway delegates its Identity auth prefix to the exact-origin
+  browser policy in Identity.
+- Local public traceability projection; no scan-time cross-service SQL.
+- OpenTelemetry/Micrometer traces, Prometheus metrics, ECS logs, Tempo, Loki,
+  Alloy, and Grafana in the local observability stack.
 
-`NotificationRequested.v1`, `Sensor*.v1`, `SalesOrder*.v1`, `Traceability*.v1`, and inventory's
-`Stock*.v1` exist as constants in `EventTypes` with **no producer**. They are naming reservations, not
-behavior. The current event matrix in
-[System Architecture §4](architecture/SYSTEM_ARCHITECTURE.md) is authoritative.
+## Verification entry points
 
-## Cross-cutting concerns
+| Command | Evidence |
+|---|---|
+| `./mvnw -B verify` | Java unit/integration/reactor gates |
+| `pnpm contracts:check` | Generated client drift |
+| `pnpm lint && pnpm typecheck && pnpm test && pnpm build` | Console quality |
+| `pnpm --filter @agricore/console e2e` | Playwright journeys |
+| `docker compose config --quiet` | Compose interpolation and structure |
+| `scripts/verify-platform.*` | Stack build, health, JWT, and business evidence |
 
-| Concern | Where |
-|---------|-------|
-| Error envelope | `libs/common-lib` → `ApiError` |
-| Event envelope | `libs/common-lib` → `DomainEventEnvelope`, `contracts/event-schemas/` |
-| Event type names | `libs/common-lib` → `EventTypes` |
-| JWT verification (domain services) | `libs/common-security` → `DomainServiceSecurityConfig` |
-| Token issuance + JWKS | `identity-service` → `JwtTokenService` |
-| Outbox writer | per service, e.g. `CropCycleOutboxWriter`, `IdentityOutboxWriter` |
-| Outbox publisher | per service `infrastructure/messaging/OutboxPublisher` |
-| Consumer idempotency | per service `processed_events` table + `ProcessedEventJpaRepository` |
-| DLT routing | per service `infrastructure/messaging/KafkaConsumerErrorConfig` |
-| Migrations | per service `src/main/resources/db/migration` (Flyway) |
+PostgreSQL Testcontainers migration tests cover durable outbox columns, partial
+indexes, due/deferred/quarantined selection, and `FOR UPDATE SKIP LOCKED`
+claims for Farm, Harvest, Identity, Notification, Sales, Traceability, and
+Work. They require Docker.
 
-The duplication of outbox/publisher code across services is deliberate: the no-shared-domain rule
-outweighs DRY here, and a shared outbox library would couple release cycles.
+All 14 Dockerfiles pin build/runtime bases by digest and label images with
+`GIT_SHA` as the OCI revision. The pipeline configures candidate parity, scan,
+signature, and full/short-SHA promotion; no current registry publication is
+asserted. The 2026-07-26 evidence bundle and SHA `5867b37` remain historical
+snapshots. An earlier 969-test Maven reactor result is preliminary; a clean
+revision must repeat all release gates.
 
-## Build and test
-
-```bash
-./mvnw -B verify                                   # full reactor, coverage reports included
-./mvnw -B -pl services/<name> -am test             # one service and its dependencies
-```
-
-Coverage is measured by JaCoCo per module (reports under each module's build output) but not yet
-enforced; see [project-roadmap.md](project-roadmap.md) for the strict-flip plan.
+Architecture decisions live in [ADRs](adr/README.md); operational detail lives
+in [runbooks](runbooks/).

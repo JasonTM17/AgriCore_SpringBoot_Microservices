@@ -25,24 +25,25 @@ public class SalesController {
     }
 
     @PostMapping("/customers")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','SALES_STAFF')")
+    @PreAuthorize("hasAuthority('PERMISSION_SALES_WRITE')")
     public ResponseEntity<Map<String, Object>> createCustomer(@Valid @RequestBody CreateCustomerRequest request) {
         CustomerEntity c = salesService.createCustomer(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
                 "id", c.getId(),
+                "farmId", c.getFarmId(),
                 "code", c.getCode(),
                 "name", c.getName()
         ));
     }
 
     @PostMapping("/orders")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','SALES_STAFF')")
+    @PreAuthorize("hasAuthority('PERMISSION_SALES_WRITE')")
     public ResponseEntity<SalesOrderResponse> placeOrder(@Valid @RequestBody CreateOrderRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(salesService.placeOrder(request));
     }
 
     @GetMapping("/orders/{orderId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('PERMISSION_SALES_READ')")
     public SalesOrderResponse get(@PathVariable UUID orderId) {
         return salesService.get(orderId);
     }
@@ -52,7 +53,7 @@ public class SalesController {
      * Query: {@code ?action=RELEASE|CONFIRM}
      */
     @PostMapping("/orders/{orderId}/reconcile")
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN','SALES_STAFF','WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAuthority('PERMISSION_SALES_USE')")
     public SalesOrderResponse reconcile(
             @PathVariable UUID orderId,
             @RequestParam("action") String action

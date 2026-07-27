@@ -1,10 +1,14 @@
 package com.agricore.identity.api.controller;
 
 import com.agricore.identity.api.request.LoginRequest;
+import com.agricore.identity.api.response.AuthTokensResponse;
 import com.agricore.identity.application.service.AuthApplicationService;
-import com.agricore.identity.infrastructure.configuration.SecurityProperties;
+import com.agricore.identity.infrastructure.security.RefreshCookieSupport;
+import com.agricore.identity.infrastructure.security.SignedClientIpResolver;
+import com.agricore.common.security.ClientIpHeaderSigner;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.http.ResponseCookie;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -12,41 +16,16 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-/**
- * The rate limiter keys on whatever this resolves, so a caller who can choose the value can mint a
- * fresh bucket per request and defeat the limit entirely.
- *
- * <p>The gateway appends its observed peer address to X-Forwarded-For rather than replacing the
- * header, so only the last entry is trustworthy. These tests pin that direction: a forged prefix
- * must not survive.
- */
 class ClientIpResolutionTest {
 
-    private static final String SPOOFED = "1.1.1.1";
-    private static final String OBSERVED_BY_GATEWAY = "203.0.113.55";
+    private static final String SECRET = "test-client-ip-signing-secret";
+    private static final String GATEWAY_CLIENT = "203.0.113.55";
 
-    private static SecurityProperties props(boolean trustForwardedHeaders) {
-        return new SecurityProperties(
-                "https://agricore.test/identity",
-                "agricore-api",
-                300L,
-                3600L,
-                4,
-                5,
-                15,
-                20,
-                "",
-                "",
-                true,
-                false,
-                trustForwardedHeaders
-        );
-    }
-
-    private static String resolvedIpFor(MockHttpServletRequest request, boolean trustForwardedHeaders) {
+    private static String resolvedApiIpFor(MockHttpServletRequest request) {
         AuthApplicationService auth = mock(AuthApplicationService.class);
-        AuthController controller = new AuthController(auth, props(trustForwardedHeaders));
+        AuthController controller = new AuthController(auth, new SignedClientIpResolver(SECRET));
 
         controller.login(new LoginRequest("user@agricore.test", "Secret123!"), request);
 
@@ -55,51 +34,103 @@ class ClientIpResolutionTest {
         return ip.getValue();
     }
 
-    private static MockHttpServletRequest requestWith(String forwardedFor) {
+    private static String resolvedWebIpFor(MockHttpServletRequest request) {
+        AuthApplicationService auth = mock(AuthApplicationService.class);
+        RefreshCookieSupport cookies = mock(RefreshCookieSupport.class);
+        WebAuthController controller = new WebAuthController(auth, new SignedClientIpResolver(SECRET), cookies);
+        AuthTokensResponse tokens = new AuthTokensResponse(
+                "access-token",
+                "refresh-token",
+                "Bearer",
+                300,
+                null
+        );
+        when(auth.login(any(LoginRequest.class), any(String.class), eq("junit-agent"))).thenReturn(tokens);
+        when(cookies.buildRefreshCookie("refresh-token"))
+                .thenReturn(ResponseCookie.from("agricore_refresh", "refresh-token").build());
+
+        controller.login(new LoginRequest("user@agricore.test", "Secret123!"), request);
+
+        ArgumentCaptor<String> ip = ArgumentCaptor.forClass(String.class);
+        verify(auth).login(any(LoginRequest.class), ip.capture(), eq("junit-agent"));
+        return ip.getValue();
+    }
+
+    private static MockHttpServletRequest request() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader("User-Agent", "junit-agent");
         request.setRemoteAddr("10.0.0.1");
-        if (forwardedFor != null) {
-            request.addHeader("X-Forwarded-For", forwardedFor);
-        }
         return request;
     }
 
     @Test
-    void forgedLeadingHopIsIgnored_lastHopWins() {
-        String resolved = resolvedIpFor(requestWith(SPOOFED + ", " + OBSERVED_BY_GATEWAY), true);
+    void rawForwardedHeadersCannotMintANewLoginRateLimitBucket() {
+        MockHttpServletRequest request = request();
+        request.addHeader("X-Forwarded-For", "1.1.1.1, " + GATEWAY_CLIENT);
+        request.addHeader(ClientIpHeaderSigner.CLIENT_IP_HEADER, GATEWAY_CLIENT);
+        request.addHeader(ClientIpHeaderSigner.CLIENT_IP_SIGNATURE_HEADER, "forged");
 
-        assertThat(resolved)
-                .as("a client-supplied leading hop must not become the rate-limit key")
-                .isEqualTo(OBSERVED_BY_GATEWAY);
+        assertThat(resolvedApiIpFor(request)).isEqualTo("10.0.0.1");
     }
 
     @Test
-    void rotatingTheForgedPrefixDoesNotChangeTheKey() {
-        String first = resolvedIpFor(requestWith("9.9.9.9, " + OBSERVED_BY_GATEWAY), true);
-        String second = resolvedIpFor(requestWith("8.8.8.8, " + OBSERVED_BY_GATEWAY), true);
+    void invalidSignedHeaderFallsBackToImmediateRemoteAddress() {
+        MockHttpServletRequest request = request();
+        request.addHeader(ClientIpHeaderSigner.CLIENT_IP_HEADER, GATEWAY_CLIENT);
+        request.addHeader(
+                ClientIpHeaderSigner.CLIENT_IP_SIGNATURE_HEADER,
+                ClientIpHeaderSigner.sign(
+                        "203.0.113.99",
+                        ClientIpHeaderSigner.IDENTITY_SERVICE_AUDIENCE,
+                        SECRET
+                )
+        );
 
-        assertThat(first).isEqualTo(second);
+        assertThat(resolvedApiIpFor(request)).isEqualTo("10.0.0.1");
     }
 
     @Test
-    void singleHopIsUsedAsIs() {
-        assertThat(resolvedIpFor(requestWith(OBSERVED_BY_GATEWAY), true)).isEqualTo(OBSERVED_BY_GATEWAY);
+    void validSignedHeaderResolvesForApiAndWebLogin() {
+        MockHttpServletRequest apiRequest = request();
+        apiRequest.addHeader(ClientIpHeaderSigner.CLIENT_IP_HEADER, GATEWAY_CLIENT);
+        apiRequest.addHeader(
+                ClientIpHeaderSigner.CLIENT_IP_SIGNATURE_HEADER,
+                ClientIpHeaderSigner.sign(
+                        GATEWAY_CLIENT,
+                        ClientIpHeaderSigner.IDENTITY_SERVICE_AUDIENCE,
+                        SECRET
+                )
+        );
+        MockHttpServletRequest webRequest = new MockHttpServletRequest();
+        webRequest.setRemoteAddr("10.0.0.1");
+        webRequest.addHeader("User-Agent", "junit-agent");
+        webRequest.addHeader(ClientIpHeaderSigner.CLIENT_IP_HEADER, GATEWAY_CLIENT);
+        webRequest.addHeader(
+                ClientIpHeaderSigner.CLIENT_IP_SIGNATURE_HEADER,
+                ClientIpHeaderSigner.sign(
+                        GATEWAY_CLIENT,
+                        ClientIpHeaderSigner.IDENTITY_SERVICE_AUDIENCE,
+                        SECRET
+                )
+        );
+
+        assertThat(resolvedApiIpFor(apiRequest)).isEqualTo(GATEWAY_CLIENT);
+        assertThat(resolvedWebIpFor(webRequest)).isEqualTo(GATEWAY_CLIENT);
     }
 
     @Test
-    void trailingBlankHopsAreSkipped() {
-        assertThat(resolvedIpFor(requestWith(SPOOFED + ", " + OBSERVED_BY_GATEWAY + " , "), true))
-                .isEqualTo(OBSERVED_BY_GATEWAY);
-    }
+    void assistantAudienceSignatureFallsBackToImmediateRemoteAddress() {
+        MockHttpServletRequest request = request();
+        request.addHeader(ClientIpHeaderSigner.CLIENT_IP_HEADER, GATEWAY_CLIENT);
+        request.addHeader(
+                ClientIpHeaderSigner.CLIENT_IP_SIGNATURE_HEADER,
+                ClientIpHeaderSigner.sign(
+                        GATEWAY_CLIENT,
+                        ClientIpHeaderSigner.ASSISTANT_SERVICE_AUDIENCE,
+                        SECRET
+                )
+        );
 
-    @Test
-    void headerIsIgnoredEntirelyWhenNotTrusted() {
-        assertThat(resolvedIpFor(requestWith(SPOOFED + ", " + OBSERVED_BY_GATEWAY), false)).isEqualTo("10.0.0.1");
-    }
-
-    @Test
-    void fallsBackToRemoteAddrWhenHeaderAbsent() {
-        assertThat(resolvedIpFor(requestWith(null), true)).isEqualTo("10.0.0.1");
+        assertThat(resolvedApiIpFor(request)).isEqualTo("10.0.0.1");
     }
 }

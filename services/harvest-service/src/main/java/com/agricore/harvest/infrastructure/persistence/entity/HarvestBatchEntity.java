@@ -16,25 +16,31 @@ public class HarvestBatchEntity {
     private String code;
     @Column(name = "crop_cycle_id", nullable = false)
     private UUID cropCycleId;
+    @Column(name = "farm_id")
+    private UUID farmId;
     @Column(name = "plot_id", nullable = false)
     private UUID plotId;
     @Column(name = "warehouse_id", nullable = false)
     private UUID warehouseId;
     @Column(name = "product_code", nullable = false, length = 64)
     private String productCode;
-    @Column(name = "gross_weight_kg", nullable = false, precision = 14, scale = 3)
+    @Column(name = "gross_weight_kg", precision = 14, scale = 3)
     private BigDecimal grossWeightKg;
-    @Column(name = "net_weight_kg", nullable = false, precision = 14, scale = 3)
+    @Column(name = "net_weight_kg", precision = 14, scale = 3)
     private BigDecimal netWeightKg;
-    @Column(name = "quality_grade", nullable = false, length = 32)
+    @Column(name = "quality_grade", length = 32)
     private String qualityGrade;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     private HarvestStatus status;
-    @Column(name = "harvested_at", nullable = false)
+    @Column(name = "started_at", nullable = false)
+    private Instant startedAt;
+    @Column(name = "harvested_at")
     private Instant harvestedAt;
     @Column(columnDefinition = "TEXT")
     private String notes;
+    @Column(name = "last_outbox_event_id")
+    private UUID lastOutboxEventId;
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
     @Column(name = "updated_at", nullable = false)
@@ -48,6 +54,8 @@ public class HarvestBatchEntity {
     public void setCode(String code) { this.code = code; }
     public UUID getCropCycleId() { return cropCycleId; }
     public void setCropCycleId(UUID cropCycleId) { this.cropCycleId = cropCycleId; }
+    public UUID getFarmId() { return farmId; }
+    public void setFarmId(UUID farmId) { this.farmId = farmId; }
     public UUID getPlotId() { return plotId; }
     public void setPlotId(UUID plotId) { this.plotId = plotId; }
     public UUID getWarehouseId() { return warehouseId; }
@@ -62,13 +70,24 @@ public class HarvestBatchEntity {
     public void setQualityGrade(String qualityGrade) { this.qualityGrade = qualityGrade; }
     public HarvestStatus getStatus() { return status; }
     public void setStatus(HarvestStatus status) { this.status = status; }
+    public Instant getStartedAt() { return startedAt; }
+    public void setStartedAt(Instant startedAt) { this.startedAt = startedAt; }
     public Instant getHarvestedAt() { return harvestedAt; }
     public void setHarvestedAt(Instant harvestedAt) { this.harvestedAt = harvestedAt; }
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
+    public UUID getLastOutboxEventId() { return lastOutboxEventId; }
+    public void setLastOutboxEventId(UUID lastOutboxEventId) { this.lastOutboxEventId = lastOutboxEventId; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
     public long getVersion() { return version; }
+
+    @PrePersist
+    void initializeStartedAtForLegacyWrites() {
+        if (startedAt == null) {
+            startedAt = harvestedAt != null ? harvestedAt : Instant.now();
+        }
+    }
 }

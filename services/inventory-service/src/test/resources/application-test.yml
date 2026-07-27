@@ -12,15 +12,22 @@ spring:
         dialect: org.hibernate.dialect.H2Dialect
   flyway:
     enabled: true
+    locations: classpath:db/migration
   autoconfigure:
     exclude:
       - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
 
 agricore:
+  inventory:
+    internal:
+      service-token: test-inventory-work-service-token-012345678901234567890123
   security:
     dev-mode: true
     issuer: https://agricore.test/identity
     jwk-set-uri: http://localhost:8081/.well-known/jwks.json
   kafka:
     consumer:
+      enabled: false
+  outbox:
+    publisher:
       enabled: false

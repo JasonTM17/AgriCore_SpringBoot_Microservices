@@ -1,0 +1,20 @@
+{
+  "annotations": {"list": []},
+  "editable": false,
+  "panels": [
+    {"type": "timeseries", "title": "Harvest processing latency p95", "id": 1, "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}, "targets": [{"expr": "histogram_quantile(0.95, sum by (le) (rate(agricore_harvest_processing_seconds_bucket[5m])))", "legendFormat": "p95"}], "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []}},
+    {"type": "stat", "title": "Outbox backlog", "id": 2, "gridPos": {"h": 6, "w": 6, "x": 12, "y": 0}, "targets": [{"expr": "sum(agricore_outbox_backlog)", "legendFormat": "unpublished"}]},
+    {"type": "stat", "title": "Outbox quarantine", "id": 5, "gridPos": {"h": 6, "w": 6, "x": 18, "y": 0}, "targets": [{"expr": "sum(agricore_outbox_quarantined)", "legendFormat": "requires repair"}], "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}}, "overrides": []}},
+    {"type": "timeseries", "title": "Assistant generations", "id": 3, "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}, "targets": [{"expr": "sum by (outcome) (rate(agricore_assistant_generations_total[5m]))", "legendFormat": "{{outcome}}"}]},
+    {"type": "timeseries", "title": "Sales saga outcomes", "id": 4, "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}, "targets": [{"expr": "sum by (outcome) (rate(agricore_sales_sagas_total[5m]))", "legendFormat": "{{outcome}}"}]}
+  ],
+  "refresh": "15s",
+  "schemaVersion": 39,
+  "tags": ["agricore", "business"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "AgriCore Business Metrics",
+  "uid": "agricore-business-metrics",
+  "version": 1
+}

@@ -12,12 +12,15 @@ public record PublicTraceabilityResponse(
         String varietyName,
         String farmName,
         String plotCode,
+        String productCode,
         LocalDate plantingDate,
         LocalDate harvestDate,
         String qualityGrade,
+        BigDecimal grossWeightKg,
         BigDecimal netWeightKg,
         String careSummary,
         String qrUrl,
+        String qrImageUrl,
         String batchLabel
 ) {
 }

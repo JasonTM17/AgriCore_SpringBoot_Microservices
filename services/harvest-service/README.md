@@ -1,60 +1,44 @@
-# harvest-service
+# Harvest Service
 
 ## Purpose
 
-Records harvest batches and the moment a harvest completes. Its `HarvestCompleted.v1` event is the
-fan-out point of the platform: inventory turns it into stock, traceability turns it into a public QR
-record. Called by the gateway; publishes through a transactional outbox.
+Owns farm-scoped harvest batches and their lifecycle. It verifies the caller's
+plot through Farm, verifies crop-cycle farm/plot scope through Crop Cycle, and
+publishes lifecycle events through a transactional outbox.
 
-## API surface
+## API and events
 
-- `POST /api/v1/harvests` — open a harvest batch for a crop cycle
-- `POST /api/v1/harvests/complete` — complete a harvest (net weight, quality grade, warehouse)
-- `GET /api/v1/harvests/{harvestId}` — harvest detail
-- Contract: `contracts/openapi/harvest-service.v1.yaml`
-- Events published: `HarvestCompleted.v1` (also `HarvestStarted.v1`, `HarvestBatchCreated.v1` constants)
-  → `agricore.harvest.events`
-- Events consumed: none
+- `/api/v1/harvests`: create a batch.
+- `/api/v1/harvests/complete` and
+  `/api/v1/harvests/{harvestId}/complete`: completion paths retained by the
+  contract.
+- `/api/v1/harvests/{harvestId}`: scoped detail.
+- `/completion-event` and `/completion-event/republish`: inspect and safely
+  requeue the original completion envelope.
 
-## Env vars
+Published to `agricore.harvest.events`: `HarvestBatchCreated.v1`,
+`HarvestStarted.v1`, and farm-scoped `HarvestCompleted.v1`. Inventory and
+Traceability consume completion idempotently. See
+[OpenAPI](../../contracts/openapi/harvest-service.v1.yaml) and
+[AsyncAPI](../../contracts/asyncapi/agricore-events.yaml).
 
-| Name | Required | Default | Description |
-|------|----------|---------|-------------|
-| `HARVEST_PORT` | no | `8087` | HTTP listen port |
-| `POSTGRES_HOST` | no | `localhost` | Database host |
-| `POSTGRES_PORT` | no | `5434` | Database port |
-| `POSTGRES_USER` | no | `agricore` | Database user |
-| `POSTGRES_PASSWORD` | yes in prod | dev value | Database password |
-| `KAFKA_BOOTSTRAP_SERVERS` | no | `localhost:9092` | Broker for the outbox publisher |
-| `JWT_ISSUER` | no | `https://agricore.local/identity` | Expected `iss` claim |
-| `IDENTITY_JWKS_URI` | no | identity JWKS URL | Key source for local token verification |
-| `AGRICORE_DEV_MODE` | no | `false` | Dev shortcuts; keep `false` outside local work |
+## Configuration
 
-Database: `agricore_harvest`.
+Database: `agricore_harvest`. Core variables are `HARVEST_PORT`, `POSTGRES_*`,
+`KAFKA_BOOTSTRAP_SERVERS`, `FARM_SERVICE_URL`,
+`CROP_CYCLE_SERVICE_URL`, `IDENTITY_JWKS_URI`, and `JWT_ISSUER`.
 
-## Run locally
-
-```bash
-./scripts/dev-up.sh
-mvn -pl services/harvest-service spring-boot:run
-```
-
-## Test
+## Run and verify
 
 ```bash
 ./mvnw -B -pl services/harvest-service -am test
-./mvnw -B -pl services/harvest-service -am verify   # adds the JaCoCo report
+./mvnw -pl services/harvest-service spring-boot:run
 ```
 
-The full chain (harvest → Kafka → inventory + traceability) is verified by
-`scripts/e2e-happy-path.ps1` against the compose stack, which writes an evidence bundle.
+- Projection absent: check completion outbox state, consumer ledgers, then the
+  Harvest DLT.
+- Republish preserves the stable event ID; do not synthesize a replacement
+  event for repair.
+- Farm/plot/cycle mismatch is masked or fails closed before mutation.
 
-## Runbook
-
-- **Stock did not move after a harvest** — check `outbox_events` here first (`published_at IS NULL`),
-  then the inventory consumer's `processed_events` and the `agricore.harvest.events.DLT` topic.
-- **Duplicate stock-in** — should be impossible: inventory dedupes on `eventId`. If it happened, compare
-  `eventId` values in inventory's `processed_events`.
-- **Replay a harvest event** — republish the envelope from `outbox_events.payload`; consumers are
-  idempotent, so a replay is safe.
-- **Reset local data** — drop and recreate `agricore_harvest`, restart to replay migrations.
+See the [harvest event flow](../../docs/diagrams/harvest-event-flow.md).

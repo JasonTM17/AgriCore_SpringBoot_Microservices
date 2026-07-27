@@ -1,10 +1,10 @@
 openapi: 3.1.0
 info:
   title: AgriCore Sales Service API
-  version: 1.0.0
+  version: 2.0.0
   description: |
-    Customers and sales orders with inventory reservation saga.
-    Flow: create order → reserve stock → confirm reservation → CONFIRMED.
+    Farm-scoped customers and sales orders with inventory reservation saga.
+    Flow: create order → reserve stock → confirm reservation → fulfillment milestones.
 servers:
   - url: http://localhost:8091
 paths:
@@ -19,19 +19,31 @@ paths:
           application/json:
             schema:
               type: object
-              required: [code, name]
+              additionalProperties: false
+              required: [farmId, code, name]
               properties:
+                farmId: { type: string, format: uuid }
                 code: { type: string }
                 name: { type: string }
                 email: { type: string, format: email }
       responses:
         '201':
           description: Created
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '409': { $ref: '#/components/responses/Conflict' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [id, farmId, code, name]
+                properties:
+                  id: { type: string, format: uuid }
+                  farmId: { type: string, format: uuid }
+                  code: { type: string }
+                  name: { type: string }
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /api/v1/sales/orders:
     post:
       summary: Place order (saga reserve + confirm inventory)
@@ -43,21 +55,30 @@ paths:
           application/json:
             schema:
               type: object
-              required: [orderNumber, customerId, inventoryItemId, quantity]
+              additionalProperties: false
+              required: [orderNumber, farmId, customerId, inventoryItemId, quantity]
               properties:
                 orderNumber: { type: string }
+                farmId: { type: string, format: uuid }
                 customerId: { type: string, format: uuid }
                 inventoryItemId: { type: string, format: uuid }
                 quantity: { type: number }
+                unitPrice: { type: [number, 'null'], minimum: 0, multipleOf: 0.0001 }
+                currencyCode:
+                  type: [string, 'null']
+                  pattern: '^[A-Za-z]{3}$'
       responses:
         '201':
-          description: Terminal saga outcome (CONFIRMED, OUT_OF_STOCK, or CANCELLED)
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+          description: >-
+            Current saga outcome can be terminal (CONFIRMED, OUT_OF_STOCK, CANCELLED),
+            retryable (RETRY_SCHEDULED), or STOCK_RESERVED while confirmation is retried.
+            A bounded recovery worker marks exhausted sagas TIMED_OUT for manual review.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesOrderResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /api/v1/sales/orders/{orderId}:
     get:
       summary: Get order and saga status
@@ -71,20 +92,18 @@ paths:
       responses:
         '200':
           description: Order detail
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /api/v1/sales/orders/{orderId}/reconcile:
     post:
-      summary: Reconcile a stuck inventory hold
-      description: |
-        Recovery path for an order whose saga stopped between reserving and confirming, leaving
-        stock held. RELEASE returns the hold and cancels the order; CONFIRM fulfils it. Both are
-        idempotent — repeating the action that already ran returns the current order unchanged.
-
-        Requires the order to still carry a reservation; an order with none is a 409, because there
-        is nothing to reconcile.
+      summary: Reconcile an order with its authoritative inventory reservation state
+      description: >-
+        RELEASE cancels the order when Inventory returns RELEASED. If Inventory reports
+        that the reservation is already FULFILLED, the order is confirmed instead.
+        CONFIRM is the only idempotent action for CONFIRMED; RELEASE is the only
+        idempotent action for CANCELLED. Other terminal-state actions return 409.
       security:
         - bearerAuth: []
       parameters:
@@ -95,27 +114,159 @@ paths:
         - in: query
           name: action
           required: true
-          description: Case-insensitive
-          schema:
-            type: string
-            enum: [RELEASE, CONFIRM]
+          schema: { type: string, enum: [RELEASE, CONFIRM] }
       responses:
         '200':
-          description: Order after reconciliation
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
-        '502': { $ref: '#/components/responses/UpstreamFailure' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+          description: Reconciled order and saga state
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  responses:
+    BadRequest:
+      description: The request is malformed, invalid, or fails validation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Unauthorized:
+      description: Bearer credential missing, expired, or invalid. The security filter chain may return this response without a body.
+    Forbidden:
+      description: Authenticated, but missing the required role or permission.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotFound:
+      description: The requested resource does not exist or is not visible to the caller.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotAcceptable:
+      description: The requested response media type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Conflict:
+      description: The request conflicts with existing resource or domain state.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Gone:
+      description: The requested resource or replay window is no longer available.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    PayloadTooLarge:
+      description: The request body exceeds the supported size.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    UnsupportedMediaType:
+      description: The request Content-Type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Locked:
+      description: The resource is temporarily locked by an in-progress operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    RateLimitExceeded:
+      description: The caller exceeded an enforced request or concurrency limit.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    InternalServerError:
+      description: The service could not complete the request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    BadGateway:
+      description: An upstream dependency returned an invalid response.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    ServiceUnavailable:
+      description: The service or a required dependency is temporarily unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
   schemas:
+    SalesOrderItemResponse:
+      type: object
+      additionalProperties: false
+      required: [lineNumber, inventoryItemId, quantity]
+      properties:
+        lineNumber: { type: integer, minimum: 1 }
+        inventoryItemId: { type: string, format: uuid }
+        quantity: { type: number, minimum: 0.001 }
+        unitPrice: { type: [number, 'null'], minimum: 0 }
+        lineTotal: { type: [number, 'null'], minimum: 0 }
+        currencyCode: { type: [string, 'null'], pattern: '^[A-Z]{3}$' }
+    SalesOrderResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - orderNumber
+        - farmId
+        - customerId
+        - status
+        - inventoryItemId
+        - quantity
+        - correlationId
+        - sagaStatus
+        - sagaStep
+        - createdAt
+        - items
+      properties:
+        id: { type: string, format: uuid }
+        orderNumber: { type: string }
+        farmId: { type: string, format: uuid }
+        customerId: { type: string, format: uuid }
+        status: { type: string }
+        inventoryItemId: { type: string, format: uuid }
+        quantity: { type: number }
+        reservationId: { type: [string, 'null'], format: uuid }
+        correlationId: { type: string, format: uuid }
+        failureReason: { type: [string, 'null'] }
+        sagaStatus: { type: [string, 'null'] }
+        sagaStep: { type: [string, 'null'] }
+        sagaRetryCount: { type: [integer, 'null'], minimum: 0 }
+        sagaNextAttemptAt: { type: [string, 'null'], format: date-time }
+        sagaCompletedAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+        currencyCode: { type: [string, 'null'], pattern: '^[A-Z]{3}$' }
+        subtotalAmount: { type: [number, 'null'], minimum: 0 }
+        totalAmount: { type: [number, 'null'], minimum: 0 }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SalesOrderItemResponse'
     ApiError:
       type: object
       description: |
@@ -140,47 +291,6 @@ components:
             properties:
               field: { type: string }
               message: { type: string }
-              rejectedValue: { description: Whatever the caller sent; untyped by design }
         details:
           type: object
           additionalProperties: true
-  responses:
-    Conflict:
-      description: |
-        The request collides with existing state. A losing race on a unique index reports
-        DUPLICATE_RESOURCE; services also use 409 for their own domain conflicts.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    Forbidden:
-      description: Authenticated but lacking the required role (code ACCESS_DENIED).
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    NotFound:
-      description: No such resource. The code is service-specific.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    Unauthorized:
-      description: |
-        Bearer credential missing, expired, or invalid. Produced by the security filter chain
-        before the DispatcherServlet, so this is the one error on the platform that is NOT
-        ApiError-shaped and carries no body.
-    UnexpectedError:
-      description: Any other failure, including 500 INTERNAL_ERROR and 405 METHOD_NOT_ALLOWED.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    UpstreamFailure:
-      description: A downstream service could not complete the request.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    ValidationFailed:
-      description: |
-        Request body failed validation (code VALIDATION_FAILED, with violations populated), or a
-        path variable or query parameter would not convert (code INVALID_PARAMETER).
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }

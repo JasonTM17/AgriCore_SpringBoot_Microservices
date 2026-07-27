@@ -14,7 +14,7 @@ public record CreateWorkTaskRequest(
         @NotBlank String taskType,
         @NotBlank @Size(max = 200) String title,
         String description,
-        @NotBlank String priority,
+        @NotBlank @Size(max = 32) String priority,
         Instant scheduledStart,
         Instant scheduledEnd
 ) {

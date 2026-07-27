@@ -1,0 +1,18 @@
+{
+  "annotations": {"list": []},
+  "editable": false,
+  "panels": [
+    {"type": "timeseries", "title": "Sensor reading ingest rate", "id": 1, "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}, "targets": [{"expr": "sum(rate(agricore_iot_readings_total[5m]))", "legendFormat": "readings/s"}]},
+    {"type": "timeseries", "title": "Sensor alerts", "id": 2, "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}, "targets": [{"expr": "sum by (outcome) (rate(agricore_iot_alerts_total[5m]))", "legendFormat": "{{outcome}}"}]},
+    {"type": "stat", "title": "Open alerts", "id": 3, "gridPos": {"h": 6, "w": 8, "x": 0, "y": 8}, "targets": [{"expr": "sum(agricore_iot_open_alerts)", "legendFormat": "open"}]}
+  ],
+  "refresh": "15s",
+  "schemaVersion": 39,
+  "tags": ["agricore", "iot"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "AgriCore IoT Ingestion",
+  "uid": "agricore-iot-ingestion",
+  "version": 1
+}

@@ -2,298 +2,374 @@ package com.agricore.sales.application.service;
 
 import com.agricore.sales.api.request.CreateCustomerRequest;
 import com.agricore.sales.api.request.CreateOrderRequest;
+import com.agricore.sales.api.response.SalesOrderItemResponse;
 import com.agricore.sales.api.response.SalesOrderResponse;
 import com.agricore.sales.domain.exception.SalesException;
 import com.agricore.sales.domain.model.OrderStatus;
 import com.agricore.sales.infrastructure.client.InventoryClient;
-import com.agricore.sales.infrastructure.persistence.CustomerJpaRepository;
 import com.agricore.sales.infrastructure.persistence.OrderSagaJpaRepository;
+import com.agricore.sales.infrastructure.persistence.SalesOrderItemJpaRepository;
 import com.agricore.sales.infrastructure.persistence.SalesOrderJpaRepository;
 import com.agricore.sales.infrastructure.persistence.entity.CustomerEntity;
 import com.agricore.sales.infrastructure.persistence.entity.OrderSagaEntity;
 import com.agricore.sales.infrastructure.persistence.entity.SalesOrderEntity;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Orchestration saga: CreateOrder → ReserveInventory → ConfirmInventory → Confirm order.
- * On reserve failure: mark OUT_OF_STOCK / CANCELLED and persist saga failure (compensation is no-op if no reservation).
- * On post-reserve failure: release inventory then cancel.
- * Confirm commits stock (on-hand + reserved decrement); without it reserved stock would stay held forever.
+ * Orchestrates inventory calls without holding a database transaction across service boundaries.
+ * Every local transition delegates to {@link SalesOrderTransactionService}, which persists state
+ * and its lifecycle event in one short transaction.
  */
 @Service
 public class SalesSagaService {
 
-    private final CustomerJpaRepository customerRepository;
     private final SalesOrderJpaRepository orderRepository;
     private final OrderSagaJpaRepository sagaRepository;
+    private final SalesOrderItemJpaRepository itemRepository;
     private final InventoryClient inventoryClient;
+    private final SalesOrderTransactionService transactions;
+    private final SalesMetrics metrics;
+    private final SalesSagaRecoveryPolicy recoveryPolicy;
+    private final SalesAccessGuard accessGuard;
 
     public SalesSagaService(
-            CustomerJpaRepository customerRepository,
             SalesOrderJpaRepository orderRepository,
             OrderSagaJpaRepository sagaRepository,
-            InventoryClient inventoryClient
+            SalesOrderItemJpaRepository itemRepository,
+            InventoryClient inventoryClient,
+            SalesOrderTransactionService transactions,
+            SalesMetrics metrics,
+            SalesSagaRecoveryPolicy recoveryPolicy,
+            SalesAccessGuard accessGuard
     ) {
-        this.customerRepository = customerRepository;
         this.orderRepository = orderRepository;
         this.sagaRepository = sagaRepository;
+        this.itemRepository = itemRepository;
         this.inventoryClient = inventoryClient;
+        this.transactions = transactions;
+        this.metrics = metrics;
+        this.recoveryPolicy = recoveryPolicy;
+        this.accessGuard = accessGuard;
     }
 
-    @Transactional
     public CustomerEntity createCustomer(CreateCustomerRequest request) {
-        String code = request.code().trim().toUpperCase();
-        if (customerRepository.existsByCodeIgnoreCase(code)) {
+        accessGuard.requireFarm(request.farmId());
+        try {
+            return transactions.createCustomer(request);
+        } catch (DataIntegrityViolationException exception) {
             throw new SalesException("CUSTOMER_EXISTS", "Customer code already exists", 409);
         }
-        CustomerEntity c = new CustomerEntity();
-        c.setId(UUID.randomUUID());
-        c.setCode(code);
-        c.setName(request.name().trim());
-        c.setEmail(request.email());
-        c.setCreatedAt(Instant.now());
-        return customerRepository.save(c);
     }
 
-    /**
-     * Creates order and runs reservation saga step. Returns terminal outcome.
-     */
     public SalesOrderResponse placeOrder(CreateOrderRequest request) {
-        if (!customerRepository.existsById(request.customerId())) {
-            throw new SalesException("CUSTOMER_NOT_FOUND", "Customer not found", 404);
-        }
-        String orderNumber = request.orderNumber().trim().toUpperCase();
-        if (orderRepository.existsByOrderNumberIgnoreCase(orderNumber)) {
-            throw new SalesException("ORDER_EXISTS", "Order number already exists", 409);
-        }
-
-        Instant now = Instant.now();
-        UUID correlationId = UUID.randomUUID();
-
-        SalesOrderEntity order = new SalesOrderEntity();
-        order.setId(UUID.randomUUID());
-        order.setOrderNumber(orderNumber);
-        order.setCustomerId(request.customerId());
-        order.setStatus(OrderStatus.PENDING_CONFIRMATION);
-        order.setInventoryItemId(request.inventoryItemId());
-        order.setQuantity(request.quantity());
-        order.setCorrelationId(correlationId);
-        order.setCreatedAt(now);
-        order.setUpdatedAt(now);
-        order = orderRepository.saveAndFlush(order);
-
-        OrderSagaEntity saga = new OrderSagaEntity();
-        saga.setId(UUID.randomUUID());
-        saga.setSalesOrderId(order.getId());
-        saga.setCorrelationId(correlationId);
-        saga.setCurrentStep("RESERVE_INVENTORY");
-        saga.setStatus("RUNNING");
-        saga.setRetryCount(0);
-        saga.setCreatedAt(now);
-        saga.setUpdatedAt(now);
-        saga = sagaRepository.saveAndFlush(saga);
-
-        // Held outside the try so both catch blocks can compensate a reservation that inventory
-        // already committed. Reading it back off the order row instead would miss the window
-        // between the remote reserve succeeding and the local save persisting the id.
+        accessGuard.requireFarm(request.farmId());
+        UUID orderId = createOrder(request);
         UUID reservationId = null;
         try {
+            SalesOrderEntity order = reloadOrder(orderId);
             reservationId = inventoryClient.reserve(
+                    order.getFarmId(),
                     order.getInventoryItemId(),
                     order.getQuantity(),
                     order.getId().toString()
             );
-            order = reloadOrder(order.getId());
-            order.setReservationId(reservationId);
-            order.setStatus(OrderStatus.STOCK_RESERVED);
-            order.setUpdatedAt(Instant.now());
-            order = orderRepository.saveAndFlush(order);
-
-            saga = reloadSaga(order.getId());
-            saga.setCurrentStep("CONFIRM_INVENTORY");
-            saga.setUpdatedAt(Instant.now());
-            saga = sagaRepository.saveAndFlush(saga);
-
-            inventoryClient.confirm(reservationId);
-
-            order = reloadOrder(order.getId());
-            order.setStatus(OrderStatus.CONFIRMED);
-            order.setUpdatedAt(Instant.now());
-            order = orderRepository.saveAndFlush(order);
-
-            saga = reloadSaga(order.getId());
-            saga.setCurrentStep("CONFIRMED");
-            saga.setStatus("COMPLETED");
-            saga.setUpdatedAt(Instant.now());
-            saga = sagaRepository.saveAndFlush(saga);
-        } catch (InventoryClient.InventoryReservationException ex) {
-            // A failure at the confirm step leaves a reservation inventory already committed.
-            // Without this release the stock stays held forever while the saga below records
-            // itself as COMPENSATED, and reconcile refuses the order for having no reservation.
-            String releaseError = releaseQuietly(reservationId);
-
-            order = reloadOrder(order.getId());
-            if (ex.isInsufficientStock()) {
-                order.setStatus(OrderStatus.OUT_OF_STOCK);
-            } else {
-                order.setStatus(OrderStatus.CANCELLED);
-            }
-            order.setFailureReason(ex.getMessage());
-            order.setUpdatedAt(Instant.now());
-            order = orderRepository.saveAndFlush(order);
-
-            saga = reloadSaga(order.getId());
-            saga.setStatus("FAILED");
-            saga.setLastError(releaseError == null ? ex.getMessage() : ex.getMessage() + " | " + releaseError);
-            saga.setCurrentStep("COMPENSATED");
-            saga.setUpdatedAt(Instant.now());
-            saga = sagaRepository.saveAndFlush(saga);
-        } catch (Exception ex) {
-            // Compensation: release if we already reserved
-            String releaseError = releaseQuietly(reservationId);
-            if (releaseError != null) {
-                saga = reloadSaga(order.getId());
-                saga.setLastError(releaseError);
-                sagaRepository.saveAndFlush(saga);
-            }
-            order = reloadOrder(order.getId());
-            order.setStatus(OrderStatus.CANCELLED);
-            order.setFailureReason(ex.getMessage());
-            order.setUpdatedAt(Instant.now());
-            order = orderRepository.saveAndFlush(order);
-            saga = reloadSaga(order.getId());
-            saga.setStatus("FAILED");
-            saga.setCurrentStep("COMPENSATED");
-            saga.setUpdatedAt(Instant.now());
-            saga = sagaRepository.saveAndFlush(saga);
+            transactions.recordReservation(orderId, reservationId);
+            inventoryClient.confirm(order.getFarmId(), reservationId);
+            transactions.confirm(orderId, reservationId, false);
+        } catch (Exception failure) {
+            compensate(orderId, reservationId, failure);
         }
 
-        return toResponse(order, saga);
+        SalesOrderResponse response = get(orderId);
+        metrics.recordSagaOutcome(response.sagaStatus());
+        return response;
     }
 
-    /**
-     * Releases a reservation during compensation, returning a description of the failure instead of
-     * throwing. Compensation runs while another failure is already being handled, so letting this
-     * throw would replace the original cause with a secondary one and abandon the order mid-update.
-     *
-     * <p>Safe to call for a reservation inventory has already finalised: {@code release} on a
-     * terminal reservation is a no-op there, so this cannot double-decrement.
-     *
-     * @return null when there was nothing to release or the release succeeded
-     */
-    private String releaseQuietly(UUID reservationId) {
-        if (reservationId == null) {
-            return null;
-        }
+    private UUID createOrder(CreateOrderRequest request) {
         try {
-            inventoryClient.release(reservationId);
-            return null;
-        } catch (Exception releaseEx) {
-            return "Release failed: " + releaseEx.getMessage();
+            return transactions.createOrder(request, request.orderNumber().trim().toUpperCase());
+        } catch (DataIntegrityViolationException exception) {
+            throw new SalesException("ORDER_EXISTS", "Order number already exists", 409);
         }
     }
 
-    private SalesOrderEntity reloadOrder(UUID id) {
-        return orderRepository.findById(id)
-                .orElseThrow(() -> new SalesException("ORDER_NOT_FOUND", "Order not found", 404));
+    private void compensate(UUID orderId, UUID reservationId, Exception failure) {
+        String failureMessage = failureMessage(failure);
+        if (reservationId == null) {
+            if (shouldResolveReservation(failure)) {
+                try {
+                    SalesOrderEntity order = reloadOrder(orderId);
+                    var reservation = inventoryClient.findByReference(
+                            order.getFarmId(),
+                            "SalesOrder",
+                            orderId.toString()
+                    );
+                    if (reservation.isPresent()) {
+                        compensateKnownReservation(orderId, reservation.get(), failureMessage);
+                        return;
+                    }
+                    transactions.markReservationOutcomeUnknown(
+                            orderId,
+                            failureMessage + "; reservation is not visible yet",
+                            recoveryPolicy.nextAttemptAt(1, Instant.now())
+                    );
+                    return;
+                } catch (Exception lookupFailure) {
+                    transactions.markReservationOutcomeUnknown(
+                            orderId,
+                            failureMessage + "; reservation lookup failed: " + failureMessage(lookupFailure),
+                            recoveryPolicy.nextAttemptAt(1, Instant.now())
+                    );
+                    return;
+                }
+            }
+            boolean insufficientStock = failure instanceof InventoryClient.InventoryReservationException inventoryFailure
+                    && inventoryFailure.isInsufficientStock();
+            transactions.failWithoutReservation(orderId, failureMessage, insufficientStock);
+            return;
+        }
+
+        transactions.markConfirmationRetry(
+                orderId,
+                reservationId,
+                failureMessage,
+                recoveryPolicy.nextAttemptAt(1, Instant.now())
+        );
     }
 
-    private OrderSagaEntity reloadSaga(UUID orderId) {
-        return sagaRepository.findBySalesOrderId(orderId)
-                .orElseThrow(() -> new SalesException("SAGA_NOT_FOUND", "Saga not found", 500));
+    private void compensateKnownReservation(
+            UUID orderId,
+            InventoryClient.ReservationState reservation,
+            String failureMessage
+    ) {
+        SalesOrderEntity order = reloadOrder(orderId);
+        requireMatchingReservation(order, reservation);
+        UUID reservationId = reservation.id();
+        switch (reservation.status()) {
+            case "FULFILLED" -> transactions.confirm(orderId, reservationId, false);
+            case "RELEASED" -> transactions.cancelAfterRelease(orderId, reservationId, failureMessage, false);
+            case "ACTIVE" -> {
+                transactions.recordReservation(orderId, reservationId);
+                transactions.markConfirmationRetry(
+                        orderId,
+                        reservationId,
+                        failureMessage,
+                        recoveryPolicy.nextAttemptAt(1, Instant.now())
+                );
+            }
+            default -> transactions.markReservationOutcomeUnknown(
+                    orderId,
+                    failureMessage + "; unsupported reservation status " + reservation.status(),
+                    recoveryPolicy.nextAttemptAt(1, Instant.now())
+            );
+        }
     }
 
-    @Transactional(readOnly = true)
-    public SalesOrderResponse get(UUID id) {
-        SalesOrderEntity order = orderRepository.findById(id)
-                .orElseThrow(() -> new SalesException("ORDER_NOT_FOUND", "Order not found", 404));
-        OrderSagaEntity saga = sagaRepository.findBySalesOrderId(id).orElse(null);
+    private static boolean shouldResolveReservation(Exception failure) {
+        if (!(failure instanceof InventoryClient.InventoryReservationException inventoryFailure)) {
+            return true;
+        }
+        // A 409 is an authoritative reserve decision. Transport/5xx failures
+        // may have committed a hold before the response was lost.
+        return !inventoryFailure.isInsufficientStock() && inventoryFailure.getStatus() != 409;
+    }
+
+    private static void requireMatchingReservation(
+            SalesOrderEntity order,
+            InventoryClient.ReservationState reservation
+    ) {
+        if (!order.getInventoryItemId().equals(reservation.inventoryItemId())
+                || order.getQuantity().compareTo(reservation.quantity()) != 0) {
+            throw new SalesException(
+                    "RESERVATION_SCOPE_MISMATCH",
+                    "Inventory reservation does not match the sales order",
+                    409
+            );
+        }
+    }
+
+    public SalesOrderResponse get(UUID orderId) {
+        SalesOrderEntity order = reloadOrder(orderId);
+        accessGuard.requireFarm(order.getFarmId());
+        OrderSagaEntity saga = sagaRepository.findBySalesOrderId(orderId).orElse(null);
         return toResponse(order, saga);
     }
 
-    /**
-     * Operator recovery for stuck inventory holds after a partial saga.
-     * <ul>
-     *   <li>{@code RELEASE} — release ACTIVE reservation and cancel order</li>
-     *   <li>{@code CONFIRM} — fulfill reservation and mark order CONFIRMED</li>
-     * </ul>
-     * Applies when order has a non-null reservationId and is not already terminal without hold.
-     */
     public SalesOrderResponse reconcile(UUID orderId, String action) {
-        if (action == null || action.isBlank()) {
-            throw new SalesException("INVALID_ACTION", "action is required: RELEASE or CONFIRM", 400);
-        }
-        String act = action.trim().toUpperCase();
+        String normalizedAction = normalizeReconcileAction(action);
         SalesOrderEntity order = reloadOrder(orderId);
+        accessGuard.requireFarm(order.getFarmId());
+        if (isAlreadyReconciled(order, normalizedAction)) {
+            return get(orderId);
+        }
+        requireReconciliationAllowed(order, normalizedAction);
+        if (order.getReservationId() == null) {
+            order = resolveUnknownReservation(orderId, order, normalizedAction);
+        }
         if (order.getReservationId() == null) {
             throw new SalesException("NO_RESERVATION", "Order has no inventory reservation to reconcile", 409);
         }
-        if (order.getStatus() == OrderStatus.CONFIRMED && "CONFIRM".equals(act)) {
-            return get(orderId);
-        }
-        if (order.getStatus() == OrderStatus.CANCELLED && "RELEASE".equals(act)
-                && order.getFailureReason() != null && order.getFailureReason().contains("reconciled:RELEASE")) {
-            return get(orderId);
-        }
 
-        OrderSagaEntity saga = reloadSaga(orderId);
         try {
-            if ("RELEASE".equals(act)) {
-                inventoryClient.release(order.getReservationId());
-                order = reloadOrder(orderId);
-                order.setStatus(OrderStatus.CANCELLED);
-                order.setFailureReason("reconciled:RELEASE");
-                order.setUpdatedAt(Instant.now());
-                order = orderRepository.saveAndFlush(order);
-                saga = reloadSaga(orderId);
-                saga.setStatus("RECONCILED");
-                saga.setCurrentStep("RELEASED");
-                saga.setRetryCount(saga.getRetryCount() + 1);
-                saga.setLastError(null);
-                saga.setUpdatedAt(Instant.now());
-                sagaRepository.saveAndFlush(saga);
-            } else if ("CONFIRM".equals(act)) {
-                inventoryClient.confirm(order.getReservationId());
-                order = reloadOrder(orderId);
-                order.setStatus(OrderStatus.CONFIRMED);
-                order.setFailureReason(null);
-                order.setUpdatedAt(Instant.now());
-                order = orderRepository.saveAndFlush(order);
-                saga = reloadSaga(orderId);
-                saga.setStatus("COMPLETED");
-                saga.setCurrentStep("CONFIRMED");
-                saga.setRetryCount(saga.getRetryCount() + 1);
-                saga.setLastError(null);
-                saga.setUpdatedAt(Instant.now());
-                sagaRepository.saveAndFlush(saga);
+            if ("RELEASE".equals(normalizedAction)) {
+                reconcileRelease(order);
             } else {
-                throw new SalesException("INVALID_ACTION", "action must be RELEASE or CONFIRM", 400);
+                inventoryClient.confirm(order.getFarmId(), order.getReservationId());
+                transactions.confirm(orderId, order.getReservationId(), true);
             }
-        } catch (SalesException ex) {
-            throw ex;
-        } catch (Exception ex) {
-            saga = reloadSaga(orderId);
-            saga.setLastError("reconcile " + act + " failed: " + ex.getMessage());
-            saga.setRetryCount(saga.getRetryCount() + 1);
-            saga.setUpdatedAt(Instant.now());
-            sagaRepository.saveAndFlush(saga);
-            throw new SalesException("RECONCILE_FAILED", ex.getMessage() == null ? "reconcile failed" : ex.getMessage(), 502);
+        } catch (SalesException exception) {
+            throw exception;
+        } catch (Exception failure) {
+            String message = failureMessage(failure);
+            transactions.recordReconcileFailure(
+                    orderId,
+                    normalizedAction,
+                    message,
+                    recoveryPolicy.nextAttemptAt(1, Instant.now())
+            );
+            throw new SalesException("RECONCILE_FAILED", message, 502);
         }
         return get(orderId);
     }
 
-    private SalesOrderResponse toResponse(SalesOrderEntity o, OrderSagaEntity saga) {
+    private SalesOrderEntity resolveUnknownReservation(
+            UUID orderId,
+            SalesOrderEntity order,
+            String action
+    ) {
+        OrderSagaEntity saga = sagaRepository.findBySalesOrderId(orderId).orElse(null);
+        if (saga == null || !"RESERVATION_OUTCOME_UNKNOWN".equals(saga.getCurrentStep())) {
+            return order;
+        }
+        try {
+            var reservation = inventoryClient.findByReference(
+                    order.getFarmId(),
+                    "SalesOrder",
+                    orderId.toString()
+            );
+            if (reservation.isEmpty()) {
+                transactions.recordReconcileFailure(
+                        orderId,
+                        action,
+                        "Inventory has not exposed a reservation for the order reference",
+                        recoveryPolicy.nextAttemptAt(1, Instant.now())
+                );
+                throw new SalesException(
+                        "RESERVATION_OUTCOME_UNKNOWN",
+                        "Inventory reservation outcome is still unknown; retry reconciliation",
+                        409
+                );
+            }
+            InventoryClient.ReservationState state = reservation.get();
+            requireMatchingReservation(order, state);
+            if ("FULFILLED".equals(state.status())) {
+                transactions.confirm(orderId, state.id(), true);
+            } else if ("RELEASED".equals(state.status())) {
+                transactions.cancelAfterRelease(orderId, state.id(), "reconciled:RELEASE", true);
+            } else {
+                transactions.recordReservation(orderId, state.id());
+            }
+            return reloadOrder(orderId);
+        } catch (SalesException exception) {
+            throw exception;
+        } catch (Exception failure) {
+            String message = failureMessage(failure);
+            transactions.recordReconcileFailure(
+                    orderId,
+                    action,
+                    message,
+                    recoveryPolicy.nextAttemptAt(1, Instant.now())
+            );
+            throw new SalesException("RECONCILE_FAILED", message, 502);
+        }
+    }
+
+    private void reconcileRelease(SalesOrderEntity order) {
+        InventoryClient.ReleaseOutcome outcome = inventoryClient.release(
+                order.getFarmId(),
+                order.getReservationId()
+        );
+        if (outcome == InventoryClient.ReleaseOutcome.FULFILLED) {
+            transactions.confirm(order.getId(), order.getReservationId(), true);
+        } else {
+            transactions.cancelAfterRelease(
+                    order.getId(),
+                    order.getReservationId(),
+                    "reconciled:RELEASE",
+                    true
+            );
+        }
+    }
+
+    private String normalizeReconcileAction(String action) {
+        if (action == null || action.isBlank()) {
+            throw new SalesException("INVALID_ACTION", "action is required: RELEASE or CONFIRM", 400);
+        }
+        String normalized = action.trim().toUpperCase();
+        if (!"RELEASE".equals(normalized) && !"CONFIRM".equals(normalized)) {
+            throw new SalesException("INVALID_ACTION", "action must be RELEASE or CONFIRM", 400);
+        }
+        return normalized;
+    }
+
+    private boolean isAlreadyReconciled(SalesOrderEntity order, String action) {
+        if (order.getStatus() == OrderStatus.CONFIRMED && "CONFIRM".equals(action)) {
+            return true;
+        }
+        return order.getStatus() == OrderStatus.CANCELLED
+                && "RELEASE".equals(action);
+    }
+
+    private static void requireReconciliationAllowed(SalesOrderEntity order, String action) {
+        if (order.getStatus() == OrderStatus.CONFIRMED
+                || order.getStatus() == OrderStatus.CANCELLED
+                || order.getStatus() == OrderStatus.OUT_OF_STOCK) {
+            throw new SalesException(
+                    "ORDER_TERMINAL",
+                    "Action " + action + " is incompatible with terminal order status " + order.getStatus(),
+                    409
+            );
+        }
+    }
+
+    private SalesOrderEntity reloadOrder(UUID orderId) {
+        return orderRepository.findById(orderId)
+                .orElseThrow(() -> new SalesException("ORDER_NOT_FOUND", "Order not found", 404));
+    }
+
+    private static String failureMessage(Exception failure) {
+        return SalesSagaFailureMessage.from(failure, "Inventory saga failed");
+    }
+
+    private SalesOrderResponse toResponse(SalesOrderEntity order, OrderSagaEntity saga) {
         return new SalesOrderResponse(
-                o.getId(), o.getOrderNumber(), o.getCustomerId(), o.getStatus().name(),
-                o.getInventoryItemId(), o.getQuantity(), o.getReservationId(), o.getCorrelationId(),
-                o.getFailureReason(),
+                order.getId(), order.getOrderNumber(), order.getFarmId(), order.getCustomerId(),
+                order.getStatus().name(),
+                order.getInventoryItemId(), order.getQuantity(), order.getReservationId(), order.getCorrelationId(),
+                SalesSagaFailureMessage.publicMessage(order.getFailureReason()),
                 saga == null ? null : saga.getStatus(),
                 saga == null ? null : saga.getCurrentStep(),
-                o.getCreatedAt()
+                saga == null ? null : saga.getRetryCount(),
+                saga == null ? null : saga.getNextAttemptAt(),
+                saga == null ? null : saga.getCompletedAt(),
+                order.getCreatedAt(),
+                order.getCurrencyCode(),
+                order.getSubtotalAmount(),
+                order.getTotalAmount(),
+                itemRepository.findAllBySalesOrderIdOrderByLineNumber(order.getId()).stream()
+                        .map(item -> new SalesOrderItemResponse(
+                                item.getLineNumber(),
+                                item.getInventoryItemId(),
+                                item.getQuantity(),
+                                item.getUnitPrice(),
+                                item.getLineTotal(),
+                                item.getCurrencyCode()
+                        ))
+                        .toList()
         );
     }
 }

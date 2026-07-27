@@ -9,6 +9,8 @@ import java.util.UUID;
 public class WarehouseEntity {
     @Id
     private UUID id;
+    @Column(name = "farm_id")
+    private UUID farmId;
     @Column(nullable = false, length = 64)
     private String code;
     @Column(nullable = false, length = 200)
@@ -18,6 +20,8 @@ public class WarehouseEntity {
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
+    public UUID getFarmId() { return farmId; }
+    public void setFarmId(UUID farmId) { this.farmId = farmId; }
     public String getCode() { return code; }
     public void setCode(String code) { this.code = code; }
     public String getName() { return name; }

@@ -30,7 +30,11 @@ class LoginRateLimiterTest {
                 "",
                 true,
                 rateLimitFailOpen,
-                false
+                "agricore_refresh",
+                "/api/v1/auth/web",
+                false,
+                "Strict",
+                "http://localhost:5173"
         );
     }
 

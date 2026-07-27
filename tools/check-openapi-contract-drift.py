@@ -16,6 +16,7 @@ Checks, in order of how badly each one bites:
 5. No status is declared twice in one `responses:` block. Duplicate YAML keys parse fine —
    the last wins — so this is the check that catches a botched edit.
 6. Every service directory has a contract, and every contract has a service.
+7. Every controller method guarded by `@PreAuthorize` declares a 403 response.
 
 Deliberately stdlib-only: no PyYAML, so CI needs no install step and the check cannot
 fail for a reason unrelated to the contracts.
@@ -42,7 +43,12 @@ VERBS = ("get", "post", "put", "patch", "delete")
 # controller behind them in this repository. Everything else is compared.
 GATEWAY_CONTRACT = "api-gateway.v1"
 
-MAPPING_ANNOTATION = re.compile(r"@(Get|Post|Put|Patch|Delete|Request)Mapping\b(\s*\()?")
+MAPPING_ANNOTATION = re.compile(
+    r"@(Get|Post|Put|Patch|Delete|Request)Mapping\b(?:\s*\((.*?)\))?",
+    re.DOTALL,
+)
+METHOD_DECLARATION = re.compile(r"\bpublic\s+[\w<>, ?\[\].@]+\s+\w+\s*\(", re.DOTALL)
+PRE_AUTHORIZE_ANNOTATION = re.compile(r"@PreAuthorize\b")
 
 
 class Drift(Exception):
@@ -82,7 +88,14 @@ def implemented_paths(service_dir: pathlib.Path) -> set[tuple[str, str]]:
     Raises on any annotation form this parser does not handle. A silent skip is how a
     gate becomes decorative — better a clear failure telling a contributor to extend it.
     """
-    found: set[tuple[str, str]] = set()
+    return {(verb, path) for verb, path, _, _ in implemented_operations(service_dir)}
+
+
+def implemented_operations(
+        service_dir: pathlib.Path,
+) -> list[tuple[str, str, pathlib.Path, bool]]:
+    """Controller operations with their source and method-level permission guard."""
+    found: list[tuple[str, str, pathlib.Path, bool]] = []
     src = service_dir / "src" / "main" / "java"
     if not src.is_dir():
         raise Drift(f"{service_dir.name}: no src/main/java")
@@ -92,35 +105,149 @@ def implemented_paths(service_dir: pathlib.Path) -> set[tuple[str, str]]:
         _reject_unparseable(java, text)
 
         prefix = ""
-        m = re.search(r'@RequestMapping\(\s*"([^"]*)"\s*\)', text)
-        if m:
-            prefix = m.group(1)
+        request_mapping = next(
+            (hit for hit in MAPPING_ANNOTATION.finditer(text) if hit.group(1) == "Request"),
+            None,
+        )
+        if request_mapping:
+            prefix = _mapping_path(java, request_mapping) or ""
 
         for verb in VERBS:
-            pattern = r"@" + verb.capitalize() + r'Mapping(?:\(\s*"([^"]*)"\s*\))?(?=\s|$|\()'
-            for hit in re.finditer(pattern, text):
-                suffix = hit.group(1) or ""
-                found.add((verb.upper(), (prefix + suffix) or "/"))
+            annotation = verb.capitalize()
+            for hit in (
+                candidate for candidate in MAPPING_ANNOTATION.finditer(text)
+                if candidate.group(1) == annotation
+            ):
+                suffix = _mapping_path(java, hit) or ""
+                found.append((
+                    verb.upper(),
+                    (prefix + suffix) or "/",
+                    java,
+                    _method_has_pre_authorize(java, text, hit),
+                ))
     return found
 
 
+def _method_has_pre_authorize(java: pathlib.Path, text: str, mapping: re.Match[str]) -> bool:
+    """Whether the controller method following ``mapping`` has ``@PreAuthorize``."""
+    method = METHOD_DECLARATION.search(text, mapping.end())
+    if method is None:
+        raise Drift(
+            f"{java.relative_to(ROOT)}: mapping annotation is not followed by a public method; "
+            "the contract gate cannot determine its authorization requirements"
+        )
+
+    class_body = re.search(r"\bclass\s+\w+\b[^{}]*\{", text)
+    if class_body is None:
+        raise Drift(f"{java.relative_to(ROOT)}: could not locate controller class body")
+
+    previous_member_end = class_body.end()
+    for close in re.finditer(r"(?m)^\s*}", text[class_body.end():method.start()]):
+        previous_member_end = class_body.end() + close.end()
+    annotations = text[previous_member_end:method.start()]
+    return PRE_AUTHORIZE_ANNOTATION.search(annotations) is not None
+
+
 def _reject_unparseable(java: pathlib.Path, text: str) -> None:
-    """Every mapping annotation must be bare or carry exactly one string literal."""
+    """Every mapping annotation must expose one literal path, positionally or by name."""
     for hit in MAPPING_ANNOTATION.finditer(text):
-        if not hit.group(2):
-            continue  # bare annotation, e.g. @GetMapping
-        tail = text[hit.end() - 1:]
-        if not re.match(r'\(\s*"[^"]*"\s*\)', tail):
-            snippet = tail[:60].splitlines()[0]
-            raise Drift(
-                f"{java.relative_to(ROOT)}: unsupported mapping annotation form "
-                f"'@{hit.group(1)}Mapping{snippet}'. This checker understands a bare "
-                f"annotation or a single string literal. Extend it rather than working around it."
-            )
+        _mapping_path(java, hit)
+
+
+def _mapping_path(java: pathlib.Path, hit: re.Match[str]) -> str | None:
+    """Literal path from a Spring mapping annotation.
+
+    Supports the forms used in this repository: bare mappings, a positional
+    string, or named ``value``/``path`` followed by attributes such as
+    ``produces`` and ``consumes``.
+    """
+    arguments = hit.group(2)
+    if arguments is None or not arguments.strip():
+        return None
+    positional = re.match(r'\s*"([^"]*)"', arguments)
+    if positional:
+        return positional.group(1)
+    named = re.search(r'\b(?:value|path)\s*=\s*"([^"]*)"', arguments)
+    if named:
+        return named.group(1)
+    snippet = " ".join(arguments.split())[:80]
+    raise Drift(
+        f"{java.relative_to(ROOT)}: unsupported mapping annotation form "
+        f"'@{hit.group(1)}Mapping({snippet})'. The contract gate requires one literal path."
+    )
 
 
 def normalise(pairs: set[tuple[str, str]]) -> set[tuple[str, str]]:
     return {(verb, re.sub(r"\{[^}]+\}", "{}", path)) for verb, path in pairs}
+
+
+def declared_response_statuses(contract: pathlib.Path) -> dict[tuple[str, str], set[str]]:
+    """Response statuses declared for each path operation under ``paths:``."""
+    found: dict[tuple[str, str], set[str]] = {}
+    in_paths = False
+    current_path: str | None = None
+    current_verb: str | None = None
+    response_operation: tuple[str, str] | None = None
+
+    for line in contract.read_text(encoding="utf-8").splitlines():
+        if line.startswith("paths:"):
+            in_paths = True
+            continue
+        if line and not line[0].isspace():
+            in_paths = False
+        if not in_paths:
+            continue
+
+        path = re.match(r"^  (/\S*):\s*$", line)
+        if path:
+            current_path = path.group(1)
+            current_verb = None
+            response_operation = None
+            continue
+        verb = re.match(r"^    (\w+):\s*$", line)
+        if verb and verb.group(1) in VERBS:
+            current_verb = verb.group(1).upper()
+            response_operation = None
+            continue
+        if line == "      responses:" and current_path and current_verb:
+            response_operation = (current_verb, current_path)
+            found.setdefault(response_operation, set())
+            continue
+        if response_operation:
+            status = re.match(r"^        ['\"]?(\d{3})['\"]?:\s*$", line)
+            if status:
+                found[response_operation].add(status.group(1))
+            elif line.strip() and len(line) - len(line.lstrip()) <= 6:
+                response_operation = None
+    return found
+
+
+def normalise_response_statuses(
+        response_statuses: dict[tuple[str, str], set[str]],
+) -> dict[tuple[str, str], set[str]]:
+    return {
+        (verb, re.sub(r"\{[^}]+\}", "{}", path)): statuses
+        for (verb, path), statuses in response_statuses.items()
+    }
+
+
+def pre_authorize_response_problems(
+        operations: list[tuple[str, str, pathlib.Path, bool]],
+        contract: pathlib.Path,
+) -> list[str]:
+    """Permission-gated controller operations must advertise 403 Forbidden."""
+    statuses = normalise_response_statuses(declared_response_statuses(contract))
+    problems: list[str] = []
+    for verb, path, java, pre_authorized in operations:
+        if pre_authorized and "403" not in statuses.get(
+                (verb, re.sub(r"\{[^}]+\}", "{}", path)), set()
+        ):
+            problems.append(
+                f"{java.relative_to(SERVICES).parts[0]}: {verb} {path} is "
+                f"guarded by @PreAuthorize in {java.relative_to(ROOT)} but its contract does "
+                "not declare 403 Forbidden"
+            )
+    return problems
 
 
 def block(text: str, header: str) -> list[str]:
@@ -221,7 +348,8 @@ def main(argv: list[str]) -> int:
             continue
         try:
             declared = normalise(declared_paths(contract))
-            implemented = normalise(implemented_paths(service))
+            operations = implemented_operations(service)
+            implemented = normalise({(verb, path) for verb, path, _, _ in operations})
         except Drift as exc:
             failures.append(str(exc))
             continue
@@ -229,6 +357,7 @@ def main(argv: list[str]) -> int:
             failures.append(f"{service.name}: {verb} {path} is declared in the contract but no controller implements it")
         for verb, path in sorted(implemented - declared):
             failures.append(f"{service.name}: {verb} {path} is implemented but the contract does not declare it")
+        failures.extend(pre_authorize_response_problems(operations, contract))
         if verbose:
             print(f"  {service.name}: {len(declared)} endpoints, matched")
 

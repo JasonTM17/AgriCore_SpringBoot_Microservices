@@ -12,6 +12,9 @@ spring:
         dialect: org.hibernate.dialect.H2Dialect
   flyway:
     enabled: true
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
 agricore:
   security:
     dev-mode: true
@@ -19,3 +22,10 @@ agricore:
     jwk-set-uri: http://localhost:8081/.well-known/jwks.json
   alert:
     cooldown-minutes: 15
+  device:
+    offline-detection:
+      enabled: false
+      offline-after: 15m
+  outbox:
+    publisher:
+      enabled: false

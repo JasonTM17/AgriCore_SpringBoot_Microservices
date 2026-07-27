@@ -1,5 +1,7 @@
 package com.agricore.cropcycle;
 
+import com.agricore.farmaccess.FarmAccessClient;
+import com.agricore.cropcycle.infrastructure.persistence.OutboxJpaRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -7,15 +9,18 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -27,6 +32,10 @@ class CropCycleIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+    @Autowired
+    private OutboxJpaRepository outboxRepository;
+    @MockitoBean
+    private FarmAccessClient farmAccessClient;
 
     @Test
     void legalProgression_toCompleted() throws Exception {
@@ -58,7 +67,7 @@ class CropCycleIntegrationTest {
         String cycleId = objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asText();
 
         // Illegal jump PLANNED -> COMPLETED must fail
-        mockMvc.perform(post("/api/v1/crop-cycles/" + cycleId + "/stage")
+        mockMvc.perform(patch("/api/v1/crop-cycles/" + cycleId + "/stage")
                         .header("X-Dev-User", "agronomist")
                         .header("X-Dev-Roles", "AGRONOMIST")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -88,6 +97,52 @@ class CropCycleIntegrationTest {
                         .header("X-Dev-Roles", "FIELD_WORKER"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(code));
+    }
+
+    @Test
+    void cancel_isExplicitAndIdempotent() throws Exception {
+        UUID farmId = UUID.randomUUID();
+        UUID plotId = UUID.randomUUID();
+        UUID cropId = UUID.randomUUID();
+        MvcResult created = mockMvc.perform(post("/api/v1/crop-cycles")
+                        .header("X-Dev-User", "agronomist")
+                        .header("X-Dev-Roles", "AGRONOMIST")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "code":"CC-CANCEL-%d",
+                                  "farmId":"%s",
+                                  "plotId":"%s",
+                                  "cropId":"%s",
+                                  "plannedStartDate":"2027-01-01"
+                                }
+                                """.formatted(System.nanoTime(), farmId, plotId, cropId)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String cycleId = objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asText();
+
+        mockMvc.perform(post("/api/v1/crop-cycles/{cycleId}/cancel", cycleId)
+                        .header("X-Dev-User", "agronomist")
+                        .header("X-Dev-Roles", "AGRONOMIST"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.stage").value("CANCELLED"))
+                .andExpect(jsonPath("$.status").value("CANCELLED"));
+        long outboxAfterCancellation = outboxRepository.count();
+
+        mockMvc.perform(post("/api/v1/crop-cycles/{cycleId}/cancel", cycleId)
+                        .header("X-Dev-User", "agronomist")
+                        .header("X-Dev-Roles", "AGRONOMIST"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.stage").value("CANCELLED"));
+        assertThat(outboxRepository.count()).isEqualTo(outboxAfterCancellation);
+
+        mockMvc.perform(patch("/api/v1/crop-cycles/{cycleId}/stage", cycleId)
+                        .header("X-Dev-User", "agronomist")
+                        .header("X-Dev-Roles", "AGRONOMIST")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"stage\":\"LAND_PREPARATION\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CYCLE_TERMINAL"));
     }
 
     @Test
@@ -131,7 +186,7 @@ class CropCycleIntegrationTest {
     }
 
     private void advance(String cycleId, String stage) throws Exception {
-        mockMvc.perform(post("/api/v1/crop-cycles/" + cycleId + "/stage")
+        mockMvc.perform(patch("/api/v1/crop-cycles/" + cycleId + "/stage")
                         .header("X-Dev-User", "agronomist")
                         .header("X-Dev-Roles", "AGRONOMIST")
                         .contentType(MediaType.APPLICATION_JSON)

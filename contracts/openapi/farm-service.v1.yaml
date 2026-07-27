@@ -1,42 +1,172 @@
 openapi: 3.1.0
 info:
   title: AgriCore Farm Service API
-  version: 1.0.0
-  description: Farms, areas, and plots management
+  version: 1.9.0
+  description: Verified enterprise, farm, farm-area, plot, soil-profile, membership, and resource-access contract.
 servers:
   - url: http://localhost:8082
+    description: Direct local service endpoint
+security:
+  - bearerAuth: []
+tags:
+  - name: Enterprises
+  - name: Farms
+  - name: Farm Areas
+  - name: Plots
+  - name: Soil Profiles
+  - name: Farm Memberships
+  - name: Internal Farm Access
 paths:
-  /api/v1/farms:
+  /api/v1/enterprises:
     get:
-      summary: List farms
-      security:
-        - bearerAuth: []
+      tags: [Enterprises]
+      operationId: listEnterprises
+      summary: List agricultural enterprises
+      description: Requires SYSTEM_ADMIN. Filters are combined with logical AND.
       parameters:
-        - in: query
-          name: page
-          schema: { type: integer, default: 0 }
-        - in: query
-          name: size
-          schema: { type: integer, default: 20 }
-        - in: query
-          name: sort
-          schema: { type: string }
-        - in: query
-          name: province
-          schema: { type: string }
-        - in: query
-          name: status
-          schema: { type: string }
+        - $ref: '#/components/parameters/EnterpriseStatusFilter'
+        - $ref: '#/components/parameters/EnterpriseProvince'
+        - $ref: '#/components/parameters/EnterpriseQuery'
+        - $ref: '#/components/parameters/EnterprisePage'
+        - $ref: '#/components/parameters/Size'
+        - $ref: '#/components/parameters/EnterpriseSort'
       responses:
         '200':
-          description: Paged farm list
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+          description: Paged agricultural enterprises.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnterprisePageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
     post:
-      summary: Create farm
-      security:
-        - bearerAuth: []
+      tags: [Enterprises]
+      operationId: createEnterprise
+      summary: Register an agricultural enterprise
+      description: Requires SYSTEM_ADMIN.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEnterpriseRequest'
+      responses:
+        '201':
+          description: Enterprise registered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnterpriseResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/v1/enterprises/{enterpriseId}:
+    parameters:
+      - $ref: '#/components/parameters/EnterpriseId'
+    get:
+      tags: [Enterprises]
+      operationId: getEnterprise
+      summary: Get an agricultural enterprise
+      description: Requires SYSTEM_ADMIN.
+      responses:
+        '200':
+          description: Enterprise found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnterpriseResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      tags: [Enterprises]
+      operationId: updateEnterprise
+      summary: Update enterprise identity or lifecycle
+      description: Requires SYSTEM_ADMIN, the current optimistic-lock version, and at least one mutable field.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEnterpriseRequest'
+      responses:
+        '200':
+          description: Enterprise updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnterpriseResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/v1/farms:
+    get:
+      tags: [Farms]
+      operationId: listFarms
+      summary: List farms
+      description: Returns only farms assigned to the JWT subject; SYSTEM_ADMIN sees all farms.
+      parameters:
+        - $ref: '#/components/parameters/Province'
+        - $ref: '#/components/parameters/FarmStatusFilter'
+        - $ref: '#/components/parameters/FarmEnterpriseIdFilter'
+        - $ref: '#/components/parameters/FarmPage'
+        - $ref: '#/components/parameters/Size'
+        - $ref: '#/components/parameters/FarmSort'
+      responses:
+        '200':
+          description: Paged farms ordered by the requested supported field.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags: [Farms]
+      operationId: createFarm
+      summary: Create a farm
+      description: |
+        Requires SYSTEM_ADMIN or FARM_MANAGER. The creator receives the initial membership atomically.
+        Only SYSTEM_ADMIN may provide a non-null enterpriseId.
       requestBody:
         required: true
         content:
@@ -45,32 +175,57 @@ paths:
               $ref: '#/components/schemas/CreateFarmRequest'
       responses:
         '201':
-          description: Created
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '409': { $ref: '#/components/responses/Conflict' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+          description: Farm created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /api/v1/farms/{farmId}:
+    parameters:
+      - $ref: '#/components/parameters/FarmId'
     get:
-      summary: Get farm by id
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/FarmId'
+      tags: [Farms]
+      operationId: getFarm
+      summary: Get a farm
+      description: Requires farm membership; SYSTEM_ADMIN is the explicit global override.
       responses:
         '200':
-          description: Farm
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+          description: Farm found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
     patch:
-      summary: Update farm
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/FarmId'
+      tags: [Farms]
+      operationId: updateFarm
+      summary: Update a farm
+      description: |
+        Requires SYSTEM_ADMIN or FARM_MANAGER, farm access, and the current optimistic-lock version.
+        Only SYSTEM_ADMIN may assign or clear enterpriseId.
       requestBody:
         required: true
         content:
@@ -79,32 +234,211 @@ paths:
               $ref: '#/components/schemas/UpdateFarmRequest'
       responses:
         '200':
-          description: Updated
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
-  /api/v1/farms/{farmId}/plots:
+          description: Farm updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/v1/farms/{farmId}/areas:
+    parameters:
+      - $ref: '#/components/parameters/FarmId'
     get:
-      summary: List plots for farm
-      security:
-        - bearerAuth: []
+      tags: [Farm Areas]
+      operationId: listFarmAreas
+      summary: List farm areas
+      description: >-
+        Requires farm membership; SYSTEM_ADMIN is the explicit global override. Optional filters are combined with
+        logical AND, name/code search is case-insensitive, and sorting is restricted to documented area properties.
       parameters:
-        - $ref: '#/components/parameters/FarmId'
+        - $ref: '#/components/parameters/FarmAreaStatusFilter'
+        - $ref: '#/components/parameters/FarmAreaQuery'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - $ref: '#/components/parameters/FarmAreaSort'
       responses:
         '200':
-          description: Plot list
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+          description: Paged farm areas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmAreaPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
     post:
-      summary: Create plot
-      security:
-        - bearerAuth: []
+      tags: [Farm Areas]
+      operationId: createFarmArea
+      summary: Create a farm area
+      description: Requires SYSTEM_ADMIN or FARM_MANAGER and farm access.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFarmAreaRequest'
+      responses:
+        '201':
+          description: Farm area created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmAreaResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/v1/farms/{farmId}/areas/{areaId}:
+    parameters:
+      - $ref: '#/components/parameters/FarmId'
+      - $ref: '#/components/parameters/FarmAreaId'
+    get:
+      tags: [Farm Areas]
+      operationId: getFarmArea
+      summary: Get a farm area
+      description: Requires access to the containing farm.
+      responses:
+        '200':
+          description: Farm area found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmAreaResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      tags: [Farm Areas]
+      operationId: updateFarmArea
+      summary: Update a farm area
+      description: Requires SYSTEM_ADMIN or FARM_MANAGER, farm access, and the current optimistic-lock version.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFarmAreaRequest'
+      responses:
+        '200':
+          description: Farm area updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmAreaResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags: [Farm Areas]
+      operationId: deleteFarmArea
+      summary: Delete an unused farm area
+      description: >-
+        Requires SYSTEM_ADMIN or FARM_MANAGER, farm access, and the current optimistic-lock version. Areas referenced
+        by any plot cannot be deleted.
       parameters:
-        - $ref: '#/components/parameters/FarmId'
+        - $ref: '#/components/parameters/FarmAreaVersion'
+      responses:
+        '204':
+          description: Farm area deleted.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/v1/farms/{farmId}/plots:
+    parameters:
+      - $ref: '#/components/parameters/FarmId'
+    get:
+      tags: [Plots]
+      operationId: listFarmPlots
+      summary: List plots in a farm
+      description: >-
+        Requires farm membership; SYSTEM_ADMIN is the explicit global override. Optional filters are combined with
+        logical AND, name/code search is case-insensitive, and sorting is restricted to documented plot properties.
+      parameters:
+        - $ref: '#/components/parameters/PlotStatusFilter'
+        - $ref: '#/components/parameters/PlotAreaIdFilter'
+        - $ref: '#/components/parameters/PlotQuery'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - $ref: '#/components/parameters/PlotSort'
+      responses:
+        '200':
+          description: Paged farm plots.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlotPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags: [Plots]
+      operationId: createFarmPlot
+      summary: Create a plot in a farm
+      description: Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST.
       requestBody:
         required: true
         content:
@@ -113,33 +447,55 @@ paths:
               $ref: '#/components/schemas/CreatePlotRequest'
       responses:
         '201':
-          description: Created
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+          description: Plot created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlotResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /api/v1/plots/{plotId}:
+    parameters:
+      - $ref: '#/components/parameters/PlotId'
     get:
-      summary: Get plot
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/PlotId'
+      tags: [Plots]
+      operationId: getPlot
+      summary: Get a plot
+      description: Requires farm membership. Missing and inaccessible plots both return 404.
       responses:
         '200':
-          description: Plot
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+          description: Plot found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlotResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
     patch:
-      summary: Update plot
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/PlotId'
+      tags: [Plots]
+      operationId: updatePlot
+      summary: Update a plot
+      description: Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST and the current optimistic-lock version.
       requestBody:
         required: true
         content:
@@ -148,12 +504,434 @@ paths:
               $ref: '#/components/schemas/UpdatePlotRequest'
       responses:
         '200':
-          description: Updated
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+          description: Plot updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlotResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/v1/plots/{plotId}/soil-profiles:
+    parameters:
+      - $ref: '#/components/parameters/PlotId'
+    get:
+      tags: [Soil Profiles]
+      operationId: listSoilProfiles
+      summary: List historical soil samples for a plot
+      description: >-
+        Requires access to the plot's farm. Filters are combined with logical AND; inaccessible and missing plots
+        both return 404.
+      parameters:
+        - $ref: '#/components/parameters/SoilProfileStatusFilter'
+        - $ref: '#/components/parameters/SoilProfileSampledFrom'
+        - $ref: '#/components/parameters/SoilProfileSampledTo'
+        - $ref: '#/components/parameters/SoilProfileQuery'
+        - $ref: '#/components/parameters/SoilProfilePage'
+        - $ref: '#/components/parameters/Size'
+        - $ref: '#/components/parameters/SoilProfileSort'
+      responses:
+        '200':
+          description: Paged historical soil samples.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SoilProfilePageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags: [Soil Profiles]
+      operationId: createSoilProfile
+      summary: Record an immutable soil sample
+      description: Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST and access to the plot's farm.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSoilProfileRequest'
+      responses:
+        '201':
+          description: Soil sample recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SoilProfileResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/v1/plots/{plotId}/soil-profiles/{profileId}:
+    parameters:
+      - $ref: '#/components/parameters/PlotId'
+      - $ref: '#/components/parameters/SoilProfileId'
+    get:
+      tags: [Soil Profiles]
+      operationId: getSoilProfile
+      summary: Get one historical soil sample
+      description: Requires access to the plot's farm.
+      responses:
+        '200':
+          description: Soil sample found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SoilProfileResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      tags: [Soil Profiles]
+      operationId: updateSoilProfile
+      summary: Archive, reactivate, or annotate a soil sample
+      description: >-
+        Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST, farm access, and the current optimistic-lock version.
+        Measurement fields are immutable; corrections are recorded as a new sample.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSoilProfileRequest'
+      responses:
+        '200':
+          description: Soil sample metadata updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SoilProfileResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/v1/plots/{plotId}/irrigation-zones:
+    parameters:
+      - $ref: '#/components/parameters/PlotId'
+    get:
+      tags: [Irrigation Zones]
+      operationId: listIrrigationZones
+      summary: List irrigation zones for a plot
+      description: >-
+        Requires access to the plot's farm. Filters are combined with logical AND; inaccessible and missing plots
+        both return 404.
+      parameters:
+        - $ref: '#/components/parameters/IrrigationZoneStatusFilter'
+        - $ref: '#/components/parameters/IrrigationMethodFilter'
+        - $ref: '#/components/parameters/IrrigationZoneQuery'
+        - $ref: '#/components/parameters/IrrigationZonePage'
+        - $ref: '#/components/parameters/Size'
+        - $ref: '#/components/parameters/IrrigationZoneSort'
+      responses:
+        '200':
+          description: Paged irrigation zones.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IrrigationZonePageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags: [Irrigation Zones]
+      operationId: createIrrigationZone
+      summary: Configure an irrigation zone
+      description: Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST and access to the plot's farm.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateIrrigationZoneRequest'
+      responses:
+        '201':
+          description: Irrigation zone configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IrrigationZoneResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/v1/plots/{plotId}/irrigation-zones/{zoneId}:
+    parameters:
+      - $ref: '#/components/parameters/PlotId'
+      - $ref: '#/components/parameters/IrrigationZoneId'
+    get:
+      tags: [Irrigation Zones]
+      operationId: getIrrigationZone
+      summary: Get one irrigation zone
+      description: Requires access to the plot's farm.
+      responses:
+        '200':
+          description: Irrigation zone found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IrrigationZoneResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      tags: [Irrigation Zones]
+      operationId: updateIrrigationZone
+      summary: Update irrigation-zone configuration or lifecycle
+      description: >-
+        Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST, farm access, the current optimistic-lock version, and
+        at least one mutable field.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateIrrigationZoneRequest'
+      responses:
+        '200':
+          description: Irrigation zone updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IrrigationZoneResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/v1/farms/{farmId}/memberships:
+    parameters:
+      - $ref: '#/components/parameters/FarmId'
+    get:
+      tags: [Farm Memberships]
+      operationId: listFarmMemberships
+      summary: List farm memberships
+      description: Requires SYSTEM_ADMIN, or FARM_MANAGER plus membership in the farm.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Paged memberships ordered by grant time ascending.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmMembershipPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags: [Farm Memberships]
+      operationId: grantFarmMembership
+      summary: Grant farm membership
+      description: Requires SYSTEM_ADMIN, or FARM_MANAGER plus membership in the farm.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GrantFarmMembershipRequest'
+      responses:
+        '201':
+          description: Membership granted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmMembershipResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/v1/farms/{farmId}/memberships/{membershipId}:
+    parameters:
+      - $ref: '#/components/parameters/FarmId'
+      - $ref: '#/components/parameters/MembershipId'
+    delete:
+      tags: [Farm Memberships]
+      operationId: revokeFarmMembership
+      summary: Revoke farm membership
+      description: Requires SYSTEM_ADMIN, or FARM_MANAGER plus membership in the farm. The final membership cannot be removed.
+      responses:
+        '204':
+          description: Membership revoked.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /internal/api/v1/farm-access/farms/{farmId}:
+    parameters:
+      - $ref: '#/components/parameters/FarmId'
+    get:
+      tags: [Internal Farm Access]
+      operationId: resolveFarmAccess
+      summary: Resolve caller access to a farm
+      description: Internal authenticated boundary used by farm-scoped services. Caller credentials must be forwarded.
+      responses:
+        '200':
+          description: Farm exists and is accessible.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmResourceAccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /internal/api/v1/farm-access/plots/{plotId}:
+    parameters:
+      - $ref: '#/components/parameters/PlotId'
+    get:
+      tags: [Internal Farm Access]
+      operationId: resolvePlotAccess
+      summary: Resolve an accessible plot to its farm
+      description: Internal authenticated boundary. Missing and inaccessible plots both return 404.
+      responses:
+        '200':
+          description: Plot exists, is accessible, and is resolved to its farm.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmResourceAccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /internal/api/v1/farm-access/farms/{farmId}/plots/{plotId}:
+    parameters:
+      - $ref: '#/components/parameters/FarmId'
+      - $ref: '#/components/parameters/PlotId'
+    get:
+      tags: [Internal Farm Access]
+      operationId: resolveFarmPlotAccess
+      summary: Verify an accessible plot belongs to a farm
+      description: Internal authenticated boundary. Missing, inaccessible, and mismatched plots return 404.
+      responses:
+        '200':
+          description: Plot belongs to the farm and is accessible.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmResourceAccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 components:
   securitySchemes:
     bearerAuth:
@@ -161,17 +939,1694 @@ components:
       scheme: bearer
       bearerFormat: JWT
   parameters:
+    EnterpriseId:
+      in: path
+      name: enterpriseId
+      required: true
+      description: Agricultural enterprise identifier.
+      schema:
+        type: string
+        format: uuid
     FarmId:
       in: path
       name: farmId
       required: true
-      schema: { type: string, format: uuid }
+      description: Farm identifier.
+      schema:
+        type: string
+        format: uuid
+    FarmAreaId:
+      in: path
+      name: areaId
+      required: true
+      description: Farm-scoped area identifier.
+      schema:
+        type: string
+        format: uuid
     PlotId:
       in: path
       name: plotId
       required: true
-      schema: { type: string, format: uuid }
+      description: Plot identifier.
+      schema:
+        type: string
+        format: uuid
+    SoilProfileId:
+      in: path
+      name: profileId
+      required: true
+      description: Soil-profile identifier scoped to the containing plot.
+      schema:
+        type: string
+        format: uuid
+    IrrigationZoneId:
+      in: path
+      name: zoneId
+      required: true
+      description: Irrigation-zone identifier scoped to the containing plot.
+      schema:
+        type: string
+        format: uuid
+    MembershipId:
+      in: path
+      name: membershipId
+      required: true
+      description: Farm membership identifier.
+      schema:
+        type: string
+        format: uuid
+    Page:
+      in: query
+      name: page
+      description: Zero-based page index.
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+        maximum: 2147483647
+        default: 0
+    FarmPage:
+      in: query
+      name: page
+      description: Bounded zero-based farm page index; the bound prevents unsafe database offsets.
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+        maximum: 10000
+        default: 0
+    SoilProfilePage:
+      in: query
+      name: page
+      description: Bounded zero-based page index; the bound prevents unsafe database offsets.
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+        maximum: 1000000
+        default: 0
+    Size:
+      in: query
+      name: size
+      description: Number of records per page.
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 100
+        default: 20
+    EnterpriseStatusFilter:
+      in: query
+      name: status
+      required: false
+      description: Enterprise lifecycle status.
+      schema:
+        $ref: '#/components/schemas/EnterpriseStatus'
+    EnterpriseProvince:
+      in: query
+      name: province
+      required: false
+      description: Literal case-insensitive headquarters-province substring.
+      schema:
+        type: string
+        maxLength: 120
+    EnterpriseQuery:
+      in: query
+      name: q
+      required: false
+      description: Literal case-insensitive code, name, legal-name, or tax-code substring.
+      schema:
+        type: string
+        maxLength: 200
+    EnterprisePage:
+      in: query
+      name: page
+      description: Bounded zero-based page index; the bound prevents unsafe database offsets.
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+        maximum: 10000
+        default: 0
+    EnterpriseSort:
+      in: query
+      name: sort
+      description: Supported enterprise property and direction; id is the stable tie-breaker.
+      schema:
+        type: string
+        default: name,asc
+        enum:
+          - code,asc
+          - code,desc
+          - name,asc
+          - name,desc
+          - legalName,asc
+          - legalName,desc
+          - taxCode,asc
+          - taxCode,desc
+          - province,asc
+          - province,desc
+          - status,asc
+          - status,desc
+          - createdAt,asc
+          - createdAt,desc
+          - updatedAt,asc
+          - updatedAt,desc
+    Province:
+      in: query
+      name: province
+      required: false
+      description: Literal case-insensitive province substring.
+      schema:
+        type: string
+        maxLength: 120
+    FarmStatusFilter:
+      in: query
+      name: status
+      required: false
+      description: Farm status code.
+      schema:
+        $ref: '#/components/schemas/FarmStatus'
+    FarmEnterpriseIdFilter:
+      in: query
+      name: enterpriseId
+      required: false
+      description: Enterprise portfolio identifier; membership rules still constrain non-admin results.
+      schema:
+        type: string
+        format: uuid
+    FarmSort:
+      in: query
+      name: sort
+      description: Supported farm property and lowercase direction.
+      schema:
+        type: string
+        default: createdAt,desc
+        enum:
+          - code,asc
+          - code,desc
+          - name,asc
+          - name,desc
+          - province,asc
+          - province,desc
+          - totalAreaHa,asc
+          - totalAreaHa,desc
+          - status,asc
+          - status,desc
+          - createdAt,asc
+          - createdAt,desc
+          - updatedAt,asc
+          - updatedAt,desc
+    FarmAreaStatusFilter:
+      in: query
+      name: status
+      required: false
+      description: Farm-area status code.
+      schema:
+        $ref: '#/components/schemas/FarmAreaStatus'
+    FarmAreaQuery:
+      in: query
+      name: q
+      required: false
+      description: Case-insensitive farm-area code or name substring.
+      schema:
+        type: string
+        maxLength: 200
+    FarmAreaSort:
+      in: query
+      name: sort
+      description: Supported farm-area property and direction.
+      schema:
+        type: string
+        default: code,asc
+        enum:
+          - code,asc
+          - code,desc
+          - name,asc
+          - name,desc
+          - areaInHectares,asc
+          - areaInHectares,desc
+          - status,asc
+          - status,desc
+          - createdAt,asc
+          - createdAt,desc
+          - updatedAt,asc
+          - updatedAt,desc
+    FarmAreaVersion:
+      in: query
+      name: version
+      required: true
+      description: Current farm-area optimistic-lock version.
+      schema:
+        type: integer
+        format: int64
+        minimum: 0
+    PlotStatusFilter:
+      in: query
+      name: status
+      required: false
+      description: Plot status code.
+      schema:
+        $ref: '#/components/schemas/PlotStatus'
+    PlotAreaIdFilter:
+      in: query
+      name: areaId
+      required: false
+      description: Exact farm-area identifier currently assigned to the plot.
+      schema:
+        type: string
+        format: uuid
+    PlotQuery:
+      in: query
+      name: q
+      required: false
+      description: Case-insensitive plot code or name substring.
+      schema:
+        type: string
+        maxLength: 200
+    PlotSort:
+      in: query
+      name: sort
+      description: Supported plot property and direction.
+      schema:
+        type: string
+        default: code,asc
+        enum:
+          - code,asc
+          - code,desc
+          - name,asc
+          - name,desc
+          - areaInHectares,asc
+          - areaInHectares,desc
+          - soilType,asc
+          - soilType,desc
+          - status,asc
+          - status,desc
+          - createdAt,asc
+          - createdAt,desc
+          - updatedAt,asc
+          - updatedAt,desc
+    SoilProfileStatusFilter:
+      in: query
+      name: status
+      required: false
+      description: Soil-profile lifecycle status.
+      schema:
+        $ref: '#/components/schemas/SoilProfileStatus'
+    SoilProfileSampledFrom:
+      in: query
+      name: sampledFrom
+      required: false
+      description: Include samples collected on or after this date.
+      schema:
+        type: string
+        format: date
+    SoilProfileSampledTo:
+      in: query
+      name: sampledTo
+      required: false
+      description: Include samples collected on or before this date.
+      schema:
+        type: string
+        format: date
+    SoilProfileQuery:
+      in: query
+      name: q
+      required: false
+      description: Case-insensitive sample-code substring.
+      schema:
+        type: string
+        maxLength: 200
+    SoilProfileSort:
+      in: query
+      name: sort
+      description: Supported soil-profile property and direction.
+      schema:
+        type: string
+        default: sampledAt,desc
+        enum:
+          - sampledAt,asc
+          - sampledAt,desc
+          - sampleCode,asc
+          - sampleCode,desc
+          - ph,asc
+          - ph,desc
+          - status,asc
+          - status,desc
+          - createdAt,asc
+          - createdAt,desc
+          - updatedAt,asc
+          - updatedAt,desc
+    IrrigationZoneStatusFilter:
+      in: query
+      name: status
+      required: false
+      description: Irrigation-zone lifecycle status.
+      schema:
+        $ref: '#/components/schemas/IrrigationZoneStatus'
+    IrrigationMethodFilter:
+      in: query
+      name: method
+      required: false
+      description: Irrigation delivery method.
+      schema:
+        $ref: '#/components/schemas/IrrigationMethod'
+    IrrigationZoneQuery:
+      in: query
+      name: q
+      required: false
+      description: Case-insensitive irrigation-zone code or name substring.
+      schema:
+        type: string
+        maxLength: 200
+    IrrigationZonePage:
+      in: query
+      name: page
+      description: Bounded zero-based page index; the bound prevents unsafe database offsets.
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+        maximum: 1000000
+        default: 0
+    IrrigationZoneSort:
+      in: query
+      name: sort
+      description: Supported irrigation-zone property and direction.
+      schema:
+        type: string
+        default: name,asc
+        enum:
+          - code,asc
+          - code,desc
+          - name,asc
+          - name,desc
+          - method,asc
+          - method,desc
+          - flowRateLitersPerMinute,asc
+          - flowRateLitersPerMinute,desc
+          - targetMoisturePercent,asc
+          - targetMoisturePercent,desc
+          - status,asc
+          - status,desc
+          - createdAt,asc
+          - createdAt,desc
+          - updatedAt,asc
+          - updatedAt,desc
+  responses:
+    BadRequest:
+      description: Invalid path, query, or JSON request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Unauthorized:
+      description: Authentication is required or the bearer token is invalid.
+    Forbidden:
+      description: The authenticated user lacks the required role or farm membership.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotFound:
+      description: Requested farm, farm area, plot, soil profile, or membership not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Conflict:
+      description: A uniqueness, optimistic-lock, assignment, deletion, or membership invariant was violated.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    UnsupportedMediaType:
+      description: Content-Type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    InternalServerError:
+      description: Unexpected server failure.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotAcceptable:
+      description: The requested response media type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Gone:
+      description: The requested resource or replay window is no longer available.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    PayloadTooLarge:
+      description: The request body exceeds the supported size.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Locked:
+      description: The resource is temporarily locked by an in-progress operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    RateLimitExceeded:
+      description: The caller exceeded an enforced request or concurrency limit.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    BadGateway:
+      description: An upstream dependency returned an invalid response.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    ServiceUnavailable:
+      description: The service or a required dependency is temporarily unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
   schemas:
+    EnterpriseStatus:
+      type: string
+      enum: [ACTIVE, INACTIVE]
+    FarmStatus:
+      type: string
+      enum: [ACTIVE, INACTIVE, MAINTENANCE]
+    FarmAreaStatus:
+      type: string
+      enum: [ACTIVE, INACTIVE, MAINTENANCE]
+    PlotStatus:
+      type: string
+      enum: [AVAILABLE, PREPARING, IN_USE, RESTING, MAINTENANCE, INACTIVE]
+    SoilProfileStatus:
+      type: string
+      enum: [ACTIVE, ARCHIVED]
+    SoilTexture:
+      type: string
+      enum:
+        - SAND
+        - LOAMY_SAND
+        - SANDY_LOAM
+        - LOAM
+        - SILT_LOAM
+        - SILT
+        - SANDY_CLAY_LOAM
+        - CLAY_LOAM
+        - SILTY_CLAY_LOAM
+        - SANDY_CLAY
+        - SILTY_CLAY
+        - CLAY
+    IrrigationMethod:
+      type: string
+      enum: [DRIP, SPRINKLER, MICRO_SPRINKLER, CENTER_PIVOT, FLOOD, MANUAL]
+    IrrigationZoneStatus:
+      type: string
+      enum: [ACTIVE, MAINTENANCE, INACTIVE]
+    CreateEnterpriseRequest:
+      type: object
+      additionalProperties: false
+      required: [code, name]
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: '^[A-Za-z0-9][A-Za-z0-9._/-]{0,63}$'
+          description: Enterprise code stored in canonical uppercase form.
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          pattern: '.*\S.*'
+        legalName:
+          type: [string, 'null']
+          maxLength: 250
+        taxCode:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 64
+          pattern: '^[A-Za-z0-9][A-Za-z0-9.-]{0,63}$'
+          description: Optional globally unique tax identifier stored in canonical uppercase form.
+        address:
+          type: [string, 'null']
+          maxLength: 500
+        province:
+          type: [string, 'null']
+          maxLength: 120
+    UpdateEnterpriseRequest:
+      description: Provide the current version and at least one mutable field.
+      allOf:
+        - type: object
+          additionalProperties: false
+          required: [version]
+          properties:
+            version:
+              type: integer
+              format: int64
+              minimum: 0
+            name:
+              type: string
+              minLength: 1
+              maxLength: 200
+              pattern: '.*\S.*'
+            legalName:
+              type: [string, 'null']
+              maxLength: 250
+            taxCode:
+              type: [string, 'null']
+              minLength: 1
+              maxLength: 64
+              pattern: '^[A-Za-z0-9][A-Za-z0-9.-]{0,63}$'
+            address:
+              type: [string, 'null']
+              maxLength: 500
+            province:
+              type: [string, 'null']
+              maxLength: 120
+            status:
+              $ref: '#/components/schemas/EnterpriseStatus'
+        - anyOf:
+            - type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                  pattern: '.*\S.*'
+            - type: object
+              required: [legalName]
+              properties:
+                legalName:
+                  type: [string, 'null']
+                  maxLength: 250
+            - type: object
+              required: [taxCode]
+              properties:
+                taxCode:
+                  type: [string, 'null']
+                  minLength: 1
+                  maxLength: 64
+                  pattern: '^[A-Za-z0-9][A-Za-z0-9.-]{0,63}$'
+            - type: object
+              required: [address]
+              properties:
+                address:
+                  type: [string, 'null']
+                  maxLength: 500
+            - type: object
+              required: [province]
+              properties:
+                province:
+                  type: [string, 'null']
+                  maxLength: 120
+            - type: object
+              required: [status]
+              properties:
+                status:
+                  $ref: '#/components/schemas/EnterpriseStatus'
+    GrantFarmMembershipRequest:
+      type: object
+      required: [subject]
+      properties:
+        subject:
+          type: string
+          format: uuid
+    CreateFarmRequest:
+      type: object
+      required: [code, name]
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 64
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          pattern: '.*\S.*'
+        enterpriseId:
+          type: [string, 'null']
+          format: uuid
+          description: Optional enterprise owner; only SYSTEM_ADMIN may provide a non-null value.
+        address:
+          type: [string, 'null']
+          maxLength: 500
+        province:
+          type: [string, 'null']
+          maxLength: 120
+        totalAreaHa:
+          type: [number, 'null']
+          minimum: 0
+        latitude:
+          type: [number, 'null']
+          format: double
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: [number, 'null']
+          format: double
+          minimum: -180
+          maximum: 180
+    UpdateFarmRequest:
+      description: Provide the current version and at least one mutable field.
+      allOf:
+        - type: object
+          additionalProperties: false
+          required: [version]
+          properties:
+            version:
+              type: integer
+              format: int64
+              minimum: 0
+            name:
+              type: string
+              minLength: 1
+              maxLength: 200
+              pattern: '.*\S.*'
+            enterpriseId:
+              type: [string, 'null']
+              format: uuid
+              description: Assign or clear the enterprise owner; SYSTEM_ADMIN only.
+            address:
+              type: [string, 'null']
+              maxLength: 500
+            province:
+              type: [string, 'null']
+              maxLength: 120
+            totalAreaHa:
+              type: [number, 'null']
+              minimum: 0
+            latitude:
+              type: [number, 'null']
+              format: double
+              minimum: -90
+              maximum: 90
+            longitude:
+              type: [number, 'null']
+              format: double
+              minimum: -180
+              maximum: 180
+            status:
+              $ref: '#/components/schemas/FarmStatus'
+        - anyOf:
+            - type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                  pattern: '.*\S.*'
+            - type: object
+              required: [enterpriseId]
+              properties:
+                enterpriseId:
+                  type: [string, 'null']
+                  format: uuid
+            - type: object
+              required: [address]
+              properties:
+                address:
+                  type: [string, 'null']
+                  maxLength: 500
+            - type: object
+              required: [province]
+              properties:
+                province:
+                  type: [string, 'null']
+                  maxLength: 120
+            - type: object
+              required: [totalAreaHa]
+              properties:
+                totalAreaHa:
+                  type: [number, 'null']
+                  minimum: 0
+            - type: object
+              required: [latitude]
+              properties:
+                latitude:
+                  type: [number, 'null']
+                  format: double
+                  minimum: -90
+                  maximum: 90
+            - type: object
+              required: [longitude]
+              properties:
+                longitude:
+                  type: [number, 'null']
+                  format: double
+                  minimum: -180
+                  maximum: 180
+            - type: object
+              required: [status]
+              properties:
+                status:
+                  $ref: '#/components/schemas/FarmStatus'
+    CreateFarmAreaRequest:
+      type: object
+      required: [code, name, areaInHectares]
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 64
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        areaInHectares:
+          type: number
+          minimum: 0.0001
+          maximum: 9999999999.9999
+          multipleOf: 0.0001
+        description:
+          type: [string, 'null']
+          maxLength: 500
+    UpdateFarmAreaRequest:
+      type: object
+      required: [version]
+      properties:
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+        name:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 200
+        areaInHectares:
+          type: [number, 'null']
+          minimum: 0.0001
+          maximum: 9999999999.9999
+          multipleOf: 0.0001
+        description:
+          type: [string, 'null']
+          maxLength: 500
+        status:
+          oneOf:
+            - $ref: '#/components/schemas/FarmAreaStatus'
+            - type: 'null'
+    CreatePlotRequest:
+      type: object
+      required: [code, name, areaInHectares]
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 64
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        areaInHectares:
+          type: number
+          minimum: 0.0001
+        soilType:
+          type: [string, 'null']
+          maxLength: 100
+        areaId:
+          type: [string, 'null']
+          format: uuid
+        latitude:
+          type: [number, 'null']
+          format: double
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: [number, 'null']
+          format: double
+          minimum: -180
+          maximum: 180
+    UpdatePlotRequest:
+      type: object
+      required: [version]
+      properties:
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+        name:
+          type: [string, 'null']
+          maxLength: 200
+        areaInHectares:
+          type: [number, 'null']
+          minimum: 0.0001
+        soilType:
+          type: [string, 'null']
+          maxLength: 100
+        status:
+          oneOf:
+            - $ref: '#/components/schemas/PlotStatus'
+            - type: 'null'
+        latitude:
+          type: [number, 'null']
+          format: double
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: [number, 'null']
+          format: double
+          minimum: -180
+          maximum: 180
+        areaId:
+          type: [string, 'null']
+          format: uuid
+          description: Omit to preserve the assignment, provide a same-farm UUID to reassign, or null to clear it.
+    CreateSoilProfileRequest:
+      type: object
+      required: [sampleCode, sampledAt, sampleDepthCm, texture, ph]
+      properties:
+        sampleCode:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: '^[A-Za-z0-9][A-Za-z0-9._/-]{0,63}$'
+        sampledAt:
+          type: string
+          format: date
+          description: Collection date; future dates are rejected.
+        sampleDepthCm:
+          type: number
+          minimum: 0.01
+          maximum: 999.99
+          multipleOf: 0.01
+        texture:
+          $ref: '#/components/schemas/SoilTexture'
+        ph:
+          type: number
+          minimum: 0
+          maximum: 14
+          multipleOf: 0.01
+        organicMatterPercent:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 100
+          multipleOf: 0.01
+        nitrogenMgKg:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 99999999.99
+          multipleOf: 0.01
+        phosphorusMgKg:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 99999999.99
+          multipleOf: 0.01
+        potassiumMgKg:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 99999999.99
+          multipleOf: 0.01
+        moisturePercent:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 100
+          multipleOf: 0.01
+        notes:
+          type: [string, 'null']
+          maxLength: 1000
+    UpdateSoilProfileRequest:
+      description: Provide at least one of status or notes in addition to the current version.
+      anyOf:
+        - type: object
+          additionalProperties: false
+          required: [version, status]
+          properties:
+            version:
+              type: integer
+              format: int64
+              minimum: 0
+            status:
+              $ref: '#/components/schemas/SoilProfileStatus'
+            notes:
+              type: [string, 'null']
+              maxLength: 1000
+              description: Omit to preserve notes; provide null or blank text to clear them.
+        - type: object
+          additionalProperties: false
+          required: [version, notes]
+          properties:
+            version:
+              type: integer
+              format: int64
+              minimum: 0
+            status:
+              $ref: '#/components/schemas/SoilProfileStatus'
+            notes:
+              type: [string, 'null']
+              maxLength: 1000
+              description: Omit to preserve notes; provide null or blank text to clear them.
+    CreateIrrigationZoneRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - name
+        - method
+        - flowRateLitersPerMinute
+        - targetMoisturePercent
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: '^[A-Za-z0-9][A-Za-z0-9._/-]{0,63}$'
+          description: Plot-scoped code; stored in canonical uppercase form.
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        method:
+          $ref: '#/components/schemas/IrrigationMethod'
+        flowRateLitersPerMinute:
+          type: number
+          minimum: 0.01
+          maximum: 999999.99
+          multipleOf: 0.01
+        targetMoisturePercent:
+          type: number
+          minimum: 0
+          maximum: 100
+          multipleOf: 0.01
+        notes:
+          type: [string, 'null']
+          maxLength: 1000
+    UpdateIrrigationZoneRequest:
+      description: Provide the current version and at least one mutable field.
+      allOf:
+        - type: object
+          additionalProperties: false
+          required: [version]
+          properties:
+            version:
+              type: integer
+              format: int64
+              minimum: 0
+            name:
+              type: string
+              minLength: 1
+              maxLength: 200
+            method:
+              $ref: '#/components/schemas/IrrigationMethod'
+            flowRateLitersPerMinute:
+              type: number
+              minimum: 0.01
+              maximum: 999999.99
+              multipleOf: 0.01
+            targetMoisturePercent:
+              type: number
+              minimum: 0
+              maximum: 100
+              multipleOf: 0.01
+            status:
+              $ref: '#/components/schemas/IrrigationZoneStatus'
+            notes:
+              type: [string, 'null']
+              maxLength: 1000
+              description: Omit to preserve notes; provide null or blank text to clear them.
+        - anyOf:
+            - type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+            - type: object
+              required: [method]
+              properties:
+                method:
+                  $ref: '#/components/schemas/IrrigationMethod'
+            - type: object
+              required: [flowRateLitersPerMinute]
+              properties:
+                flowRateLitersPerMinute:
+                  type: number
+                  minimum: 0.01
+                  maximum: 999999.99
+                  multipleOf: 0.01
+            - type: object
+              required: [targetMoisturePercent]
+              properties:
+                targetMoisturePercent:
+                  type: number
+                  minimum: 0
+                  maximum: 100
+                  multipleOf: 0.01
+            - type: object
+              required: [status]
+              properties:
+                status:
+                  $ref: '#/components/schemas/IrrigationZoneStatus'
+            - type: object
+              required: [notes]
+              properties:
+                notes:
+                  type: [string, 'null']
+                  maxLength: 1000
+    EnterpriseResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - code
+        - name
+        - legalName
+        - taxCode
+        - address
+        - province
+        - status
+        - createdAt
+        - updatedAt
+        - createdBy
+        - updatedBy
+        - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          maxLength: 64
+        name:
+          type: string
+          maxLength: 200
+        legalName:
+          type: [string, 'null']
+          maxLength: 250
+        taxCode:
+          type: [string, 'null']
+          maxLength: 64
+        address:
+          type: [string, 'null']
+          maxLength: 500
+        province:
+          type: [string, 'null']
+          maxLength: 120
+        status:
+          $ref: '#/components/schemas/EnterpriseStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          maxLength: 255
+        updatedBy:
+          type: string
+          maxLength: 255
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+    FarmResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - code
+        - name
+        - enterpriseId
+        - address
+        - province
+        - totalAreaHa
+        - latitude
+        - longitude
+        - status
+        - createdAt
+        - updatedAt
+        - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          maxLength: 64
+        name:
+          type: string
+          maxLength: 200
+        enterpriseId:
+          type: [string, 'null']
+          format: uuid
+        address:
+          type: [string, 'null']
+          maxLength: 500
+        province:
+          type: [string, 'null']
+          maxLength: 120
+        totalAreaHa:
+          type: [number, 'null']
+        latitude:
+          type: [number, 'null']
+          format: double
+        longitude:
+          type: [number, 'null']
+          format: double
+        status:
+          $ref: '#/components/schemas/FarmStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+    FarmAreaResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - farmId
+        - code
+        - name
+        - areaInHectares
+        - description
+        - status
+        - createdAt
+        - updatedAt
+        - createdBy
+        - updatedBy
+        - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        farmId:
+          type: string
+          format: uuid
+        code:
+          type: string
+          maxLength: 64
+        name:
+          type: string
+          maxLength: 200
+        areaInHectares:
+          type: [number, 'null']
+          minimum: 0.0001
+          maximum: 9999999999.9999
+          multipleOf: 0.0001
+          description: Null only for legacy areas backfilled from pre-area plot assignments.
+        description:
+          type: [string, 'null']
+          maxLength: 500
+        status:
+          $ref: '#/components/schemas/FarmAreaStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          maxLength: 255
+        updatedBy:
+          type: string
+          maxLength: 255
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+    PlotResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - farmId
+        - areaId
+        - code
+        - name
+        - areaInHectares
+        - soilType
+        - status
+        - latitude
+        - longitude
+        - createdAt
+        - updatedAt
+        - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        farmId:
+          type: string
+          format: uuid
+        areaId:
+          type: [string, 'null']
+          format: uuid
+        code:
+          type: string
+          maxLength: 64
+        name:
+          type: string
+          maxLength: 200
+        areaInHectares:
+          type: number
+          minimum: 0.0001
+        soilType:
+          type: [string, 'null']
+          maxLength: 100
+        status:
+          $ref: '#/components/schemas/PlotStatus'
+        latitude:
+          type: [number, 'null']
+          format: double
+        longitude:
+          type: [number, 'null']
+          format: double
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+    SoilProfileResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - farmId
+        - plotId
+        - sampleCode
+        - sampledAt
+        - sampleDepthCm
+        - texture
+        - ph
+        - organicMatterPercent
+        - nitrogenMgKg
+        - phosphorusMgKg
+        - potassiumMgKg
+        - moisturePercent
+        - notes
+        - status
+        - createdAt
+        - updatedAt
+        - createdBy
+        - updatedBy
+        - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        farmId:
+          type: string
+          format: uuid
+        plotId:
+          type: string
+          format: uuid
+        sampleCode:
+          type: string
+          maxLength: 64
+        sampledAt:
+          type: string
+          format: date
+        sampleDepthCm:
+          type: number
+          minimum: 0.01
+          maximum: 999.99
+          multipleOf: 0.01
+        texture:
+          $ref: '#/components/schemas/SoilTexture'
+        ph:
+          type: number
+          minimum: 0
+          maximum: 14
+          multipleOf: 0.01
+        organicMatterPercent:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 100
+          multipleOf: 0.01
+        nitrogenMgKg:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 99999999.99
+          multipleOf: 0.01
+        phosphorusMgKg:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 99999999.99
+          multipleOf: 0.01
+        potassiumMgKg:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 99999999.99
+          multipleOf: 0.01
+        moisturePercent:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 100
+          multipleOf: 0.01
+        notes:
+          type: [string, 'null']
+          maxLength: 1000
+        status:
+          $ref: '#/components/schemas/SoilProfileStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          maxLength: 255
+        updatedBy:
+          type: string
+          maxLength: 255
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+    IrrigationZoneResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - farmId
+        - plotId
+        - code
+        - name
+        - method
+        - flowRateLitersPerMinute
+        - targetMoisturePercent
+        - status
+        - notes
+        - createdAt
+        - updatedAt
+        - createdBy
+        - updatedBy
+        - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        farmId:
+          type: string
+          format: uuid
+        plotId:
+          type: string
+          format: uuid
+        code:
+          type: string
+          maxLength: 64
+        name:
+          type: string
+          maxLength: 200
+        method:
+          $ref: '#/components/schemas/IrrigationMethod'
+        flowRateLitersPerMinute:
+          type: number
+          minimum: 0.01
+          maximum: 999999.99
+          multipleOf: 0.01
+        targetMoisturePercent:
+          type: number
+          minimum: 0
+          maximum: 100
+          multipleOf: 0.01
+        status:
+          $ref: '#/components/schemas/IrrigationZoneStatus'
+        notes:
+          type: [string, 'null']
+          maxLength: 1000
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          maxLength: 255
+        updatedBy:
+          type: string
+          maxLength: 255
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+    FarmMembershipResponse:
+      type: object
+      additionalProperties: false
+      required: [id, farmId, subject, grantedBy, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        farmId:
+          type: string
+          format: uuid
+        subject:
+          type: string
+          format: uuid
+        grantedBy:
+          type: string
+          maxLength: 255
+        createdAt:
+          type: string
+          format: date-time
+    FarmResourceAccessResponse:
+      type: object
+      additionalProperties: false
+      required: [farmId, plotId]
+      properties:
+        farmId:
+          type: string
+          format: uuid
+        plotId:
+          type: [string, 'null']
+          format: uuid
+    EnterprisePageResponse:
+      type: object
+      additionalProperties: false
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnterpriseResponse'
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int32
+          minimum: 0
+        first:
+          type: boolean
+        last:
+          type: boolean
+    FarmPageResponse:
+      type: object
+      additionalProperties: false
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/FarmResponse'
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int32
+          minimum: 0
+        first:
+          type: boolean
+        last:
+          type: boolean
+    FarmAreaPageResponse:
+      type: object
+      additionalProperties: false
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/FarmAreaResponse'
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int32
+          minimum: 0
+        first:
+          type: boolean
+        last:
+          type: boolean
+    PlotPageResponse:
+      type: object
+      additionalProperties: false
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlotResponse'
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int32
+          minimum: 0
+        first:
+          type: boolean
+        last:
+          type: boolean
+    SoilProfilePageResponse:
+      type: object
+      additionalProperties: false
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/SoilProfileResponse'
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int32
+          minimum: 0
+        first:
+          type: boolean
+        last:
+          type: boolean
+    IrrigationZonePageResponse:
+      type: object
+      additionalProperties: false
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/IrrigationZoneResponse'
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int32
+          minimum: 0
+        first:
+          type: boolean
+        last:
+          type: boolean
+    FarmMembershipPageResponse:
+      type: object
+      additionalProperties: false
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/FarmMembershipResponse'
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int32
+          minimum: 0
+        first:
+          type: boolean
+        last:
+          type: boolean
     ApiError:
       type: object
       description: |
@@ -196,82 +2651,15 @@ components:
             properties:
               field: { type: string }
               message: { type: string }
-              rejectedValue: { description: Whatever the caller sent; untyped by design }
         details:
           type: object
           additionalProperties: true
-    CreateFarmRequest:
+    FieldViolation:
       type: object
-      required: [code, name]
+      additionalProperties: false
+      required: [field, message]
       properties:
-        code: { type: string }
-        name: { type: string }
-        address: { type: string }
-        province: { type: string }
-        totalAreaHa: { type: number }
-        latitude: { type: number }
-        longitude: { type: number }
-    UpdateFarmRequest:
-      type: object
-      properties:
-        name: { type: string }
-        address: { type: string }
-        province: { type: string }
-        totalAreaHa: { type: number }
-        status: { type: string, enum: [ACTIVE, INACTIVE, MAINTENANCE] }
-        latitude: { type: number }
-        longitude: { type: number }
-    CreatePlotRequest:
-      type: object
-      required: [code, name, areaInHectares]
-      properties:
-        code: { type: string }
-        name: { type: string }
-        areaInHectares: { type: number }
-        soilType: { type: string }
-        latitude: { type: number }
-        longitude: { type: number }
-    UpdatePlotRequest:
-      type: object
-      properties:
-        name: { type: string }
-        areaInHectares: { type: number }
-        soilType: { type: string }
-        status: { type: string, enum: [AVAILABLE, PREPARING, IN_USE, RESTING, MAINTENANCE, INACTIVE] }
-        latitude: { type: number }
-        longitude: { type: number }
-  responses:
-    Conflict:
-      description: |
-        The request collides with existing state. A losing race on a unique index reports
-        DUPLICATE_RESOURCE; services also use 409 for their own domain conflicts.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    Forbidden:
-      description: Authenticated but lacking the required role (code ACCESS_DENIED).
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    NotFound:
-      description: No such resource. The code is service-specific.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    Unauthorized:
-      description: |
-        Bearer credential missing, expired, or invalid. Produced by the security filter chain
-        before the DispatcherServlet, so this is the one error on the platform that is NOT
-        ApiError-shaped and carries no body.
-    UnexpectedError:
-      description: Any other failure, including 500 INTERNAL_ERROR and 405 METHOD_NOT_ALLOWED.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    ValidationFailed:
-      description: |
-        Request body failed validation (code VALIDATION_FAILED, with violations populated), or a
-        path variable or query parameter would not convert (code INVALID_PARAMETER).
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
+        field:
+          type: string
+        message:
+          type: string

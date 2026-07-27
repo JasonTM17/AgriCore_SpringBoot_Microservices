@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agricore.local/schemas/DeviceOfflineDetected.v1.json",
+  "title": "DeviceOfflineDetected.v1",
+  "allOf": [
+    { "$ref": "DomainEventEnvelope.v1.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "DeviceOfflineDetected.v1" },
+        "eventVersion": { "const": 1 },
+        "producer": { "const": "iot-service" },
+        "payload": {
+          "type": "object",
+          "required": [
+            "deviceId",
+            "deviceCode",
+            "plotId",
+            "deviceName",
+            "lastActivityAt",
+            "detectedAt",
+            "offlineAfterSeconds"
+          ],
+          "properties": {
+            "deviceId": { "type": "string", "format": "uuid" },
+            "deviceCode": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "plotId": { "type": "string", "format": "uuid" },
+            "deviceName": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "lastActivityAt": { "type": "string", "format": "date-time" },
+            "detectedAt": { "type": "string", "format": "date-time" },
+            "offlineAfterSeconds": { "type": "integer", "minimum": 1 }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}

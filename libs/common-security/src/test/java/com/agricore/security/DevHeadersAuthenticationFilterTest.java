@@ -12,24 +12,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * The filter installs a fully authenticated principal from two request headers, with whatever roles
- * the caller asked for. It is safe only because it is constructed with
- * {@code agricore.security.dev-mode}, which defaults false and is bound to {@code AGRICORE_DEV_MODE}
- * in every service.
- *
- * <p>Nothing tested that. A control that is correct by inspection and unverified at runtime is the
- * exact shape of the account-lockout defect this platform already shipped once, so the disabled case
- * is asserted first and directly.
- */
 class DevHeadersAuthenticationFilterTest {
 
     private final MockHttpServletResponse response = new MockHttpServletResponse();
 
-    /**
-     * {@link SecurityContextHolder} is thread-local and JUnit reuses threads. Without this, an
-     * authentication left by one test would make a later assertion pass for the wrong reason.
-     */
     @AfterEach
     void clearContext() {
         SecurityContextHolder.clearContext();
@@ -41,23 +27,24 @@ class DevHeadersAuthenticationFilterTest {
 
         new DevHeadersAuthenticationFilter(false).doFilter(request, response, new MockFilterChain());
 
-        assertThat(SecurityContextHolder.getContext().getAuthentication())
-                .as("dev headers must be inert in every deployment that has not opted in")
-                .isNull();
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
     }
 
     @Test
     void alwaysContinuesTheChain() throws Exception {
         MockFilterChain chain = new MockFilterChain();
-        MockHttpServletRequest request = devRequest("attacker", "SYSTEM_ADMIN");
 
-        new DevHeadersAuthenticationFilter(false).doFilter(request, response, chain);
+        new DevHeadersAuthenticationFilter(false).doFilter(
+                devRequest("attacker", "SYSTEM_ADMIN"),
+                response,
+                chain
+        );
 
-        assertThat(chain.getRequest()).as("a disabled filter must not swallow the request").isNotNull();
+        assertThat(chain.getRequest()).isNotNull();
     }
 
     @Test
-    void installsPrefixedRolesWhenEnabled() throws Exception {
+    void installsPrincipalPrefixedRolesAndDerivedPermissionsWhenEnabled() throws Exception {
         MockHttpServletRequest request = devRequest("agronomist", "AGRONOMIST,FARM_MANAGER");
 
         new DevHeadersAuthenticationFilter(true).doFilter(request, response, new MockFilterChain());
@@ -67,16 +54,18 @@ class DevHeadersAuthenticationFilterTest {
         assertThat(authentication.getName()).isEqualTo("agronomist");
         assertThat(authentication.getAuthorities())
                 .extracting(GrantedAuthority::getAuthority)
-                .containsExactly("ROLE_AGRONOMIST", "ROLE_FARM_MANAGER");
+                .contains(
+                        "ROLE_AGRONOMIST",
+                        "ROLE_FARM_MANAGER",
+                        "PERMISSION_CROP_CATALOG_WRITE",
+                        "PERMISSION_FARM_ADMIN"
+                );
     }
 
-    /**
-     * Trailing separators and padding are what a hand-written curl produces. They must not become
-     * an authority named {@code ROLE_}, which would match nothing yet still look like a grant.
-     */
     @Test
     void discardsBlankRoleSegments() throws Exception {
         MockHttpServletRequest request = devRequest("worker", " FIELD_WORKER , , ");
+        request.addHeader("X-Dev-Permissions", "");
 
         new DevHeadersAuthenticationFilter(true).doFilter(request, response, new MockFilterChain());
 
@@ -85,10 +74,6 @@ class DevHeadersAuthenticationFilterTest {
                 .containsExactly("ROLE_FIELD_WORKER");
     }
 
-    /**
-     * The JWT path runs first and wins. If the dev filter overwrote an established authentication,
-     * enabling dev mode anywhere would let a header downgrade or escalate a verified token.
-     */
     @Test
     void doesNotOverwriteAnExistingAuthentication() throws Exception {
         Authentication existing = new TestingAuthenticationToken("real-user", null, "ROLE_FIELD_WORKER");
@@ -116,6 +101,54 @@ class DevHeadersAuthenticationFilterTest {
                 .doFilter(devRequest("someone", "   "), response, new MockFilterChain());
 
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+    }
+
+    @Test
+    void derivesCanonicalPermissionsWhenExplicitSnapshotIsAbsent() throws Exception {
+        MockHttpServletRequest request = devRequest("dev-user", "FIELD_WORKER");
+
+        new DevHeadersAuthenticationFilter(true).doFilter(
+                request,
+                response,
+                new MockFilterChain()
+        );
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication().getAuthorities())
+                .extracting(GrantedAuthority::getAuthority)
+                .contains("ROLE_FIELD_WORKER", "PERMISSION_WORK_USE", "PERMISSION_IOT_USE")
+                .doesNotContain("PERMISSION_WORK_WRITE");
+    }
+
+    @Test
+    void explicitPermissionHeaderOverridesDerivedRoleGrants() throws Exception {
+        MockHttpServletRequest request = devRequest("dev-user", "FIELD_WORKER");
+        request.addHeader("X-Dev-Permissions", "WORK_READ");
+
+        new DevHeadersAuthenticationFilter(true).doFilter(
+                request,
+                response,
+                new MockFilterChain()
+        );
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication().getAuthorities())
+                .extracting(GrantedAuthority::getAuthority)
+                .containsExactly("PERMISSION_WORK_READ", "ROLE_FIELD_WORKER");
+    }
+
+    @Test
+    void explicitEmptyPermissionHeaderRepresentsNoPermissionSnapshot() throws Exception {
+        MockHttpServletRequest request = devRequest("dev-user", "FIELD_WORKER");
+        request.addHeader("X-Dev-Permissions", "");
+
+        new DevHeadersAuthenticationFilter(true).doFilter(
+                request,
+                response,
+                new MockFilterChain()
+        );
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication().getAuthorities())
+                .extracting(GrantedAuthority::getAuthority)
+                .containsExactly("ROLE_FIELD_WORKER");
     }
 
     private static MockHttpServletRequest devRequest(String user, String roles) {

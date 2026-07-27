@@ -2,65 +2,184 @@ package com.agricore.work.api.advice;
 
 import com.agricore.common.api.ApiError;
 import com.agricore.common.persistence.ConstraintViolations;
+import com.agricore.farmaccess.FarmAccessException;
 import com.agricore.work.domain.exception.WorkException;
 import jakarta.servlet.http.HttpServletRequest;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import jakarta.validation.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
+import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ApiError> optimistic(
+            ObjectOptimisticLockingFailureException ex,
+            HttpServletRequest request
+    ) {
+        return error(
+                HttpStatus.CONFLICT,
+                "OPTIMISTIC_LOCK",
+                "Work task changed concurrently; reload the latest state before retrying",
+                request
+        );
+    }
 
     @ExceptionHandler(WorkException.class)
     public ResponseEntity<ApiError> handle(WorkException ex, HttpServletRequest request) {
         return ResponseEntity.status(ex.getHttpStatus()).body(ApiError.of(
-                ex.getHttpStatus(), HttpStatus.valueOf(ex.getHttpStatus()).getReasonPhrase(),
-                ex.getCode(), ex.getMessage(), request.getRequestURI(), null
+                ex.getHttpStatus(),
+                HttpStatus.valueOf(ex.getHttpStatus()).getReasonPhrase(),
+                ex.getCode(),
+                ex.getMessage(),
+                request.getRequestURI(),
+                null
         ));
     }
 
-    /**
-     * A losing race on a unique index is the caller's conflict, not a server fault. Task codes are
-     * checked before insert, but that check is not a lock: two requests can both pass it and the
-     * database rejects the second.
-     *
-     * <p>Only unique violations become 409. A foreign-key or not-null failure reaching this point
-     * is a defect in this service and stays a 500 — answering "already exists" to either would
-     * replace one wrong answer with another.
-     */
-    @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<ApiError> dataIntegrity(DataIntegrityViolationException ex, HttpServletRequest request) {
-        if (!ConstraintViolations.isUniqueViolation(ex)) {
-            log.error("Constraint failure on {}", request.getRequestURI(), ex);
-            return ResponseEntity.internalServerError().body(ApiError.of(
-                    500, "Internal Server Error", "INTERNAL_ERROR", "An unexpected error occurred",
-                    request.getRequestURI(), null
-            ));
-        }
-        // The constraint name identifies the index and therefore the schema. Operators need it,
-        // callers do not: the response says only that the value is taken.
-        log.warn("Duplicate key on {}: {}", request.getRequestURI(), ex.getMostSpecificCause().getMessage());
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.of(
-                409, "Conflict", "DUPLICATE_RESOURCE",
-                "A record with the supplied identifier already exists",
-                request.getRequestURI(), null
+    @ExceptionHandler(FarmAccessException.class)
+    public ResponseEntity<ApiError> handleFarmAccess(FarmAccessException ex, HttpServletRequest request) {
+        return ResponseEntity.status(ex.getHttpStatus()).body(ApiError.of(
+                ex.getHttpStatus(),
+                HttpStatus.valueOf(ex.getHttpStatus()).getReasonPhrase(),
+                ex.getCode(),
+                ex.getMessage(),
+                request.getRequestURI(),
+                null
         ));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiError> dataIntegrity(
+            DataIntegrityViolationException ex,
+            HttpServletRequest request
+    ) {
+        if (!ConstraintViolations.isUniqueViolation(ex)) {
+            return error(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "DATA_INTEGRITY_ERROR",
+                    "The request could not be persisted",
+                    request
+            );
+        }
+        return error(
+                HttpStatus.CONFLICT,
+                "DUPLICATE_RESOURCE",
+                "A record with the supplied identifier already exists",
+                request
+        );
+    }
+
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    public ResponseEntity<ApiError> handleAuthorizationDenied(
+            AuthorizationDeniedException ex,
+            HttpServletRequest request
+    ) {
+        return error(
+                HttpStatus.FORBIDDEN,
+                "ACCESS_DENIED",
+                "Insufficient privileges for this operation",
+                request
+        );
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiError> validation(MethodArgumentNotValidException ex, HttpServletRequest request) {
         var violations = ex.getBindingResult().getFieldErrors().stream()
-                .map(fe -> new ApiError.FieldViolation(fe.getField(), fe.getDefaultMessage(), fe.getRejectedValue()))
+                .map(this::toViolation)
                 .toList();
         return ResponseEntity.badRequest().body(
                 ApiError.validation("Request validation failed", request.getRequestURI(), null, violations)
         );
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiError> malformedJson(HttpMessageNotReadableException ex, HttpServletRequest request) {
+        return error(HttpStatus.BAD_REQUEST, "MALFORMED_JSON", "Malformed JSON request", request);
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiError> unsupportedMediaType(
+            HttpMediaTypeNotSupportedException ex,
+            HttpServletRequest request
+    ) {
+        return error(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "UNSUPPORTED_MEDIA_TYPE", "Content-Type is not supported", request);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiError> typeMismatch(
+            MethodArgumentTypeMismatchException ex,
+            HttpServletRequest request
+    ) {
+        return error(
+                HttpStatus.BAD_REQUEST,
+                "INVALID_ARGUMENT",
+                "Invalid request parameter: " + ex.getName(),
+                request
+        );
+    }
+
+    @ExceptionHandler({HandlerMethodValidationException.class, ConstraintViolationException.class})
+    public ResponseEntity<ApiError> methodValidation(Exception ex, HttpServletRequest request) {
+        return error(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", "Request validation failed", request);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiError> uploadTooLarge(
+            MaxUploadSizeExceededException ex,
+            HttpServletRequest request
+    ) {
+        return error(
+                HttpStatus.PAYLOAD_TOO_LARGE,
+                "ATTACHMENT_TOO_LARGE",
+                "Attachment exceeds the configured size limit",
+                request
+        );
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<ApiError> missingRequestPart(
+            MissingServletRequestPartException ex,
+            HttpServletRequest request
+    ) {
+        return error(
+                HttpStatus.BAD_REQUEST,
+                "ATTACHMENT_FILE_REQUIRED",
+                "Attachment file is required",
+                request
+        );
+    }
+
+    private ApiError.FieldViolation toViolation(FieldError error) {
+        return new ApiError.FieldViolation(error.getField(), error.getDefaultMessage(), error.getRejectedValue());
+    }
+
+    private ResponseEntity<ApiError> error(
+            HttpStatus status,
+            String code,
+            String message,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(status).body(ApiError.of(
+                status.value(),
+                status.getReasonPhrase(),
+                code,
+                message,
+                request.getRequestURI(),
+                null
+        ));
     }
 }

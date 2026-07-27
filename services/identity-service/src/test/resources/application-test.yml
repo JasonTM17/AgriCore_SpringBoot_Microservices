@@ -12,6 +12,7 @@ spring:
         dialect: org.hibernate.dialect.H2Dialect
   flyway:
     enabled: true
+    locations: classpath:db/migration
   data:
     redis:
       host: localhost
@@ -33,7 +34,11 @@ agricore:
     login-rate-limit-per-minute: 1000
     registration-enabled: true
     rate-limit-fail-open: true
-    trust-forwarded-headers: false
+    refresh-cookie-name: agricore_refresh
+    refresh-cookie-path: /api/v1/auth/web
+    refresh-cookie-secure: false
+    refresh-cookie-same-site: Strict
+    web-allowed-origins: http://localhost:5173,http://127.0.0.1:5173
   # No broker in unit/integration tests; outbox rows are asserted directly
   outbox:
     publisher:

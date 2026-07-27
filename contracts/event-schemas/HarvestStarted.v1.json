@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agricore.local/schemas/HarvestStarted.v1.json",
+  "title": "HarvestStarted.v1",
+  "allOf": [
+    { "$ref": "DomainEventEnvelope.v1.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "HarvestStarted.v1" },
+        "eventVersion": { "const": 1 },
+        "producer": { "const": "harvest-service" },
+        "payload": {
+          "type": "object",
+          "required": [
+            "harvestId", "harvestBatchId", "cropCycleId", "plotId", "warehouseId",
+            "productCode", "code", "status", "startedAt"
+          ],
+          "properties": {
+            "harvestId": { "type": "string", "format": "uuid" },
+            "harvestBatchId": { "type": "string", "format": "uuid" },
+            "cropCycleId": { "type": "string", "format": "uuid" },
+            "plotId": { "type": "string", "format": "uuid" },
+            "warehouseId": { "type": "string", "format": "uuid" },
+            "productCode": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "code": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "status": { "const": "IN_PROGRESS" },
+            "startedAt": { "type": "string", "format": "date-time" }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}

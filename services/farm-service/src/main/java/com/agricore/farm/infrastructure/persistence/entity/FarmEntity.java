@@ -20,6 +20,9 @@ public class FarmEntity {
     @Column(nullable = false, length = 200)
     private String name;
 
+    @Column(name = "enterprise_id")
+    private UUID enterpriseId;
+
     @Column(length = 500)
     private String address;
 
@@ -51,6 +54,8 @@ public class FarmEntity {
     public void setCode(String code) { this.code = code; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
+    public UUID getEnterpriseId() { return enterpriseId; }
+    public void setEnterpriseId(UUID enterpriseId) { this.enterpriseId = enterpriseId; }
     public String getAddress() { return address; }
     public void setAddress(String address) { this.address = address; }
     public String getProvince() { return province; }

@@ -13,6 +13,9 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+    locations: classpath:db/migration,classpath:db/postgresql-migration
+    postgresql:
+      transactional-lock: false
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
@@ -21,6 +24,9 @@ spring:
       acks: all
       properties:
         enable.idempotence: true
+        max.block.ms: ${KAFKA_PRODUCER_MAX_BLOCK_MS:5000}
+        request.timeout.ms: ${KAFKA_PRODUCER_REQUEST_TIMEOUT_MS:5000}
+        delivery.timeout.ms: ${KAFKA_PRODUCER_DELIVERY_TIMEOUT_MS:10000}
 
 management:
   endpoints:
@@ -36,7 +42,32 @@ agricore:
     issuer: ${JWT_ISSUER:https://agricore.local/identity}
     jwk-set-uri: ${IDENTITY_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
     dev-mode: ${AGRICORE_DEV_MODE:false}
+  farm-access:
+    base-url: ${FARM_SERVICE_URL:http://localhost:8082}
+    allowed-hosts: ${FARM_SERVICE_ALLOWED_HOSTS:localhost,127.0.0.1,::1,farm-service}
+    allow-insecure-http: ${FARM_SERVICE_ALLOW_INSECURE_HTTP:false}
+  crop-cycle-access:
+    base-url: ${CROP_CYCLE_SERVICE_URL:http://localhost:8084}
+    allowed-hosts: ${CROP_CYCLE_SERVICE_ALLOWED_HOSTS:localhost,127.0.0.1,::1,crop-cycle-service}
+    allow-insecure-http: ${CROP_CYCLE_SERVICE_ALLOW_INSECURE_HTTP:false}
+    connect-timeout: ${CROP_CYCLE_SERVICE_CONNECT_TIMEOUT:PT2S}
+    read-timeout: ${CROP_CYCLE_SERVICE_READ_TIMEOUT:PT3S}
+    max-response-bytes: ${CROP_CYCLE_SERVICE_MAX_RESPONSE_BYTES:4096}
+  inventory-access:
+    base-url: ${INVENTORY_SERVICE_URL:http://localhost:8086}
+    allowed-hosts: ${INVENTORY_SERVICE_ALLOWED_HOSTS:localhost,127.0.0.1,::1,inventory-service}
+    allow-insecure-http: ${INVENTORY_SERVICE_ALLOW_INSECURE_HTTP:false}
+    connect-timeout: ${INVENTORY_SERVICE_CONNECT_TIMEOUT:PT2S}
+    read-timeout: ${INVENTORY_SERVICE_READ_TIMEOUT:PT3S}
+    max-response-bytes: ${INVENTORY_SERVICE_MAX_RESPONSE_BYTES:4096}
+    internal-service-token: ${INVENTORY_INTERNAL_SERVICE_TOKEN:}
   outbox:
     publisher:
       enabled: true
       poll-ms: 1000
+      send-timeout-ms: ${OUTBOX_PUBLISHER_SEND_TIMEOUT_MS:10000}
+      retry:
+        write-state-enabled: ${OUTBOX_PUBLISHER_RETRY_WRITE_STATE_ENABLED:false}
+        base-delay-ms: ${OUTBOX_PUBLISHER_RETRY_BASE_DELAY_MS:1000}
+        max-delay-ms: ${OUTBOX_PUBLISHER_RETRY_MAX_DELAY_MS:60000}
+        max-attempts: ${OUTBOX_PUBLISHER_MAX_ATTEMPTS:10}

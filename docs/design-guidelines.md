@@ -1,100 +1,163 @@
-# Design Guidelines
+# AgriCore Frontend Design Guidelines
 
-API and contract conventions. These are the rules a new endpoint or event must follow to look like it
-belongs in this platform.
+## Overview
 
-## REST shape
+AgriCore uses a calm, trustworthy agricultural operations interface. The product serves farm managers, agronomists, field workers, warehouse teams, sales staff, auditors, and administrators. It prioritizes operational clarity, traceable state, and safe actions over decorative dashboards.
 
-- Base path `/api/v1/<plural-resource>`; the public traceability read is the one exception,
-  `/public/api/v1/traceability/{code}`, and the `public` prefix is what marks it unauthenticated.
-- Resource names are plural and kebab-case: `/api/v1/crop-cycles`, `/api/v1/work-tasks`.
-- State transitions are sub-resource POSTs, not PATCHes on a status field:
-  `POST /api/v1/crop-cycles/{id}/stage`, `POST /api/v1/work-tasks/{id}/complete`,
-  `POST /api/v1/inventory/reservations/{id}/confirm`. The verb is explicit and auditable.
-- `PATCH` is for attribute edits only.
-- Path ids are UUIDs. Human-facing lookups get an explicit route (`/api/v1/crops/by-code/{code}`).
+Canonical machine-readable design specification: [`../assets/designs/agricore-operations-console/DESIGN.md`](../assets/designs/agricore-operations-console/DESIGN.md).
 
-## Status codes
+## Product Principles
 
-| Situation | Code |
-|-----------|------|
-| Created a resource | 201 |
-| Read or successful action | 200 |
-| Action with no body | 204 |
-| Validation failure | 400 |
-| Missing/invalid token | 401 |
-| Authenticated but not permitted | 403 |
-| Unknown resource | 404 |
-| Conflict with current state (duplicate email, stage rule) | 409 |
-| Rate limited | 429 |
+1. Show operational truth. Never claim an asynchronous projection is complete without evidence.
+2. Make status and next action obvious. Codes and timestamps remain visible for auditability.
+3. Respect roles. Hide or disable unavailable mutations with a short reason.
+4. Prefer dense, readable workspaces over oversized cards.
+5. Preserve context. Farm, plot, crop cycle, and reference codes stay visible across workflows.
+6. Degrade honestly. Missing list/history APIs become clear unavailable states, not simulated data.
 
-## Error envelope
+## API-Facing Interaction Rules
 
-Errors use `ApiError` from `common-lib` and always carry a stable machine-readable `code`
-(`EMAIL_ALREADY_EXISTS`, `REGISTRATION_DISABLED`, `WAREHOUSE_NOT_FOUND`).
+- Generate clients from committed OpenAPI contracts. Do not hand-maintain a
+  second request or response shape.
+- Treat stable `ApiError.code` values as machine contracts; show the human
+  message and a safe recovery action without exposing stack traces or upstream
+  internals.
+- JSON fields are `camelCase`, identifiers are UUID strings, and timestamps are
+  ISO-8601 UTC instants unless a contract explicitly says otherwise.
+- Use explicit transition operations from the contract instead of editing a
+  status field optimistically.
+- Render `401`, `403`, `404`, `409`, `429`, and `503` as distinct states. A
+  masked `404` must not reveal whether a resource exists in another farm.
+- Public traceability is the deliberate unauthenticated exception under
+  `/public/api`; do not infer that any neighboring route is public.
 
-- Codes are `SCREAMING_SNAKE_CASE` and part of the public contract — renaming one is a breaking change.
-- Messages are for humans and may change; clients branch on `code`, never on message text.
-- Never leak internal detail: no stack traces, SQL, hostnames, or upstream URLs in a response body.
+## Visual Language
 
-## Request and response bodies
+- Personality: grounded, precise, calm, modern, field-tested.
+- Avoid: neon green, glossy gradients, glassmorphism, excessive pills, decorative charts, stock-farm hero imagery inside the console.
+- Use warm neutral backgrounds and restrained forest green for navigation and primary actions.
+- Harvest gold is an accent, not a second primary color.
+- Soil brown is reserved for land/origin context; semantic state colors keep their conventional meaning.
 
-- Java records for requests and responses, mapped explicitly — persistence entities are never
-  serialized to clients.
-- JSON fields are `camelCase`. Timestamps are ISO-8601 UTC instants (`2026-07-26T10:15:30Z`), never
-  epoch numbers (`write-dates-as-timestamps: false`).
-- Quantities that must not lose precision use decimal types, never floating point.
-- Domain codes and status values stay in English (`FIELD_WORKER`, `HARVESTING`, `CONFIRMED`) even when
-  the UI renders another language.
-- Lists that can grow are paged with the shared `PageResponse` envelope.
+## Core Tokens
 
-## Event envelope
+| Token | Value | Usage |
+|---|---:|---|
+| Forest 900 | `#123B2A` | Sidebar, strong brand surface |
+| Forest 700 | `#1F5D42` | Primary buttons, selected navigation |
+| Forest 100 | `#DDECE3` | Selected row, subtle highlight |
+| Harvest 600 | `#B67A16` | Accent, planned attention |
+| Harvest 100 | `#F7E9C8` | Warning-neutral highlight |
+| Soil 700 | `#6E4E37` | Land/origin metadata |
+| Canvas | `#F4F6F1` | Application background |
+| Surface | `#FFFFFF` | Cards, tables, forms |
+| Ink | `#17221B` | Primary text |
+| Muted | `#66736A` | Secondary text |
+| Border | `#D9DED8` | Dividers, inputs |
+| Success | `#287A4B` | Completed, healthy |
+| Warning | `#A96712` | Attention, syncing |
+| Danger | `#B53B35` | Destructive/error |
+| Info | `#2E6E83` | Informational, external tools |
 
-Fixed for every event, on every topic:
+All text/background combinations must target WCAG AA contrast. Never rely on color alone; pair state colors with icon and label.
 
-```json
-{
-  "eventId": "<uuid>",
-  "eventType": "UserRegistered.v1",
-  "eventVersion": 1,
-  "occurredAt": "2026-07-26T10:15:30Z",
-  "producer": "identity-service",
-  "payload": { }
-}
-```
+## Typography and Data
 
-- `eventType` carries its version (`.v1`); `eventVersion` repeats it numerically.
-- Schema: `contracts/event-schemas/DomainEventEnvelope.v1.json`. Topics and messages:
-  `contracts/asyncapi/agricore-events.yaml`.
-- Payload keys are `camelCase`, ids are UUID strings, and every payload field a consumer reads is
-  locked by a producer-side contract test.
-- Adding an optional field is compatible. Renaming or removing one requires a new `.v2` type, with both
-  published until consumers move.
-- Topics are `agricore.<domain>.events`; dead letters are `<topic>.DLT`.
-- Payloads never carry credentials, tokens, or password hashes. Personal data is limited to what the
-  consumer needs, and the reason is written into the AsyncAPI channel description.
+- Typeface: Inter with system sans-serif fallback.
+- Page title: 28/36, weight 650–700.
+- Section title: 20/28, weight 650.
+- Card title: 16/24, weight 600.
+- Body: 14/22 desktop; 16/24 mobile forms.
+- Labels and table headers: 12/16, weight 600, modest letter spacing.
+- Codes, IDs, event references: `ui-monospace`, 12–13px.
+- Numeric quantities use tabular figures.
+- Locale: Vietnamese; dates `dd/MM/yyyy`; time `HH:mm`; decimal comma; explicit units such as `kg`, `ha`, `°C`, `%`, `pH`.
+- Preserve backend enum/code in secondary monospace text when it improves support and audit work.
 
-## Contract ownership
+## Layout
 
-- OpenAPI per service under `contracts/openapi/<service>.v1.yaml` is committed and kept truthful. When
-  controller and contract disagree, controller behavior is the truth and the contract is fixed.
-- A contract must not describe a consumer or producer that does not exist in code. If something is
-  reserved but unimplemented, say so in the description — `NotificationRequested.v1` is the worked
-  example.
-- Breaking changes bump the version in the path (`/api/v2/...`); otherwise changes stay
-  backward-compatible.
+### Desktop ≥ 1280px
 
-## Security defaults
+- 264px fixed sidebar; 64px top bar; content max-width 1600px.
+- Page padding 28–32px; section gap 24px; card padding 20–24px.
+- Twelve-column grid. Operational detail usually 8+4 columns.
+- Tables remain primary for pageable operational data; cards summarize or group actions.
 
-- Everything requires a bearer token except `/public/**` and `/.well-known/jwks.json`.
-- Domain services verify RS256 tokens locally against JWKS with issuer and audience checks — no
-  per-request network hop to identity.
-- Write endpoints are role-gated at the endpoint, not left to client discipline.
-- New configuration flags default to the safe value; an operator opts into risk explicitly.
+### Tablet 768–1279px
 
-## UI-facing expectations
+- Collapsible 72px icon rail; top bar preserves context and alerts.
+- Two-column layouts collapse to one when forms require more than 520px.
+- Tables use priority columns plus horizontal scroll; row actions remain reachable.
 
-No frontend lives in this repository yet. When one arrives it must generate its client from the
-committed OpenAPI contracts rather than hand-writing fetch wrappers, and it must render every state the
-API can produce — loading, empty, forbidden, conflict, and the async gap where a read model has not yet
-caught up with an event.
+### Mobile ≤ 767px
+
+- No desktop sidebar. Use top app bar and role-aware bottom navigation only for authenticated PWA concepts.
+- Public traceability is single-column at 390px, 16px padding, 44px minimum touch targets.
+- Tables transform into labeled record cards; no clipped identifiers.
+
+## Shared Application Shell
+
+Sidebar order:
+
+1. Tổng quan
+2. Vận hành: Trang trại & lô, Vụ canh tác, Công việc
+3. Chuỗi cung ứng: Thu hoạch, Kho & giữ hàng, Bán hàng
+4. Theo dõi: Cảm biến & cảnh báo, Truy xuất, Gửi thông báo
+5. Quản trị: Người dùng & vai trò, Công cụ vận hành
+
+Top bar contains breadcrumb, environment badge, global search affordance only when a real search API exists, notification shortcut, and account menu. Never expose a global search box that cannot return results.
+
+## Component Rules
+
+- Buttons: 40px desktop, 44px mobile; one primary per region. Destructive actions require confirmation.
+- Inputs: persistent label, helper/error slot, 40–44px height. Never use placeholder as the only label.
+- Status badge: compact rounded rectangle, not fully pill-shaped; icon + Vietnamese label + optional enum.
+- Tables: sticky header, row hover, checkbox only when batch actions exist, pagination footer, empty/error states within table frame.
+- Detail summary: use definition lists for IDs, dates, status, and ownership; use monospace copy affordance for UUID/event IDs.
+- Timeline/stepper: completed/current/future/failed are distinguishable by icon, label, time, and line style.
+- Toasts confirm transient success; persistent consequences use inline banners.
+- Loading: skeleton matching final geometry. Avoid full-page spinners after shell loads.
+- Permission: disabled control only when discovering the action is useful; otherwise hide it. Explain the required role in tooltip/help text.
+
+## Operational State Patterns
+
+- Async projection: amber inline banner, `Đang đồng bộ tồn kho và truy xuất`, retry guidance, no fake progress percentage.
+- Optimistic lock conflict: preserve form values, show `Dữ liệu đã thay đổi`, offer `Tải lại dữ liệu` before retry.
+- Sales saga failure: show terminal order body status even when HTTP status is 201; show compensation outcome separately.
+- IoT cooldown: `Không tạo cảnh báo mới` can coexist with an existing `OPEN` alert; never label the reading normal solely from `alertRaised=false`.
+- Traceability 404: `Chưa tìm thấy hoặc dữ liệu đang được đồng bộ`; allow retry and manual code entry.
+
+## Accessibility
+
+- Logical heading order and landmark regions.
+- Visible 2px focus ring using `#2E6E83` with 2px offset.
+- Keyboard-accessible menus, drawers, tabs, dialogs, tables, and timeline actions.
+- Form errors linked with `aria-describedby`; summary at form top after submit.
+- Icon-only controls always have accessible names.
+- Minimum target 44×44px on touch surfaces.
+- Respect reduced motion; transitions ≤180ms and never block work.
+
+## Content Language
+
+- Use direct Vietnamese verbs: `Tạo vụ canh tác`, `Giao việc`, `Hoàn tất thu hoạch`, `Giữ hàng`, `Xác nhận giữ hàng`.
+- Avoid success claims stronger than backend evidence. Render notification
+  status from `REQUESTED`, `DELIVERING`, `SENT`, or `FAILED`; use `Đang đồng bộ`
+  after harvest. For `DELIVERY_OUTCOME_UNKNOWN`, explain that automatic resend
+  is disabled because the external provider may already have accepted the
+  message; never label it unsent.
+- Error messages state what happened, the affected object, and the safe next step.
+- Preserve agricultural terms consistently: `Trang trại`, `Lô canh tác`, `Vụ canh tác`, `Công việc`, `Thu hoạch`, `Tồn kho`, `Giữ hàng`, `Truy xuất nguồn gốc`.
+
+## API-Dependent Future Views
+
+Do not implement authoritative list/history views for harvest, inventory items,
+reservations, customers, orders, IoT devices/readings/alerts, or projection
+delivery until matching endpoints exist. The Notification service now has a
+persisted, paged administrative in-app inbox plus a mark-read operation; it is
+not a general user-scoped notification center.
+
+## References
+
+- `docs/architecture/SYSTEM_ARCHITECTURE.md`
+- `docs/security/microservices-authz.md`
+- `contracts/openapi/*.yaml`

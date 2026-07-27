@@ -15,6 +15,8 @@
 
 ### Neutral
 
+## Trade-offs
+
 ## Alternatives considered
 
 ## References

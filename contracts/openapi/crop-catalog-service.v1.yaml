@@ -1,71 +1,540 @@
 openapi: 3.1.0
 info:
   title: AgriCore Crop Catalog Service API
-  version: 1.0.0
-  description: Crop types, varieties, and growth requirements
+  version: 1.4.0
+  description: Verified crop, variety, agronomic care knowledge, and optimistic management contract.
 servers:
   - url: http://localhost:8083
+    description: Direct local service endpoint
+security:
+  - bearerAuth: []
+tags:
+  - name: Crops
+  - name: Crop Varieties
+  - name: Crop Care
 paths:
   /api/v1/crops:
     get:
+      tags: [Crops]
+      operationId: listCrops
       summary: List crops
-      security:
-        - bearerAuth: []
       parameters:
         - in: query
-          name: page
-          schema: { type: integer, default: 0 }
+          name: category
+          required: false
+          description: Case-insensitive category code. When combined with q, both filters must match.
+          schema:
+            type: string
         - in: query
-          name: size
-          schema: { type: integer, default: 20 }
+          name: q
+          required: false
+          description: Case-insensitive crop-name search. When combined with category, both filters must match.
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
       responses:
         '200':
-          description: Paged crops
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+          description: Crops ordered by name.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /api/v1/crops/{cropId}:
+    parameters:
+      - $ref: '#/components/parameters/CropId'
     get:
-      summary: Get crop
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: cropId
-          required: true
-          schema: { type: string, format: uuid }
+      tags: [Crops]
+      operationId: getCrop
+      summary: Get a crop by identifier
       responses:
         '200':
-          description: Crop detail
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+          description: Crop found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/crops/by-code/{code}:
+    parameters:
+      - in: path
+        name: code
+        required: true
+        description: Case-insensitive crop code.
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 64
     get:
-      summary: Get crop by catalog code
-      description: Lookup is case-insensitive; codes are stored uppercase.
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: code
-          required: true
-          description: Catalog code such as RICE_ST25
-          schema: { type: string }
+      tags: [Crops]
+      operationId: getCropByCode
+      summary: Get a crop by code
       responses:
         '200':
-          description: Crop detail
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+          description: Crop found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/crops/{cropId}/varieties:
+    parameters:
+      - $ref: '#/components/parameters/CropId'
+    get:
+      tags: [Crop Varieties]
+      operationId: listCropVarieties
+      summary: List varieties for one crop
+      parameters:
+        - in: query
+          name: q
+          required: false
+          description: Case-insensitive variety name or code search.
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Crop-scoped varieties ordered by name and identifier.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropVarietyPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/crops/{cropId}/care-profile:
+    parameters:
+      - $ref: '#/components/parameters/CropId'
+    get:
+      tags: [Crop Care]
+      operationId: getCropCareProfile
+      summary: Get agronomic care knowledge for one crop
+      description: >-
+        Returns crop-scoped irrigation and fertilization cycles, common diseases, and ordered care
+        recommendations. A newly managed crop can temporarily have a null growth requirement and empty lists.
+      responses:
+        '200':
+          description: Crop care profile found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropCareProfileResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/admin/crops/{cropId}/care-profile:
+    parameters:
+      - $ref: '#/components/parameters/CropId'
+    put:
+      tags: [Crop Care]
+      operationId: replaceCropCareProfile
+      summary: Replace agronomic care knowledge for one crop
+      description: >-
+        Atomically replaces the growth requirement, diseases, and recommendations. Existing child identifiers
+        are preserved by disease code and recommendation title. The caller must provide the latest profile version.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceCropCareProfileRequest'
+      responses:
+        '200':
+          description: Updated profile with its next optimistic version and audit actor.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropCareProfileResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+  /api/v1/crop-varieties/{varietyId}:
+    parameters:
+      - $ref: '#/components/parameters/VarietyId'
+    get:
+      tags: [Crop Varieties]
+      operationId: getCropVariety
+      summary: Get a crop variety by identifier
+      responses:
+        '200':
+          description: Crop variety found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropVarietyResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  parameters:
+    CropId:
+      in: path
+      name: cropId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    VarietyId:
+      in: path
+      name: varietyId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Page:
+      in: query
+      name: page
+      description: Zero-based page index.
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+        default: 0
+    Size:
+      in: query
+      name: size
+      description: Number of records per page; values outside 1 through 100 are rejected.
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 100
+        default: 20
+  responses:
+    BadRequest:
+      description: Invalid pagination or request parameter.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Unauthorized:
+      description: Authentication is required or the bearer token is invalid.
+    Forbidden:
+      description: The authenticated user lacks catalog-management authority.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotFound:
+      description: Crop or crop variety not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Conflict:
+      description: The supplied crop care profile version is stale or a concurrent update won.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    UnsupportedMediaType:
+      description: Content-Type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotAcceptable:
+      description: The requested response media type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Gone:
+      description: The requested resource or replay window is no longer available.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    PayloadTooLarge:
+      description: The request body exceeds the supported size.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Locked:
+      description: The resource is temporarily locked by an in-progress operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    RateLimitExceeded:
+      description: The caller exceeded an enforced request or concurrency limit.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    InternalServerError:
+      description: The service could not complete the request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    BadGateway:
+      description: An upstream dependency returned an invalid response.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    ServiceUnavailable:
+      description: The service or a required dependency is temporarily unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
   schemas:
+    CropResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - code
+        - name
+        - scientificName
+        - category
+        - growthDaysMin
+        - growthDaysMax
+        - tempMinC
+        - tempMaxC
+        - humidityMinPct
+        - humidityMaxPct
+        - phMin
+        - phMax
+        - expectedYieldPerHa
+        - yieldUnit
+        - description
+        - createdAt
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string, maxLength: 64 }
+        name: { type: string, maxLength: 200 }
+        scientificName: { type: [string, 'null'], maxLength: 200 }
+        category: { type: string, maxLength: 100 }
+        growthDaysMin: { type: [integer, 'null'], format: int32 }
+        growthDaysMax: { type: [integer, 'null'], format: int32 }
+        tempMinC: { type: [number, 'null'] }
+        tempMaxC: { type: [number, 'null'] }
+        humidityMinPct: { type: [number, 'null'] }
+        humidityMaxPct: { type: [number, 'null'] }
+        phMin: { type: [number, 'null'] }
+        phMax: { type: [number, 'null'] }
+        expectedYieldPerHa: { type: [number, 'null'] }
+        yieldUnit: { type: [string, 'null'], maxLength: 32 }
+        description: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+    CropPageResponse:
+      type: object
+      additionalProperties: false
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/CropResponse'
+        page: { type: integer, format: int32, minimum: 0 }
+        size: { type: integer, format: int32, minimum: 1, maximum: 100 }
+        totalElements: { type: integer, format: int64, minimum: 0 }
+        totalPages: { type: integer, format: int32, minimum: 0 }
+        first: { type: boolean }
+        last: { type: boolean }
+    CropVarietyResponse:
+      type: object
+      additionalProperties: false
+      required: [id, cropId, code, name, origin, notes, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        cropId: { type: string, format: uuid }
+        code: { type: string, minLength: 1, maxLength: 64 }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        origin: { type: [string, 'null'], maxLength: 200 }
+        notes: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+    CropVarietyPageResponse:
+      type: object
+      additionalProperties: false
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/CropVarietyResponse'
+        page: { type: integer, format: int32, minimum: 0 }
+        size: { type: integer, format: int32, minimum: 1, maximum: 100 }
+        totalElements: { type: integer, format: int64, minimum: 0 }
+        totalPages: { type: integer, format: int32, minimum: 0 }
+        first: { type: boolean }
+        last: { type: boolean }
+    CropCareProfileResponse:
+      type: object
+      additionalProperties: false
+      required: [cropId, growthRequirement, commonDiseases, recommendations]
+      properties:
+        cropId: { type: string, format: uuid }
+        growthRequirement:
+          oneOf:
+            - $ref: '#/components/schemas/GrowthRequirementResponse'
+            - type: 'null'
+        commonDiseases:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommonDiseaseResponse'
+        recommendations:
+          type: array
+          items:
+            $ref: '#/components/schemas/CareRecommendationResponse'
+    GrowthRequirementResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - irrigationIntervalDaysMin
+        - irrigationIntervalDaysMax
+        - fertilizationIntervalDaysMin
+        - fertilizationIntervalDaysMax
+        - waterRequirementMmPerWeek
+        - notes
+        - updatedAt
+        - version
+        - updatedBy
+      properties:
+        irrigationIntervalDaysMin: { type: integer, format: int32, minimum: 1 }
+        irrigationIntervalDaysMax: { type: integer, format: int32, minimum: 1 }
+        fertilizationIntervalDaysMin: { type: integer, format: int32, minimum: 1 }
+        fertilizationIntervalDaysMax: { type: integer, format: int32, minimum: 1 }
+        waterRequirementMmPerWeek: { type: number, minimum: 0 }
+        notes: { type: [string, 'null'] }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, format: int64, minimum: 0 }
+        updatedBy: { type: string, minLength: 1, maxLength: 255 }
+    CommonDiseaseResponse:
+      type: object
+      additionalProperties: false
+      required: [id, code, name, symptoms, prevention, treatment, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string, minLength: 1, maxLength: 64 }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        symptoms: { type: string, minLength: 1 }
+        prevention: { type: string, minLength: 1 }
+        treatment: { type: string, minLength: 1 }
+        createdAt: { type: string, format: date-time }
+    CareRecommendationResponse:
+      type: object
+      additionalProperties: false
+      required: [id, category, title, description, growthStage, sortOrder, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        category:
+          type: string
+          enum: [IRRIGATION, FERTILIZATION, PEST_MANAGEMENT, PRUNING, HARVEST, SOIL]
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, minLength: 1 }
+        growthStage: { type: [string, 'null'], maxLength: 64 }
+        sortOrder: { type: integer, format: int32, minimum: 0 }
+        createdAt: { type: string, format: date-time }
+    ReplaceCropCareProfileRequest:
+      type: object
+      additionalProperties: false
+      required: [version, growthRequirement, commonDiseases, recommendations]
+      properties:
+        version: { type: integer, format: int64, minimum: 0 }
+        growthRequirement:
+          $ref: '#/components/schemas/GrowthRequirementInput'
+        commonDiseases:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/CommonDiseaseInput'
+        recommendations:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/CareRecommendationInput'
+    GrowthRequirementInput:
+      type: object
+      additionalProperties: false
+      required:
+        - irrigationIntervalDaysMin
+        - irrigationIntervalDaysMax
+        - fertilizationIntervalDaysMin
+        - fertilizationIntervalDaysMax
+        - waterRequirementMmPerWeek
+      properties:
+        irrigationIntervalDaysMin: { type: integer, format: int32, minimum: 1, maximum: 3650 }
+        irrigationIntervalDaysMax: { type: integer, format: int32, minimum: 1, maximum: 3650 }
+        fertilizationIntervalDaysMin: { type: integer, format: int32, minimum: 1, maximum: 3650 }
+        fertilizationIntervalDaysMax: { type: integer, format: int32, minimum: 1, maximum: 3650 }
+        waterRequirementMmPerWeek: { type: number, minimum: 0, maximum: 1000 }
+        notes: { type: [string, 'null'], maxLength: 4000 }
+    CommonDiseaseInput:
+      type: object
+      additionalProperties: false
+      required: [code, name, symptoms, prevention, treatment]
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: '^[A-Z][A-Z0-9_]*$'
+        name: { type: string, minLength: 1, maxLength: 200 }
+        symptoms: { type: string, minLength: 1, maxLength: 4000 }
+        prevention: { type: string, minLength: 1, maxLength: 4000 }
+        treatment: { type: string, minLength: 1, maxLength: 4000 }
+    CareRecommendationInput:
+      type: object
+      additionalProperties: false
+      required: [category, title, description, sortOrder]
+      properties:
+        category:
+          type: string
+          enum: [IRRIGATION, FERTILIZATION, PEST_MANAGEMENT, PRUNING, HARVEST, SOIL]
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, minLength: 1, maxLength: 4000 }
+        growthStage:
+          type: [string, 'null']
+          maxLength: 64
+          pattern: '^[A-Z][A-Z0-9_]*$'
+        sortOrder: { type: integer, format: int32, minimum: 0 }
     ApiError:
       type: object
       description: |
@@ -90,30 +559,13 @@ components:
             properties:
               field: { type: string }
               message: { type: string }
-              rejectedValue: { description: Whatever the caller sent; untyped by design }
         details:
           type: object
           additionalProperties: true
-  responses:
-    NotFound:
-      description: No such resource. The code is service-specific.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    Unauthorized:
-      description: |
-        Bearer credential missing, expired, or invalid. Produced by the security filter chain
-        before the DispatcherServlet, so this is the one error on the platform that is NOT
-        ApiError-shaped and carries no body.
-    UnexpectedError:
-      description: Any other failure, including 500 INTERNAL_ERROR and 405 METHOD_NOT_ALLOWED.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    ValidationFailed:
-      description: |
-        Request body failed validation (code VALIDATION_FAILED, with violations populated), or a
-        path variable or query parameter would not convert (code INVALID_PARAMETER).
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
+    FieldViolation:
+      type: object
+      additionalProperties: false
+      required: [field, message]
+      properties:
+        field: { type: string }
+        message: { type: string }

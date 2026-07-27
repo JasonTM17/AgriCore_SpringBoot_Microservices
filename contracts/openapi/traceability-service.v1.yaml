@@ -1,69 +1,222 @@
 openapi: 3.1.0
 info:
   title: AgriCore Traceability Service API
-  version: 1.0.0
-  description: Local read model + public QR lookup (no secrets/staff costs)
+  version: 1.5.0
+  description: Verified public-safe traceability lookup, QR image, and protected projection acknowledgement contract. Projection writes are owned by the HarvestCompleted.v1 event boundary.
 servers:
   - url: http://localhost:8092
+    description: Direct local service endpoint
+security:
+  - bearerAuth: []
+tags:
+  - name: Public Traceability
+  - name: Traceability Projection
 paths:
   /public/api/v1/traceability/{traceabilityCode}:
+    parameters:
+      - in: path
+        name: traceabilityCode
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 64
     get:
-      summary: Public product origin lookup
-      parameters:
-        - in: path
-          name: traceabilityCode
-          required: true
-          schema: { type: string }
+      tags: [Public Traceability]
+      operationId: getPublicTraceability
+      summary: Look up public product origin information
+      description: Returns only public-safe fields; no internal identifiers, staff data, costs, or secrets.
+      security: []
       responses:
         '200':
-          description: Public-safe fields only
+          description: Public traceability projection found.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublicTraceabilityResponse'
-        '404': { $ref: '#/components/responses/NotFound' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
-  /api/v1/traceability/batches:
-    post:
-      summary: Internal projection writer (also fed by Kafka HarvestCompleted)
-      security:
-        - bearerAuth: []
-      requestBody:
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /public/api/v1/traceability/{traceabilityCode}/qr:
+    parameters:
+      - in: path
+        name: traceabilityCode
         required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [eventId, harvestBatchId, productName, harvestDate]
-              properties:
-                eventId: { type: string }
-                harvestBatchId: { type: string, format: uuid }
-                cropCycleId: { type: string, format: uuid }
-                plotId: { type: string, format: uuid }
-                farmName: { type: string }
-                plotCode: { type: string }
-                productName: { type: string }
-                varietyName: { type: string }
-                plantingDate: { type: string, format: date }
-                harvestDate: { type: string, format: date }
-                qualityGrade: { type: string }
-                netWeightKg: { type: number }
-                careSummary: { type: string }
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 64
+    get:
+      tags: [Public Traceability]
+      operationId: getPublicTraceabilityQrCode
+      summary: Render a traceability URL as a QR image
+      security: []
       responses:
-        '201':
-          description: Created
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '409': { $ref: '#/components/responses/Conflict' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+        '200':
+          description: Scannable PNG containing the canonical public traceability URL.
+          headers:
+            Cache-Control:
+              schema: { type: string }
+          content:
+            image/png:
+              schema: { type: string, format: binary }
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/traceability/events/harvest-completed/{eventId}/acknowledgement:
+    get:
+      tags: [Traceability Projection]
+      operationId: getTraceabilityHarvestProjectionAcknowledgement
+      summary: Read traceability acknowledgement for a harvest event
+      description: Marker absence means traceability has not acknowledged the event; it does not prove failure or DLT routing.
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Current traceability consumer acknowledgement state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraceabilityHarvestProjectionAcknowledgementResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  responses:
+    BadRequest:
+      description: The request is malformed, invalid, or fails validation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Unauthorized:
+      description: Bearer credential missing, expired, or invalid. The security filter chain may return this response without a body.
+    Forbidden:
+      description: Authenticated, but missing the required role or permission.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotFound:
+      description: The requested resource does not exist or is not visible to the caller.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotAcceptable:
+      description: The requested response media type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Conflict:
+      description: The request conflicts with existing resource or domain state.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Gone:
+      description: The requested resource or replay window is no longer available.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    PayloadTooLarge:
+      description: The request body exceeds the supported size.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    UnsupportedMediaType:
+      description: The request Content-Type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Locked:
+      description: The resource is temporarily locked by an in-progress operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    RateLimitExceeded:
+      description: The caller exceeded an enforced request or concurrency limit.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    InternalServerError:
+      description: The service could not complete the request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    BadGateway:
+      description: An upstream dependency returned an invalid response.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    ServiceUnavailable:
+      description: The service or a required dependency is temporarily unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
   schemas:
+    TraceabilityHarvestProjectionAcknowledgementResponse:
+      type: object
+      additionalProperties: false
+      required: [eventId, projection, state, acknowledgedAt]
+      properties:
+        eventId: { type: string, format: uuid }
+        projection: { type: string, enum: [TRACEABILITY] }
+        state: { type: string, enum: [ACKNOWLEDGED, NOT_ACKNOWLEDGED] }
+        acknowledgedAt: { type: [string, 'null'], format: date-time }
+    PublicTraceabilityResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - traceabilityCode
+        - productName
+        - varietyName
+        - farmName
+        - plotCode
+        - productCode
+        - plantingDate
+        - harvestDate
+        - qualityGrade
+        - grossWeightKg
+        - netWeightKg
+        - careSummary
+        - qrUrl
+        - qrImageUrl
+        - batchLabel
+      properties:
+        traceabilityCode: { type: string, maxLength: 64 }
+        productName: { type: string, maxLength: 200 }
+        varietyName: { type: [string, 'null'], maxLength: 200 }
+        farmName: { type: [string, 'null'], maxLength: 200 }
+        plotCode: { type: [string, 'null'], maxLength: 64 }
+        productCode: { type: [string, 'null'], maxLength: 64 }
+        plantingDate: { type: [string, 'null'], format: date }
+        harvestDate: { type: string, format: date }
+        qualityGrade: { type: [string, 'null'], maxLength: 32 }
+        grossWeightKg: { type: [number, 'null'], minimum: 0.001 }
+        netWeightKg: { type: [number, 'null'] }
+        careSummary: { type: [string, 'null'] }
+        qrUrl: { type: string, maxLength: 500 }
+        qrImageUrl: { type: string, maxLength: 503 }
+        batchLabel: { type: string }
     ApiError:
       type: object
       description: |
@@ -88,57 +241,6 @@ components:
             properties:
               field: { type: string }
               message: { type: string }
-              rejectedValue: { description: Whatever the caller sent; untyped by design }
         details:
           type: object
           additionalProperties: true
-    PublicTraceabilityResponse:
-      type: object
-      properties:
-        traceabilityCode: { type: string }
-        productName: { type: string }
-        varietyName: { type: string }
-        farmName: { type: string }
-        plotCode: { type: string }
-        plantingDate: { type: string, format: date }
-        harvestDate: { type: string, format: date }
-        qualityGrade: { type: string }
-        netWeightKg: { type: number }
-        careSummary: { type: string }
-        qrUrl: { type: string }
-        batchLabel: { type: string }
-  responses:
-    Conflict:
-      description: |
-        The request collides with existing state. A losing race on a unique index reports
-        DUPLICATE_RESOURCE; services also use 409 for their own domain conflicts.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    Forbidden:
-      description: Authenticated but lacking the required role (code ACCESS_DENIED).
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    NotFound:
-      description: No such resource. The code is service-specific.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    Unauthorized:
-      description: |
-        Bearer credential missing, expired, or invalid. Produced by the security filter chain
-        before the DispatcherServlet, so this is the one error on the platform that is NOT
-        ApiError-shaped and carries no body.
-    UnexpectedError:
-      description: Any other failure, including 500 INTERNAL_ERROR and 405 METHOD_NOT_ALLOWED.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    ValidationFailed:
-      description: |
-        Request body failed validation (code VALIDATION_FAILED, with violations populated), or a
-        path variable or query parameter would not convert (code INVALID_PARAMETER).
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }

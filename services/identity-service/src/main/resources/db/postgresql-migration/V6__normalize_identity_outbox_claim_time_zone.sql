@@ -1,0 +1,3 @@
+ALTER TABLE outbox_events
+    ALTER COLUMN claim_until TYPE TIMESTAMP WITH TIME ZONE
+    USING claim_until AT TIME ZONE 'UTC';

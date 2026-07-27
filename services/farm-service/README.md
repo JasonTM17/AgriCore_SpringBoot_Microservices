@@ -1,62 +1,42 @@
-# farm-service
+# Farm Service
 
 ## Purpose
 
-Owns farms and their plots — the physical geography every downstream domain references. Called by
-the gateway; publishes farm/plot events for other services. Calls no other AgriCore service.
+Owns enterprises, farms, areas, plots, soil profiles, irrigation zones, and
+subject-to-farm memberships. It is the authoritative farm/plot scope service
+for downstream applications and publishes farm/plot lifecycle events through a
+transactional outbox.
 
-## API surface
+## API and events
 
-- `POST /api/v1/farms` — create a farm
-- `GET /api/v1/farms` — list farms
-- `GET /api/v1/farms/{farmId}` — farm detail
-- `PATCH /api/v1/farms/{farmId}` — update a farm
-- `POST /api/v1/farms/{farmId}/plots` — add a plot to a farm
-- `GET /api/v1/farms/{farmId}/plots` — list a farm's plots
-- `GET /api/v1/plots/{plotId}` — plot detail
-- `PATCH /api/v1/plots/{plotId}` — update plot (including status)
-- Contract: `contracts/openapi/farm-service.v1.yaml`
-- Events published: `FarmCreated.v1`, `PlotCreated.v1`, `PlotStatusChanged.v1` → `agricore.farm.events`
-- Events consumed: none
+The [OpenAPI contract](../../contracts/openapi/farm-service.v1.yaml) covers:
 
-## Env vars
+- `/api/v1/enterprises` and `/api/v1/farms`;
+- farm areas and plots;
+- plot soil profiles and irrigation zones;
+- farm memberships, including protected create/delete boundaries.
 
-| Name | Required | Default | Description |
-|------|----------|---------|-------------|
-| `FARM_PORT` | no | `8082` | HTTP listen port |
-| `POSTGRES_HOST` | no | `localhost` | Database host |
-| `POSTGRES_PORT` | no | `5434` | Database port |
-| `POSTGRES_USER` | no | `agricore` | Database user |
-| `POSTGRES_PASSWORD` | yes in prod | dev value | Database password |
-| `KAFKA_BOOTSTRAP_SERVERS` | no | `localhost:9092` | Broker for the outbox publisher |
-| `JWT_ISSUER` | no | `https://agricore.local/identity` | Expected `iss` claim |
-| `IDENTITY_JWKS_URI` | no | identity JWKS URL | Key source for local token verification |
-| `AGRICORE_DEV_MODE` | no | `false` | Dev shortcuts; keep `false` outside local work |
+Published to `agricore.farm.events`: `FarmCreated.v1`, `PlotCreated.v1`, and
+`PlotStatusChanged.v1`. The creator receives the initial farm membership;
+membership uniqueness and last-membership rules are database-backed.
 
-Database: `agricore_farm` (own schema, Flyway-managed).
+## Configuration
 
-## Run locally
+Database: `agricore_farm`. Core variables are `FARM_PORT`, `POSTGRES_*`,
+`KAFKA_BOOTSTRAP_SERVERS`, `IDENTITY_JWKS_URI`, `JWT_ISSUER`, and
+`AGRICORE_DEV_MODE`.
 
-```bash
-./scripts/dev-up.sh
-mvn -pl services/farm-service spring-boot:run
-```
-
-## Test
+## Run and verify
 
 ```bash
 ./mvnw -B -pl services/farm-service -am test
-./mvnw -B -pl services/farm-service -am verify   # adds the JaCoCo report
+./mvnw -pl services/farm-service spring-boot:run
 ```
 
-Covers farm/plot rules and the outbox rows written on create/status change. Target once coverage
-gating is enforced: ≥ 70% lines / ≥ 65% branches.
+- A missing or inaccessible plot is intentionally masked as `404`.
+- Event backlog: inspect unpublished `outbox_events` and `last_error`.
+- Never repair downstream farm scope by cross-service SQL; use the owning API
+  or an explicitly reviewed data migration.
 
-## Runbook
-
-- **Events not arriving downstream** — inspect `outbox_events` for `published_at IS NULL`; the
-  polling publisher logs `last_error` per row. Publisher is disabled when
-  `agricore.outbox.publisher.enabled=false`.
-- **Reset local data** — drop and recreate the `agricore_farm` database, then restart; Flyway replays migrations.
-- **Drain and restart** — plot/farm writes are short transactions; a rolling restart needs no draining,
-  and unpublished outbox rows are picked up after boot.
+See the [authorization model](../../docs/security/microservices-authz.md) and
+[AsyncAPI](../../contracts/asyncapi/agricore-events.yaml).

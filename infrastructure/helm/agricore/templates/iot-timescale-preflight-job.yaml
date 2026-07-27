@@ -1,0 +1,90 @@
+{{- if and .Values.iot.enabled (not .Values.iot.timescalePreflight.unsafeSkip) }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: agricore-iot-timescale-preflight
+  labels:
+    app.kubernetes.io/name: agricore-iot-timescale-preflight
+    app.kubernetes.io/part-of: agricore
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+    helm.sh/hook-weight: "-4"
+spec:
+  activeDeadlineSeconds: {{ .Values.iot.timescalePreflight.activeDeadlineSeconds }}
+  backoffLimit: {{ .Values.iot.timescalePreflight.backoffLimit }}
+  ttlSecondsAfterFinished: {{ .Values.iot.timescalePreflight.ttlSecondsAfterFinished }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: agricore-iot-timescale-preflight
+        app.kubernetes.io/part-of: agricore
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70
+        runAsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: verify
+          image: {{ .Values.iot.timescalePreflight.image | quote }}
+          imagePullPolicy: {{ .Values.iot.timescalePreflight.imagePullPolicy }}
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              attempt=1
+              until pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE"; do
+                if [ "$attempt" -ge "$PREFLIGHT_MAX_ATTEMPTS" ]; then
+                  echo "IoT database did not become ready after $attempt attempts" >&2
+                  exit 1
+                fi
+                attempt=$((attempt + 1))
+                sleep "$PREFLIGHT_RETRY_SECONDS"
+              done
+
+              extension_version="$(
+                psql -v ON_ERROR_STOP=1 -Atc \
+                  "SELECT extversion FROM pg_extension WHERE extname = 'timescaledb'"
+              )"
+              if [ -z "$extension_version" ]; then
+                echo "TimescaleDB extension is not installed in database $PGDATABASE" >&2
+                exit 1
+              fi
+              echo "TimescaleDB $extension_version is installed in database $PGDATABASE"
+          env:
+            - name: PGHOST
+              value: {{ .Values.postgres.host | quote }}
+            - name: PGPORT
+              value: {{ .Values.postgres.port | quote }}
+            - name: PGDATABASE
+              value: {{ .Values.iot.timescalePreflight.database | quote }}
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "agricore.iotTimescalePreflight.secretName" . | quote }}
+                  key: {{ .Values.iot.timescalePreflight.usernameKey | quote }}
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "agricore.iotTimescalePreflight.secretName" . | quote }}
+                  key: {{ .Values.iot.timescalePreflight.passwordKey | quote }}
+            - name: PREFLIGHT_MAX_ATTEMPTS
+              value: {{ .Values.iot.timescalePreflight.maxAttempts | quote }}
+            - name: PREFLIGHT_RETRY_SECONDS
+              value: {{ .Values.iot.timescalePreflight.retrySeconds | quote }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 16Mi
+{{- end }}

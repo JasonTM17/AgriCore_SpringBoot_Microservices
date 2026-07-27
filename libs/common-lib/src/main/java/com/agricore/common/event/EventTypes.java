@@ -42,9 +42,9 @@ public final class EventTypes {
     public static final String SALES_ORDER_CONFIRMED = "SalesOrderConfirmed.v1";
     public static final String SALES_ORDER_CANCELLED = "SalesOrderCancelled.v1";
 
-    public static final String NOTIFICATION_REQUESTED = "NotificationRequested.v1";
-    public static final String NOTIFICATION_SENT = "NotificationSent.v1";
-    public static final String NOTIFICATION_FAILED = "NotificationFailed.v1";
+    public static final String NOTIFICATION_REQUESTED = "NotificationRequested.v2";
+    public static final String NOTIFICATION_SENT = "NotificationSent.v2";
+    public static final String NOTIFICATION_FAILED = "NotificationFailed.v2";
 
     public static final String USER_REGISTERED = "UserRegistered.v1";
 

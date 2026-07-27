@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agricore.local/schemas/UserRegistered.v1.json",
+  "title": "UserRegistered.v1",
+  "allOf": [
+    { "$ref": "DomainEventEnvelope.v1.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "UserRegistered.v1" },
+        "eventVersion": { "const": 1 },
+        "producer": { "const": "identity-service" },
+        "payload": {
+          "type": "object",
+          "required": ["userId", "email", "fullName", "roles", "registeredAt"],
+          "properties": {
+            "userId": { "type": "string", "format": "uuid" },
+            "email": {
+              "type": "string",
+              "format": "email",
+              "minLength": 3,
+              "maxLength": 320
+            },
+            "fullName": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "roles": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 16,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+              }
+            },
+            "registeredAt": { "type": "string", "format": "date-time" }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}

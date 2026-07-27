@@ -13,6 +13,20 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+    locations: classpath:db/migration/common,classpath:db/migration/{vendor}
+    postgresql:
+      transactional-lock: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+        max.block.ms: ${KAFKA_PRODUCER_MAX_BLOCK_MS:5000}
+        request.timeout.ms: ${KAFKA_PRODUCER_REQUEST_TIMEOUT_MS:5000}
+        delivery.timeout.ms: ${KAFKA_PRODUCER_DELIVERY_TIMEOUT_MS:10000}
 management:
   endpoints:
     web:
@@ -22,10 +36,51 @@ management:
     health:
       probes:
         enabled: true
+      group:
+        readiness:
+          include: readinessState,mqtt
 agricore:
+  mqtt:
+    enabled: ${IOT_MQTT_ENABLED:false}
+    broker: ${IOT_MQTT_BROKER:tcp://localhost:1883}
+    allow-insecure: ${IOT_MQTT_ALLOW_INSECURE:false}
+    client-id: ${IOT_MQTT_CLIENT_ID:agricore-iot-service}
+    topic: ${IOT_MQTT_TOPIC:agricore/telemetry/+/reading}
+    qos: ${IOT_MQTT_QOS:1}
+    connection-timeout-seconds: ${IOT_MQTT_CONNECTION_TIMEOUT_SECONDS:5}
+    reconnect-delay-seconds: ${IOT_MQTT_RECONNECT_DELAY_SECONDS:10}
+    max-reading-age: ${IOT_MQTT_MAX_READING_AGE:P30D}
+    max-future-skew: ${IOT_MQTT_MAX_FUTURE_SKEW:PT5M}
+    ingress:
+      rate-per-second: ${IOT_MQTT_RATE_PER_SECOND:10}
+      burst-capacity: ${IOT_MQTT_BURST_CAPACITY:16}
+      max-in-flight-per-device: ${IOT_MQTT_MAX_IN_FLIGHT_PER_DEVICE:4}
+      tracked-device-capacity: ${IOT_MQTT_TRACKED_DEVICE_CAPACITY:10000}
+      device-idle-ttl: ${IOT_MQTT_DEVICE_IDLE_TTL:PT10M}
+    username: ${IOT_MQTT_USERNAME:}
+    password: ${IOT_MQTT_PASSWORD:}
   security:
     issuer: ${JWT_ISSUER:https://agricore.local/identity}
     jwk-set-uri: ${IDENTITY_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
     dev-mode: ${AGRICORE_DEV_MODE:false}
+  farm-access:
+    base-url: ${FARM_SERVICE_URL:http://localhost:8082}
+    allowed-hosts: ${FARM_SERVICE_ALLOWED_HOSTS:localhost,127.0.0.1,::1,farm-service}
+    allow-insecure-http: ${FARM_SERVICE_ALLOW_INSECURE_HTTP:false}
   alert:
     cooldown-minutes: ${IOT_ALERT_COOLDOWN_MINUTES:15}
+  device:
+    offline-detection:
+      enabled: ${IOT_OFFLINE_DETECTION_ENABLED:true}
+      poll-ms: ${IOT_OFFLINE_DETECTION_POLL_MS:60000}
+      offline-after: ${IOT_OFFLINE_AFTER:15m}
+  outbox:
+    publisher:
+      enabled: true
+      poll-ms: 1000
+      send-timeout-ms: ${OUTBOX_PUBLISHER_SEND_TIMEOUT_MS:10000}
+      retry:
+        write-state-enabled: ${OUTBOX_PUBLISHER_RETRY_WRITE_STATE_ENABLED:false}
+        base-delay-ms: ${OUTBOX_PUBLISHER_RETRY_BASE_DELAY_MS:1000}
+        max-delay-ms: ${OUTBOX_PUBLISHER_RETRY_MAX_DELAY_MS:60000}
+        max-attempts: ${OUTBOX_PUBLISHER_MAX_ATTEMPTS:10}

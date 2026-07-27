@@ -13,6 +13,8 @@ public class StockMovementEntity {
     private UUID id;
     @Column(name = "inventory_item_id", nullable = false)
     private UUID inventoryItemId;
+    @Column(name = "batch_id")
+    private UUID batchId;
     @Enumerated(EnumType.STRING)
     @Column(name = "movement_type", nullable = false, length = 32)
     private MovementType movementType;
@@ -31,6 +33,8 @@ public class StockMovementEntity {
     public void setId(UUID id) { this.id = id; }
     public UUID getInventoryItemId() { return inventoryItemId; }
     public void setInventoryItemId(UUID inventoryItemId) { this.inventoryItemId = inventoryItemId; }
+    public UUID getBatchId() { return batchId; }
+    public void setBatchId(UUID batchId) { this.batchId = batchId; }
     public MovementType getMovementType() { return movementType; }
     public void setMovementType(MovementType movementType) { this.movementType = movementType; }
     public BigDecimal getQuantity() { return quantity; }

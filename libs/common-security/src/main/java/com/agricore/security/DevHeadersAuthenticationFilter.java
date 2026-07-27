@@ -11,7 +11,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * ONLY active when agricore.security.dev-mode=true.
@@ -35,10 +37,18 @@ public class DevHeadersAuthenticationFilter extends OncePerRequestFilter {
             String user = request.getHeader("X-Dev-User");
             String roles = request.getHeader("X-Dev-Roles");
             if (user != null && roles != null && !roles.isBlank()) {
-                List<SimpleGrantedAuthority> authorities = Arrays.stream(roles.split(","))
-                        .map(String::trim)
-                        .filter(s -> !s.isEmpty())
-                        .map(r -> new SimpleGrantedAuthority("ROLE_" + r))
+                List<String> roleNames = split(roles);
+                String explicitPermissions = request.getHeader("X-Dev-Permissions");
+                Collection<String> permissionNames = explicitPermissions == null
+                        ? DevRolePermissionCatalog.resolve(roleNames)
+                        : split(explicitPermissions);
+                List<SimpleGrantedAuthority> authorities = Stream.concat(
+                                roleNames.stream().map(role -> "ROLE_" + role),
+                                permissionNames.stream().map(permission -> "PERMISSION_" + permission)
+                        )
+                        .distinct()
+                        .sorted()
+                        .map(SimpleGrantedAuthority::new)
                         .toList();
                 SecurityContextHolder.getContext().setAuthentication(
                         new UsernamePasswordAuthenticationToken(user, null, authorities)
@@ -46,5 +56,13 @@ public class DevHeadersAuthenticationFilter extends OncePerRequestFilter {
             }
         }
         filterChain.doFilter(request, response);
+    }
+
+    private static List<String> split(String raw) {
+        return Arrays.stream(raw.split(","))
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .distinct()
+                .toList();
     }
 }

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agricore.local/schemas/SalesOrderConfirmed.v1.json",
+  "title": "SalesOrderConfirmed.v1",
+  "allOf": [
+    { "$ref": "DomainEventEnvelope.v1.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "SalesOrderConfirmed.v1" },
+        "eventVersion": { "const": 1 },
+        "producer": { "const": "sales-service" },
+        "payload": {
+          "type": "object",
+          "required": ["salesOrderId", "orderNumber", "customerId", "inventoryItemId", "quantity", "status", "reservationId", "confirmedAt"],
+          "properties": {
+            "salesOrderId": { "type": "string", "format": "uuid" },
+            "orderNumber": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "customerId": { "type": "string", "format": "uuid" },
+            "inventoryItemId": { "type": "string", "format": "uuid" },
+            "quantity": { "type": "number", "exclusiveMinimum": 0 },
+            "status": { "const": "CONFIRMED" },
+            "reservationId": { "type": "string", "format": "uuid" },
+            "confirmedAt": { "type": "string", "format": "date-time" }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}

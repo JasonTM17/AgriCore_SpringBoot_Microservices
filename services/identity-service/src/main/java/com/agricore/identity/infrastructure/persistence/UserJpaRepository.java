@@ -1,7 +1,9 @@
 package com.agricore.identity.infrastructure.persistence;
 
 import com.agricore.identity.infrastructure.persistence.entity.UserEntity;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -10,8 +12,22 @@ import java.util.UUID;
 
 public interface UserJpaRepository extends JpaRepository<UserEntity, UUID> {
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT u FROM UserEntity u WHERE u.id = :userId")
+    Optional<UserEntity> findByIdForUpdate(@Param("userId") UUID userId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT u FROM UserEntity u WHERE LOWER(u.email) = LOWER(:email)")
     Optional<UserEntity> findByEmailIgnoreCase(@Param("email") String email);
 
     boolean existsByEmailIgnoreCase(String email);
+
+    @Query("""
+            SELECT COUNT(DISTINCT user)
+            FROM UserEntity user
+            JOIN user.roles role
+            WHERE user.status = com.agricore.identity.domain.model.UserStatus.ACTIVE
+              AND role.code = :roleCode
+            """)
+    long countActiveUsersByRoleCode(@Param("roleCode") String roleCode);
 }

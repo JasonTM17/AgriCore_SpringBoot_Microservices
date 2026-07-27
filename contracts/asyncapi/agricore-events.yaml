@@ -2,48 +2,418 @@ asyncapi: 3.0.0
 info:
   title: AgriCore Domain Events
   version: 0.1.0
-  description: Kafka topics for AgriCore microservices
+  description: |
+    Kafka contracts for the events currently emitted by AgriCore transactional
+    outbox producers. The implemented scope is 29 events on the farm,
+    crop-cycle, work, inventory, harvest, IoT, traceability, sales, and notification topics. Other constants in EventTypes are not
+    implemented event flows and are intentionally not documented as messages.
 defaultContentType: application/json
 channels:
+  agricore.farm.events:
+    address: agricore.farm.events
+    description: Events emitted by farm-service.
+    messages:
+      FarmCreated:
+        name: FarmCreated.v1
+        payload:
+          $ref: ../event-schemas/FarmCreated.v1.json
+      PlotCreated:
+        name: PlotCreated.v1
+        payload:
+          $ref: ../event-schemas/PlotCreated.v1.json
+      PlotStatusChanged:
+        name: PlotStatusChanged.v1
+        payload:
+          $ref: ../event-schemas/PlotStatusChanged.v1.json
+  agricore.crop-cycle.events:
+    address: agricore.crop-cycle.events
+    description: Events emitted by crop-cycle-service.
+    messages:
+      CropCycleCreated:
+        name: CropCycleCreated.v1
+        payload:
+          $ref: ../event-schemas/CropCycleCreated.v1.json
+      CropCycleStageChanged:
+        name: CropCycleStageChanged.v1
+        payload:
+          $ref: ../event-schemas/CropCycleStageChanged.v1.json
+      CropCycleCompleted:
+        name: CropCycleCompleted.v1
+        payload:
+          $ref: ../event-schemas/CropCycleCompleted.v1.json
+      CropCycleCancelled:
+        name: CropCycleCancelled.v1
+        payload:
+          $ref: ../event-schemas/CropCycleCancelled.v1.json
+  agricore.work.events:
+    address: agricore.work.events
+    description: Events emitted by work-service.
+    messages:
+      WorkTaskCreated:
+        name: WorkTaskCreated.v1
+        payload:
+          $ref: ../event-schemas/WorkTaskCreated.v1.json
+      WorkTaskAssigned:
+        name: WorkTaskAssigned.v1
+        payload:
+          $ref: ../event-schemas/WorkTaskAssigned.v1.json
+      WorkTaskCompleted:
+        name: WorkTaskCompleted.v1
+        payload:
+          $ref: ../event-schemas/WorkTaskCompleted.v1.json
+      MaterialConsumed:
+        name: MaterialConsumed.v1
+        payload:
+          $ref: ../event-schemas/MaterialConsumed.v1.json
+  agricore.inventory.events:
+    address: agricore.inventory.events
+    description: Stock lifecycle events emitted by inventory-service.
+    messages:
+      InventoryReserved:
+        name: InventoryReserved.v1
+        payload:
+          $ref: ../event-schemas/InventoryReserved.v1.json
+      InventoryReservationFailed:
+        name: InventoryReservationFailed.v1
+        payload:
+          $ref: ../event-schemas/InventoryReservationFailed.v1.json
+      InventoryReleased:
+        name: InventoryReleased.v1
+        payload:
+          $ref: ../event-schemas/InventoryReleased.v1.json
+      StockAdded:
+        name: StockAdded.v1
+        payload:
+          $ref: ../event-schemas/StockAdded.v1.json
+      StockDeducted:
+        name: StockDeducted.v1
+        payload:
+          $ref: ../event-schemas/StockDeducted.v1.json
   agricore.harvest.events:
     address: agricore.harvest.events
+    description: Harvest lifecycle events emitted by harvest-service.
     messages:
+      HarvestBatchCreated:
+        name: HarvestBatchCreated.v1
+        payload:
+          $ref: ../event-schemas/HarvestBatchCreated.v1.json
+      HarvestStarted:
+        name: HarvestStarted.v1
+        payload:
+          $ref: ../event-schemas/HarvestStarted.v1.json
       HarvestCompleted:
         name: HarvestCompleted.v1
         payload:
-          $ref: ../event-schemas/DomainEventEnvelope.v1.json
+          $ref: ../event-schemas/HarvestCompleted.v1.json
   agricore.identity.events:
     address: agricore.identity.events
+    description: Registration lifecycle events emitted by identity-service.
     messages:
       UserRegistered:
         name: UserRegistered.v1
-        summary: >-
-          Emitted by identity-service when a registration is accepted. Payload carries
-          userId, email, fullName, sorted role codes, and registeredAt. Credential
-          material (password hash, tokens) is never included; email and fullName are
-          present because the consumer addresses a welcome notification.
+        summary: Accepted registration addressing data without credentials or tokens.
         payload:
-          $ref: ../event-schemas/DomainEventEnvelope.v1.json
-  agricore.farm.events:
-    address: agricore.farm.events
-  agricore.crop-cycle.events:
-    address: agricore.crop-cycle.events
-  agricore.work.events:
-    address: agricore.work.events
+          $ref: ../event-schemas/UserRegistered.v1.json
+  agricore.identity.events.DLT:
+    address: agricore.identity.events.DLT
+    description: |
+      Dead-letter destination used by notification-service for rejected identity
+      records. Contract failures are recovered immediately; retryable failures
+      are recovered after bounded in-process retries.
+      Retryable records use `agricore.identity.events-retry-1000`,
+      `-retry-2000`, and `-retry-4000` before reaching this DLT. The value is
+      the unchanged original string and Spring Kafka adds dead-letter headers.
+    messages:
+      IdentityDeadLetter:
+        name: IdentityDeadLetter
+        title: Rejected identity event record
+        contentType: text/plain
+        description: Unchanged identity event record rejected by notification-service.
+        payload:
+          type: string
+  agricore.iot.events:
+    address: agricore.iot.events
+    description: Sensor telemetry, threshold, and device availability events emitted by iot-service.
+    messages:
+      SensorReadingReceived:
+        name: SensorReadingReceived.v1
+        payload:
+          $ref: ../event-schemas/SensorReadingReceived.v1.json
+      SensorThresholdExceeded:
+        name: SensorThresholdExceeded.v1
+        payload:
+          $ref: ../event-schemas/SensorThresholdExceeded.v1.json
+      DeviceOfflineDetected:
+        name: DeviceOfflineDetected.v1
+        payload:
+          $ref: ../event-schemas/DeviceOfflineDetected.v1.json
+  agricore.traceability.events:
+    address: agricore.traceability.events
+    description: Public traceability projection lifecycle events emitted by traceability-service.
+    messages:
+      TraceabilityBatchCreated:
+        name: TraceabilityBatchCreated.v1
+        payload:
+          $ref: ../event-schemas/TraceabilityBatchCreated.v1.json
+      TraceabilityCodeGenerated:
+        name: TraceabilityCodeGenerated.v1
+        payload:
+          $ref: ../event-schemas/TraceabilityCodeGenerated.v1.json
+  agricore.sales.events:
+    address: agricore.sales.events
+    description: Sales order lifecycle events emitted by sales-service.
+    messages:
+      SalesOrderCreated:
+        name: SalesOrderCreated.v1
+        payload:
+          $ref: ../event-schemas/SalesOrderCreated.v1.json
+      SalesOrderConfirmed:
+        name: SalesOrderConfirmed.v1
+        payload:
+          $ref: ../event-schemas/SalesOrderConfirmed.v1.json
+      SalesOrderCancelled:
+        name: SalesOrderCancelled.v1
+        payload:
+          $ref: ../event-schemas/SalesOrderCancelled.v1.json
+  agricore.notification.events:
+    address: agricore.notification.events
+    description: Notification delivery lifecycle events emitted by notification-service.
+    messages:
+      NotificationRequested:
+        name: NotificationRequested.v2
+        payload:
+          $ref: ../event-schemas/NotificationRequested.v2.json
+      NotificationSent:
+        name: NotificationSent.v2
+        payload:
+          $ref: ../event-schemas/NotificationSent.v2.json
+      NotificationFailed:
+        name: NotificationFailed.v2
+        payload:
+          $ref: ../event-schemas/NotificationFailed.v2.json
+  agricore.harvest.events.DLT:
+    address: agricore.harvest.events.DLT
+    description: |
+      Real dead-letter destination used by the inventory-service and
+      traceability-service error handlers. Non-retryable records are sent
+      directly; retryable failures are sent after in-process retries are
+      exhausted. Retryable records use the bounded Kafka topics
+      `agricore.harvest.events-retry-1000`, `-retry-2000`, and `-retry-4000`
+      before reaching this DLT. The record value is the unchanged original
+      string and can be malformed JSON or an invalid event;
+      Spring Kafka adds dead-letter headers.
+    messages:
+      HarvestCompletedDeadLetter:
+        name: HarvestCompletedDeadLetter
+        title: Rejected harvest event record
+        contentType: text/plain
+        description: Unchanged record value rejected by an inventory or traceability consumer.
+        payload:
+          type: string
+  agricore.sales.events.DLT:
+    address: agricore.sales.events.DLT
+    description: |
+      Dead-letter destination used by notification-service for rejected sales
+      records. Contract failures are recovered immediately; retryable failures
+      are recovered after bounded in-process retries.
+      Retryable records use `agricore.sales.events-retry-1000`, `-retry-2000`,
+      and `-retry-4000` before reaching this DLT. The value is the unchanged
+      original string and Spring Kafka adds dead-letter headers.
+    messages:
+      SalesOrderDeadLetter:
+        name: SalesOrderDeadLetter
+        title: Rejected sales order event record
+        contentType: text/plain
+        description: Unchanged sales event record rejected by notification-service.
+        payload:
+          type: string
+  agricore.traceability.events.DLT:
+    address: agricore.traceability.events.DLT
+    description: |
+      Dead-letter destination used by notification-service for rejected
+      traceability records. Contract failures are recovered immediately;
+      retryable failures are recovered after bounded in-process retries.
+      Retryable records use `agricore.traceability.events-retry-1000`,
+      `-retry-2000`, and `-retry-4000` before reaching this DLT. The value is
+      the unchanged original string and Spring Kafka adds dead-letter headers.
+    messages:
+      TraceabilityDeadLetter:
+        name: TraceabilityDeadLetter
+        title: Rejected traceability event record
+        contentType: text/plain
+        description: Unchanged traceability event record rejected by notification-service.
+        payload:
+          type: string
+  agricore.iot.events.DLT:
+    address: agricore.iot.events.DLT
+    description: |
+      Dead-letter destination used by notification-service for rejected IoT
+      records. Contract failures are recovered immediately; retryable failures
+      are recovered after bounded in-process retries.
+      Retryable records use `agricore.iot.events-retry-1000`, `-retry-2000`,
+      and `-retry-4000` before reaching this DLT. The value is the unchanged
+      original string and Spring Kafka adds dead-letter headers.
+    messages:
+      IotDeadLetter:
+        name: IotDeadLetter
+        title: Rejected IoT event record
+        contentType: text/plain
+        description: Unchanged IoT event record rejected by notification-service.
+        payload:
+          type: string
 operations:
-  publishHarvestCompleted:
+  farmServiceSendsFarmEvents:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.farm.events'
+    messages:
+      - $ref: '#/channels/agricore.farm.events/messages/FarmCreated'
+      - $ref: '#/channels/agricore.farm.events/messages/PlotCreated'
+      - $ref: '#/channels/agricore.farm.events/messages/PlotStatusChanged'
+  cropCycleServiceSendsCropCycleEvents:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.crop-cycle.events'
+    messages:
+      - $ref: '#/channels/agricore.crop-cycle.events/messages/CropCycleCreated'
+      - $ref: '#/channels/agricore.crop-cycle.events/messages/CropCycleStageChanged'
+      - $ref: '#/channels/agricore.crop-cycle.events/messages/CropCycleCompleted'
+      - $ref: '#/channels/agricore.crop-cycle.events/messages/CropCycleCancelled'
+  workServiceSendsWorkEvents:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.work.events'
+    messages:
+      - $ref: '#/channels/agricore.work.events/messages/WorkTaskCreated'
+      - $ref: '#/channels/agricore.work.events/messages/WorkTaskAssigned'
+      - $ref: '#/channels/agricore.work.events/messages/WorkTaskCompleted'
+      - $ref: '#/channels/agricore.work.events/messages/MaterialConsumed'
+  inventoryServiceSendsInventoryEvents:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.inventory.events'
+    messages:
+      - $ref: '#/channels/agricore.inventory.events/messages/InventoryReserved'
+      - $ref: '#/channels/agricore.inventory.events/messages/InventoryReservationFailed'
+      - $ref: '#/channels/agricore.inventory.events/messages/InventoryReleased'
+      - $ref: '#/channels/agricore.inventory.events/messages/StockAdded'
+      - $ref: '#/channels/agricore.inventory.events/messages/StockDeducted'
+  harvestServiceSendsHarvestEvents:
     action: send
     channel:
       $ref: '#/channels/agricore.harvest.events'
-  consumeHarvestCompleted:
+    messages:
+      - $ref: '#/channels/agricore.harvest.events/messages/HarvestBatchCreated'
+      - $ref: '#/channels/agricore.harvest.events/messages/HarvestStarted'
+      - $ref: '#/channels/agricore.harvest.events/messages/HarvestCompleted'
+  iotServiceSendsIotEvents:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.iot.events'
+    messages:
+      - $ref: '#/channels/agricore.iot.events/messages/SensorReadingReceived'
+      - $ref: '#/channels/agricore.iot.events/messages/SensorThresholdExceeded'
+      - $ref: '#/channels/agricore.iot.events/messages/DeviceOfflineDetected'
+  traceabilityServiceSendsTraceabilityEvents:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.traceability.events'
+    messages:
+      - $ref: '#/channels/agricore.traceability.events/messages/TraceabilityBatchCreated'
+      - $ref: '#/channels/agricore.traceability.events/messages/TraceabilityCodeGenerated'
+  salesServiceSendsSalesOrderEvents:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.sales.events'
+    messages:
+      - $ref: '#/channels/agricore.sales.events/messages/SalesOrderCreated'
+      - $ref: '#/channels/agricore.sales.events/messages/SalesOrderConfirmed'
+      - $ref: '#/channels/agricore.sales.events/messages/SalesOrderCancelled'
+  notificationServiceSendsNotificationEvents:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.notification.events'
+    messages:
+      - $ref: '#/channels/agricore.notification.events/messages/NotificationRequested'
+      - $ref: '#/channels/agricore.notification.events/messages/NotificationSent'
+      - $ref: '#/channels/agricore.notification.events/messages/NotificationFailed'
+  notificationServiceReceivesSalesOrderEvents:
+    action: receive
+    channel:
+      $ref: '#/channels/agricore.sales.events'
+    messages:
+      - $ref: '#/channels/agricore.sales.events/messages/SalesOrderConfirmed'
+      - $ref: '#/channels/agricore.sales.events/messages/SalesOrderCancelled'
+  notificationServiceReceivesTraceabilityEvents:
+    action: receive
+    channel:
+      $ref: '#/channels/agricore.traceability.events'
+    messages:
+      - $ref: '#/channels/agricore.traceability.events/messages/TraceabilityCodeGenerated'
+  notificationServiceReceivesIotEvents:
+    action: receive
+    channel:
+      $ref: '#/channels/agricore.iot.events'
+    messages:
+      - $ref: '#/channels/agricore.iot.events/messages/SensorThresholdExceeded'
+      - $ref: '#/channels/agricore.iot.events/messages/DeviceOfflineDetected'
+  inventoryServiceReceivesHarvestCompleted:
     action: receive
     channel:
       $ref: '#/channels/agricore.harvest.events'
-  publishUserRegistered:
+    messages:
+      - $ref: '#/channels/agricore.harvest.events/messages/HarvestCompleted'
+  traceabilityServiceReceivesHarvestCompleted:
+    action: receive
+    channel:
+      $ref: '#/channels/agricore.harvest.events'
+    messages:
+      - $ref: '#/channels/agricore.harvest.events/messages/HarvestCompleted'
+  inventoryServiceSendsHarvestDeadLetters:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.harvest.events.DLT'
+    messages:
+      - $ref: '#/channels/agricore.harvest.events.DLT/messages/HarvestCompletedDeadLetter'
+  traceabilityServiceSendsHarvestDeadLetters:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.harvest.events.DLT'
+    messages:
+      - $ref: '#/channels/agricore.harvest.events.DLT/messages/HarvestCompletedDeadLetter'
+  notificationServiceSendsSalesDeadLetters:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.sales.events.DLT'
+    messages:
+      - $ref: '#/channels/agricore.sales.events.DLT/messages/SalesOrderDeadLetter'
+  notificationServiceSendsTraceabilityDeadLetters:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.traceability.events.DLT'
+    messages:
+      - $ref: '#/channels/agricore.traceability.events.DLT/messages/TraceabilityDeadLetter'
+  notificationServiceSendsIotDeadLetters:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.iot.events.DLT'
+    messages:
+      - $ref: '#/channels/agricore.iot.events.DLT/messages/IotDeadLetter'
+  identityServiceSendsUserRegistered:
     action: send
     channel:
       $ref: '#/channels/agricore.identity.events'
-  consumeUserRegistered:
+    messages:
+      - $ref: '#/channels/agricore.identity.events/messages/UserRegistered'
+  notificationServiceReceivesUserRegistered:
     action: receive
     channel:
       $ref: '#/channels/agricore.identity.events'
+    messages:
+      - $ref: '#/channels/agricore.identity.events/messages/UserRegistered'
+  notificationServiceSendsIdentityDeadLetters:
+    action: send
+    channel:
+      $ref: '#/channels/agricore.identity.events.DLT'
+    messages:
+      - $ref: '#/channels/agricore.identity.events.DLT/messages/IdentityDeadLetter'

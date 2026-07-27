@@ -8,6 +8,7 @@ public record HarvestBatchResponse(
         UUID id,
         String code,
         UUID cropCycleId,
+        UUID farmId,
         UUID plotId,
         UUID warehouseId,
         String productCode,
@@ -15,9 +16,10 @@ public record HarvestBatchResponse(
         BigDecimal netWeightKg,
         String qualityGrade,
         String status,
+        Instant startedAt,
         Instant harvestedAt,
         String notes,
-        String lastOutboxEventId,
+        UUID lastOutboxEventId,
         Instant createdAt,
         long version
 ) {

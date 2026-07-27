@@ -3,6 +3,7 @@ package com.agricore.gateway;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -26,7 +27,8 @@ import static org.assertj.core.api.Assertions.assertThat;
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
                 "agricore.security.jwt-enabled=true",
-                "agricore.security.jwk-set-uri=http://localhost:59999/.well-known/jwks.json"
+                "agricore.security.jwk-set-uri=http://localhost:59999/.well-known/jwks.json",
+                "agricore.gateway.client-ip.signing-secret=test-client-ip-signing-secret"
         }
 )
 class GatewaySecurityBoundaryTest {
@@ -49,6 +51,25 @@ class GatewaySecurityBoundaryTest {
                 .header("Authorization", "Bearer not-a-jwt")
                 .exchange()
                 .expectStatus().isUnauthorized();
+    }
+
+    @Test
+    void unsafeAmbientCookieRequestWithoutBearerFailsClosed() {
+        client.post().uri("/api/v1/farms")
+                .cookie("ingress-affinity", "value")
+                .exchange()
+                .expectStatus().isForbidden()
+                .expectHeader().doesNotExist(HttpHeaders.SET_COOKIE);
+    }
+
+    @Test
+    void ambientCookieDoesNotOverrideExplicitBearerAuthentication() {
+        client.post().uri("/api/v1/farms")
+                .cookie("ingress-affinity", "value")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer not-a-jwt")
+                .exchange()
+                .expectStatus().isUnauthorized()
+                .expectHeader().doesNotExist(HttpHeaders.SET_COOKIE);
     }
 
     /**

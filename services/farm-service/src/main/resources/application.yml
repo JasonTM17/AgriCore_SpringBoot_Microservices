@@ -18,6 +18,9 @@ spring:
           time_zone: UTC
   flyway:
     enabled: true
+    locations: classpath:db/migration,classpath:db/postgresql-migration
+    postgresql:
+      transactional-lock: false
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
@@ -26,6 +29,9 @@ spring:
       acks: all
       properties:
         enable.idempotence: true
+        max.block.ms: ${KAFKA_PRODUCER_MAX_BLOCK_MS:5000}
+        request.timeout.ms: ${KAFKA_PRODUCER_REQUEST_TIMEOUT_MS:5000}
+        delivery.timeout.ms: ${KAFKA_PRODUCER_DELIVERY_TIMEOUT_MS:10000}
 
 management:
   endpoints:
@@ -47,6 +53,12 @@ agricore:
     publisher:
       enabled: true
       poll-ms: 1000
+      send-timeout-ms: ${OUTBOX_PUBLISHER_SEND_TIMEOUT_MS:10000}
+      retry:
+        write-state-enabled: ${OUTBOX_PUBLISHER_RETRY_WRITE_STATE_ENABLED:false}
+        base-delay-ms: ${OUTBOX_PUBLISHER_RETRY_BASE_DELAY_MS:1000}
+        max-delay-ms: ${OUTBOX_PUBLISHER_RETRY_MAX_DELAY_MS:60000}
+        max-attempts: ${OUTBOX_PUBLISHER_MAX_ATTEMPTS:10}
 
 logging:
   level:

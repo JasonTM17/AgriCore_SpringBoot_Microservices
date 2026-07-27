@@ -46,6 +46,18 @@ public class OutboxEventEntity {
     @Column(name = "last_error", columnDefinition = "TEXT")
     private String lastError;
 
+    @Column(name = "claim_token")
+    private UUID claimToken;
+
+    @Column(name = "claim_until")
+    private Instant claimUntil;
+
+    @Column(name = "next_attempt_at")
+    private Instant nextAttemptAt;
+
+    @Column(name = "quarantined_at")
+    private Instant quarantinedAt;
+
     public static OutboxEventEntity create(
             String aggregateType,
             String aggregateId,
@@ -75,14 +87,8 @@ public class OutboxEventEntity {
     public Instant getPublishedAt() { return publishedAt; }
     public int getPublishAttempts() { return publishAttempts; }
     public String getLastError() { return lastError; }
-
-    public void markPublished() {
-        this.publishedAt = Instant.now();
-        this.lastError = null;
-    }
-
-    public void markFailed(String error) {
-        this.publishAttempts = this.publishAttempts + 1;
-        this.lastError = error == null ? "unknown" : error.substring(0, Math.min(error.length(), 1000));
-    }
+    public UUID getClaimToken() { return claimToken; }
+    public Instant getClaimUntil() { return claimUntil; }
+    public Instant getNextAttemptAt() { return nextAttemptAt; }
+    public Instant getQuarantinedAt() { return quarantinedAt; }
 }

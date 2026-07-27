@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agricore.local/schemas/TraceabilityBatchCreated.v1.json",
+  "title": "TraceabilityBatchCreated.v1",
+  "allOf": [
+    { "$ref": "DomainEventEnvelope.v1.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "TraceabilityBatchCreated.v1" },
+        "eventVersion": { "const": 1 },
+        "producer": { "const": "traceability-service" },
+        "payload": {
+          "type": "object",
+          "required": [
+            "traceabilityBatchId",
+            "traceabilityCode",
+            "harvestBatchId",
+            "productName",
+            "harvestDate",
+            "publicUrl",
+            "batchLabel",
+            "createdAt"
+          ],
+          "properties": {
+            "traceabilityBatchId": { "type": "string", "format": "uuid" },
+            "traceabilityCode": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "harvestBatchId": { "type": "string", "format": "uuid" },
+            "cropCycleId": { "type": "string", "format": "uuid" },
+            "plotId": { "type": "string", "format": "uuid" },
+            "farmName": { "type": "string", "maxLength": 200 },
+            "plotCode": { "type": "string", "maxLength": 64 },
+            "productName": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "varietyName": { "type": "string", "maxLength": 200 },
+            "plantingDate": { "type": "string", "format": "date" },
+            "harvestDate": { "type": "string", "format": "date" },
+            "qualityGrade": { "type": "string", "maxLength": 32 },
+            "netWeightKg": { "type": "number", "minimum": 0.001 },
+            "careSummary": { "type": "string", "maxLength": 1000 },
+            "publicUrl": { "type": "string", "format": "uri", "maxLength": 500 },
+            "batchLabel": { "type": "string", "minLength": 1, "maxLength": 70 },
+            "createdAt": { "type": "string", "format": "date-time" }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}

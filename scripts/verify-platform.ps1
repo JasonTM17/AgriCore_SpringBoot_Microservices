@@ -1,21 +1,30 @@
 # Single gating entrypoint for AgriCore portfolio verification.
 # Starts FULL docker compose (apps + infra), waits health, runs tests + e2e, writes evidence bundle.
 param(
-  [string]$EvidenceDir = $(if ($env:EVIDENCE_DIR) { $env:EVIDENCE_DIR } else { Join-Path $PSScriptRoot "..\..\..\AppData\Local\Temp\grok-goal-4bce7ceea422\implementer" }),
+  [string]$EvidenceDir = $(if ($env:EVIDENCE_DIR) {
+    $env:EVIDENCE_DIR
+  } else {
+    Join-Path ([System.IO.Path]::GetTempPath()) "agricore-verify-evidence"
+  }),
   [switch]$SkipBuild,
   [switch]$SkipMaven
 )
 
 $ErrorActionPreference = "Stop"
+$InvocationDirectory = (Get-Location).Path
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-Set-Location $Root
 
-# Default scratch if path missing
-if (-not $EvidenceDir -or $EvidenceDir -match 'AppData\\Local\\Temp\\grok-goal') {
-  $fallback = "C:\Users\Admin\AppData\Local\Temp\grok-goal-4bce7ceea422\implementer"
-  if (-not $EvidenceDir) { $EvidenceDir = $fallback }
+# Resolve the evidence directory before changing the working directory so a
+# caller-provided relative path remains relative to the invocation location.
+if (-not $EvidenceDir) {
+  $EvidenceDir = Join-Path ([System.IO.Path]::GetTempPath()) "agricore-verify-evidence"
 }
+if (-not [System.IO.Path]::IsPathRooted($EvidenceDir)) {
+  $EvidenceDir = Join-Path $InvocationDirectory $EvidenceDir
+}
+$EvidenceDir = [System.IO.Path]::GetFullPath($EvidenceDir)
 New-Item -ItemType Directory -Path $EvidenceDir -Force | Out-Null
+Set-Location $Root
 Write-Host "EvidenceDir=$EvidenceDir"
 Write-Host "Root=$Root"
 
@@ -54,6 +63,16 @@ if (-not (Test-Path (Join-Path $Root ".env"))) {
   Copy-Item (Join-Path $Root ".env.example") (Join-Path $Root ".env") -ErrorAction SilentlyContinue
 }
 
+$jwtPrivateKey = Join-Path $Root "infrastructure\jwt\private.pem"
+$jwtPublicKey = Join-Path $Root "infrastructure\jwt\public.pem"
+if (-not (Test-Path $jwtPrivateKey) -or -not (Test-Path $jwtPublicKey)) {
+  Write-Host "== generate local JWT signing keys =="
+  & (Join-Path $Root "scripts\generate-jwt-keys.ps1")
+  if ($LASTEXITCODE -ne 0 -or -not (Test-Path $jwtPrivateKey) -or -not (Test-Path $jwtPublicKey)) {
+    throw "Local JWT signing key generation failed"
+  }
+}
+
 Write-Host "== docker compose up (full stack) =="
 if ($SkipBuild) {
   docker compose -f docker-compose.yml up -d
@@ -69,7 +88,7 @@ $healthUrls = @(
   "http://localhost:8086/actuator/health",
   "http://localhost:8087/actuator/health",
   "http://localhost:8092/actuator/health",
-  "http://localhost:8080/actuator/health"
+  "http://localhost:3000/healthz"
 )
 foreach ($u in $healthUrls) {
   Wait-HttpUp $u 600
@@ -114,10 +133,11 @@ if (-not $SkipMaven) {
   if (-not (Select-String -Path $mvnLog -Pattern "BUILD SUCCESS" -Quiet)) {
     throw "mvn-test.log missing BUILD SUCCESS"
   }
-  # Gate: concurrent + idempotency tests must not be skipped (Tests run: 0)
+  # Gate: all PostgreSQL idempotency cases must execute and pass.
   $pgLine = Select-String -Path $mvnLog -Pattern "InventoryPostgresIdempotencyTest" | Select-Object -Last 1
-  if (-not $pgLine -or $pgLine.Line -notmatch "Tests run: 2") {
-    throw "InventoryPostgresIdempotencyTest must show Tests run: 2 (got: $($pgLine.Line))"
+  $expectedPgSummary = "Tests run: 3, Failures: 0, Errors: 0, Skipped: 0"
+  if (-not $pgLine -or $pgLine.Line -notmatch [regex]::Escape($expectedPgSummary)) {
+    throw "InventoryPostgresIdempotencyTest must show '$expectedPgSummary' (got: $($pgLine.Line))"
   }
   Write-Host "InventoryPostgresIdempotencyTest: $($pgLine.Line.Trim())"
 }

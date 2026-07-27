@@ -1,0 +1,704 @@
+openapi: 3.1.0
+info:
+  title: AgriCore Assistant Service API
+  version: 1.0.0
+  description: >-
+    Verified contract for owned assistant conversations, durable idempotent
+    generations, cancellation, JSON event replay, and authenticated fetch-SSE.
+servers:
+  - url: http://localhost:8093
+    description: Direct local service endpoint
+security:
+  - bearerAuth: []
+tags:
+  - name: Assistant
+  - name: Conversations
+  - name: Generations
+paths:
+  /api/v1/assistant/capabilities:
+    get:
+      tags: [Assistant]
+      operationId: getAssistantCapabilities
+      summary: Read configured provider capabilities
+      responses:
+        '200':
+          description: Provider availability without credentials or secret configuration values.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistantCapabilitiesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/v1/assistant/conversations:
+    get:
+      tags: [Conversations]
+      operationId: listAssistantConversations
+      summary: List conversations owned by the caller
+      parameters:
+        - in: query
+          name: status
+          description: Defaults to OPEN when omitted.
+          schema:
+            $ref: '#/components/schemas/ConversationStatus'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Owned conversations ordered by most recently updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags: [Conversations]
+      operationId: createAssistantConversation
+      summary: Create an owned assistant conversation
+      description: FARM context requires authoritative access to the supplied farmId.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateConversationRequest'
+      responses:
+        '201':
+          description: Conversation created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/assistant/conversations/{conversationId}:
+    parameters:
+      - $ref: '#/components/parameters/ConversationId'
+    get:
+      tags: [Conversations]
+      operationId: getAssistantConversation
+      summary: Get a conversation owned by the caller
+      responses:
+        '200':
+          description: Conversation found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/v1/assistant/conversations/{conversationId}/archive:
+    parameters:
+      - $ref: '#/components/parameters/ConversationId'
+    post:
+      tags: [Conversations]
+      operationId: archiveAssistantConversation
+      summary: Archive an owned conversation
+      description: Idempotent when the conversation is already archived.
+      responses:
+        '200':
+          description: Archived conversation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/v1/assistant/conversations/{conversationId}/messages:
+    parameters:
+      - $ref: '#/components/parameters/ConversationId'
+    get:
+      tags: [Conversations]
+      operationId: listAssistantMessages
+      summary: List persisted messages in an owned conversation
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Messages ordered by durable conversation sequence.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessagePageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/v1/assistant/conversations/{conversationId}/generations:
+    parameters:
+      - $ref: '#/components/parameters/ConversationId'
+    post:
+      tags: [Generations]
+      operationId: submitAssistantGeneration
+      summary: Persist and enqueue an idempotent generation
+      description: >-
+        Atomically stores the user message and generation intent. A repeated
+        key with the same request returns the existing generation; a repeated
+        key with different content returns 409.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGenerationRequest'
+      responses:
+        '200':
+          description: Existing generation returned for an idempotent retry.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerationResponse'
+        '202':
+          description: New generation persisted and accepted for asynchronous execution.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/assistant/conversations/{conversationId}/generations/{generationId}:
+    parameters:
+      - $ref: '#/components/parameters/ConversationId'
+      - $ref: '#/components/parameters/GenerationId'
+    get:
+      tags: [Generations]
+      operationId: getAssistantGeneration
+      summary: Get safe generation metadata
+      responses:
+        '200':
+          description: Owned generation found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/v1/assistant/conversations/{conversationId}/generations/{generationId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/ConversationId'
+      - $ref: '#/components/parameters/GenerationId'
+    post:
+      tags: [Generations]
+      operationId: cancelAssistantGeneration
+      summary: Request explicit generation cancellation
+      description: >-
+        QUEUED work becomes CANCELLED immediately. RUNNING work becomes
+        CANCEL_REQUESTED until its worker persists the terminal cancellation.
+        Repeated requests are safe.
+      responses:
+        '200':
+          description: Current generation state after the cancellation request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /api/v1/assistant/conversations/{conversationId}/generations/{generationId}/events:
+    parameters:
+      - $ref: '#/components/parameters/ConversationId'
+      - $ref: '#/components/parameters/GenerationId'
+    get:
+      tags: [Generations]
+      operationId: replayAssistantGenerationEvents
+      summary: Replay or stream durable generation events
+      description: >-
+        Use Accept: application/json for a bounded snapshot or Accept:
+        text/event-stream for authenticated fetch-SSE. The SSE cursor is the
+        greater of after and Last-Event-ID. Disconnect only detaches the client;
+        it never cancels provider work. Terminal streams close after all durable
+        events are sent. Heartbeats are SSE comments and do not advance cursor.
+      parameters:
+        - $ref: '#/components/parameters/AfterSequence'
+        - $ref: '#/components/parameters/EventLimit'
+        - $ref: '#/components/parameters/LastEventId'
+      responses:
+        '200':
+          description: Durable replay snapshot or live replayable stream.
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 1000
+                items:
+                  $ref: '#/components/schemas/GenerationEventResponse'
+            text/event-stream:
+              schema:
+                type: string
+                description: >-
+                  Each durable frame uses sequenceNo as id, a lowercase event
+                  name, and GenerationEventResponse JSON as data. A stream-error
+                  frame contains GenerationStreamErrorResponse and then closes.
+              examples:
+                cancelledReplay:
+                  value: |
+                    id:1
+                    event:cancelled
+                    data:{"id":"00000000-0000-0000-0000-000000000001","generationId":"00000000-0000-0000-0000-000000000002","sequenceNo":1,"eventType":"CANCELLED","payload":"{\"status\":\"CANCELLED\"}","createdAt":"2026-07-20T12:00:00Z"}
+
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '410':
+          $ref: '#/components/responses/Gone'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    ConversationId:
+      in: path
+      name: conversationId
+      required: true
+      schema: { type: string, format: uuid }
+    GenerationId:
+      in: path
+      name: generationId
+      required: true
+      schema: { type: string, format: uuid }
+    Page:
+      in: query
+      name: page
+      description: Zero-based page index.
+      schema: { type: integer, format: int32, minimum: 0, default: 0 }
+    Size:
+      in: query
+      name: size
+      description: Number of records per page.
+      schema: { type: integer, format: int32, minimum: 1, maximum: 100, default: 20 }
+    IdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 128 }
+    AfterSequence:
+      in: query
+      name: after
+      description: Last durable sequence already processed; -1 starts from sequence 0.
+      schema: { type: integer, format: int64, minimum: -1, default: -1 }
+    EventLimit:
+      in: query
+      name: limit
+      description: JSON snapshot batch size; SSE uses the server-configured batch size.
+      schema: { type: integer, format: int32, minimum: 1, maximum: 1000, default: 100 }
+    LastEventId:
+      in: header
+      name: Last-Event-ID
+      required: false
+      description: Non-negative durable SSE sequence received by the client.
+      schema: { type: string, pattern: '^[0-9]+$' }
+  responses:
+    BadRequest:
+      description: Invalid path, query, header, JSON, context, title, prompt, or validation input.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    InvalidEventCursor:
+      description: Cursor is malformed, negative, or ahead of the durable stream.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Unauthorized:
+      description: Authentication is required or the bearer token is invalid.
+    Forbidden:
+      description: The caller lacks the required permission or authorized farm context.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotFound:
+      description: Resource does not exist or is not owned/visible to the caller.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Conflict:
+      description: >-
+        Conversation is archived, another generation is active, or an
+        idempotency key was reused with different request content.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    EventReplayExpired:
+      description: The requested cursor precedes retained durable generation events.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    UnsupportedMediaType:
+      description: Content-Type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    InternalServerError:
+      description: Unexpected safe server error without prompt, secret, or provider detail.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    ServiceUnavailable:
+      description: AI provider, farm access verifier, or required dependency is unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    RateLimitExceeded:
+      description: The authenticated user or client IP exhausted the request/token budget window.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    StreamCapacityExceeded:
+      description: This service instance has reached its bounded concurrent SSE capacity.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotAcceptable:
+      description: The requested response media type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Gone:
+      description: The requested resource or replay window is no longer available.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    PayloadTooLarge:
+      description: The request body exceeds the supported size.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Locked:
+      description: The resource is temporarily locked by an in-progress operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    BadGateway:
+      description: An upstream dependency returned an invalid response.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+  schemas:
+    ConversationContextType:
+      type: string
+      enum: [ENTERPRISE, FARM]
+    ConversationStatus:
+      type: string
+      enum: [OPEN, ARCHIVED]
+    MessageRole:
+      type: string
+      enum: [USER, ASSISTANT]
+    GenerationStatus:
+      type: string
+      enum: [QUEUED, RUNNING, CANCEL_REQUESTED, COMPLETED, FAILED, CANCELLED]
+    GenerationEventType:
+      type: string
+      enum: [STATUS, DELTA, COMPLETED, ERROR, CANCELLED]
+    CreateConversationRequest:
+      type: object
+      additionalProperties: false
+      required: [title, contextType]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        contextType:
+          $ref: '#/components/schemas/ConversationContextType'
+        farmId: { type: [string, 'null'], format: uuid }
+      allOf:
+        - if:
+            properties:
+              contextType: { const: FARM }
+          then:
+            required: [farmId]
+            properties:
+              farmId: { type: string, format: uuid }
+        - if:
+            properties:
+              contextType: { const: ENTERPRISE }
+          then:
+            properties:
+              farmId: { type: 'null' }
+    CreateGenerationRequest:
+      type: object
+      additionalProperties: false
+      required: [prompt]
+      properties:
+        prompt:
+          type: string
+          minLength: 1
+          maxLength: 200000
+          description: Runtime provider policy may enforce a lower maximum.
+    AssistantCapabilitiesResponse:
+      type: object
+      additionalProperties: false
+      required: [provider, available, streaming, reasonCode]
+      properties:
+        provider: { type: string, minLength: 1, maxLength: 32 }
+        available: { type: boolean }
+        streaming: { type: boolean }
+        reasonCode: { type: [string, 'null'] }
+    ConversationResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - title
+        - contextType
+        - farmId
+        - status
+        - roleSnapshot
+        - nextMessageSequence
+        - version
+        - createdAt
+        - updatedAt
+        - archivedAt
+        - purgeAfter
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        contextType:
+          $ref: '#/components/schemas/ConversationContextType'
+        farmId: { type: [string, 'null'], format: uuid }
+        status:
+          $ref: '#/components/schemas/ConversationStatus'
+        roleSnapshot:
+          type: array
+          items: { type: string }
+        nextMessageSequence: { type: integer, format: int64, minimum: 0 }
+        version: { type: integer, format: int64, minimum: 0 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        archivedAt: { type: [string, 'null'], format: date-time }
+        purgeAfter: { type: [string, 'null'], format: date-time }
+    MessageResponse:
+      type: object
+      additionalProperties: false
+      required: [id, conversationId, generationId, sequenceNo, role, content, tokenCount, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        conversationId: { type: string, format: uuid }
+        generationId: { type: [string, 'null'], format: uuid }
+        sequenceNo: { type: integer, format: int64, minimum: 0 }
+        role:
+          $ref: '#/components/schemas/MessageRole'
+        content: { type: string }
+        tokenCount: { type: [integer, 'null'], format: int64, minimum: 0 }
+        createdAt: { type: string, format: date-time }
+    GenerationResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - conversationId
+        - status
+        - provider
+        - model
+        - errorCode
+        - userMessageId
+        - nextEventSequence
+        - queuedAt
+        - createdAt
+        - updatedAt
+        - completedAt
+        - deduplicated
+      properties:
+        id: { type: string, format: uuid }
+        conversationId: { type: string, format: uuid }
+        status:
+          $ref: '#/components/schemas/GenerationStatus'
+        provider: { type: string, minLength: 1, maxLength: 32 }
+        model: { type: [string, 'null'], maxLength: 128 }
+        errorCode: { type: [string, 'null'], maxLength: 64 }
+        userMessageId: { type: [string, 'null'], format: uuid }
+        nextEventSequence: { type: integer, format: int64, minimum: 0 }
+        queuedAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        completedAt: { type: [string, 'null'], format: date-time }
+        deduplicated: { type: boolean }
+    GenerationEventResponse:
+      type: object
+      additionalProperties: false
+      required: [id, generationId, sequenceNo, eventType, payload, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        generationId: { type: string, format: uuid }
+        sequenceNo: { type: integer, format: int64, minimum: 0 }
+        eventType:
+          $ref: '#/components/schemas/GenerationEventType'
+        payload:
+          type: string
+          maxLength: 65536
+          description: Safe event-specific JSON encoded as a string.
+        createdAt: { type: string, format: date-time }
+    GenerationStreamErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code: { type: string }
+    ConversationPageResponse:
+      allOf:
+        - $ref: '#/components/schemas/PageMetadata'
+        - type: object
+          required: [content]
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/ConversationResponse'
+    MessagePageResponse:
+      allOf:
+        - $ref: '#/components/schemas/PageMetadata'
+        - type: object
+          required: [content]
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/MessageResponse'
+    PageMetadata:
+      type: object
+      required: [page, size, totalElements, totalPages, first, last]
+      properties:
+        page: { type: integer, format: int32, minimum: 0 }
+        size: { type: integer, format: int32, minimum: 1, maximum: 100 }
+        totalElements: { type: integer, format: int64, minimum: 0 }
+        totalPages: { type: integer, format: int32, minimum: 0 }
+        first: { type: boolean }
+        last: { type: boolean }
+    ApiError:
+      type: object
+      description: |
+        Uniform error body for every AgriCore service, defined by ApiError in common-lib.
+        `code` is the stable machine-readable discriminator and is part of the public contract.
+        Null fields are omitted, so `violations`, `details`, and `traceId` are absent unless set.
+      required: [timestamp, status, error, code, message, path]
+      properties:
+        timestamp: { type: string, format: date-time }
+        status: { type: integer }
+        error: { type: string, description: HTTP reason phrase }
+        code: { type: string, example: DUPLICATE_RESOURCE }
+        message: { type: string }
+        path: { type: string }
+        traceId: { type: string }
+        violations:
+          type: array
+          description: Present only when code is VALIDATION_FAILED.
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field: { type: string }
+              message: { type: string }
+        details:
+          type: object
+          additionalProperties: true
+    FieldViolation:
+      type: object
+      additionalProperties: false
+      required: [field, message]
+      properties:
+        field: { type: string }
+        message: { type: string }

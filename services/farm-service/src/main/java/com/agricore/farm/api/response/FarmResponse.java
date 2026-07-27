@@ -8,6 +8,7 @@ public record FarmResponse(
         UUID id,
         String code,
         String name,
+        UUID enterpriseId,
         String address,
         String province,
         BigDecimal totalAreaHa,

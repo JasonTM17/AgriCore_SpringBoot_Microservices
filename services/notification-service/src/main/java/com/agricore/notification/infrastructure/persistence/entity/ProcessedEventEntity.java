@@ -3,67 +3,35 @@ package com.agricore.notification.infrastructure.persistence.entity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
-import jakarta.persistence.IdClass;
 import jakarta.persistence.Table;
 
-import java.io.Serializable;
 import java.time.Instant;
-import java.util.Objects;
+import java.util.UUID;
 
-/**
- * Marker for an already-consumed event, keyed by (eventId, consumerName)
- * so several consumers can process the same event independently.
- */
 @Entity
 @Table(name = "processed_events")
-@IdClass(ProcessedEventEntity.Pk.class)
 public class ProcessedEventEntity {
 
     @Id
-    @Column(name = "event_id", length = 100)
-    private String eventId;
-
-    @Id
-    @Column(name = "consumer_name", length = 100)
+    private UUID id;
+    @Column(name = "event_id", nullable = false)
+    private UUID eventId;
+    @Column(name = "consumer_name", nullable = false, length = 100)
     private String consumerName;
-
     @Column(name = "processed_at", nullable = false)
     private Instant processedAt;
 
-    public static ProcessedEventEntity of(String eventId, String consumerName) {
-        ProcessedEventEntity e = new ProcessedEventEntity();
-        e.eventId = eventId;
-        e.consumerName = consumerName;
-        e.processedAt = Instant.now();
-        return e;
+    public static ProcessedEventEntity create(UUID eventId, String consumerName) {
+        ProcessedEventEntity event = new ProcessedEventEntity();
+        event.id = UUID.randomUUID();
+        event.eventId = eventId;
+        event.consumerName = consumerName;
+        event.processedAt = Instant.now();
+        return event;
     }
 
-    public String getEventId() { return eventId; }
+    public UUID getId() { return id; }
+    public UUID getEventId() { return eventId; }
     public String getConsumerName() { return consumerName; }
     public Instant getProcessedAt() { return processedAt; }
-
-    public static class Pk implements Serializable {
-        private String eventId;
-        private String consumerName;
-
-        public Pk() {
-        }
-
-        public Pk(String eventId, String consumerName) {
-            this.eventId = eventId;
-            this.consumerName = consumerName;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (!(o instanceof Pk pk)) return false;
-            return Objects.equals(eventId, pk.eventId) && Objects.equals(consumerName, pk.consumerName);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(eventId, consumerName);
-        }
-    }
 }

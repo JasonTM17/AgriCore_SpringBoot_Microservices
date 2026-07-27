@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
-FARM_BASE="${FARM_BASE:-http://localhost:8082}"
-HDR=(-H "Content-Type: application/json" -H "X-Dev-User: seed" -H "X-Dev-Roles: FARM_MANAGER")
-curl -sS -X POST "${FARM_BASE}/api/v1/farms" "${HDR[@]}" -d '{
-  "code":"FARM-DL-01","name":"Nong trai Dak Lak","address":"Buon Ma Thuot",
-  "province":"Dak Lak","totalAreaHa":120.5,"latitude":12.6667,"longitude":108.05
-}'
-echo
-echo "Seed farm request sent. Use identity register for sample users."
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+SEED_SCRIPT="${SCRIPT_DIR}/seed-data.ps1"
+
+if command -v pwsh >/dev/null 2>&1; then
+  exec pwsh -NoLogo -NoProfile -File "${SEED_SCRIPT}" "$@"
+fi
+
+if command -v powershell.exe >/dev/null 2>&1; then
+  exec powershell.exe -NoLogo -NoProfile -File "${SEED_SCRIPT}" "$@"
+fi
+
+echo "PowerShell 7 (pwsh) is required so POSIX and Windows use the same bounded seed implementation." >&2
+exit 1

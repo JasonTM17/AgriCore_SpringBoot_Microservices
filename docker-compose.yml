@@ -4,6 +4,12 @@ name: agricore
 include:
   - path: docker-compose.infrastructure.yml
 
+x-bounded-logging: &bounded-logging
+  driver: json-file
+  options:
+    max-size: ${DOCKER_LOG_MAX_SIZE:-10m}
+    max-file: ${DOCKER_LOG_MAX_FILES:-3}
+
 x-db-env: &db-env
   POSTGRES_HOST: postgres
   POSTGRES_PORT: 5432
@@ -18,9 +24,55 @@ x-security-env: &security-env
   IDENTITY_JWKS_URI: http://identity-service:8081/.well-known/jwks.json
   AGRICORE_DEV_MODE: "false"
 
+x-observability-env: &observability-env
+  # Host-launched applications use MANAGEMENT_OTLP_TRACING_ENDPOINT from
+  # .env. Containers need the Compose-network hostname instead.
+  MANAGEMENT_OTLP_TRACING_ENDPOINT: ${COMPOSE_MANAGEMENT_OTLP_TRACING_ENDPOINT:-http://tempo:4318/v1/traces}
+  MANAGEMENT_TRACING_SAMPLING_PROBABILITY: ${MANAGEMENT_TRACING_SAMPLING_PROBABILITY:-1.0}
+  # Spring's environment-variable mapping removes the hyphen in
+  # `percentiles-histogram`; an underscore here binds to the separate
+  # `percentiles` double[] property and prevents application startup.
+  MANAGEMENT_METRICS_DISTRIBUTION_PERCENTILESHISTOGRAM_HTTP_SERVER_REQUESTS: "true"
+  LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
+  LOGGING_STRUCTURED_ECS_SERVICE_ENVIRONMENT: ${AGRICORE_ENVIRONMENT:-local}
+
 # Internal Docker network listener (see PLAINTEXT://kafka:19092 in infrastructure compose)
 x-kafka-env: &kafka-env
   KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+
+x-farm-access-env: &farm-access-env
+  FARM_SERVICE_URL: http://farm-service:8082
+  FARM_SERVICE_ALLOWED_HOSTS: farm-service
+  # Local Compose has no service-mesh TLS; keep plaintext opt-in explicit.
+  FARM_SERVICE_ALLOW_INSECURE_HTTP: "true"
+
+x-crop-cycle-access-env: &crop-cycle-access-env
+  CROP_CYCLE_SERVICE_URL: http://crop-cycle-service:8084
+  CROP_CYCLE_SERVICE_ALLOWED_HOSTS: crop-cycle-service
+  # Local Compose has no service-mesh TLS; keep plaintext opt-in explicit.
+  CROP_CYCLE_SERVICE_ALLOW_INSECURE_HTTP: "true"
+
+x-inventory-access-env: &inventory-access-env
+  INVENTORY_SERVICE_URL: http://inventory-service:8086
+  INVENTORY_SERVICE_ALLOWED_HOSTS: inventory-service
+  INVENTORY_INTERNAL_SERVICE_TOKEN: ${INVENTORY_INTERNAL_SERVICE_TOKEN:-agricore_inventory_internal_dev_change_me_32_chars}
+  # Local Compose has no service-mesh TLS; keep plaintext opt-in explicit.
+  INVENTORY_SERVICE_ALLOW_INSECURE_HTTP: "true"
+
+x-object-storage-env: &object-storage-env
+  OBJECT_STORAGE_ENABLED: "true"
+  OBJECT_STORAGE_ENDPOINT: http://minio:9000
+  OBJECT_STORAGE_PUBLIC_ENDPOINT: ${OBJECT_STORAGE_PUBLIC_ENDPOINT:-http://localhost:9000}
+  OBJECT_STORAGE_ACCESS_KEY: ${MINIO_ROOT_USER:-agricore_minio}
+  OBJECT_STORAGE_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-agricore_minio_dev_change_me}
+  OBJECT_STORAGE_BUCKET: ${WORK_ATTACHMENT_BUCKET:-agricore-work-attachments}
+  OBJECT_STORAGE_ALLOWED_HOSTS: ${OBJECT_STORAGE_ALLOWED_HOSTS:-minio,localhost,127.0.0.1}
+  # Local Compose has no service-mesh TLS; keep plaintext opt-in explicit.
+  OBJECT_STORAGE_ALLOW_INSECURE_HTTP: "true"
+  OBJECT_STORAGE_DOWNLOAD_URL_TTL: ${OBJECT_STORAGE_DOWNLOAD_URL_TTL:-15m}
+  WORK_ATTACHMENT_MAX_UPLOAD_SIZE: ${WORK_ATTACHMENT_MAX_UPLOAD_SIZE:-10MB}
+  WORK_ATTACHMENT_MAX_REQUEST_SIZE: ${WORK_ATTACHMENT_MAX_REQUEST_SIZE:-11MB}
+  WORK_ATTACHMENT_MAX_PER_TASK: ${WORK_ATTACHMENT_MAX_PER_TASK:-20}
 
 x-app-healthcheck: &app-healthcheck
   interval: 15s
@@ -29,11 +81,38 @@ x-app-healthcheck: &app-healthcheck
   start_period: 90s
 
 services:
+  kafka-topics-init:
+    image: apache/kafka:3.8.1
+    container_name: agricore-kafka-topics-init
+    logging: *bounded-logging
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+    volumes:
+      - ./infrastructure/docker/kafka/create-topics.sh:/opt/agricore/create-topics.sh:ro
+    entrypoint: ["/bin/bash", "/opt/agricore/create-topics.sh"]
+    restart: "no"
+
+  mailpit:
+    image: axllent/mailpit:v1.30.0
+    container_name: agricore-mailpit
+    logging: *bounded-logging
+    restart: unless-stopped
+    environment:
+      MP_MAX_MESSAGES: "5000"
+    ports:
+      - "${MAILPIT_UI_BIND:-127.0.0.1}:${MAILPIT_UI_PORT:-8025}:8025"
+    expose:
+      - "1025"
+
   identity-service:
     build:
       context: .
       dockerfile: services/identity-service/Dockerfile
     container_name: agricore-identity
+    logging: *bounded-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -42,7 +121,7 @@ services:
       kafka:
         condition: service_healthy
     environment:
-      <<: [*db-env, *kafka-env]
+      <<: [*db-env, *kafka-env, *observability-env]
       REDIS_HOST: redis
       REDIS_PORT: 6379
       IDENTITY_PORT: 8081
@@ -53,11 +132,15 @@ services:
       # Local stack needs seed/e2e registration; fail-closed rate limit with Redis up
       AGRICORE_REGISTRATION_ENABLED: "true"
       AGRICORE_RATE_LIMIT_FAIL_OPEN: "false"
-      AGRICORE_TRUST_FORWARDED_HEADERS: "true"
+      # Shared with Gateway and Assistant. Gateway signs the canonical client
+      # address after it validates the immediate proxy source; direct callers
+      # cannot choose Identity rate-limit keys with a forged forwarding header.
+      AGRICORE_CLIENT_IP_SIGNING_SECRET: ${AGRICORE_CLIENT_IP_SIGNING_SECRET:?Set AGRICORE_CLIENT_IP_SIGNING_SECRET in .env}
+      AGRICORE_WEB_ALLOWED_ORIGINS: ${AGRICORE_WEB_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173}
     volumes:
       - ./infrastructure/jwt:/keys:ro
     ports:
-      - "8081:8081"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:8081:8081"
     healthcheck:
       <<: *app-healthcheck
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8081/actuator/health | grep -q UP || exit 1"]
@@ -67,6 +150,7 @@ services:
       context: .
       dockerfile: services/farm-service/Dockerfile
     container_name: agricore-farm
+    logging: *bounded-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -75,10 +159,10 @@ services:
       kafka:
         condition: service_healthy
     environment:
-      <<: [*db-env, *security-env, *kafka-env]
+      <<: [*db-env, *security-env, *kafka-env, *observability-env]
       FARM_PORT: 8082
     ports:
-      - "8082:8082"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:8082:8082"
     healthcheck:
       <<: *app-healthcheck
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8082/actuator/health | grep -q UP || exit 1"]
@@ -88,16 +172,17 @@ services:
       context: .
       dockerfile: services/crop-catalog-service/Dockerfile
     container_name: agricore-crop-catalog
+    logging: *bounded-logging
     depends_on:
       postgres:
         condition: service_healthy
       identity-service:
         condition: service_healthy
     environment:
-      <<: [*db-env, *security-env]
+      <<: [*db-env, *security-env, *observability-env]
       CROP_CATALOG_PORT: 8083
     ports:
-      - "8083:8083"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:8083:8083"
     healthcheck:
       <<: *app-healthcheck
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8083/actuator/health | grep -q UP || exit 1"]
@@ -107,6 +192,7 @@ services:
       context: .
       dockerfile: services/crop-cycle-service/Dockerfile
     container_name: agricore-crop-cycle
+    logging: *bounded-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -114,11 +200,13 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      farm-service:
+        condition: service_healthy
     environment:
-      <<: [*db-env, *security-env, *kafka-env]
+      <<: [*db-env, *security-env, *kafka-env, *farm-access-env, *observability-env]
       CROP_CYCLE_PORT: 8084
     ports:
-      - "8084:8084"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:8084:8084"
     healthcheck:
       <<: *app-healthcheck
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8084/actuator/health | grep -q UP || exit 1"]
@@ -128,6 +216,7 @@ services:
       context: .
       dockerfile: services/work-service/Dockerfile
     container_name: agricore-work
+    logging: *bounded-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -135,11 +224,17 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      farm-service:
+        condition: service_healthy
+      inventory-service:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
     environment:
-      <<: [*db-env, *security-env, *kafka-env]
+      <<: [*db-env, *security-env, *kafka-env, *farm-access-env, *inventory-access-env, *object-storage-env, *observability-env]
       WORK_PORT: 8085
     ports:
-      - "8085:8085"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:8085:8085"
     healthcheck:
       <<: *app-healthcheck
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8085/actuator/health | grep -q UP || exit 1"]
@@ -149,18 +244,23 @@ services:
       context: .
       dockerfile: services/inventory-service/Dockerfile
     container_name: agricore-inventory
+    logging: *bounded-logging
     depends_on:
       postgres:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      kafka-topics-init:
+        condition: service_completed_successfully
       identity-service:
         condition: service_healthy
+      farm-service:
+        condition: service_healthy
     environment:
-      <<: [*db-env, *security-env, *kafka-env]
+      <<: [*db-env, *security-env, *kafka-env, *farm-access-env, *inventory-access-env, *observability-env]
       INVENTORY_PORT: 8086
     ports:
-      - "8086:8086"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:8086:8086"
     healthcheck:
       <<: *app-healthcheck
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8086/actuator/health | grep -q UP || exit 1"]
@@ -170,6 +270,7 @@ services:
       context: .
       dockerfile: services/harvest-service/Dockerfile
     container_name: agricore-harvest
+    logging: *bounded-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -177,11 +278,17 @@ services:
         condition: service_healthy
       identity-service:
         condition: service_healthy
+      farm-service:
+        condition: service_healthy
+      crop-cycle-service:
+        condition: service_healthy
+      inventory-service:
+        condition: service_healthy
     environment:
-      <<: [*db-env, *security-env, *kafka-env]
+      <<: [*db-env, *security-env, *kafka-env, *farm-access-env, *crop-cycle-access-env, *inventory-access-env, *observability-env]
       HARVEST_PORT: 8087
     ports:
-      - "8087:8087"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:8087:8087"
     healthcheck:
       <<: *app-healthcheck
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8087/actuator/health | grep -q UP || exit 1"]
@@ -191,6 +298,7 @@ services:
       context: .
       dockerfile: services/notification-service/Dockerfile
     container_name: agricore-notification
+    logging: *bounded-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -198,11 +306,22 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      kafka-topics-init:
+        condition: service_completed_successfully
+      mailpit:
+        condition: service_started
     environment:
-      <<: [*db-env, *security-env, *kafka-env]
+      <<: [*db-env, *security-env, *kafka-env, *observability-env]
       NOTIFICATION_PORT: 8089
+      NOTIFICATION_DELIVERY_PROVIDER: smtp
+      NOTIFICATION_SMTP_HOST: mailpit
+      NOTIFICATION_SMTP_PORT: 1025
+      NOTIFICATION_SMTP_AUTH: "false"
+      NOTIFICATION_SMTP_STARTTLS: "false"
+      NOTIFICATION_SMTP_STARTTLS_REQUIRED: "false"
+      NOTIFICATION_SMTP_FROM: no-reply@agricore.local
     ports:
-      - "8089:8089"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:8089:8089"
     healthcheck:
       <<: *app-healthcheck
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8089/actuator/health | grep -q UP || exit 1"]
@@ -212,16 +331,34 @@ services:
       context: .
       dockerfile: services/iot-service/Dockerfile
     container_name: agricore-iot
+    logging: *bounded-logging
     depends_on:
       postgres:
         condition: service_healthy
+      iot-timescale-init:
+        condition: service_completed_successfully
       identity-service:
         condition: service_healthy
+      farm-service:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-topics-init:
+        condition: service_completed_successfully
+      mqtt:
+        condition: service_healthy
     environment:
-      <<: [*db-env, *security-env]
+      <<: [*db-env, *security-env, *kafka-env, *farm-access-env, *observability-env]
       IOT_PORT: 8090
+      IOT_MQTT_ENABLED: "true"
+      IOT_MQTT_BROKER: tcp://mqtt:1883
+      IOT_MQTT_ALLOW_INSECURE: "true"
+      IOT_MQTT_CLIENT_ID: agricore-iot-service-local
+      IOT_MQTT_TOPIC: agricore/telemetry/+/reading
+      IOT_MQTT_USERNAME: ${MQTT_SERVICE_USERNAME:-agricore_iot}
+      IOT_MQTT_PASSWORD: ${MQTT_SERVICE_PASSWORD:-agricore_iot_dev_change_me}
     ports:
-      - "8090:8090"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:8090:8090"
     healthcheck:
       <<: *app-healthcheck
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8090/actuator/health | grep -q UP || exit 1"]
@@ -231,19 +368,25 @@ services:
       context: .
       dockerfile: services/sales-service/Dockerfile
     container_name: agricore-sales
+    logging: *bounded-logging
     depends_on:
       postgres:
         condition: service_healthy
       identity-service:
         condition: service_healthy
+      farm-service:
+        condition: service_healthy
       inventory-service:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-topics-init:
+        condition: service_completed_successfully
     environment:
-      <<: [*db-env, *security-env]
+      <<: [*db-env, *security-env, *kafka-env, *farm-access-env, *inventory-access-env, *observability-env]
       SALES_PORT: 8091
-      INVENTORY_SERVICE_URL: http://inventory-service:8086
     ports:
-      - "8091:8091"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:8091:8091"
     healthcheck:
       <<: *app-healthcheck
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8091/actuator/health | grep -q UP || exit 1"]
@@ -253,28 +396,79 @@ services:
       context: .
       dockerfile: services/traceability-service/Dockerfile
     container_name: agricore-traceability
+    logging: *bounded-logging
     depends_on:
       postgres:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      kafka-topics-init:
+        condition: service_completed_successfully
       identity-service:
         condition: service_healthy
     environment:
-      <<: [*db-env, *security-env, *kafka-env]
+      <<: [*db-env, *security-env, *kafka-env, *observability-env]
       TRACEABILITY_PORT: 8092
-      TRACEABILITY_PUBLIC_BASE_URL: http://localhost:8080/public/api/v1/traceability
+      TRACEABILITY_PUBLIC_BASE_URL: http://localhost:3000/public/api/v1/traceability
     ports:
-      - "8092:8092"
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:8092:8092"
     healthcheck:
       <<: *app-healthcheck
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8092/actuator/health | grep -q UP || exit 1"]
+
+  assistant-service:
+    build:
+      context: .
+      dockerfile: services/assistant-service/Dockerfile
+    container_name: agricore-assistant
+    logging: *bounded-logging
+    depends_on:
+      postgres:
+        condition: service_healthy
+      assistant-database-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      identity-service:
+        condition: service_healthy
+      farm-service:
+        condition: service_healthy
+    environment:
+      <<: [*db-env, *security-env, *farm-access-env, *observability-env]
+      ASSISTANT_PORT: 8093
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      ASSISTANT_PROVIDER: ${ASSISTANT_PROVIDER:-none}
+      ASSISTANT_PROVIDER_MODEL: ${ASSISTANT_PROVIDER_MODEL:-}
+      ASSISTANT_PROVIDER_API_KEY: ${ASSISTANT_PROVIDER_API_KEY:-}
+      ASSISTANT_PROVIDER_BASE_URL: ${ASSISTANT_PROVIDER_BASE_URL:-}
+      ASSISTANT_TOOLS_ENABLED: ${ASSISTANT_TOOLS_ENABLED:-true}
+      ASSISTANT_ARCHIVED_CONVERSATION_RETENTION: ${ASSISTANT_ARCHIVED_CONVERSATION_RETENTION:-P90D}
+      ASSISTANT_AUDIT_RETENTION: ${ASSISTANT_AUDIT_RETENTION:-P365D}
+      ASSISTANT_GENERATION_EVENT_RETENTION: ${ASSISTANT_GENERATION_EVENT_RETENTION:-PT24H}
+      ASSISTANT_RETENTION_CLEANUP_ENABLED: ${ASSISTANT_RETENTION_CLEANUP_ENABLED:-true}
+      ASSISTANT_RETENTION_CLEANUP_INTERVAL: ${ASSISTANT_RETENTION_CLEANUP_INTERVAL:-PT1H}
+      ASSISTANT_RETENTION_CLEANUP_BATCH_SIZE: ${ASSISTANT_RETENTION_CLEANUP_BATCH_SIZE:-250}
+      ASSISTANT_FARM_TOOL_BASE_URL: http://farm-service:8082
+      ASSISTANT_TOOL_ALLOWED_HOSTS: farm-service
+      ASSISTANT_TOOL_ALLOW_INSECURE_HTTP: "true"
+      # Shared with Gateway and Identity for verified budget-key derivation.
+      AGRICORE_CLIENT_IP_SIGNING_SECRET: ${AGRICORE_CLIENT_IP_SIGNING_SECRET:?Set AGRICORE_CLIENT_IP_SIGNING_SECRET in .env}
+    expose:
+      - "8093"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8093/actuator/health | grep -q UP || exit 1"]
 
   api-gateway:
     build:
       context: .
       dockerfile: services/api-gateway/Dockerfile
     container_name: agricore-gateway
+    logging: *bounded-logging
     depends_on:
       identity-service:
         condition: service_healthy
@@ -298,7 +492,10 @@ services:
         condition: service_healthy
       traceability-service:
         condition: service_healthy
+      assistant-service:
+        condition: service_healthy
     environment:
+      <<: [*observability-env]
       GATEWAY_PORT: 8080
       IDENTITY_SERVICE_URL: http://identity-service:8081
       FARM_SERVICE_URL: http://farm-service:8082
@@ -311,10 +508,53 @@ services:
       IOT_SERVICE_URL: http://iot-service:8090
       SALES_SERVICE_URL: http://sales-service:8091
       TRACEABILITY_SERVICE_URL: http://traceability-service:8092
+      ASSISTANT_SERVICE_URL: http://assistant-service:8093
       JWT_ISSUER: https://agricore.local/identity
       IDENTITY_JWKS_URI: http://identity-service:8081/.well-known/jwks.json
-    ports:
-      - "8080:8080"
+      # Trust only the Console's fixed edge-network address. Back-end services
+      # remain on the default network and therefore cannot mint a signed client
+      # identity by sending a forged X-Forwarded-For header to Gateway.
+      GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN: ${GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN:?Set GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN in .env}
+      AGRICORE_CLIENT_IP_SIGNING_SECRET: ${AGRICORE_CLIENT_IP_SIGNING_SECRET:?Set AGRICORE_CLIENT_IP_SIGNING_SECRET in .env}
+    networks:
+      default: {}
+      client-ip-edge:
+        ipv4_address: ${CLIENT_IP_EDGE_GATEWAY_IP:-172.30.0.2}
+    expose:
+      - "8080"
     healthcheck:
       <<: *app-healthcheck
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/actuator/health | grep -q UP || exit 1"]
+
+  agricore-console:
+    build:
+      context: .
+      dockerfile: apps/agricore-console/Dockerfile
+    container_name: agricore-console
+    logging: *bounded-logging
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    # Deliberately excluded from the default application network. Its fixed
+    # address is the sole Compose peer Gateway trusts to supply client IP data.
+    networks:
+      client-ip-edge:
+        ipv4_address: ${CLIENT_IP_EDGE_CONSOLE_IP:-172.30.0.3}
+    ports:
+      - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:${CONSOLE_PORT:-3000}:8080"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+    healthcheck:
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz | grep -q ok || exit 1"]
+
+networks:
+  client-ip-edge:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${CLIENT_IP_EDGE_SUBNET:-172.30.0.0/29}

@@ -44,7 +44,11 @@ class AuthLoginRateLimitTest {
                 "",
                 true,
                 false,
-                false
+                "agricore_refresh",
+                "/api/v1/auth/web",
+                false,
+                "Strict",
+                "http://localhost:5173"
         );
 
         AuthApplicationService auth = new AuthApplicationService(
@@ -53,10 +57,10 @@ class AuthLoginRateLimitTest {
                 mock(RefreshTokenJpaRepository.class),
                 mock(PasswordEncoder.class),
                 mock(JwtTokenService.class),
+                mock(EffectivePermissionService.class),
                 security,
                 limiter,
-                mock(IdentityOutboxWriter.class),
-                mock(AuthFailureRecorder.class)
+                mock(IdentityOutboxWriter.class)
         );
 
         LoginRequest request = new LoginRequest("any@agricore.test", "Secret123!");

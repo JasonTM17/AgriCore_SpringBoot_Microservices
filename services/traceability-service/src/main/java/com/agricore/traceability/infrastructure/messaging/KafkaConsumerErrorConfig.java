@@ -1,34 +1,71 @@
 package com.agricore.traceability.infrastructure.messaging;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.TopicPartition;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.kafka.common.header.Headers;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.annotation.EnableKafka;
+import org.springframework.kafka.core.KafkaOperations;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
-import org.springframework.kafka.listener.DefaultErrorHandler;
-import org.springframework.util.backoff.ExponentialBackOff;
+import org.springframework.kafka.retrytopic.DeadLetterPublishingRecovererFactory;
+import org.springframework.kafka.retrytopic.RetryTopicConfigurationSupport;
+
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 @Configuration
+@EnableKafka
 @ConditionalOnProperty(name = "agricore.kafka.consumer.enabled", havingValue = "true", matchIfMissing = true)
-public class KafkaConsumerErrorConfig {
+public class KafkaConsumerErrorConfig extends RetryTopicConfigurationSupport {
 
-    private static final Logger log = LoggerFactory.getLogger(KafkaConsumerErrorConfig.class);
+    private static final String DLT_SUFFIX = ".DLT";
+    private final Counter dltAttempts;
 
-    @Bean
-    DefaultErrorHandler kafkaErrorHandler(KafkaTemplate<String, String> kafkaTemplate) {
-        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
-                kafkaTemplate,
-                (record, ex) -> {
-                    String dlt = record.topic() + ".DLT";
-                    log.error("Traceability DLT topic={} offset={} cause={}", dlt, record.offset(), ex.getMessage());
-                    return new TopicPartition(dlt, record.partition());
-                }
+    KafkaConsumerErrorConfig(MeterRegistry meterRegistry) {
+        this.dltAttempts = Counter.builder("agricore.kafka.dlq.attempts")
+                .description("Kafka records handed to dead-letter recovery")
+                .tag("consumer", "traceability-service")
+                .register(meterRegistry);
+    }
+
+    @Override
+    protected Consumer<DeadLetterPublishingRecovererFactory> configureDeadLetterPublishingContainerFactory() {
+        return factory -> factory.setDeadLetterPublisherCreator(
+                (templateResolver, destinationResolver) ->
+                        new DltAttemptCountingRecoverer(templateResolver, destinationResolver, dltAttempts)
         );
-        ExponentialBackOff backOff = new ExponentialBackOff(500L, 2.0);
-        backOff.setMaxElapsedTime(8_000L);
-        return new DefaultErrorHandler(recoverer, backOff);
+    }
+
+    private static final class DltAttemptCountingRecoverer extends DeadLetterPublishingRecoverer {
+
+        private final Counter dltAttempts;
+
+        private DltAttemptCountingRecoverer(
+                Function<ProducerRecord<?, ?>, KafkaOperations<?, ?>> templateResolver,
+                BiFunction<ConsumerRecord<?, ?>, Exception, TopicPartition> destinationResolver,
+                Counter dltAttempts
+        ) {
+            super(templateResolver, destinationResolver);
+            this.dltAttempts = dltAttempts;
+        }
+
+        @Override
+        protected ProducerRecord<Object, Object> createProducerRecord(
+                ConsumerRecord<?, ?> record,
+                TopicPartition topicPartition,
+                Headers headers,
+                byte[] key,
+                byte[] value
+        ) {
+            if (topicPartition.topic().endsWith(DLT_SUFFIX)) {
+                dltAttempts.increment();
+            }
+            return super.createProducerRecord(record, topicPartition, headers, key, value);
+        }
     }
 }

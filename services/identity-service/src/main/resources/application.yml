@@ -18,7 +18,9 @@ spring:
           time_zone: UTC
   flyway:
     enabled: true
-    locations: classpath:db/migration
+    locations: classpath:db/migration,classpath:db/postgresql-migration
+    postgresql:
+      transactional-lock: false
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -49,6 +51,8 @@ management:
       application: ${spring.application.name}
 
 agricore:
+  client-ip:
+    signing-secret: ${AGRICORE_CLIENT_IP_SIGNING_SECRET:}
   security:
     issuer: ${JWT_ISSUER:https://agricore.local/identity}
     audience: agricore-api
@@ -64,12 +68,23 @@ agricore:
     registration-enabled: ${AGRICORE_REGISTRATION_ENABLED:true}
     # Production fail-closed when Redis is down
     rate-limit-fail-open: ${AGRICORE_RATE_LIMIT_FAIL_OPEN:false}
-    # Only enable behind trusted reverse proxy / gateway
-    trust-forwarded-headers: ${AGRICORE_TRUST_FORWARDED_HEADERS:false}
+    # Browser refresh cookie (HttpOnly) — not readable by console JavaScript
+    refresh-cookie-name: ${AGRICORE_REFRESH_COOKIE_NAME:agricore_refresh}
+    refresh-cookie-path: ${AGRICORE_REFRESH_COOKIE_PATH:/api/v1/auth/web}
+    refresh-cookie-secure: ${AGRICORE_REFRESH_COOKIE_SECURE:false}
+    refresh-cookie-same-site: ${AGRICORE_REFRESH_COOKIE_SAME_SITE:Strict}
+    web-allowed-origins: ${AGRICORE_WEB_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
   outbox:
     publisher:
-      enabled: true
-      poll-ms: 1000
+      enabled: ${AGRICORE_OUTBOX_PUBLISHER_ENABLED:true}
+      poll-ms: ${AGRICORE_OUTBOX_PUBLISHER_POLL_MS:1000}
+      send-timeout-ms: ${AGRICORE_OUTBOX_PUBLISHER_SEND_TIMEOUT_MS:10000}
+      claim-lease-ms: ${AGRICORE_OUTBOX_PUBLISHER_CLAIM_LEASE_MS:30000}
+      retry:
+        write-state-enabled: ${OUTBOX_PUBLISHER_RETRY_WRITE_STATE_ENABLED:false}
+        base-delay-ms: ${OUTBOX_PUBLISHER_RETRY_BASE_DELAY_MS:1000}
+        max-delay-ms: ${OUTBOX_PUBLISHER_RETRY_MAX_DELAY_MS:60000}
+        max-attempts: ${OUTBOX_PUBLISHER_MAX_ATTEMPTS:10}
 
 logging:
   level:

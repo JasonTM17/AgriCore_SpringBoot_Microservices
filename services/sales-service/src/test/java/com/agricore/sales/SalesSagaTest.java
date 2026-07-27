@@ -1,7 +1,12 @@
 package com.agricore.sales;
 
+import com.agricore.farmaccess.FarmAccessClient;
 import com.agricore.sales.infrastructure.client.InventoryClient;
-import com.fasterxml.jackson.databind.JsonNode;
+import com.agricore.sales.infrastructure.persistence.OrderSagaJpaRepository;
+import com.agricore.sales.infrastructure.persistence.SalesOrderItemJpaRepository;
+import com.agricore.sales.infrastructure.persistence.SalesOrderJpaRepository;
+import com.agricore.sales.infrastructure.persistence.entity.OrderSagaEntity;
+import com.agricore.sales.infrastructure.persistence.entity.SalesOrderEntity;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,12 +17,19 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.ResultActions;
 
 import java.util.UUID;
 
+import static com.agricore.sales.infrastructure.client.InventoryClient.ReleaseOutcome.FULFILLED;
+import static com.agricore.sales.infrastructure.client.InventoryClient.ReleaseOutcome.RELEASED;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -28,45 +40,69 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class SalesSagaTest {
 
+    private static final UUID FARM_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
+
     @Autowired
     private MockMvc mockMvc;
     @Autowired
     private ObjectMapper objectMapper;
+    @Autowired
+    private SalesOrderItemJpaRepository itemRepository;
+    @Autowired
+    private OrderSagaJpaRepository sagaRepository;
+    @Autowired
+    private SalesOrderJpaRepository orderRepository;
 
     @MockBean
     private InventoryClient inventoryClient;
+    @MockBean
+    private FarmAccessClient farmAccessClient;
+
+    private String createCustomer(String codePrefix) throws Exception {
+        MvcResult customer = mockMvc.perform(post("/api/v1/sales/customers")
+                        .header("X-Dev-User", "sales")
+                        .header("X-Dev-Roles", "SALES_STAFF")
+                        .header("X-Dev-Permissions", "SALES_WRITE,SALES_READ")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"farmId":"%s","code":"%s-%d","name":"Saga Test Customer"}
+                                """.formatted(FARM_ID, codePrefix, System.nanoTime())))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return objectMapper.readTree(customer.getResponse().getContentAsString()).get("id").asText();
+    }
+
+    private ResultActions placeOrder(String orderPrefix, String customerId, int quantity) throws Exception {
+        return mockMvc.perform(post("/api/v1/sales/orders")
+                .header("X-Dev-User", "sales")
+                .header("X-Dev-Roles", "SALES_STAFF")
+                .header("X-Dev-Permissions", "SALES_WRITE,SALES_READ")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {
+                          "orderNumber":"%s-%d",
+                          "farmId":"%s",
+                          "customerId":"%s",
+                          "inventoryItemId":"%s",
+                          "quantity":%d
+                        }
+                        """.formatted(
+                                orderPrefix,
+                                System.nanoTime(),
+                                FARM_ID,
+                                customerId,
+                                UUID.randomUUID(),
+                                quantity
+                        )));
+    }
 
     @Test
     void placeOrder_reserveSuccess_confirms() throws Exception {
         UUID reservationId = UUID.randomUUID();
-        when(inventoryClient.reserve(any(), any(), anyString())).thenReturn(reservationId);
-        doNothing().when(inventoryClient).confirm(any());
+        when(inventoryClient.reserve(any(), any(), any(), anyString())).thenReturn(reservationId);
+        doNothing().when(inventoryClient).confirm(any(), any());
 
-        MvcResult customer = mockMvc.perform(post("/api/v1/sales/customers")
-                        .header("X-Dev-User", "sales")
-                        .header("X-Dev-Roles", "SALES_STAFF")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"code":"C-%d","name":"Cafe Export Co","email":"c@ex.com"}
-                                """.formatted(System.nanoTime())))
-                .andExpect(status().isCreated())
-                .andReturn();
-
-        JsonNode customerJson = objectMapper.readTree(customer.getResponse().getContentAsString());
-        String customerId = customerJson.get("id").asText();
-
-        mockMvc.perform(post("/api/v1/sales/orders")
-                        .header("X-Dev-User", "sales")
-                        .header("X-Dev-Roles", "SALES_STAFF")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "orderNumber":"SO-%d",
-                                  "customerId":"%s",
-                                  "inventoryItemId":"%s",
-                                  "quantity":100
-                                }
-                                """.formatted(System.nanoTime(), customerId, UUID.randomUUID())))
+        placeOrder("SO", createCustomer("C"), 100)
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("CONFIRMED"))
                 .andExpect(jsonPath("$.sagaStatus").value("COMPLETED"))
@@ -75,34 +111,165 @@ class SalesSagaTest {
 
     @Test
     void placeOrder_insufficientStock_marksOutOfStock() throws Exception {
-        when(inventoryClient.reserve(any(), any(), anyString()))
+        when(inventoryClient.reserve(any(), any(), any(), anyString()))
                 .thenThrow(new InventoryClient.InventoryReservationException(409, "INSUFFICIENT_STOCK"));
 
-        MvcResult customer = mockMvc.perform(post("/api/v1/sales/customers")
-                        .header("X-Dev-User", "sales")
-                        .header("X-Dev-Roles", "SALES_STAFF")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"code":"C2-%d","name":"Buyer B"}
-                                """.formatted(System.nanoTime())))
+        placeOrder("SO2", createCustomer("C2"), 9999)
                 .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("OUT_OF_STOCK"))
+                .andExpect(jsonPath("$.sagaStatus").value("FAILED"));
+
+        verify(inventoryClient, never()).release(any(), any());
+    }
+
+    @Test
+    void placeOrder_referenceConflictDoesNotClaimStockIsUnavailable() throws Exception {
+        when(inventoryClient.reserve(any(), any(), any(), anyString()))
+                .thenThrow(new InventoryClient.InventoryReservationException(
+                        409,
+                        "RESERVATION_REFERENCE_CONFLICT"
+                ));
+
+        placeOrder("SO-REF", createCustomer("C-REF"), 10)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.sagaStatus").value("FAILED"));
+    }
+
+    @Test
+    void placeOrder_confirmFailure_schedulesDurableRetry() throws Exception {
+        UUID reservationId = UUID.randomUUID();
+        when(inventoryClient.reserve(any(), any(), any(), anyString())).thenReturn(reservationId);
+        doThrow(new InventoryClient.InventoryReservationException(503, "confirm unavailable"))
+                .when(inventoryClient).confirm(FARM_ID, reservationId);
+        when(inventoryClient.release(FARM_ID, reservationId)).thenReturn(RELEASED);
+
+        placeOrder("SO3", createCustomer("C3"), 25)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("STOCK_RESERVED"))
+                .andExpect(jsonPath("$.sagaStatus").value("RETRY_SCHEDULED"))
+                .andExpect(jsonPath("$.sagaStep").value("CONFIRM_INVENTORY"));
+
+        verify(inventoryClient, never()).release(FARM_ID, reservationId);
+    }
+
+    @Test
+    void placeOrder_doesNotPersistOrReturnDownstreamFailureBody() throws Exception {
+        UUID reservationId = UUID.randomUUID();
+        String sensitiveValue = "inventory-api-key=super-secret";
+        String responseBody = """
+                {"code":"UNTRUSTED_ERROR","message":"%s","details":"%s"}
+                """.formatted(sensitiveValue, "x".repeat(8_192));
+        when(inventoryClient.reserve(any(), any(), any(), anyString())).thenReturn(reservationId);
+        doThrow(new InventoryClient.InventoryReservationException(503, responseBody))
+                .when(inventoryClient).confirm(FARM_ID, reservationId);
+
+        MvcResult result = placeOrder("SAFE-FAILURE", createCustomer("SAFE-FAILURE"), 25)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.failureReason")
+                        .value("Inventory request failed (status=503, code=INVENTORY_DOWNSTREAM_ERROR)"))
                 .andReturn();
-        String customerId = objectMapper.readTree(customer.getResponse().getContentAsString()).get("id").asText();
+
+        String responseContent = result.getResponse().getContentAsString();
+        UUID orderId = UUID.fromString(objectMapper.readTree(responseContent).path("id").asText());
+        SalesOrderEntity order = orderRepository.findById(orderId).orElseThrow();
+        OrderSagaEntity saga = sagaRepository.findBySalesOrderId(orderId).orElseThrow();
+
+        assertThat(responseContent).doesNotContain(sensitiveValue, responseBody);
+        assertThat(order.getFailureReason())
+                .doesNotContain(sensitiveValue, responseBody)
+                .hasSizeLessThanOrEqualTo(160);
+        assertThat(saga.getLastError())
+                .doesNotContain(sensitiveValue, responseBody)
+                .hasSizeLessThanOrEqualTo(160);
+    }
+
+    @Test
+    void placeOrder_confirmResponseLost_isRecoverableWithoutImmediateCompensation() throws Exception {
+        UUID reservationId = UUID.randomUUID();
+        when(inventoryClient.reserve(any(), any(), any(), anyString())).thenReturn(reservationId);
+        doThrow(new InventoryClient.InventoryReservationException(503, "confirm response lost"))
+                .when(inventoryClient).confirm(FARM_ID, reservationId);
+        when(inventoryClient.release(FARM_ID, reservationId)).thenReturn(FULFILLED);
+
+        placeOrder("SO4", createCustomer("C4"), 30)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("STOCK_RESERVED"))
+                .andExpect(jsonPath("$.sagaStatus").value("RETRY_SCHEDULED"))
+                .andExpect(jsonPath("$.sagaStep").value("CONFIRM_INVENTORY"));
+
+        verify(inventoryClient, never()).release(FARM_ID, reservationId);
+    }
+
+    @Test
+    void placeOrder_confirmFailure_doesNotReleaseBeforeRetryBudgetIsConsumed() throws Exception {
+        UUID reservationId = UUID.randomUUID();
+        when(inventoryClient.reserve(any(), any(), any(), anyString())).thenReturn(reservationId);
+        doThrow(new InventoryClient.InventoryReservationException(503, "confirm unavailable"))
+                .when(inventoryClient).confirm(FARM_ID, reservationId);
+        placeOrder("SO5", createCustomer("C5"), 30)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("STOCK_RESERVED"))
+                .andExpect(jsonPath("$.sagaStatus").value("RETRY_SCHEDULED"))
+                .andExpect(jsonPath("$.sagaStep").value("CONFIRM_INVENTORY"))
+                .andExpect(jsonPath("$.reservationId").value(reservationId.toString()));
+
+        verify(inventoryClient, never()).release(FARM_ID, reservationId);
+    }
+
+    @Test
+    void placeOrder_persistsV1ItemAndOptionalPriceSnapshot() throws Exception {
+        UUID reservationId = UUID.randomUUID();
+        when(inventoryClient.reserve(any(), any(), any(), anyString())).thenReturn(reservationId);
+        doNothing().when(inventoryClient).confirm(any(), any());
+        String customerId = createCustomer("PRICE");
+        UUID itemId = UUID.randomUUID();
 
         mockMvc.perform(post("/api/v1/sales/orders")
                         .header("X-Dev-User", "sales")
                         .header("X-Dev-Roles", "SALES_STAFF")
+                        .header("X-Dev-Permissions", "SALES_WRITE,SALES_READ")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "orderNumber":"SO2-%d",
+                                  "orderNumber":"PRICE-%d",
+                                  "farmId":"%s",
                                   "customerId":"%s",
                                   "inventoryItemId":"%s",
-                                  "quantity":9999
+                                  "quantity":2.500,
+                                  "unitPrice":12.3456,
+                                  "currencyCode":"usd"
                                 }
-                                """.formatted(System.nanoTime(), customerId, UUID.randomUUID())))
+                                """.formatted(System.nanoTime(), FARM_ID, customerId, itemId)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.status").value("OUT_OF_STOCK"))
-                .andExpect(jsonPath("$.sagaStatus").value("FAILED"));
+                .andExpect(jsonPath("$.currencyCode").value("USD"))
+                .andExpect(jsonPath("$.subtotalAmount").value(30.864))
+                .andExpect(jsonPath("$.totalAmount").value(30.864))
+                .andExpect(jsonPath("$.items[0].unitPrice").value(12.3456))
+                .andExpect(jsonPath("$.items[0].lineTotal").value(30.864));
+
+        assertThat(itemRepository.findAll()).anySatisfy(item -> {
+            assertThat(item.getInventoryItemId()).isEqualTo(itemId);
+            assertThat(item.getQuantity()).isEqualByComparingTo("2.500");
+            assertThat(item.getLineTotal()).isEqualByComparingTo("30.8640");
+        });
+    }
+
+    @Test
+    void placeOrder_unknownReserveResponse_isDurablyMarkedForReconciliation() throws Exception {
+        when(inventoryClient.reserve(any(), any(), any(), anyString()))
+                .thenThrow(new InventoryClient.InventoryReservationException(503, "reserve timeout"));
+        when(inventoryClient.findByReference(any(), anyString(), anyString()))
+                .thenThrow(new InventoryClient.InventoryReservationException(503, "lookup timeout"));
+
+        String customerId = createCustomer("UNKNOWN");
+        placeOrder("UNKNOWN", customerId, 3)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("PENDING_CONFIRMATION"))
+                .andExpect(jsonPath("$.sagaStatus").value("RETRY_SCHEDULED"))
+                .andExpect(jsonPath("$.sagaStep").value("RESERVATION_OUTCOME_UNKNOWN"));
+
+        assertThat(sagaRepository.findAll()).anySatisfy(saga ->
+                assertThat(saga.getCurrentStep()).isEqualTo("RESERVATION_OUTCOME_UNKNOWN"));
     }
 }

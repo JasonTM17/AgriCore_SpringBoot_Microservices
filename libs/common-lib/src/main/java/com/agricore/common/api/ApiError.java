@@ -21,7 +21,15 @@ public record ApiError(
         List<FieldViolation> violations,
         Map<String, Object> details
 ) {
+    /**
+     * Validation responses never echo rejected inputs because they may contain
+     * credentials, personal data, or oversized attacker-controlled values.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public record FieldViolation(String field, String message, Object rejectedValue) {
+        public FieldViolation {
+            rejectedValue = null;
+        }
     }
 
     public static ApiError of(int status, String error, String code, String message, String path, String traceId) {

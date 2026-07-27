@@ -1,18 +1,22 @@
 package com.agricore.inventory;
 
+import com.agricore.farmaccess.FarmAccessClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.restassured.http.ContentType;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.UUID;
 
+import static io.restassured.module.mockmvc.RestAssuredMockMvc.given;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -28,16 +32,19 @@ class InventoryIdempotencyTest {
     private MockMvc mockMvc;
     @Autowired
     private ObjectMapper objectMapper;
+    @MockitoBean
+    private FarmAccessClient farmAccessClient;
 
     @Test
     void harvestCompleted_processedTwice_stocksOnce() throws Exception {
+        UUID farmId = UUID.randomUUID();
         MvcResult whResult = mockMvc.perform(post("/api/v1/inventory/warehouses")
                         .header("X-Dev-User", "wh")
                         .header("X-Dev-Roles", "WAREHOUSE_MANAGER")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"code":"WH-%d","name":"Dak Lak Produce"}
-                                """.formatted(System.nanoTime())))
+                                {"farmId":"%s","code":"WH-%d","name":"Dak Lak Produce"}
+                                """.formatted(farmId, System.nanoTime())))
                 .andExpect(status().isCreated())
                 .andReturn();
         String warehouseId = objectMapper.readTree(whResult.getResponse().getContentAsString()).get("id").asText();
@@ -48,41 +55,61 @@ class InventoryIdempotencyTest {
                 {
                   "eventId":"%s",
                   "harvestBatchId":"%s",
+                  "farmId":"%s",
                   "warehouseId":"%s",
                   "productCode":"COFFEE-ROBUSTA",
                   "netWeightKg":3300,
                   "qualityGrade":"GRADE_A"
                 }
-                """.formatted(eventId, harvestBatchId, warehouseId);
+                """.formatted(eventId, harvestBatchId, farmId, warehouseId);
 
-        MvcResult first = mockMvc.perform(post("/api/v1/inventory/events/harvest-completed")
-                        .header("X-Dev-User", "wh")
-                        .header("X-Dev-Roles", "WAREHOUSE_MANAGER")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.onHandQuantity").value(3300))
-                .andReturn();
+        String firstResponse = given()
+                .mockMvc(mockMvc)
+                .header("X-Dev-User", "wh")
+                .header("X-Dev-Roles", "WAREHOUSE_MANAGER")
+                .contentType(ContentType.JSON)
+                .body(body)
+                .when()
+                .post("/api/v1/inventory/events/harvest-completed")
+                .then()
+                .statusCode(200)
+                .extract()
+                .asString();
 
-        JsonNode firstJson = objectMapper.readTree(first.getResponse().getContentAsString());
+        JsonNode firstJson = objectMapper.readTree(firstResponse);
         String itemId = firstJson.get("id").asText();
+        assertThat(firstJson.get("onHandQuantity").decimalValue()).isEqualByComparingTo("3300");
 
         // Redeliver same eventId — must not double stock
-        mockMvc.perform(post("/api/v1/inventory/events/harvest-completed")
-                        .header("X-Dev-User", "wh")
-                        .header("X-Dev-Roles", "WAREHOUSE_MANAGER")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.onHandQuantity").value(3300));
+        String replayResponse = given()
+                .mockMvc(mockMvc)
+                .header("X-Dev-User", "wh")
+                .header("X-Dev-Roles", "WAREHOUSE_MANAGER")
+                .contentType(ContentType.JSON)
+                .body(body)
+                .when()
+                .post("/api/v1/inventory/events/harvest-completed")
+                .then()
+                .statusCode(200)
+                .extract()
+                .asString();
 
-        mockMvc.perform(get("/api/v1/inventory/items/" + itemId)
-                        .header("X-Dev-User", "wh")
-                        .header("X-Dev-Roles", "WAREHOUSE_MANAGER"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.onHandQuantity").value(3300));
+        String itemResponse = given()
+                .mockMvc(mockMvc)
+                .header("X-Dev-User", "wh")
+                .header("X-Dev-Roles", "WAREHOUSE_MANAGER")
+                .when()
+                .get("/api/v1/inventory/items/{itemId}", itemId)
+                .then()
+                .statusCode(200)
+                .extract()
+                .asString();
 
         assertThat(firstJson.get("sku").asText()).isEqualTo("COFFEE-ROBUSTA");
+        assertThat(objectMapper.readTree(replayResponse).get("onHandQuantity").decimalValue())
+                .isEqualByComparingTo("3300");
+        assertThat(objectMapper.readTree(itemResponse).get("onHandQuantity").decimalValue())
+                .isEqualByComparingTo("3300");
     }
 
     @Test
@@ -92,8 +119,8 @@ class InventoryIdempotencyTest {
                         .header("X-Dev-Roles", "WAREHOUSE_MANAGER")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"code":"WH2-%d","name":"Seed Store"}
-                                """.formatted(System.nanoTime())))
+                                {"farmId":"%s","code":"WH2-%d","name":"Seed Store"}
+                                """.formatted(UUID.randomUUID(), System.nanoTime())))
                 .andExpect(status().isCreated())
                 .andReturn();
         String warehouseId = objectMapper.readTree(whResult.getResponse().getContentAsString()).get("id").asText();
@@ -153,8 +180,8 @@ class InventoryIdempotencyTest {
                         .header("X-Dev-Roles", "WAREHOUSE_MANAGER")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"code":"WHC-%d","name":"Confirm WH"}
-                                """.formatted(System.nanoTime())))
+                                {"farmId":"%s","code":"WHC-%d","name":"Confirm WH"}
+                                """.formatted(UUID.randomUUID(), System.nanoTime())))
                 .andExpect(status().isCreated())
                 .andReturn();
         String warehouseId = objectMapper.readTree(whResult.getResponse().getContentAsString()).get("id").asText();

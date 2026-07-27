@@ -21,6 +21,12 @@ public class OrderSagaEntity {
     private int retryCount;
     @Column(name = "last_error", columnDefinition = "TEXT")
     private String lastError;
+    @Column(name = "next_attempt_at")
+    private Instant nextAttemptAt;
+    @Column(name = "execution_started_at")
+    private Instant executionStartedAt;
+    @Column(name = "completed_at")
+    private Instant completedAt;
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
     @Column(name = "updated_at", nullable = false)
@@ -40,6 +46,12 @@ public class OrderSagaEntity {
     public void setRetryCount(int retryCount) { this.retryCount = retryCount; }
     public String getLastError() { return lastError; }
     public void setLastError(String lastError) { this.lastError = lastError; }
+    public Instant getNextAttemptAt() { return nextAttemptAt; }
+    public void setNextAttemptAt(Instant nextAttemptAt) { this.nextAttemptAt = nextAttemptAt; }
+    public Instant getExecutionStartedAt() { return executionStartedAt; }
+    public void setExecutionStartedAt(Instant executionStartedAt) { this.executionStartedAt = executionStartedAt; }
+    public Instant getCompletedAt() { return completedAt; }
+    public void setCompletedAt(Instant completedAt) { this.completedAt = completedAt; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }

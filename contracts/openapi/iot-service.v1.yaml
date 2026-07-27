@@ -1,69 +1,213 @@
 openapi: 3.1.0
 info:
   title: AgriCore IoT Service API
-  version: 1.0.0
-  description: Devices, sensor readings, and threshold alerts
+  version: 1.1.0
+  description: Farm-scoped device registration, sensor reading ingestion, and threshold alert evaluation.
 servers:
   - url: http://localhost:8090
+    description: Direct local service endpoint
+security:
+  - bearerAuth: []
+tags:
+  - name: IoT
 paths:
   /api/v1/iot/devices:
     post:
-      summary: Register device
-      security:
-        - bearerAuth: []
+      tags: [IoT]
+      operationId: registerIotDevice
+      summary: Register an IoT device for a plot
+      description: Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST plus access to the request plot.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [code, name]
-              properties:
-                code: { type: string }
-                name: { type: string }
-                farmId: { type: string, format: uuid }
-                plotId: { type: string, format: uuid }
+              $ref: '#/components/schemas/RegisterDeviceRequest'
       responses:
         '201':
-          description: Created
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '409': { $ref: '#/components/responses/Conflict' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+          description: Device registered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/iot/readings:
     post:
-      summary: Ingest sensor reading
-      security:
-        - bearerAuth: []
+      tags: [IoT]
+      operationId: ingestIotReading
+      summary: Store a sensor reading and evaluate threshold alerts
+      description: Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or FIELD_WORKER plus access to the registered device plot.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [deviceId, metric, value]
-              properties:
-                deviceId: { type: string, format: uuid }
-                metric: { type: string }
-                value: { type: number }
-                unit: { type: string }
-                recordedAt: { type: string, format: date-time }
+              $ref: '#/components/schemas/IngestReadingRequest'
       responses:
-        '201':
-          description: Stored
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+        '200':
+          description: Reading accepted and any matching threshold rule evaluated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestResultResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  responses:
+    BadRequest:
+      description: Malformed JSON or request validation failed.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Unauthorized:
+      description: Authentication is required or the bearer token is invalid.
+    Forbidden:
+      description: The authenticated user lacks the required role or plot access.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotFound:
+      description: Device, plot, or owning farm not found or not visible to the caller.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Conflict:
+      description: Device code already exists.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    UnsupportedMediaType:
+      description: Content-Type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    ServiceUnavailable:
+      description: Farm authorization is temporarily unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotAcceptable:
+      description: The requested response media type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Gone:
+      description: The requested resource or replay window is no longer available.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    PayloadTooLarge:
+      description: The request body exceeds the supported size.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Locked:
+      description: The resource is temporarily locked by an in-progress operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    RateLimitExceeded:
+      description: The caller exceeded an enforced request or concurrency limit.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    InternalServerError:
+      description: The service could not complete the request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    BadGateway:
+      description: An upstream dependency returned an invalid response.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
   schemas:
+    RegisterDeviceRequest:
+      type: object
+      required: [deviceCode, plotId, name]
+      properties:
+        deviceCode: { type: string, minLength: 1, maxLength: 64, pattern: '^[A-Za-z0-9._-]+$' }
+        plotId: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 200 }
+    IngestReadingRequest:
+      type: object
+      required: [deviceCode, metricType, metricValue, unit]
+      properties:
+        readingId:
+          type: [string, 'null']
+          format: uuid
+          description: Optional stable reading identifier used for idempotent HTTP/MQTT ingestion.
+        deviceCode: { type: string, minLength: 1, maxLength: 64, pattern: '^[A-Za-z0-9._-]+$' }
+        metricType: { type: string, minLength: 1, maxLength: 64 }
+        metricValue:
+          type: number
+          minimum: -9999999999.9999
+          maximum: 9999999999.9999
+          multipleOf: 0.0001
+        unit: { type: string, minLength: 1, maxLength: 16 }
+        recordedAt: { type: [string, 'null'], format: date-time }
+    DeviceResponse:
+      type: object
+      additionalProperties: false
+      required: [id, deviceCode, plotId, name, status, lastSeenAt]
+      properties:
+        id: { type: string, format: uuid }
+        deviceCode: { type: string, maxLength: 64 }
+        plotId: { type: string, format: uuid }
+        name: { type: string, maxLength: 200 }
+        status: { type: string, maxLength: 32 }
+        lastSeenAt: { type: [string, 'null'], format: date-time }
+    IngestResultResponse:
+      type: object
+      additionalProperties: false
+      required: [readingId, alertRaised, alertId, alertStatus, message]
+      properties:
+        readingId: { type: string, format: uuid }
+        alertRaised: { type: boolean }
+        alertId: { type: [string, 'null'], format: uuid }
+        alertStatus: { type: [string, 'null'] }
+        message: { type: string }
     ApiError:
       type: object
       description: |
@@ -88,42 +232,13 @@ components:
             properties:
               field: { type: string }
               message: { type: string }
-              rejectedValue: { description: Whatever the caller sent; untyped by design }
         details:
           type: object
           additionalProperties: true
-  responses:
-    Conflict:
-      description: |
-        The request collides with existing state. A losing race on a unique index reports
-        DUPLICATE_RESOURCE; services also use 409 for their own domain conflicts.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    Forbidden:
-      description: Authenticated but lacking the required role (code ACCESS_DENIED).
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    NotFound:
-      description: No such resource. The code is service-specific.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    Unauthorized:
-      description: |
-        Bearer credential missing, expired, or invalid. Produced by the security filter chain
-        before the DispatcherServlet, so this is the one error on the platform that is NOT
-        ApiError-shaped and carries no body.
-    UnexpectedError:
-      description: Any other failure, including 500 INTERNAL_ERROR and 405 METHOD_NOT_ALLOWED.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    ValidationFailed:
-      description: |
-        Request body failed validation (code VALIDATION_FAILED, with violations populated), or a
-        path variable or query parameter would not convert (code INVALID_PARAMETER).
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
+    FieldViolation:
+      type: object
+      additionalProperties: false
+      required: [field, message]
+      properties:
+        field: { type: string }
+        message: { type: string }

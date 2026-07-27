@@ -2,11 +2,13 @@ package com.agricore.sales.api.response;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public record SalesOrderResponse(
         UUID id,
         String orderNumber,
+        UUID farmId,
         UUID customerId,
         String status,
         UUID inventoryItemId,
@@ -16,6 +18,13 @@ public record SalesOrderResponse(
         String failureReason,
         String sagaStatus,
         String sagaStep,
-        Instant createdAt
+        Integer sagaRetryCount,
+        Instant sagaNextAttemptAt,
+        Instant sagaCompletedAt,
+        Instant createdAt,
+        String currencyCode,
+        BigDecimal subtotalAmount,
+        BigDecimal totalAmount,
+        List<SalesOrderItemResponse> items
 ) {
 }

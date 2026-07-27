@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
@@ -25,18 +26,25 @@ import static org.assertj.core.api.Assertions.catchThrowableOfType;
  */
 @SpringBootTest
 @ActiveProfiles("test")
+@WithMockUser(username = "system-admin", roles = "SYSTEM_ADMIN")
 class FarmConflictAndNotFoundTest {
 
     @Autowired
-    private FarmApplicationService service;
+    private FarmApplicationService farmService;
+
+    @Autowired
+    private PlotApplicationService plotService;
+
+    @Autowired
+    private PlotQueryService plotQueryService;
 
     @Test
     void duplicateFarmCodeIsRejectedAsAConflict() {
         String code = "DUP-" + System.nanoTime();
-        service.createFarm(farmRequest(code));
+        farmService.createFarm(farmRequest(code));
 
         FarmException thrown = catchThrowableOfType(
-                () -> service.createFarm(farmRequest(code)), FarmException.class);
+                () -> farmService.createFarm(farmRequest(code)), FarmException.class);
 
         assertThat(thrown).isNotNull();
         assertThat(thrown.getCode()).isEqualTo("FARM_CODE_EXISTS");
@@ -50,10 +58,10 @@ class FarmConflictAndNotFoundTest {
     @Test
     void farmCodeComparisonIgnoresCase() {
         String code = "MiXeD-" + System.nanoTime();
-        service.createFarm(farmRequest(code.toUpperCase()));
+        farmService.createFarm(farmRequest(code.toUpperCase()));
 
         FarmException thrown = catchThrowableOfType(
-                () -> service.createFarm(farmRequest(code.toLowerCase())), FarmException.class);
+                () -> farmService.createFarm(farmRequest(code.toLowerCase())), FarmException.class);
 
         assertThat(thrown).isNotNull();
         assertThat(thrown.getCode()).isEqualTo("FARM_CODE_EXISTS");
@@ -61,18 +69,18 @@ class FarmConflictAndNotFoundTest {
 
     @Test
     void plotCodeIsUniqueWithinItsFarmOnly() {
-        FarmResponse first = service.createFarm(farmRequest("PU1-" + System.nanoTime()));
-        FarmResponse second = service.createFarm(farmRequest("PU2-" + System.nanoTime()));
-        service.createPlot(first.id(), plotRequest("P-01"));
+        FarmResponse first = farmService.createFarm(farmRequest("PU1-" + System.nanoTime()));
+        FarmResponse second = farmService.createFarm(farmRequest("PU2-" + System.nanoTime()));
+        plotService.create(first.id(), plotRequest("P-01"));
 
         FarmException thrown = catchThrowableOfType(
-                () -> service.createPlot(first.id(), plotRequest("P-01")), FarmException.class);
+                () -> plotService.create(first.id(), plotRequest("P-01")), FarmException.class);
         assertThat(thrown).isNotNull();
         assertThat(thrown.getCode()).isEqualTo("PLOT_CODE_EXISTS");
         assertThat(thrown.getHttpStatus()).isEqualTo(409);
 
         // The same code under a different farm is not a conflict; the index is (farm_id, code).
-        assertThat(service.createPlot(second.id(), plotRequest("P-01")).code()).isEqualTo("P-01");
+        assertThat(plotService.create(second.id(), plotRequest("P-01")).code()).isEqualTo("P-01");
     }
 
     @Test
@@ -80,10 +88,10 @@ class FarmConflictAndNotFoundTest {
         UUID missing = UUID.randomUUID();
 
         for (Runnable call : new Runnable[]{
-                () -> service.getFarm(missing),
-                () -> service.updateFarm(missing, new UpdateFarmRequest("x", null, null, null, null, null, null)),
-                () -> service.createPlot(missing, plotRequest("P-01")),
-                () -> service.listPlots(missing, PageRequest.of(0, 20)),
+                () -> farmService.getFarm(missing),
+                () -> farmService.updateFarm(missing, farmNamePatch(0, "x")),
+                () -> plotService.create(missing, plotRequest("P-01")),
+                () -> plotQueryService.list(missing, null, null, null, PageRequest.of(0, 20)),
         }) {
             FarmException thrown = catchThrowableOfType(call::run, FarmException.class);
             assertThat(thrown).isNotNull();
@@ -93,13 +101,13 @@ class FarmConflictAndNotFoundTest {
     }
 
     /**
-     * createPlot checks the farm exists before it checks the plot code. A missing farm must report
-     * FARM_NOT_FOUND rather than falling through to a plot-level answer.
+     * Plot creation checks the farm exists before it checks the plot code. A missing farm must
+     * report FARM_NOT_FOUND rather than falling through to a plot-level answer.
      */
     @Test
     void missingFarmIsReportedBeforeThePlotCodeCheck() {
         FarmException thrown = catchThrowableOfType(
-                () -> service.createPlot(UUID.randomUUID(), plotRequest("P-01")), FarmException.class);
+                () -> plotService.create(UUID.randomUUID(), plotRequest("P-01")), FarmException.class);
 
         assertThat(thrown).isNotNull();
         assertThat(thrown.getCode()).isEqualTo("FARM_NOT_FOUND");
@@ -110,8 +118,8 @@ class FarmConflictAndNotFoundTest {
         UUID missing = UUID.randomUUID();
 
         for (Runnable call : new Runnable[]{
-                () -> service.getPlot(missing),
-                () -> service.updatePlot(missing, new UpdatePlotRequest(null, null, null, null, null, null)),
+                () -> plotService.get(missing),
+                () -> plotService.update(missing, plotPatch(0)),
         }) {
             FarmException thrown = catchThrowableOfType(call::run, FarmException.class);
             assertThat(thrown).isNotNull();
@@ -128,14 +136,27 @@ class FarmConflictAndNotFoundTest {
     @Test
     void anUnknownStatusFiltersAsAnIllegalArgument() {
         assertThat(catchThrowableOfType(
-                () -> service.listFarms(null, "NOT_A_STATUS", PageRequest.of(0, 20)),
+                () -> farmService.listFarms(null, "NOT_A_STATUS", null, PageRequest.of(0, 20)),
                 IllegalArgumentException.class))
                 .isNotNull();
     }
 
+    private static UpdateFarmRequest farmNamePatch(long version, String name) {
+        UpdateFarmRequest request = new UpdateFarmRequest();
+        request.setVersion(version);
+        request.setName(name);
+        return request;
+    }
+
+    private static UpdatePlotRequest plotPatch(long version) {
+        UpdatePlotRequest request = new UpdatePlotRequest();
+        request.setVersion(version);
+        return request;
+    }
+
     private static CreateFarmRequest farmRequest(String code) {
         return new CreateFarmRequest(
-                code, "Test Farm", "Dak Lak", "Dak Lak",
+                code, "Test Farm", null, "Dak Lak", "Dak Lak",
                 new BigDecimal("10.5"), 12.6667, 108.05);
     }
 

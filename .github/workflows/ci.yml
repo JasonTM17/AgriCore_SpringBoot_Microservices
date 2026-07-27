@@ -6,8 +6,6 @@ on:
   pull_request:
     branches: [main, master]
 
-# The repository default is already read-only, but pinning it here means a later change to
-# that org/repo setting cannot silently hand write access to the build and secret-scan jobs.
 permissions:
   contents: read
 
@@ -15,20 +13,22 @@ jobs:
   build-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Set up JDK 21
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
         with:
           distribution: temurin
           java-version: "21"
           cache: maven
       - name: Ensure Maven wrapper is executable
         run: chmod +x mvnw
+      - name: Check OpenAPI contracts against controllers
+        run: python3 tools/check-openapi-contract-drift.py --verbose
       - name: Build and test (all microservices modules)
         run: ./mvnw -B verify
       - name: Upload surefire reports
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: surefire-reports
           path: "**/target/surefire-reports/**"
@@ -55,42 +55,185 @@ jobs:
       - name: Upload coverage reports
         if: always()
         continue-on-error: true
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: jacoco-coverage
           path: "**/target/site/jacoco/**"
 
+  frontend-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Set up pnpm
+        uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        with:
+          version: 11.17.0
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.23.1
+          cache: pnpm
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify generated API contracts
+        run: pnpm contracts:check
+      - name: Lint frontend
+        run: pnpm lint
+      - name: Typecheck frontend
+        run: pnpm typecheck
+      - name: Test frontend
+        run: pnpm test
+      - name: Build frontend
+        run: pnpm build
+      - name: Install Playwright Chromium
+        run: pnpm --filter @agricore/console exec playwright install --with-deps chromium
+      - name: Test critical browser journeys
+        run: pnpm e2e
+      - name: Upload Playwright evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: playwright-evidence
+          path: |
+            apps/agricore-console/playwright-report/**
+            apps/agricore-console/test-results/**
+
   secret-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
       - name: Gitleaks
-        uses: gitleaks/gitleaks-action@v3
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         # Hard fail on secret findings (portfolio security gate)
 
-  # contracts/openapi is the single source of truth for the API (docs/code-standards.md), and
-  # nothing enforced that. The contracts drifted in both directions — endpoints declared that no
-  # controller implemented, and vice versa. Strict from the first commit rather than advisory:
-  # the same change that added this cleared the whole backlog, so there is nothing to grandfather.
-  contracts:
+  filesystem-scan:
+    name: filesystem vulnerability scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - name: Check OpenAPI contracts against the controllers
-        run: python3 tools/check-openapi-contract-drift.py --verbose
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Scan repository dependencies and configuration
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+          format: table
+          skip-dirs: "**/target,.claude,.grok,plans,mcps"
+
+  codeql:
+    name: CodeQL Java analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4
+        with:
+          languages: java-kotlin
+          build-mode: manual
+      - name: Build for CodeQL
+        run: ./mvnw -B -DskipTests package
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4
+        with:
+          category: /language:java-kotlin
 
   compose-config:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      # docker-compose.yml include:s the infrastructure file, so that one is covered here too.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Validate docker compose (microservices stack)
-        run: docker compose -f docker-compose.yml config --quiet
-      # The observability stack is a separate compose project and was never validated, so a
-      # syntax break there landed green and only surfaced at `docker compose up`.
+        env:
+          AGRICORE_CLIENT_IP_SIGNING_SECRET: ci-only-client-ip-signing-secret-not-for-production
+          CLIENT_IP_EDGE_SUBNET: 172.30.0.0/29
+          CLIENT_IP_EDGE_GATEWAY_IP: 172.30.0.2
+          CLIENT_IP_EDGE_CONSOLE_IP: 172.30.0.3
+          GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN: 172[.]30[.]0[.]3
+        run: |
+          docker compose -f docker-compose.yml config --quiet
+          python scripts/verify-compose-runtime-contracts.py
       - name: Validate docker compose (observability stack)
         run: docker compose -f docker-compose.observability.yml config --quiet
+      - name: Lint and render Helm chart
+        run: |
+          docker run --rm -v "$PWD:/workspace" -w /workspace alpine/helm:3.17.3 lint infrastructure/helm/agricore --set "global.imageTag=0000000000000000000000000000000000000000" --set global.requireImageDigest=false
+          docker run --rm -v "$PWD:/workspace" -w /workspace alpine/helm:3.17.3 template agricore infrastructure/helm/agricore --set ingress.enabled=true --set gateway.trustedProxyAddressPattern='^10[.]0[.]0[.][0-9]+$' --set "global.imageTag=${GITHUB_SHA}" --set global.requireImageDigest=false >/dev/null
+
+  container-build-scan:
+    name: build and scan ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: agricore-identity
+            file: services/identity-service/Dockerfile
+          - image: agricore-farm
+            file: services/farm-service/Dockerfile
+          - image: agricore-crop-catalog
+            file: services/crop-catalog-service/Dockerfile
+          - image: agricore-crop-cycle
+            file: services/crop-cycle-service/Dockerfile
+          - image: agricore-work
+            file: services/work-service/Dockerfile
+          - image: agricore-inventory
+            file: services/inventory-service/Dockerfile
+          - image: agricore-harvest
+            file: services/harvest-service/Dockerfile
+          - image: agricore-notification
+            file: services/notification-service/Dockerfile
+          - image: agricore-iot
+            file: services/iot-service/Dockerfile
+          - image: agricore-sales
+            file: services/sales-service/Dockerfile
+          - image: agricore-traceability
+            file: services/traceability-service/Dockerfile
+          - image: agricore-assistant
+            file: services/assistant-service/Dockerfile
+          - image: agricore-gateway
+            file: services/api-gateway/Dockerfile
+          - image: agricore-console
+            file: apps/agricore-console/Dockerfile
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+      - name: Build image without publishing
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          push: false
+          load: true
+          tags: agricore-ci/${{ matrix.image }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          build-args: |
+            GIT_SHA=${{ github.sha }}
+          cache-from: type=gha,scope=ci-${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=ci-${{ matrix.image }}
+      - name: Scan built image
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: agricore-ci/${{ matrix.image }}:${{ github.sha }}
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+          format: table

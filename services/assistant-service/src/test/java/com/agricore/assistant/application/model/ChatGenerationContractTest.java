@@ -1,0 +1,106 @@
+package com.agricore.assistant.application.model;
+
+import org.junit.jupiter.api.Test;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+class ChatGenerationContractTest {
+
+    @Test
+    void normalizesAndDefensivelyCopiesRequestValues() {
+        List<ChatTurn> turns = new ArrayList<>();
+        turns.add(new ChatTurn(ChatTurnRole.USER, "  How are the crops?  "));
+
+        ChatGenerationRequest request = new ChatGenerationRequest(turns, "  gpt-4.1-mini  ", 512, 0.3);
+        turns.clear();
+
+        assertThat(request.turns()).containsExactly(
+                new ChatTurn(ChatTurnRole.USER, "How are the crops?")
+        );
+        assertThat(request.model()).isEqualTo("gpt-4.1-mini");
+        assertThatThrownBy(() -> request.turns().clear())
+                .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    void rejectsRequestsOutsideProviderSafetyBounds() {
+        ChatTurn userTurn = new ChatTurn(ChatTurnRole.USER, "hello");
+
+        assertThatThrownBy(() -> new ChatGenerationRequest(List.of(), "model", 1, 0))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("between 1 and 100 turns");
+        assertThatThrownBy(() -> new ChatGenerationRequest(List.of(userTurn), " ", 1, 0))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("model must be non-blank");
+        assertThatThrownBy(() -> new ChatGenerationRequest(List.of(userTurn), "model", 8_193, 0))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("maxOutputTokens");
+        assertThatThrownBy(() -> new ChatGenerationRequest(List.of(userTurn), "model", 1, Double.NaN))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("temperature");
+    }
+
+    @Test
+    void rejectsOversizedAggregateContent() {
+        String content = "x".repeat(30_000);
+        List<ChatTurn> turns = List.of(
+                user(content), user(content), user(content), user(content),
+                user(content), user(content), user(content)
+        );
+
+        assertThatThrownBy(() -> new ChatGenerationRequest(turns, "model", 1, 0))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("at most 200000 characters");
+    }
+
+    @Test
+    void enforcesDeltaAndTerminalChunkInvariants() {
+        assertThat(ChatChunk.delta("answer")).isEqualTo(
+                new ChatChunk("answer", false, null, null, null)
+        );
+        assertThat(ChatChunk.terminal(null, 12, 4)).isEqualTo(
+                new ChatChunk("", true, "unknown", 12, 4)
+        );
+        assertThat(ChatChunk.terminal(" STOP ", 12, 4).finishReason()).isEqualTo("stop");
+        assertThat(ChatChunk.terminal("unsafe reason", 12, 4).finishReason()).isEqualTo("unknown");
+        assertThatThrownBy(() -> ChatChunk.delta(""))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("delta must contain text");
+        assertThatThrownBy(() -> new ChatChunk("answer", true, "stop", 1, 1))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("terminal chat chunk must not contain text");
+        assertThatThrownBy(() -> ChatChunk.terminal("stop", -1, 1))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("inputTokens must not be negative");
+    }
+
+    @Test
+    void completionPreservesGeneratedContentAndSanitizesTerminalMetadata() {
+        Instant completedAt = Instant.parse("2026-07-20T05:00:00Z");
+        GenerationCompletion completion = new GenerationCompletion(
+                "  formatted answer\n", "unsafe reason", 12, 4,
+                completedAt.minusSeconds(1), completedAt, completedAt.plusSeconds(60));
+
+        assertThat(completion.content()).isEqualTo("  formatted answer\n");
+        assertThat(completion.finishReason()).isEqualTo("unknown");
+        assertThatThrownBy(() -> new GenerationCompletion(
+                "answer", "stop", -1, 4,
+                completedAt.minusSeconds(1), completedAt, completedAt.plusSeconds(60)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("inputTokens must not be negative");
+        assertThatThrownBy(() -> new GenerationCompletion(
+                "answer", "stop", 1, 1,
+                completedAt.plusSeconds(1), completedAt, completedAt.plusSeconds(60)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("completion timestamps are invalid");
+    }
+
+    private ChatTurn user(String content) {
+        return new ChatTurn(ChatTurnRole.USER, content);
+    }
+}

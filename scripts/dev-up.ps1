@@ -12,7 +12,7 @@ if (-not (Test-Path .env)) {
 
 if ($Full) {
   docker compose -f docker-compose.yml up -d --build
-  Write-Host "Full stack building/starting. Gateway: http://localhost:8080"
+  Write-Host "Full stack building/starting. Console and API edge: http://localhost:3000"
   Write-Host "Gating verification: .\scripts\verify-platform.ps1 -EvidenceDir <path>"
 } else {
   docker compose -f docker-compose.infrastructure.yml up -d

@@ -1,39 +1,55 @@
 openapi: 3.1.0
 info:
   title: AgriCore Crop Cycle Service API
-  version: 1.0.0
-  description: Season planning and stage workflow for plots
+  version: 1.5.0
+  description: Verified crop-cycle planning and stage workflow contract.
 servers:
   - url: http://localhost:8084
+    description: Direct local service endpoint
+security:
+  - bearerAuth: []
+tags:
+  - name: Crop Cycles
 paths:
   /api/v1/crop-cycles:
     get:
+      tags: [Crop Cycles]
+      operationId: listCropCycles
       summary: List crop cycles
-      security:
-        - bearerAuth: []
+      description: Non-system administrators must provide an accessible farmId or plotId scope.
       parameters:
         - in: query
           name: farmId
+          required: false
           schema: { type: string, format: uuid }
         - in: query
           name: plotId
+          required: false
           schema: { type: string, format: uuid }
-        - in: query
-          name: page
-          schema: { type: integer, default: 0 }
-        - in: query
-          name: size
-          schema: { type: integer, default: 20 }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
       responses:
         '200':
-          description: Paged crop cycles
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+          description: Crop cycles ordered by creation time descending.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropCyclePageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
     post:
-      summary: Create crop cycle
-      security:
-        - bearerAuth: []
+      tags: [Crop Cycles]
+      operationId: createCropCycle
+      summary: Create a crop cycle
+      description: Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST with access to the farm and plot.
       requestBody:
         required: true
         content:
@@ -42,39 +58,60 @@ paths:
               $ref: '#/components/schemas/CreateCropCycleRequest'
       responses:
         '201':
-          description: Created
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '409': { $ref: '#/components/responses/Conflict' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+          description: Crop cycle created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropCycleResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/crop-cycles/{cycleId}:
+    parameters:
+      - $ref: '#/components/parameters/CycleId'
     get:
-      summary: Get crop cycle
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: cycleId
-          required: true
-          schema: { type: string, format: uuid }
+      tags: [Crop Cycles]
+      operationId: getCropCycle
+      summary: Get a crop cycle
+      description: Requires access to the cycle's authoritative farm and plot.
       responses:
         '200':
-          description: Crop cycle
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+          description: Crop cycle found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropCycleResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/crop-cycles/{cycleId}/stage:
-    post:
-      summary: Advance crop cycle stage (legal transitions only)
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: cycleId
-          required: true
-          schema: { type: string, format: uuid }
+    parameters:
+      - $ref: '#/components/parameters/CycleId'
+    patch:
+      tags: [Crop Cycles]
+      operationId: changeCropCycleStage
+      summary: Change a crop-cycle stage
+      description: Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST with farm access and a legal transition.
       requestBody:
         required: true
         content:
@@ -83,20 +120,452 @@ paths:
               $ref: '#/components/schemas/ChangeStageRequest'
       responses:
         '200':
-          description: Stage updated
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
-        default: { $ref: '#/components/responses/UnexpectedError' }
+          description: Stage updated, or the requested stage was already current.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropCycleResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    post:
+      tags: [Crop Cycles]
+      operationId: changeCropCycleStageLegacy
+      summary: Change a crop-cycle stage using the legacy method
+      description: Deprecated compatibility alias for PATCH on the same path.
+      deprecated: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeStageRequest'
+      responses:
+        '200':
+          description: Stage updated, or the requested stage was already current.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropCycleResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/crop-cycles/{cycleId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/CycleId'
+    post:
+      tags: [Crop Cycles]
+      operationId: cancelCropCycle
+      summary: Cancel a crop cycle
+      description: Requires SYSTEM_ADMIN, FARM_MANAGER, or AGRONOMIST with farm access. Repeating a successful cancellation is idempotent.
+      responses:
+        '200':
+          description: Cycle cancelled, or returned unchanged when already cancelled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropCycleResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/crop-cycles/{cycleId}/stage-history:
+    parameters:
+      - $ref: '#/components/parameters/CycleId'
+    get:
+      tags: [Crop Cycles]
+      operationId: listCropCycleStageHistory
+      summary: List the immutable crop-cycle stage history
+      description: Returns highest cycle versions first after verifying the caller can access the cycle's farm and plot.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Paginated stage history.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropCycleStageHistoryPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/crop-cycles/{cycleId}/observations:
+    parameters:
+      - $ref: '#/components/parameters/CycleId'
+    post:
+      tags: [Crop Cycles]
+      operationId: createCropCycleObservation
+      summary: Record an agronomic observation
+      description: Creates an append-only observation after verifying the caller's farm and plot access.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCropCycleObservationRequest'
+      responses:
+        '201':
+          description: Observation recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropCycleObservationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    get:
+      tags: [Crop Cycles]
+      operationId: listCropCycleObservations
+      summary: List agronomic observations
+      description: Returns observations by observed time, newest first, after farm and plot authorization.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Paginated observations.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropCycleObservationPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  parameters:
+    CycleId:
+      in: path
+      name: cycleId
+      required: true
+      schema: { type: string, format: uuid }
+    Page:
+      in: query
+      name: page
+      description: Zero-based page index.
+      schema: { type: integer, format: int32, minimum: 0, default: 0 }
+    Size:
+      in: query
+      name: size
+      description: Number of records per page.
+      schema: { type: integer, format: int32, minimum: 1, maximum: 100, default: 20 }
+  responses:
+    BadRequest:
+      description: Invalid path, query, JSON, dates, stage, validation input, or missing required farm scope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Unauthorized:
+      description: Authentication is required or the bearer token is invalid.
+    Forbidden:
+      description: The authenticated user lacks the required role or farm membership.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotFound:
+      description: Crop cycle, farm, or plot not found or not visible to the caller.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Conflict:
+      description: Duplicate code, overlapping dates, terminal cycle, illegal stage transition, or concurrent update.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    UnsupportedMediaType:
+      description: Content-Type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    InternalServerError:
+      description: Failed to persist the transactional outbox event.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    ServiceUnavailable:
+      description: Authoritative farm access verification is temporarily unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotAcceptable:
+      description: The requested response media type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Gone:
+      description: The requested resource or replay window is no longer available.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    PayloadTooLarge:
+      description: The request body exceeds the supported size.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Locked:
+      description: The resource is temporarily locked by an in-progress operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    RateLimitExceeded:
+      description: The caller exceeded an enforced request or concurrency limit.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    BadGateway:
+      description: An upstream dependency returned an invalid response.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
   schemas:
+    CycleStage:
+      type: string
+      enum: [PLANNED, LAND_PREPARATION, SOWING, GROWING, FERTILIZING, PEST_CONTROL, HARVESTING, COMPLETED, CANCELLED]
+    CycleStatus:
+      type: string
+      enum: [DRAFT, ACTIVE, COMPLETED, CANCELLED]
+    ObservationCategory:
+      type: string
+      enum: [GENERAL, GROWTH, SOIL, IRRIGATION, WEATHER, NUTRITION, PEST, DISEASE, DAMAGE, HARVEST_READINESS]
+    ObservationSeverity:
+      type: string
+      enum: [INFO, ATTENTION, CRITICAL]
+    CreateCropCycleRequest:
+      type: object
+      required: [code, farmId, plotId, cropId, plannedStartDate]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 64 }
+        farmId: { type: string, format: uuid }
+        plotId: { type: string, format: uuid }
+        cropId: { type: string, format: uuid }
+        cropVarietyId: { type: [string, 'null'], format: uuid }
+        plannedStartDate: { type: string, format: date }
+        plannedEndDate: { type: [string, 'null'], format: date }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+    ChangeStageRequest:
+      type: object
+      required: [stage]
+      properties:
+        stage:
+          $ref: '#/components/schemas/CycleStage'
+        notes: { type: [string, 'null'], maxLength: 2000 }
+    CropCycleResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - code
+        - farmId
+        - plotId
+        - cropId
+        - cropVarietyId
+        - plannedStartDate
+        - plannedEndDate
+        - actualStartDate
+        - actualEndDate
+        - stage
+        - status
+        - notes
+        - createdAt
+        - updatedAt
+        - version
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string, maxLength: 64 }
+        farmId: { type: string, format: uuid }
+        plotId: { type: string, format: uuid }
+        cropId: { type: string, format: uuid }
+        cropVarietyId: { type: [string, 'null'], format: uuid }
+        plannedStartDate: { type: string, format: date }
+        plannedEndDate: { type: [string, 'null'], format: date }
+        actualStartDate: { type: [string, 'null'], format: date }
+        actualEndDate: { type: [string, 'null'], format: date }
+        stage:
+          $ref: '#/components/schemas/CycleStage'
+        status:
+          $ref: '#/components/schemas/CycleStatus'
+        notes: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, format: int64, minimum: 0 }
+    CropCyclePageResponse:
+      type: object
+      additionalProperties: false
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/CropCycleResponse'
+        page: { type: integer, format: int32, minimum: 0 }
+        size: { type: integer, format: int32, minimum: 1, maximum: 100 }
+        totalElements: { type: integer, format: int64, minimum: 0 }
+        totalPages: { type: integer, format: int32, minimum: 0 }
+        first: { type: boolean }
+        last: { type: boolean }
+    CropCycleStageHistoryResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - cropCycleId
+        - previousStage
+        - stage
+        - status
+        - notes
+        - changedBy
+        - changedAt
+        - cycleVersion
+      properties:
+        id: { type: string, format: uuid }
+        cropCycleId: { type: string, format: uuid }
+        previousStage:
+          oneOf:
+            - $ref: '#/components/schemas/CycleStage'
+            - type: 'null'
+        stage:
+          $ref: '#/components/schemas/CycleStage'
+        status:
+          $ref: '#/components/schemas/CycleStatus'
+        notes: { type: [string, 'null'], maxLength: 2000 }
+        changedBy: { type: string, minLength: 1, maxLength: 255 }
+        changedAt: { type: string, format: date-time }
+        cycleVersion: { type: integer, format: int64, minimum: 0 }
+    CropCycleStageHistoryPageResponse:
+      type: object
+      additionalProperties: false
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/CropCycleStageHistoryResponse'
+        page: { type: integer, format: int32, minimum: 0 }
+        size: { type: integer, format: int32, minimum: 1, maximum: 100 }
+        totalElements: { type: integer, format: int64, minimum: 0 }
+        totalPages: { type: integer, format: int32, minimum: 0 }
+        first: { type: boolean }
+        last: { type: boolean }
+    CreateCropCycleObservationRequest:
+      type: object
+      additionalProperties: false
+      required: [category, severity, title, details, observedAt]
+      properties:
+        category:
+          $ref: '#/components/schemas/ObservationCategory'
+        severity:
+          $ref: '#/components/schemas/ObservationSeverity'
+        title: { type: string, minLength: 1, maxLength: 120 }
+        details: { type: string, minLength: 1, maxLength: 2000 }
+        observedAt: { type: string, format: date-time }
+    CropCycleObservationResponse:
+      type: object
+      additionalProperties: false
+      required: [id, cropCycleId, category, severity, title, details, observedAt, recordedBy, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        cropCycleId: { type: string, format: uuid }
+        category:
+          $ref: '#/components/schemas/ObservationCategory'
+        severity:
+          $ref: '#/components/schemas/ObservationSeverity'
+        title: { type: string, minLength: 1, maxLength: 120 }
+        details: { type: string, minLength: 1, maxLength: 2000 }
+        observedAt: { type: string, format: date-time }
+        recordedBy: { type: string, minLength: 1, maxLength: 255 }
+        createdAt: { type: string, format: date-time }
+    CropCycleObservationPageResponse:
+      type: object
+      additionalProperties: false
+      required: [content, page, size, totalElements, totalPages, first, last]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/CropCycleObservationResponse'
+        page: { type: integer, format: int32, minimum: 0 }
+        size: { type: integer, format: int32, minimum: 1, maximum: 100 }
+        totalElements: { type: integer, format: int64, minimum: 0 }
+        totalPages: { type: integer, format: int32, minimum: 0 }
+        first: { type: boolean }
+        last: { type: boolean }
     ApiError:
       type: object
       description: |
@@ -121,71 +590,13 @@ components:
             properties:
               field: { type: string }
               message: { type: string }
-              rejectedValue: { description: Whatever the caller sent; untyped by design }
         details:
           type: object
           additionalProperties: true
-    CreateCropCycleRequest:
+    FieldViolation:
       type: object
-      required: [code, farmId, plotId, cropId, plannedStartDate]
+      additionalProperties: false
+      required: [field, message]
       properties:
-        code: { type: string }
-        farmId: { type: string, format: uuid }
-        plotId: { type: string, format: uuid }
-        cropId: { type: string, format: uuid }
-        cropVarietyId: { type: string, format: uuid }
-        plannedStartDate: { type: string, format: date }
-        plannedEndDate: { type: string, format: date }
-        notes: { type: string }
-    ChangeStageRequest:
-      type: object
-      required: [stage]
-      properties:
-        stage:
-          type: string
-          enum:
-            - PLANNED
-            - LAND_PREPARATION
-            - SOWING
-            - GROWING
-            - FERTILIZING
-            - PEST_CONTROL
-            - HARVESTING
-            - COMPLETED
-            - CANCELLED
-        notes: { type: string }
-  responses:
-    Conflict:
-      description: |
-        The request collides with existing state. A losing race on a unique index reports
-        DUPLICATE_RESOURCE; services also use 409 for their own domain conflicts.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    Forbidden:
-      description: Authenticated but lacking the required role (code ACCESS_DENIED).
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    NotFound:
-      description: No such resource. The code is service-specific.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    Unauthorized:
-      description: |
-        Bearer credential missing, expired, or invalid. Produced by the security filter chain
-        before the DispatcherServlet, so this is the one error on the platform that is NOT
-        ApiError-shaped and carries no body.
-    UnexpectedError:
-      description: Any other failure, including 500 INTERNAL_ERROR and 405 METHOD_NOT_ALLOWED.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
-    ValidationFailed:
-      description: |
-        Request body failed validation (code VALIDATION_FAILED, with violations populated), or a
-        path variable or query parameter would not convert (code INVALID_PARAMETER).
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
+        field: { type: string }
+        message: { type: string }

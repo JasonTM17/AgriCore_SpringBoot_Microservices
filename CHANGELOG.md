@@ -5,16 +5,17 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 intends to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-No version has been tagged yet. Everything below is unreleased and lives on `main`; published
-images are tagged `latest` plus the short and full commit SHA.
+No version has been tagged yet. Everything below is unreleased. The repository
+configures short- and full-SHA-only image promotion; it does not assert that an
+image, signature, or registry release is currently published.
 
 ## [Unreleased]
 
 ### Added
 
-- **Twelve-service platform**: api-gateway, identity, farm, crop-catalog, crop-cycle, work,
-  inventory, harvest, notification, iot, sales, traceability — database per service, no shared
-  schema.
+- **13 Spring-application platform**: api-gateway, identity, farm, crop-catalog, crop-cycle,
+  work, inventory, harvest, notification, iot, sales, traceability, and assistant — database per
+  service, no shared schema.
 - **Authentication** on identity-service: RS256 JWT with a JWKS endpoint, refresh-token rotation
   with opaque hashed tokens, login rate limiting, and account lockout.
 - **`common-security` module** giving every service JWT resource-server validation against
@@ -34,19 +35,21 @@ images are tagged `latest` plus the short and full commit SHA.
 - **IoT sensor ingestion** with alert cooldown.
 - **Deployment surface**: Docker Compose stack (app, infrastructure, observability), Helm charts,
   Kubernetes network policy, Prometheus and Tempo configuration.
-- **CI/CD**: Maven build and test, Gitleaks secret scan, compose config validation, CodeQL SAST,
-  Trivy vulnerability scan, and image publication to Docker Hub gated on `ci`.
+- **CI/CD configuration**: Maven build and test, Gitleaks secret scan, Compose config validation,
+  CodeQL SAST, Trivy vulnerability scan, and SHA-only candidate/promotion workflow gated on CI.
 - **JaCoCo coverage measurement** per module with an advisory CI summary.
-- **Documentation set**: per-service READMEs for all twelve services, system architecture, codebase
-  summary, deployment guide, code standards, design guidelines, roadmap, PDR, and seven ADRs.
+- **Documentation set**: per-service READMEs for all 13 Spring applications, system architecture,
+  codebase summary, deployment guide, code standards, design guidelines, roadmap, PDR, and ADRs.
+- **Repository-owned generated showcase media**: manifest and verifier cover 13 assets totaling
+  1,608,664 bytes: 12 WebP files and one three-frame GIF.
 
 ### Changed
 
 - Harvest `HarvestCompleted` payload enriched so traceability can project a QR view without calling
   back into harvest.
 - Traceability QR lookup prefers `productName` carried on the harvest event over a local join.
-- Docker image publication capped at four concurrent matrix jobs, after a burst of simultaneous runs
-  exceeded the Docker Hub pull-rate limit and failed all twelve builds.
+- Docker image candidate builds capped at four concurrent matrix jobs after a burst of simultaneous
+  runs exceeded the Docker Hub pull-rate limit.
 
 ### Fixed
 
@@ -65,7 +68,7 @@ images are tagged `latest` plus the short and full commit SHA.
 - Gateway upstream URLs and Redis connection injected correctly in the Helm chart.
 - PostgreSQL `max_connections` raised and per-service Hikari pools capped, so the full compose stack
   can start without exhausting connections.
-- Tempo configuration mounted, and Prometheus now scrapes all twelve services.
+- Tempo configuration mounted, and Prometheus now scrapes the application services.
 - Documentation corrected where it overstated reality: the ArchUnit test guards only that
   `common-lib` stays framework-free, and the gateway routes `/api/v1/admin/**` rather than the
   narrower `/api/v1/admin/users/**`.
@@ -77,9 +80,9 @@ images are tagged `latest` plus the short and full commit SHA.
   rolled back and no account ever locked. Failure state is now committed independently.
 - **Refresh-token theft detection now takes effect.** Reuse of a revoked token revoked its family in
   the same rolled-back transaction, leaving a known-stolen family valid. Same fix.
-- **Login rate limiting can no longer be bypassed by a header.** The limiter keyed on the first
-  `X-Forwarded-For` entry, which the caller supplies; rotating it produced a fresh bucket per
-  request. It now reads the address the gateway observed.
+- **Rate-limit and assistant-budget client identity is gateway-authenticated.** The gateway
+  removes untrusted forwarding input, accepts `X-Forwarded-For` only from a configured immediate
+  proxy, and HMAC-signs the canonical value for Identity and Assistant.
 - **`POST /api/v1/notifications` requires `SYSTEM_ADMIN`.** It was the only mutating endpoint without
   a role check, and the caller chooses recipient, subject, and body.
 - **The Spring Cloud Gateway actuator endpoint is no longer exposed.** It was reachable with any

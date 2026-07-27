@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import java.io.Serializable;
 import java.time.Instant;
 import java.util.Objects;
+import java.util.UUID;
 
 @Entity
 @Table(name = "processed_events")
@@ -21,17 +22,32 @@ public class ProcessedEventEntity {
     @Column(name = "processed_at", nullable = false)
     private Instant processedAt;
 
-    public static ProcessedEventEntity of(String eventId, String consumerName) {
+    @Column(name = "farm_id")
+    private UUID farmId;
+
+    @Column(name = "warehouse_id")
+    private UUID warehouseId;
+
+    public static ProcessedEventEntity of(
+            String eventId,
+            String consumerName,
+            UUID farmId,
+            UUID warehouseId
+    ) {
         ProcessedEventEntity e = new ProcessedEventEntity();
         e.eventId = eventId;
         e.consumerName = consumerName;
         e.processedAt = Instant.now();
+        e.farmId = farmId;
+        e.warehouseId = warehouseId;
         return e;
     }
 
     public String getEventId() { return eventId; }
     public String getConsumerName() { return consumerName; }
     public Instant getProcessedAt() { return processedAt; }
+    public UUID getFarmId() { return farmId; }
+    public UUID getWarehouseId() { return warehouseId; }
 
     public static class Pk implements Serializable {
         private String eventId;

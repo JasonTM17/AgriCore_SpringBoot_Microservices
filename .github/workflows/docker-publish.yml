@@ -1,14 +1,8 @@
 name: docker-publish
 
-# Publish only after a successful default-branch CI run (immutable SHA), and only when the
-# security scans passed for that same SHA. Manual dispatch may target main/master only and
-# still resolves that branch tip.
-#
-# The trigger stays on `ci` alone. Listing trivy and codeql here as well would fire this
-# workflow three times per push, each firing aware only of its own trigger's conclusion, and
-# the concurrency group serialises rather than cancels — so the same twelve images would be
-# built and pushed three times. Instead `ci` (the longest of the three) is the trigger and the
-# other two conclusions are read back from the API for the resolved SHA.
+# Build, scan, and sign every candidate before any immutable release tag is
+# promoted. Only the exact default-branch revision accepted by aggregate CI is
+# eligible. A failed candidate or signature blocks the complete release.
 on:
   workflow_run:
     workflows: [ci]
@@ -17,21 +11,23 @@ on:
 
 permissions:
   contents: read
-  # Required to read the trivy and codeql conclusions for the resolved SHA.
   actions: read
 
 concurrency:
-  group: docker-publish-${{ github.event.workflow_run.head_sha || github.sha }}
+  group: docker-publish-default-branch
   cancel-in-progress: false
 
 env:
-  REGISTRY: docker.io
-  IMAGE_NAMESPACE: nguyenson1710
+  DOCKERHUB_REGISTRY: docker.io
+  DOCKERHUB_NAMESPACE: nguyenson1710
+  GHCR_REGISTRY: ghcr.io
 
 jobs:
   resolve-sha:
     runs-on: ubuntu-latest
     outputs:
+      default_branch: ${{ steps.sha.outputs.default_branch }}
+      matrix: ${{ steps.sha.outputs.matrix }}
       publish_sha: ${{ steps.sha.outputs.publish_sha }}
       should_publish: ${{ steps.sha.outputs.should_publish }}
     steps:
@@ -39,6 +35,7 @@ jobs:
         id: sha
         shell: bash
         env:
+          GH_TOKEN: ${{ github.token }}
           EVENT_NAME: ${{ github.event_name }}
           WR_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           WR_EVENT: ${{ github.event.workflow_run.event }}
@@ -48,157 +45,386 @@ jobs:
           THIS_REPO: ${{ github.repository }}
           GITHUB_SHA_FALLBACK: ${{ github.sha }}
           REF_NAME: ${{ github.ref_name }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           should=false
           publish_sha=""
+          default_branch="$(gh api "repos/$THIS_REPO" --jq '.default_branch')"
+          matrix="$(
+            jq -cn '{
+              include: [
+                {service: "identity", file: "services/identity-service/Dockerfile", image: "agricore-identity"},
+                {service: "farm", file: "services/farm-service/Dockerfile", image: "agricore-farm"},
+                {service: "crop-catalog", file: "services/crop-catalog-service/Dockerfile", image: "agricore-crop-catalog"},
+                {service: "crop-cycle", file: "services/crop-cycle-service/Dockerfile", image: "agricore-crop-cycle"},
+                {service: "work", file: "services/work-service/Dockerfile", image: "agricore-work"},
+                {service: "inventory", file: "services/inventory-service/Dockerfile", image: "agricore-inventory"},
+                {service: "harvest", file: "services/harvest-service/Dockerfile", image: "agricore-harvest"},
+                {service: "notification", file: "services/notification-service/Dockerfile", image: "agricore-notification"},
+                {service: "iot", file: "services/iot-service/Dockerfile", image: "agricore-iot"},
+                {service: "sales", file: "services/sales-service/Dockerfile", image: "agricore-sales"},
+                {service: "traceability", file: "services/traceability-service/Dockerfile", image: "agricore-traceability"},
+                {service: "assistant", file: "services/assistant-service/Dockerfile", image: "agricore-assistant"},
+                {service: "gateway", file: "services/api-gateway/Dockerfile", image: "agricore-gateway"},
+                {service: "console", file: "apps/agricore-console/Dockerfile", image: "agricore-console"}
+              ]
+            }'
+          )"
+
           if [[ "$EVENT_NAME" == "workflow_run" ]]; then
             if [[ "$WR_REPO" == "$THIS_REPO" \
               && "$WR_EVENT" == "push" \
               && "$WR_CONCLUSION" == "success" \
-              && ( "$WR_HEAD_BRANCH" == "main" || "$WR_HEAD_BRANCH" == "master" ) \
+              && "$WR_HEAD_BRANCH" == "$default_branch" \
               && -n "$WR_HEAD_SHA" ]]; then
               should=true
               publish_sha="$WR_HEAD_SHA"
             fi
           elif [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
-            if [[ "$REF_NAME" == "main" || "$REF_NAME" == "master" ]]; then
-              should=true
+            if [[ "$REF_NAME" == "$default_branch" ]]; then
               publish_sha="$GITHUB_SHA_FALLBACK"
-              # Manual dispatch is the recovery lever for a skipped publish, including one
-              # skipped because a scan had not finished. Gating it on the same scans would
-              # defeat its purpose, so it is exempt — and says so in the log.
-              echo "gate: workflow_dispatch bypasses the scan gate for $publish_sha"
+              successful_ci="$(
+                gh api \
+                  "repos/$THIS_REPO/actions/workflows/ci.yml/runs?branch=$default_branch&event=push&status=completed&head_sha=$publish_sha&per_page=100" |
+                  jq --arg sha "$publish_sha" \
+                    '[.workflow_runs[] | select(.head_sha == $sha and .conclusion == "success")] | length'
+              )"
+              if (( successful_ci > 0 )); then
+                should=true
+              fi
             fi
           fi
 
-          # Trivy fails on CRITICAL/HIGH and codeql is the SAST pass; neither gated publication
-          # before, so a commit that failed either still shipped twelve public images.
-          if [[ "$should" == "true" && "$EVENT_NAME" == "workflow_run" ]]; then
-            # per_page=100 rather than the default: a SHA re-run many times could otherwise push
-            # the run being looked for off the first page.
-            runs=$(gh api "repos/$THIS_REPO/actions/runs?head_sha=$publish_sha&per_page=100" \
-              --jq '.workflow_runs | sort_by(.run_started_at) | .[] | "\(.name) \(.status) \(.conclusion // "none")"')
-            for workflow in trivy codeql; do
-              # Oldest to newest, so the last match wins and a re-run after a fix is what counts.
-              # No match at all yields "missing none", which blocks: absence of evidence is not a
-              # pass, and a typo in the workflow name must fail closed rather than wave a build
-              # through.
-              result=$(printf '%s\n' "$runs" \
-                | awk -v wf="$workflow" '$1 == wf { s = $2; c = $3 } END { if (s == "") print "missing none"; else print s, c }')
-              echo "gate: $workflow $result"
-              if [[ "$result" != "completed success" ]]; then
-                should=false
-                echo "gate: blocking publish - $workflow did not pass for $publish_sha"
-              fi
-            done
-            # A scan still running when ci finishes skips the publish rather than waiting for it.
-            # Skips are recoverable with workflow_dispatch on main; polling would burn runner
-            # minutes on every push. The reason is always printed, so a skip is explainable from
-            # the run page.
+          if [[ "$should" == "true" ]]; then
+            branch_tip="$(gh api "repos/$THIS_REPO/commits/$default_branch" --jq '.sha')"
+            if [[ "$publish_sha" != "$branch_tip" ]]; then
+              echo "Refusing stale revision $publish_sha; $default_branch is now $branch_tip"
+              should=false
+              publish_sha=""
+            fi
           fi
 
-          echo "should_publish=$should" >> "$GITHUB_OUTPUT"
-          echo "publish_sha=$publish_sha" >> "$GITHUB_OUTPUT"
-          echo "should_publish=$should publish_sha=$publish_sha"
+          {
+            echo "default_branch=$default_branch"
+            echo "matrix=$matrix"
+            echo "should_publish=$should"
+            echo "publish_sha=$publish_sha"
+          } >> "$GITHUB_OUTPUT"
+          echo "default_branch=$default_branch should_publish=$should publish_sha=$publish_sha"
 
-  publish:
+  candidates:
     needs: resolve-sha
     if: needs.resolve-sha.outputs.should_publish == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
     strategy:
       fail-fast: false
-      # Twelve simultaneous builds resolve the same two Docker Hub base images at once.
-      # Back-to-back pushes stack multiple runs, and the combined burst exceeds the
-      # registry pull-rate limit (observed: HTTP 429 on every job of one run).
+      # Cap concurrent candidate builds to avoid registry base-image pull bursts.
       max-parallel: 4
-      matrix:
-        include:
-          - service: identity
-            context: .
-            file: services/identity-service/Dockerfile
-            image: agricore-identity
-          - service: farm
-            context: .
-            file: services/farm-service/Dockerfile
-            image: agricore-farm
-          - service: crop-catalog
-            context: .
-            file: services/crop-catalog-service/Dockerfile
-            image: agricore-crop-catalog
-          - service: crop-cycle
-            context: .
-            file: services/crop-cycle-service/Dockerfile
-            image: agricore-crop-cycle
-          - service: work
-            context: .
-            file: services/work-service/Dockerfile
-            image: agricore-work
-          - service: inventory
-            context: .
-            file: services/inventory-service/Dockerfile
-            image: agricore-inventory
-          - service: harvest
-            context: .
-            file: services/harvest-service/Dockerfile
-            image: agricore-harvest
-          - service: notification
-            context: .
-            file: services/notification-service/Dockerfile
-            image: agricore-notification
-          - service: iot
-            context: .
-            file: services/iot-service/Dockerfile
-            image: agricore-iot
-          - service: sales
-            context: .
-            file: services/sales-service/Dockerfile
-            image: agricore-sales
-          - service: traceability
-            context: .
-            file: services/traceability-service/Dockerfile
-            image: agricore-traceability
-          - service: gateway
-            context: .
-            file: services/api-gateway/Dockerfile
-            image: agricore-gateway
+      matrix: ${{ fromJSON(needs.resolve-sha.outputs.matrix) }}
     steps:
       - name: Checkout verified revision
-        uses: actions/checkout@v7
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ needs.resolve-sha.outputs.publish_sha }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v4
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
+          registry: ${{ env.DOCKERHUB_REGISTRY }}
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Short SHA
-        id: meta_sha
-        shell: bash
-        run: |
-          full="${{ needs.resolve-sha.outputs.publish_sha }}"
-          echo "short=${full:0:7}" >> "$GITHUB_OUTPUT"
-          echo "full=$full" >> "$GITHUB_OUTPUT"
-
-      - name: Build and push
-        uses: docker/build-push-action@v7
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
-          context: ${{ matrix.context }}
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve candidate metadata
+        id: meta
+        shell: bash
+        env:
+          PUBLISH_SHA: ${{ needs.resolve-sha.outputs.publish_sha }}
+        run: |
+          set -euo pipefail
+          full="$PUBLISH_SHA"
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          dockerhub_repository="${{ env.DOCKERHUB_REGISTRY }}/${{ env.DOCKERHUB_NAMESPACE }}/${{ matrix.image }}"
+          ghcr_repository="${{ env.GHCR_REGISTRY }}/$owner/${{ matrix.image }}"
+          candidate="candidate-$full-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          created="$(git show -s --format=%cI "$full")"
+          {
+            echo "short=${full:0:7}"
+            echo "full=$full"
+            echo "created=$created"
+            echo "dockerhub_repository=$dockerhub_repository"
+            echo "ghcr_repository=$ghcr_repository"
+            echo "dockerhub_candidate=$dockerhub_repository:$candidate"
+            echo "ghcr_candidate=$ghcr_repository:$candidate"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build candidate once and push to both registries
+        id: build
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
           file: ${{ matrix.file }}
           push: true
-          # Stamps org.opencontainers.image.revision so a pulled image can be traced back to
-          # the commit it was built from. Without it the label would read "unknown".
-          build-args: |
-            GIT_SHA=${{ steps.meta_sha.outputs.full }}
           tags: |
-            ${{ env.IMAGE_NAMESPACE }}/${{ matrix.image }}:latest
-            ${{ env.IMAGE_NAMESPACE }}/${{ matrix.image }}:${{ steps.meta_sha.outputs.short }}
-            ${{ env.IMAGE_NAMESPACE }}/${{ matrix.image }}:${{ steps.meta_sha.outputs.full }}
-          cache-from: type=gha,scope=${{ matrix.service }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+            ${{ steps.meta.outputs.dockerhub_candidate }}
+            ${{ steps.meta.outputs.ghcr_candidate }}
+          labels: |
+            org.opencontainers.image.created=${{ steps.meta.outputs.created }}
+            org.opencontainers.image.description=AgriCore ${{ matrix.service }} application image
+            org.opencontainers.image.licenses=MIT
+            org.opencontainers.image.revision=${{ needs.resolve-sha.outputs.publish_sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.meta.outputs.full }}
+          build-args: |
+            GIT_SHA=${{ needs.resolve-sha.outputs.publish_sha }}
+          sbom: true
+          provenance: mode=max
+          cache-from: type=gha,scope=publish-${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=publish-${{ matrix.service }}
+
+      - name: Scan exact Docker Hub candidate digest
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: ${{ steps.meta.outputs.dockerhub_repository }}@${{ steps.build.outputs.digest }}
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: false
+          format: table
+
+      - name: Verify candidate parity and immutable tag availability
+        shell: bash
+        env:
+          EXPECTED_DIGEST: ${{ steps.build.outputs.digest }}
+          DOCKERHUB_CANDIDATE: ${{ steps.meta.outputs.dockerhub_candidate }}
+          GHCR_CANDIDATE: ${{ steps.meta.outputs.ghcr_candidate }}
+          DOCKERHUB_FULL: ${{ steps.meta.outputs.dockerhub_repository }}:${{ steps.meta.outputs.full }}
+          DOCKERHUB_SHORT: ${{ steps.meta.outputs.dockerhub_repository }}:${{ steps.meta.outputs.short }}
+          GHCR_FULL: ${{ steps.meta.outputs.ghcr_repository }}:${{ steps.meta.outputs.full }}
+          GHCR_SHORT: ${{ steps.meta.outputs.ghcr_repository }}:${{ steps.meta.outputs.short }}
+        run: |
+          set -euo pipefail
+
+          digest_of() {
+            local output
+            if output="$(docker buildx imagetools inspect "$1" 2>/dev/null)"; then
+              awk '/^Digest:/ { print $2; exit }' <<< "$output"
+            fi
+          }
+
+          require_digest() {
+            local reference="$1"
+            local actual
+            actual="$(digest_of "$reference")"
+            if [[ "$actual" != "$EXPECTED_DIGEST" ]]; then
+              echo "Digest mismatch for $reference: expected=$EXPECTED_DIGEST actual=${actual:-missing}"
+              exit 1
+            fi
+          }
+
+          require_immutable_or_absent() {
+            local reference="$1"
+            local existing
+            existing="$(digest_of "$reference")"
+            if [[ -n "$existing" && "$existing" != "$EXPECTED_DIGEST" ]]; then
+              echo "Immutable SHA tag collision for $reference: expected=$EXPECTED_DIGEST existing=$existing"
+              exit 1
+            fi
+          }
+
+          require_digest "$DOCKERHUB_CANDIDATE"
+          require_digest "$GHCR_CANDIDATE"
+          require_immutable_or_absent "$DOCKERHUB_FULL"
+          require_immutable_or_absent "$DOCKERHUB_SHORT"
+          require_immutable_or_absent "$GHCR_FULL"
+          require_immutable_or_absent "$GHCR_SHORT"
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@1aa8e0f2454b781fbf0fbf306a4c9533a0c57409 # v3.7.0
+
+      - name: Sign both candidate repository digests
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+          DIGEST: ${{ steps.build.outputs.digest }}
+          DOCKERHUB_REPOSITORY: ${{ steps.meta.outputs.dockerhub_repository }}
+          GHCR_REPOSITORY: ${{ steps.meta.outputs.ghcr_repository }}
+        run: |
+          set -euo pipefail
+          cosign sign --yes "$DOCKERHUB_REPOSITORY@$DIGEST"
+          cosign sign --yes "$GHCR_REPOSITORY@$DIGEST"
+
+  promotion-gate:
+    needs: [resolve-sha, candidates]
+    if: needs.resolve-sha.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse promotion when the default branch advanced
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PUBLISH_SHA: ${{ needs.resolve-sha.outputs.publish_sha }}
+          DEFAULT_BRANCH: ${{ needs.resolve-sha.outputs.default_branch }}
+          THIS_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          branch_tip="$(gh api "repos/$THIS_REPO/commits/$DEFAULT_BRANCH" --jq '.sha')"
+          if [[ "$PUBLISH_SHA" != "$branch_tip" ]]; then
+            echo "Refusing stale revision $PUBLISH_SHA; $DEFAULT_BRANCH is now $branch_tip"
+            exit 1
+          fi
+
+  promote:
+    needs: [resolve-sha, promotion-gate]
+    if: needs.resolve-sha.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.resolve-sha.outputs.matrix) }}
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ${{ env.DOCKERHUB_REGISTRY }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@1aa8e0f2454b781fbf0fbf306a4c9533a0c57409 # v3.7.0
+
+      - name: Verify signatures and promote immutable SHA tags
+        shell: bash
+        env:
+          PUBLISH_SHA: ${{ needs.resolve-sha.outputs.publish_sha }}
+          DEFAULT_BRANCH: ${{ needs.resolve-sha.outputs.default_branch }}
+        run: |
+          set -euo pipefail
+          full="$PUBLISH_SHA"
+          short="${full:0:7}"
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          dockerhub_repository="${{ env.DOCKERHUB_REGISTRY }}/${{ env.DOCKERHUB_NAMESPACE }}/${{ matrix.image }}"
+          ghcr_repository="${{ env.GHCR_REGISTRY }}/$owner/${{ matrix.image }}"
+          candidate="candidate-$full-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          identity="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/.github/workflows/docker-publish.yml@refs/heads/$DEFAULT_BRANCH"
+
+          digest_of() {
+            docker buildx imagetools inspect "$1" |
+              awk '/^Digest:/ { print $2; exit }'
+          }
+
+          dockerhub_digest="$(digest_of "$dockerhub_repository:$candidate")"
+          ghcr_digest="$(digest_of "$ghcr_repository:$candidate")"
+          if [[ -z "$dockerhub_digest" || "$dockerhub_digest" != "$ghcr_digest" ]]; then
+            echo "Candidate parity failed: dockerhub=$dockerhub_digest ghcr=$ghcr_digest"
+            exit 1
+          fi
+
+          for repository in "$dockerhub_repository" "$ghcr_repository"; do
+            cosign verify \
+              --certificate-identity "$identity" \
+              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+              "$repository@$dockerhub_digest"
+          done
+
+          docker buildx imagetools create \
+            --tag "$dockerhub_repository:$full" \
+            --tag "$dockerhub_repository:$short" \
+            "$dockerhub_repository@$dockerhub_digest"
+          docker buildx imagetools create \
+            --tag "$ghcr_repository:$full" \
+            --tag "$ghcr_repository:$short" \
+            "$ghcr_repository@$dockerhub_digest"
+
+  verify-release:
+    needs: [resolve-sha, promote]
+    if: needs.resolve-sha.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.resolve-sha.outputs.matrix) }}
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ${{ env.DOCKERHUB_REGISTRY }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@1aa8e0f2454b781fbf0fbf306a4c9533a0c57409 # v3.7.0
+
+      - name: Verify release digests and signatures
+        shell: bash
+        env:
+          PUBLISH_SHA: ${{ needs.resolve-sha.outputs.publish_sha }}
+          DEFAULT_BRANCH: ${{ needs.resolve-sha.outputs.default_branch }}
+        run: |
+          set -euo pipefail
+          full="$PUBLISH_SHA"
+          short="${full:0:7}"
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          dockerhub_repository="${{ env.DOCKERHUB_REGISTRY }}/${{ env.DOCKERHUB_NAMESPACE }}/${{ matrix.image }}"
+          ghcr_repository="${{ env.GHCR_REGISTRY }}/$owner/${{ matrix.image }}"
+          identity="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/.github/workflows/docker-publish.yml@refs/heads/$DEFAULT_BRANCH"
+
+          digest_of() {
+            docker buildx imagetools inspect "$1" |
+              awk '/^Digest:/ { print $2; exit }'
+          }
+
+          expected="$(digest_of "$dockerhub_repository:$full")"
+          if [[ -z "$expected" ]]; then
+            echo "Missing Docker Hub full-SHA release tag"
+            exit 1
+          fi
+
+          for repository in "$dockerhub_repository" "$ghcr_repository"; do
+            for tag in "$full" "$short"; do
+              actual="$(digest_of "$repository:$tag")"
+              if [[ "$actual" != "$expected" ]]; then
+                echo "Release verification failed for $repository:$tag: expected=$expected actual=$actual"
+                exit 1
+              fi
+            done
+            cosign verify \
+              --certificate-identity "$identity" \
+              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+              "$repository@$expected"
+          done

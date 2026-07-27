@@ -9,3 +9,9 @@ CREATE DATABASE agricore_traceability;
 CREATE DATABASE agricore_notification;
 CREATE DATABASE agricore_iot;
 CREATE DATABASE agricore_sales;
+SELECT 'CREATE DATABASE agricore_assistant'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'agricore_assistant')
+\gexec
+
+\connect agricore_iot
+CREATE EXTENSION IF NOT EXISTS timescaledb;

@@ -13,6 +13,8 @@ public class SalesOrderEntity {
     private UUID id;
     @Column(name = "order_number", nullable = false, length = 64)
     private String orderNumber;
+    @Column(name = "farm_id", nullable = false)
+    private UUID farmId;
     @Column(name = "customer_id", nullable = false)
     private UUID customerId;
     @Enumerated(EnumType.STRING)
@@ -28,6 +30,12 @@ public class SalesOrderEntity {
     private UUID correlationId;
     @Column(name = "failure_reason", columnDefinition = "TEXT")
     private String failureReason;
+    @Column(name = "currency_code", length = 3)
+    private String currencyCode;
+    @Column(name = "subtotal_amount", precision = 18, scale = 4)
+    private BigDecimal subtotalAmount;
+    @Column(name = "total_amount", precision = 18, scale = 4)
+    private BigDecimal totalAmount;
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
     @Column(name = "updated_at", nullable = false)
@@ -39,6 +47,8 @@ public class SalesOrderEntity {
     public void setId(UUID id) { this.id = id; }
     public String getOrderNumber() { return orderNumber; }
     public void setOrderNumber(String orderNumber) { this.orderNumber = orderNumber; }
+    public UUID getFarmId() { return farmId; }
+    public void setFarmId(UUID farmId) { this.farmId = farmId; }
     public UUID getCustomerId() { return customerId; }
     public void setCustomerId(UUID customerId) { this.customerId = customerId; }
     public OrderStatus getStatus() { return status; }
@@ -53,6 +63,12 @@ public class SalesOrderEntity {
     public void setCorrelationId(UUID correlationId) { this.correlationId = correlationId; }
     public String getFailureReason() { return failureReason; }
     public void setFailureReason(String failureReason) { this.failureReason = failureReason; }
+    public String getCurrencyCode() { return currencyCode; }
+    public void setCurrencyCode(String currencyCode) { this.currencyCode = currencyCode; }
+    public BigDecimal getSubtotalAmount() { return subtotalAmount; }
+    public void setSubtotalAmount(BigDecimal subtotalAmount) { this.subtotalAmount = subtotalAmount; }
+    public BigDecimal getTotalAmount() { return totalAmount; }
+    public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
