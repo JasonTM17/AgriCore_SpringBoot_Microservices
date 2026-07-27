@@ -1,6 +1,6 @@
 # AgriCore codebase summary
 
-**Current source scan:** 2026-07-27 (dirty pre-release worktree)
+**Current source scan:** 2026-07-27 (release-hardened source tree)
 
 ## Build roots
 

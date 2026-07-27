@@ -370,6 +370,11 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.resolve-sha.outputs.matrix) }}
     steps:
+      - name: Checkout verified revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.resolve-sha.outputs.publish_sha }}
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
 
@@ -397,34 +402,8 @@ jobs:
           DEFAULT_BRANCH: ${{ needs.resolve-sha.outputs.default_branch }}
         run: |
           set -euo pipefail
-          full="$PUBLISH_SHA"
-          short="${full:0:7}"
           owner="${GITHUB_REPOSITORY_OWNER,,}"
-          dockerhub_repository="${{ env.DOCKERHUB_REGISTRY }}/${{ env.DOCKERHUB_NAMESPACE }}/${{ matrix.image }}"
-          ghcr_repository="${{ env.GHCR_REGISTRY }}/$owner/${{ matrix.image }}"
-          identity="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/.github/workflows/docker-publish.yml@refs/heads/$DEFAULT_BRANCH"
-
-          digest_of() {
-            docker buildx imagetools inspect "$1" |
-              awk '/^Digest:/ { print $2; exit }'
-          }
-
-          expected="$(digest_of "$dockerhub_repository:$full")"
-          if [[ -z "$expected" ]]; then
-            echo "Missing Docker Hub full-SHA release tag"
-            exit 1
-          fi
-
-          for repository in "$dockerhub_repository" "$ghcr_repository"; do
-            for tag in "$full" "$short"; do
-              actual="$(digest_of "$repository:$tag")"
-              if [[ "$actual" != "$expected" ]]; then
-                echo "Release verification failed for $repository:$tag: expected=$expected actual=$actual"
-                exit 1
-              fi
-            done
-            cosign verify \
-              --certificate-identity "$identity" \
-              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-              "$repository@$expected"
-          done
+          export DOCKERHUB_REPOSITORY="${{ env.DOCKERHUB_REGISTRY }}/${{ env.DOCKERHUB_NAMESPACE }}/${{ matrix.image }}"
+          export GHCR_REPOSITORY="${{ env.GHCR_REGISTRY }}/$owner/${{ matrix.image }}"
+          export EXPECTED_CERTIFICATE_IDENTITY="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/.github/workflows/docker-publish.yml@refs/heads/$DEFAULT_BRANCH"
+          bash scripts/verify-release-artifacts.sh
