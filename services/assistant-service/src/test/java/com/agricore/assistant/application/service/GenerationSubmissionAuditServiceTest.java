@@ -1,6 +1,9 @@
 package com.agricore.assistant.application.service;
 
 import com.agricore.assistant.application.model.ToolEvidenceCollection;
+import com.agricore.assistant.application.model.ToolEvidenceSnapshot;
+import com.agricore.assistant.application.model.ToolFact;
+import com.agricore.assistant.application.model.ToolSource;
 import com.agricore.assistant.application.port.AssistantAuditRepository;
 import com.agricore.assistant.application.port.AssistantRetentionPolicy;
 import com.agricore.assistant.domain.model.AssistantActor;
@@ -14,6 +17,7 @@ import org.mockito.ArgumentCaptor;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -69,6 +73,32 @@ class GenerationSubmissionAuditServiceTest {
         AssistantAuditEvent event = capturedEvent();
         assertThat(event.outcome()).isEqualTo("FAILED");
         assertThat(event.reasonCode()).isEqualTo("TOOL_AUTHORIZATION_UNAVAILABLE");
+    }
+
+    @Test
+    void recordsPartialRagDegradationWithRetainedEvidence() {
+        UUID owner = UUID.randomUUID();
+        Instant now = Instant.parse("2026-07-21T08:00:00Z");
+        when(retentionPolicy.auditEventRetention()).thenReturn(Duration.ofDays(30));
+        ToolEvidenceSnapshot evidence = new ToolEvidenceSnapshot(List.of(
+                new ToolFact("FARM-1", ToolSource.FARM, Map.of("status", "ACTIVE"))
+        ));
+
+        service.recordToolDecisionWithoutGeneration(
+                new AssistantActor(owner, List.of("FARM_MANAGER")),
+                conversation(owner, UUID.randomUUID()),
+                ToolEvidenceCollection.partial(evidence, "RAG_DEPENDENCY_UNAVAILABLE", 11),
+                now
+        );
+
+        AssistantAuditEvent event = capturedEvent();
+        assertThat(event.outcome()).isEqualTo("SUCCESS");
+        assertThat(event.reasonCode()).isEqualTo("RAG_DEPENDENCY_UNAVAILABLE");
+        assertThat(event.metadata()).contains(
+                "\"outcome\":\"PARTIAL\"",
+                "\"factCount\":1",
+                "\"sources\":[\"FARM\"]"
+        );
     }
 
     @Test

@@ -137,6 +137,27 @@ class AuthorizedToolEvidenceCollectorTest {
     }
 
     @Test
+    void preservesAuthorizedFarmEvidenceWhenRagIsUnavailable() {
+        properties.setEnabled(true);
+        ragProperties.setEnabled(true);
+        UUID farmId = UUID.randomUUID();
+        ToolFact farm = new ToolFact(
+                "FARM-1", ToolSource.FARM, Map.of("status", "ACTIVE"));
+        when(farmClient.collect(farmId)).thenReturn(new ToolEvidenceSnapshot(List.of(farm)));
+        when(knowledgeRetriever.retrieve("farm status"))
+                .thenThrow(ToolCollectionException.ragUnavailable());
+
+        var result = collector.collect(
+                conversation(ConversationContextType.FARM, farmId),
+                "farm status"
+        );
+
+        assertThat(result.outcome()).isEqualTo(ToolCollectionOutcome.PARTIAL);
+        assertThat(result.reasonCode()).isEqualTo("RAG_DEPENDENCY_UNAVAILABLE");
+        assertThat(result.evidence().facts()).containsExactly(farm);
+    }
+
+    @Test
     void returnsKnowledgeForEnterpriseContextWithoutFarmEgress() {
         ragProperties.setEnabled(true);
         ToolFact knowledge = new ToolFact(

@@ -117,6 +117,7 @@ public class GenerationSubmissionAuditService {
 
     private static String auditOutcome(ToolEvidenceCollection collection) {
         if (collection.outcome() == ToolCollectionOutcome.COLLECTED
+                || collection.outcome() == ToolCollectionOutcome.PARTIAL
                 || collection.outcome() == ToolCollectionOutcome.SKIPPED) {
             return "SUCCESS";
         }

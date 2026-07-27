@@ -78,9 +78,21 @@ public class AuthorizedToolEvidenceCollector implements ToolEvidenceCollector {
             List<ToolFact> facts = new ArrayList<>(collectFarmEvidence(conversation));
             int remainingCapacity = MAX_EVIDENCE_FACTS - facts.size();
             if (remainingCapacity > 0) {
-                knowledgeRetriever.retrieve(prompt).stream()
-                        .limit(remainingCapacity)
-                        .forEach(facts::add);
+                try {
+                    knowledgeRetriever.retrieve(prompt).stream()
+                            .limit(remainingCapacity)
+                            .forEach(facts::add);
+                } catch (ToolCollectionException exception) {
+                    if (!facts.isEmpty()
+                            && "RAG_DEPENDENCY_UNAVAILABLE".equals(exception.reasonCode())) {
+                        return ToolEvidenceCollection.partial(
+                                new ToolEvidenceSnapshot(facts),
+                                exception.reasonCode(),
+                                elapsedMillis(startedAt)
+                        );
+                    }
+                    throw exception;
+                }
             }
             if (!facts.isEmpty()) {
                 return ToolEvidenceCollection.collected(

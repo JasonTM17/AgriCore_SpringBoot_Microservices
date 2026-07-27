@@ -24,6 +24,10 @@ public record ToolEvidenceCollection(
             if (evidence.isEmpty() || reasonCode != null) {
                 throw new IllegalArgumentException("collected tool evidence must contain facts without a reason");
             }
+        } else if (outcome == ToolCollectionOutcome.PARTIAL) {
+            if (evidence.isEmpty() || reasonCode == null || !reasonCode.matches(REASON_PATTERN)) {
+                throw new IllegalArgumentException("partial tool evidence requires facts and a safe reason");
+            }
         } else if (!evidence.isEmpty() || reasonCode == null || !reasonCode.matches(REASON_PATTERN)) {
             throw new IllegalArgumentException("non-collected tool evidence requires an empty snapshot and safe reason");
         }
@@ -31,6 +35,16 @@ public record ToolEvidenceCollection(
 
     public static ToolEvidenceCollection collected(ToolEvidenceSnapshot evidence, long latencyMs) {
         return new ToolEvidenceCollection(evidence, ToolCollectionOutcome.COLLECTED, null, latencyMs);
+    }
+
+    public static ToolEvidenceCollection partial(
+            ToolEvidenceSnapshot evidence,
+            String reasonCode,
+            long latencyMs
+    ) {
+        return new ToolEvidenceCollection(
+                evidence, ToolCollectionOutcome.PARTIAL, reasonCode, latencyMs
+        );
     }
 
     public static ToolEvidenceCollection skipped(String reasonCode) {
