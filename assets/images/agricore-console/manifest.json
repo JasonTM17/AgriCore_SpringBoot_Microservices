@@ -1,0 +1,60 @@
+{
+  "capturedAt": "2026-07-27",
+  "source": "Built React Operations Console with deterministic Playwright edge",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "containsProductionData": false,
+  "assets": [
+    {
+      "file": "agricore-console-login.png",
+      "mimeType": "image/png",
+      "width": 1440,
+      "height": 900,
+      "bytes": 47734,
+      "sha256": "F5E4A724DBE58923515BC26AEB227C6805898EF454CAE6400D759788A8A005F1",
+      "role": "secure login surface"
+    },
+    {
+      "file": "agricore-console-dashboard.png",
+      "mimeType": "image/png",
+      "width": 1440,
+      "height": 900,
+      "bytes": 728654,
+      "sha256": "B693C61431869646B86B7F3EED742C86FF4EDD78C7591CD91DFACE4B497599B9",
+      "role": "authenticated dashboard"
+    },
+    {
+      "file": "agricore-console-farms.png",
+      "mimeType": "image/png",
+      "width": 1440,
+      "height": 900,
+      "bytes": 78171,
+      "sha256": "C6825F1D38C147633C465AE6B97DD76C8D2ADCC9A01FE760E0D1D5697C39D085",
+      "role": "farm and plot workspace"
+    },
+    {
+      "file": "agricore-console-assistant.png",
+      "mimeType": "image/png",
+      "width": 1440,
+      "height": 900,
+      "bytes": 87304,
+      "sha256": "D07D24150D1712E8B0FD3F1B0AEC63FDE0428018D5042CCAFC7DE922BA689321",
+      "role": "assistant conversation after SSE reconnect"
+    },
+    {
+      "file": "agricore-console-walkthrough.gif",
+      "mimeType": "image/gif",
+      "width": 960,
+      "height": 600,
+      "frames": 3,
+      "frameDelaysCentiseconds": [120, 160, 220],
+      "durationSeconds": 5,
+      "loopCount": 0,
+      "bytes": 146993,
+      "sha256": "CE781EFD4AEF26720B005B6F92110A6222AD0CB23ED0F688D2073DE1ECE2AC30",
+      "role": "bounded login-to-operations walkthrough"
+    }
+  ]
+}

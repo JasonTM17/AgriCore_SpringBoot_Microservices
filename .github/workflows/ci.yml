@@ -85,6 +85,8 @@ jobs:
         run: pnpm test
       - name: Build frontend
         run: pnpm build
+      - name: Verify repository showcase media
+        run: pnpm media:check
       - name: Install Playwright Chromium
         run: pnpm --filter @agricore/console exec playwright install --with-deps chromium
       - name: Test critical browser journeys

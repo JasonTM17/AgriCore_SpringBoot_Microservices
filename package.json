@@ -13,6 +13,7 @@
     "typecheck": "pnpm --filter @agricore/console --fail-if-no-match typecheck",
     "test": "pnpm --filter @agricore/console --fail-if-no-match test",
     "e2e": "pnpm --filter @agricore/console --fail-if-no-match e2e",
+    "media:check": "node scripts/verify-showcase-media.mjs && node scripts/verify-console-showcase-media.mjs",
     "contracts:generate": "pnpm --filter @agricore/console --fail-if-no-match contracts:generate",
     "contracts:check": "pnpm --filter @agricore/console --fail-if-no-match contracts:check",
     "build": "pnpm --filter @agricore/console --fail-if-no-match build"
