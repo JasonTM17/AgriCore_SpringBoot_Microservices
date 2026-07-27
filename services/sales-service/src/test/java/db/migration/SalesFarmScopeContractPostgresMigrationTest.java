@@ -36,6 +36,7 @@ class SalesFarmScopeContractPostgresMigrationTest {
                 .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
                 .locations("classpath:db/migration")
                 .baselineVersion("7")
+                .target("8")
                 .load();
         flyway.baseline();
 

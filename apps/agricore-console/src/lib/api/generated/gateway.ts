@@ -92,41 +92,11 @@ export interface paths {
                     };
                     content?: never;
                 };
-                /** @description Malformed or invalid request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Authentication failed */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Request forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Registration conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Content-Type is not supported */
-                415: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+                415: components["responses"]["UnsupportedMediaType"];
             };
         };
         delete?: never;
@@ -235,27 +205,9 @@ export interface paths {
                     };
                     content?: never;
                 };
-                /** @description Invalid paging parameters */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Authentication required */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description System administrator role required */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
             };
         };
         put?: never;
@@ -288,41 +240,11 @@ export interface paths {
                     };
                     content?: never;
                 };
-                /** @description Invalid request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Authentication required */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description System administrator role required */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Resource not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Content-Type is not supported */
-                415: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                415: components["responses"]["UnsupportedMediaType"];
             };
         };
         trace?: never;
@@ -1241,6 +1163,7 @@ export interface paths {
                         "application/json": components["schemas"]["WarehouseResponse"];
                     };
                 };
+                403: components["responses"]["Forbidden"];
             };
         };
         delete?: never;
@@ -1281,20 +1204,9 @@ export interface paths {
                         "application/json": components["schemas"]["InventoryItemResponse"];
                     };
                 };
-                /** @description Warehouse not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description SKU already exists in the warehouse */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
             };
         };
         delete?: never;
@@ -1331,13 +1243,8 @@ export interface paths {
                         "application/json": components["schemas"]["InventoryItemResponse"];
                     };
                 };
-                /** @description Inventory item not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
             };
         };
         put?: never;
@@ -1380,13 +1287,8 @@ export interface paths {
                         "application/json": components["schemas"]["InventoryItemResponse"];
                     };
                 };
-                /** @description Inventory item not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
             };
         };
         delete?: never;
@@ -1427,20 +1329,9 @@ export interface paths {
                         "application/json": components["schemas"]["InventoryItemResponse"];
                     };
                 };
-                /** @description Inventory item not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Insufficient available stock or idempotency conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
             };
         };
         delete?: never;
@@ -1490,13 +1381,8 @@ export interface paths {
                         "application/json": components["schemas"]["ReservationResponse"];
                     };
                 };
-                /** @description Insufficient stock or reference conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
             };
         };
         delete?: never;
@@ -1534,20 +1420,9 @@ export interface paths {
                         "application/json": components["schemas"]["ReservationResponse"];
                     };
                 };
-                /** @description Invalid or missing business reference */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Reservation not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
+                400: components["responses"]["BadRequest"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
             };
         };
         put?: never;
@@ -1588,13 +1463,8 @@ export interface paths {
                         "application/json": components["schemas"]["ReservationReleaseResponse"];
                     };
                 };
-                /** @description Reservation not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
             };
         };
         delete?: never;
@@ -1636,13 +1506,8 @@ export interface paths {
                         "application/json": components["schemas"]["ReservationResponse"];
                     };
                 };
-                /** @description Reservation not ACTIVE or insufficient on-hand */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
             };
         };
         delete?: never;
@@ -1683,6 +1548,7 @@ export interface paths {
                         "application/json": components["schemas"]["InventoryItemResponse"];
                     };
                 };
+                403: components["responses"]["Forbidden"];
             };
         };
         delete?: never;
@@ -1722,7 +1588,9 @@ export interface paths {
         put?: never;
         /**
          * Start an in-progress harvest batch
-         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or WAREHOUSE_MANAGER plus access to the request plot.
+         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or WAREHOUSE_MANAGER plus
+         *     access to the request plot. The warehouse must exist and belong to the
+         *     authoritative plot and crop-cycle farm before any harvest or outbox row is written.
          */
         post: operations["startHarvestBatch"];
         delete?: never;
@@ -1742,7 +1610,9 @@ export interface paths {
         put?: never;
         /**
          * Record a completed harvest and enqueue HarvestCompleted.v1
-         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or WAREHOUSE_MANAGER plus access to the request plot.
+         * @description Requires SYSTEM_ADMIN, FARM_MANAGER, AGRONOMIST, or WAREHOUSE_MANAGER plus
+         *     access to the request plot. The warehouse must exist and belong to the
+         *     authoritative plot and crop-cycle farm before the harvest and outbox event commit.
          */
         post: operations["completeHarvest"];
         delete?: never;
@@ -2270,6 +2140,31 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * @description Uniform error body for every AgriCore service, defined by ApiError in common-lib.
+         *     `code` is the stable machine-readable discriminator and is part of the public contract.
+         *     Null fields are omitted, so `violations`, `details`, and `traceId` are absent unless set.
+         */
+        ApiError: {
+            /** Format: date-time */
+            timestamp: string;
+            status: number;
+            /** @description HTTP reason phrase */
+            error: string;
+            /** @example DUPLICATE_RESOURCE */
+            code: string;
+            message: string;
+            path: string;
+            traceId?: string;
+            /** @description Present only when code is VALIDATION_FAILED. */
+            violations?: {
+                field: string;
+                message: string;
+            }[];
+            details?: {
+                [key: string]: unknown;
+            };
+        };
         /** @enum {string} */
         EnterpriseStatus: "ACTIVE" | "INACTIVE";
         EnterpriseResponse: {
@@ -2303,25 +2198,6 @@ export interface components {
             totalPages: number;
             first: boolean;
             last: boolean;
-        };
-        FieldViolation: {
-            field: string;
-            message: string;
-        };
-        ApiError: {
-            /** Format: date-time */
-            timestamp: string;
-            /** Format: int32 */
-            status: number;
-            error: string;
-            code: string;
-            message: string;
-            path: string;
-            traceId?: string | null;
-            violations?: components["schemas"]["FieldViolation"][];
-            details?: {
-                [key: string]: unknown;
-            };
         };
         CreateEnterpriseRequest: {
             /** @description Enterprise code stored in canonical uppercase form. */
@@ -3570,7 +3446,7 @@ export interface components {
         };
     };
     responses: {
-        /** @description Invalid path, query, or JSON request. */
+        /** @description The request is malformed, invalid, or fails validation. */
         BadRequest: {
             headers: {
                 [name: string]: unknown;
@@ -3579,14 +3455,14 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description Authentication is required or the bearer token is invalid. */
+        /** @description Bearer credential missing, expired, or invalid. The security filter chain may return this response without a body. */
         Unauthorized: {
             headers: {
                 [name: string]: unknown;
             };
             content?: never;
         };
-        /** @description The authenticated user lacks the required role or farm membership. */
+        /** @description Authenticated, but missing the required role or permission. */
         Forbidden: {
             headers: {
                 [name: string]: unknown;
@@ -3595,34 +3471,7 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description Unexpected server failure. */
-        InternalServerError: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ApiError"];
-            };
-        };
-        /** @description A uniqueness, optimistic-lock, assignment, deletion, or membership invariant was violated. */
-        Conflict: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ApiError"];
-            };
-        };
-        /** @description Content-Type is not supported. */
-        UnsupportedMediaType: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ApiError"];
-            };
-        };
-        /** @description Requested farm, farm area, plot, soil profile, or membership not found. */
+        /** @description The requested resource does not exist or is not visible to the caller. */
         NotFound: {
             headers: {
                 [name: string]: unknown;
@@ -3631,8 +3480,8 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description Invalid pagination or request parameter. */
-        "responses-BadRequest": {
+        /** @description The requested response media type is not supported. */
+        NotAcceptable: {
             headers: {
                 [name: string]: unknown;
             };
@@ -3640,8 +3489,8 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description Crop or crop variety not found. */
-        "responses-NotFound": {
+        /** @description The request conflicts with existing resource or domain state. */
+        Conflict: {
             headers: {
                 [name: string]: unknown;
             };
@@ -3649,8 +3498,8 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description The authenticated user lacks catalog-management authority. */
-        "responses-Forbidden": {
+        /** @description The requested resource or replay window is no longer available. */
+        Gone: {
             headers: {
                 [name: string]: unknown;
             };
@@ -3658,8 +3507,8 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description The supplied crop care profile version is stale or a concurrent update won. */
-        "responses-Conflict": {
+        /** @description The request body exceeds the supported size. */
+        PayloadTooLarge: {
             headers: {
                 [name: string]: unknown;
             };
@@ -3667,8 +3516,8 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description Invalid path, query, JSON, dates, stage, validation input, or missing required farm scope. */
-        "components-responses-BadRequest": {
+        /** @description The request Content-Type is not supported. */
+        UnsupportedMediaType: {
             headers: {
                 [name: string]: unknown;
             };
@@ -3676,8 +3525,8 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description Crop cycle, farm, or plot not found or not visible to the caller. */
-        "components-responses-NotFound": {
+        /** @description The resource is temporarily locked by an in-progress operation. */
+        Locked: {
             headers: {
                 [name: string]: unknown;
             };
@@ -3685,7 +3534,34 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description Authoritative farm access verification is temporarily unavailable. */
+        /** @description The caller exceeded an enforced request or concurrency limit. */
+        RateLimitExceeded: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description The service could not complete the request. */
+        InternalServerError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description An upstream dependency returned an invalid response. */
+        BadGateway: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description The service or a required dependency is temporarily unavailable. */
         ServiceUnavailable: {
             headers: {
                 [name: string]: unknown;
@@ -3694,7 +3570,95 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description Duplicate code, overlapping dates, terminal cycle, illegal stage transition, or concurrent update. */
+        /** @description Invalid path, query, or JSON request. */
+        "responses-BadRequest": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Authentication is required or the bearer token is invalid. */
+        "responses-Unauthorized": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content?: never;
+        };
+        /** @description The authenticated user lacks the required role or farm membership. */
+        "responses-Forbidden": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Unexpected server failure. */
+        "responses-InternalServerError": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description A uniqueness, optimistic-lock, assignment, deletion, or membership invariant was violated. */
+        "responses-Conflict": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Content-Type is not supported. */
+        "responses-UnsupportedMediaType": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Requested farm, farm area, plot, soil profile, or membership not found. */
+        "responses-NotFound": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Invalid pagination or request parameter. */
+        "components-responses-BadRequest": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description The authenticated user lacks catalog-management authority. */
+        "components-responses-Forbidden": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Crop or crop variety not found. */
+        "components-responses-NotFound": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description The supplied crop care profile version is stale or a concurrent update won. */
         "components-responses-Conflict": {
             headers: {
                 [name: string]: unknown;
@@ -3703,8 +3667,44 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
+        /** @description Invalid path, query, JSON, dates, stage, validation input, or missing required farm scope. */
+        "crop-cycle-service.v1_components-responses-BadRequest": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Crop cycle, farm, or plot not found or not visible to the caller. */
+        "crop-cycle-service.v1_components-responses-NotFound": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Authoritative farm access verification is temporarily unavailable. */
+        "responses-ServiceUnavailable": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description Duplicate code, overlapping dates, terminal cycle, illegal stage transition, or concurrent update. */
+        "crop-cycle-service.v1_components-responses-Conflict": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
         /** @description Failed to persist the transactional outbox event. */
-        "responses-InternalServerError": {
+        "components-responses-InternalServerError": {
             headers: {
                 [name: string]: unknown;
             };
@@ -3722,7 +3722,7 @@ export interface components {
             };
         };
         /** @description The authenticated user lacks the required role or plot membership. */
-        "components-responses-Forbidden": {
+        "work-service.v1_components-responses-Forbidden": {
             headers: {
                 [name: string]: unknown;
             };
@@ -3740,7 +3740,7 @@ export interface components {
             };
         };
         /** @description Authoritative farm access verification, material stock consumption, or private attachment storage is temporarily unavailable. */
-        "responses-ServiceUnavailable": {
+        "components-responses-ServiceUnavailable": {
             headers: {
                 [name: string]: unknown;
             };
@@ -3758,7 +3758,7 @@ export interface components {
             };
         };
         /** @description Request Content-Type or attachment bytes are not supported, or declared attachment type does not match its bytes. */
-        "responses-UnsupportedMediaType": {
+        "components-responses-UnsupportedMediaType": {
             headers: {
                 [name: string]: unknown;
             };
@@ -3767,7 +3767,7 @@ export interface components {
             };
         };
         /** @description Task attachment exceeds the configured upload limit. */
-        PayloadTooLarge: {
+        "responses-PayloadTooLarge": {
             headers: {
                 [name: string]: unknown;
             };
@@ -3793,7 +3793,7 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description Harvest batch, plot, or owning farm not found or not visible to the caller. */
+        /** @description Harvest batch, plot, farm, crop cycle, or same-farm warehouse not found or not visible. */
         "harvest-service.v1_components-responses-NotFound": {
             headers: {
                 [name: string]: unknown;
@@ -3811,8 +3811,8 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description Farm authorization or completion-event locking is temporarily unavailable; retry later. */
-        "components-responses-ServiceUnavailable": {
+        /** @description Farm, crop-cycle, warehouse authorization, or completion-event locking is temporarily unavailable; retry later. */
+        "harvest-service.v1_components-responses-ServiceUnavailable": {
             headers: {
                 [name: string]: unknown;
             };
@@ -3865,8 +3865,17 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
+        /** @description The caller lacks the required permission or authorized farm context. */
+        "assistant-service.v1_components-responses-Forbidden": {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
         /** @description Unexpected safe server error without prompt, secret, or provider detail. */
-        "components-responses-InternalServerError": {
+        "assistant-service.v1_components-responses-InternalServerError": {
             headers: {
                 [name: string]: unknown;
             };
@@ -3876,15 +3885,6 @@ export interface components {
         };
         /** @description Invalid path, query, header, JSON, context, title, prompt, or validation input. */
         "assistant-service.v1_components-responses-BadRequest": {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ApiError"];
-            };
-        };
-        /** @description The caller lacks authoritative access to the requested farm context. */
-        "assistant-service.v1_components-responses-Forbidden": {
             headers: {
                 [name: string]: unknown;
             };
@@ -3920,34 +3920,7 @@ export interface components {
             };
         };
         /** @description The authenticated user or client IP exhausted the request/token budget window. */
-        RateLimitExceeded: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ApiError"];
-            };
-        };
-        /** @description Cursor is malformed, negative, or ahead of the durable stream. */
-        InvalidEventCursor: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ApiError"];
-            };
-        };
-        /** @description The requested cursor precedes retained durable generation events. */
-        EventReplayExpired: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ApiError"];
-            };
-        };
-        /** @description This service instance has reached its bounded concurrent SSE capacity. */
-        StreamCapacityExceeded: {
+        "responses-RateLimitExceeded": {
             headers: {
                 [name: string]: unknown;
             };
@@ -4089,10 +4062,10 @@ export interface operations {
                     "application/json": components["schemas"]["EnterprisePageResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            500: components["responses"]["InternalServerError"];
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            500: components["responses"]["responses-InternalServerError"];
         };
     };
     createEnterprise: {
@@ -4117,12 +4090,12 @@ export interface operations {
                     "application/json": components["schemas"]["EnterpriseResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            409: components["responses"]["Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
-            500: components["responses"]["InternalServerError"];
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            409: components["responses"]["responses-Conflict"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
+            500: components["responses"]["responses-InternalServerError"];
         };
     };
     getEnterprise: {
@@ -4146,11 +4119,11 @@ export interface operations {
                     "application/json": components["schemas"]["EnterpriseResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalServerError"];
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["responses-NotFound"];
+            500: components["responses"]["responses-InternalServerError"];
         };
     };
     updateEnterprise: {
@@ -4178,13 +4151,13 @@ export interface operations {
                     "application/json": components["schemas"]["EnterpriseResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
-            500: components["responses"]["InternalServerError"];
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["responses-NotFound"];
+            409: components["responses"]["responses-Conflict"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
+            500: components["responses"]["responses-InternalServerError"];
         };
     };
     listFarms: {
@@ -4218,9 +4191,10 @@ export interface operations {
                     "application/json": components["schemas"]["FarmPageResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            500: components["responses"]["InternalServerError"];
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            500: components["responses"]["responses-InternalServerError"];
         };
     };
     createFarm: {
@@ -4245,13 +4219,13 @@ export interface operations {
                     "application/json": components["schemas"]["FarmResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
-            500: components["responses"]["InternalServerError"];
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["responses-NotFound"];
+            409: components["responses"]["responses-Conflict"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
+            500: components["responses"]["responses-InternalServerError"];
         };
     };
     getFarm: {
@@ -4275,11 +4249,11 @@ export interface operations {
                     "application/json": components["schemas"]["FarmResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalServerError"];
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["responses-NotFound"];
+            500: components["responses"]["responses-InternalServerError"];
         };
     };
     updateFarm: {
@@ -4307,13 +4281,13 @@ export interface operations {
                     "application/json": components["schemas"]["FarmResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
-            500: components["responses"]["InternalServerError"];
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["responses-NotFound"];
+            409: components["responses"]["responses-Conflict"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
+            500: components["responses"]["responses-InternalServerError"];
         };
     };
     listFarmAreas: {
@@ -4348,11 +4322,11 @@ export interface operations {
                     "application/json": components["schemas"]["FarmAreaPageResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalServerError"];
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["responses-NotFound"];
+            500: components["responses"]["responses-InternalServerError"];
         };
     };
     createFarmArea: {
@@ -4380,13 +4354,13 @@ export interface operations {
                     "application/json": components["schemas"]["FarmAreaResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
-            500: components["responses"]["InternalServerError"];
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["responses-NotFound"];
+            409: components["responses"]["responses-Conflict"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
+            500: components["responses"]["responses-InternalServerError"];
         };
     };
     getFarmArea: {
@@ -4412,11 +4386,11 @@ export interface operations {
                     "application/json": components["schemas"]["FarmAreaResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalServerError"];
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["responses-NotFound"];
+            500: components["responses"]["responses-InternalServerError"];
         };
     };
     deleteFarmArea: {
@@ -4443,12 +4417,12 @@ export interface operations {
                 };
                 content?: never;
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            500: components["responses"]["InternalServerError"];
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["responses-NotFound"];
+            409: components["responses"]["responses-Conflict"];
+            500: components["responses"]["responses-InternalServerError"];
         };
     };
     updateFarmArea: {
@@ -4478,13 +4452,13 @@ export interface operations {
                     "application/json": components["schemas"]["FarmAreaResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
-            500: components["responses"]["InternalServerError"];
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["responses-NotFound"];
+            409: components["responses"]["responses-Conflict"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
+            500: components["responses"]["responses-InternalServerError"];
         };
     };
     listFarmPlots: {
@@ -4521,11 +4495,11 @@ export interface operations {
                     "application/json": components["schemas"]["PlotPageResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalServerError"];
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["responses-NotFound"];
+            500: components["responses"]["responses-InternalServerError"];
         };
     };
     createFarmPlot: {
@@ -4553,13 +4527,13 @@ export interface operations {
                     "application/json": components["schemas"]["PlotResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
-            500: components["responses"]["InternalServerError"];
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["responses-NotFound"];
+            409: components["responses"]["responses-Conflict"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
+            500: components["responses"]["responses-InternalServerError"];
         };
     };
     listFarmMemberships: {
@@ -4588,11 +4562,11 @@ export interface operations {
                     "application/json": components["schemas"]["FarmMembershipPageResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalServerError"];
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["responses-NotFound"];
+            500: components["responses"]["responses-InternalServerError"];
         };
     };
     grantFarmMembership: {
@@ -4620,13 +4594,13 @@ export interface operations {
                     "application/json": components["schemas"]["FarmMembershipResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
-            500: components["responses"]["InternalServerError"];
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["responses-NotFound"];
+            409: components["responses"]["responses-Conflict"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
+            500: components["responses"]["responses-InternalServerError"];
         };
     };
     revokeFarmMembership: {
@@ -4650,12 +4624,12 @@ export interface operations {
                 };
                 content?: never;
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            500: components["responses"]["InternalServerError"];
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["responses-NotFound"];
+            409: components["responses"]["responses-Conflict"];
+            500: components["responses"]["responses-InternalServerError"];
         };
     };
     getPlot: {
@@ -4679,10 +4653,11 @@ export interface operations {
                     "application/json": components["schemas"]["PlotResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalServerError"];
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["responses-NotFound"];
+            500: components["responses"]["responses-InternalServerError"];
         };
     };
     updatePlot: {
@@ -4710,13 +4685,13 @@ export interface operations {
                     "application/json": components["schemas"]["PlotResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
-            500: components["responses"]["InternalServerError"];
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["responses-NotFound"];
+            409: components["responses"]["responses-Conflict"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
+            500: components["responses"]["responses-InternalServerError"];
         };
     };
     listSoilProfiles: {
@@ -4755,10 +4730,11 @@ export interface operations {
                     "application/json": components["schemas"]["SoilProfilePageResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalServerError"];
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["responses-NotFound"];
+            500: components["responses"]["responses-InternalServerError"];
         };
     };
     createSoilProfile: {
@@ -4786,13 +4762,13 @@ export interface operations {
                     "application/json": components["schemas"]["SoilProfileResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
-            500: components["responses"]["InternalServerError"];
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["responses-NotFound"];
+            409: components["responses"]["responses-Conflict"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
+            500: components["responses"]["responses-InternalServerError"];
         };
     };
     getSoilProfile: {
@@ -4818,10 +4794,11 @@ export interface operations {
                     "application/json": components["schemas"]["SoilProfileResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalServerError"];
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["responses-NotFound"];
+            500: components["responses"]["responses-InternalServerError"];
         };
     };
     updateSoilProfile: {
@@ -4851,13 +4828,13 @@ export interface operations {
                     "application/json": components["schemas"]["SoilProfileResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
-            500: components["responses"]["InternalServerError"];
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["responses-NotFound"];
+            409: components["responses"]["responses-Conflict"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
+            500: components["responses"]["responses-InternalServerError"];
         };
     };
     listIrrigationZones: {
@@ -4894,10 +4871,11 @@ export interface operations {
                     "application/json": components["schemas"]["IrrigationZonePageResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalServerError"];
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["responses-NotFound"];
+            500: components["responses"]["responses-InternalServerError"];
         };
     };
     createIrrigationZone: {
@@ -4925,13 +4903,13 @@ export interface operations {
                     "application/json": components["schemas"]["IrrigationZoneResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
-            500: components["responses"]["InternalServerError"];
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["responses-NotFound"];
+            409: components["responses"]["responses-Conflict"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
+            500: components["responses"]["responses-InternalServerError"];
         };
     };
     getIrrigationZone: {
@@ -4957,10 +4935,11 @@ export interface operations {
                     "application/json": components["schemas"]["IrrigationZoneResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalServerError"];
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["responses-NotFound"];
+            500: components["responses"]["responses-InternalServerError"];
         };
     };
     updateIrrigationZone: {
@@ -4990,13 +4969,13 @@ export interface operations {
                     "application/json": components["schemas"]["IrrigationZoneResponse"];
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
-            500: components["responses"]["InternalServerError"];
+            400: components["responses"]["responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["responses-NotFound"];
+            409: components["responses"]["responses-Conflict"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
+            500: components["responses"]["responses-InternalServerError"];
         };
     };
     listCrops: {
@@ -5026,8 +5005,9 @@ export interface operations {
                     "application/json": components["schemas"]["CropPageResponse"];
                 };
             };
-            400: components["responses"]["responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
+            400: components["responses"]["components-responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["components-responses-Forbidden"];
         };
     };
     getCrop: {
@@ -5050,8 +5030,9 @@ export interface operations {
                     "application/json": components["schemas"]["CropResponse"];
                 };
             };
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["responses-NotFound"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["components-responses-Forbidden"];
+            404: components["responses"]["components-responses-NotFound"];
         };
     };
     listCropVarieties: {
@@ -5081,9 +5062,10 @@ export interface operations {
                     "application/json": components["schemas"]["CropVarietyPageResponse"];
                 };
             };
-            400: components["responses"]["responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["responses-NotFound"];
+            400: components["responses"]["components-responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["components-responses-Forbidden"];
+            404: components["responses"]["components-responses-NotFound"];
         };
     };
     getCropCareProfile: {
@@ -5106,8 +5088,9 @@ export interface operations {
                     "application/json": components["schemas"]["CropCareProfileResponse"];
                 };
             };
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["responses-NotFound"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["components-responses-Forbidden"];
+            404: components["responses"]["components-responses-NotFound"];
         };
     };
     replaceCropCareProfile: {
@@ -5134,12 +5117,12 @@ export interface operations {
                     "application/json": components["schemas"]["CropCareProfileResponse"];
                 };
             };
-            400: components["responses"]["responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["responses-Forbidden"];
-            404: components["responses"]["responses-NotFound"];
-            409: components["responses"]["responses-Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
+            400: components["responses"]["components-responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["components-responses-Forbidden"];
+            404: components["responses"]["components-responses-NotFound"];
+            409: components["responses"]["components-responses-Conflict"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
         };
     };
     getCropByCode: {
@@ -5163,8 +5146,9 @@ export interface operations {
                     "application/json": components["schemas"]["CropResponse"];
                 };
             };
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["responses-NotFound"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["components-responses-Forbidden"];
+            404: components["responses"]["components-responses-NotFound"];
         };
     };
     getCropVariety: {
@@ -5187,8 +5171,9 @@ export interface operations {
                     "application/json": components["schemas"]["CropVarietyResponse"];
                 };
             };
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["responses-NotFound"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["components-responses-Forbidden"];
+            404: components["responses"]["components-responses-NotFound"];
         };
     };
     listCropCycles: {
@@ -5216,11 +5201,11 @@ export interface operations {
                     "application/json": components["schemas"]["CropCyclePageResponse"];
                 };
             };
-            400: components["responses"]["components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["components-responses-NotFound"];
-            503: components["responses"]["ServiceUnavailable"];
+            400: components["responses"]["crop-cycle-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["crop-cycle-service.v1_components-responses-NotFound"];
+            503: components["responses"]["responses-ServiceUnavailable"];
         };
     };
     createCropCycle: {
@@ -5245,14 +5230,14 @@ export interface operations {
                     "application/json": components["schemas"]["CropCycleResponse"];
                 };
             };
-            400: components["responses"]["components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["components-responses-NotFound"];
-            409: components["responses"]["components-responses-Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
-            500: components["responses"]["responses-InternalServerError"];
-            503: components["responses"]["ServiceUnavailable"];
+            400: components["responses"]["crop-cycle-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["crop-cycle-service.v1_components-responses-NotFound"];
+            409: components["responses"]["crop-cycle-service.v1_components-responses-Conflict"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
+            500: components["responses"]["components-responses-InternalServerError"];
+            503: components["responses"]["responses-ServiceUnavailable"];
         };
     };
     getCropCycle: {
@@ -5275,11 +5260,11 @@ export interface operations {
                     "application/json": components["schemas"]["CropCycleResponse"];
                 };
             };
-            400: components["responses"]["components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["components-responses-NotFound"];
-            503: components["responses"]["ServiceUnavailable"];
+            400: components["responses"]["crop-cycle-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["crop-cycle-service.v1_components-responses-NotFound"];
+            503: components["responses"]["responses-ServiceUnavailable"];
         };
     };
     changeCropCycleStageLegacy: {
@@ -5306,14 +5291,14 @@ export interface operations {
                     "application/json": components["schemas"]["CropCycleResponse"];
                 };
             };
-            400: components["responses"]["components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["components-responses-NotFound"];
-            409: components["responses"]["components-responses-Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
-            500: components["responses"]["responses-InternalServerError"];
-            503: components["responses"]["ServiceUnavailable"];
+            400: components["responses"]["crop-cycle-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["crop-cycle-service.v1_components-responses-NotFound"];
+            409: components["responses"]["crop-cycle-service.v1_components-responses-Conflict"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
+            500: components["responses"]["components-responses-InternalServerError"];
+            503: components["responses"]["responses-ServiceUnavailable"];
         };
     };
     changeCropCycleStage: {
@@ -5340,14 +5325,14 @@ export interface operations {
                     "application/json": components["schemas"]["CropCycleResponse"];
                 };
             };
-            400: components["responses"]["components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["components-responses-NotFound"];
-            409: components["responses"]["components-responses-Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
-            500: components["responses"]["responses-InternalServerError"];
-            503: components["responses"]["ServiceUnavailable"];
+            400: components["responses"]["crop-cycle-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["crop-cycle-service.v1_components-responses-NotFound"];
+            409: components["responses"]["crop-cycle-service.v1_components-responses-Conflict"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
+            500: components["responses"]["components-responses-InternalServerError"];
+            503: components["responses"]["responses-ServiceUnavailable"];
         };
     };
     cancelCropCycle: {
@@ -5370,13 +5355,13 @@ export interface operations {
                     "application/json": components["schemas"]["CropCycleResponse"];
                 };
             };
-            400: components["responses"]["components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["components-responses-NotFound"];
-            409: components["responses"]["components-responses-Conflict"];
-            500: components["responses"]["responses-InternalServerError"];
-            503: components["responses"]["ServiceUnavailable"];
+            400: components["responses"]["crop-cycle-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["crop-cycle-service.v1_components-responses-NotFound"];
+            409: components["responses"]["crop-cycle-service.v1_components-responses-Conflict"];
+            500: components["responses"]["components-responses-InternalServerError"];
+            503: components["responses"]["responses-ServiceUnavailable"];
         };
     };
     listCropCycleStageHistory: {
@@ -5404,11 +5389,11 @@ export interface operations {
                     "application/json": components["schemas"]["CropCycleStageHistoryPageResponse"];
                 };
             };
-            400: components["responses"]["components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["components-responses-NotFound"];
-            503: components["responses"]["ServiceUnavailable"];
+            400: components["responses"]["crop-cycle-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["crop-cycle-service.v1_components-responses-NotFound"];
+            503: components["responses"]["responses-ServiceUnavailable"];
         };
     };
     listCropCycleObservations: {
@@ -5436,11 +5421,11 @@ export interface operations {
                     "application/json": components["schemas"]["CropCycleObservationPageResponse"];
                 };
             };
-            400: components["responses"]["components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["components-responses-NotFound"];
-            503: components["responses"]["ServiceUnavailable"];
+            400: components["responses"]["crop-cycle-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["crop-cycle-service.v1_components-responses-NotFound"];
+            503: components["responses"]["responses-ServiceUnavailable"];
         };
     };
     createCropCycleObservation: {
@@ -5467,12 +5452,12 @@ export interface operations {
                     "application/json": components["schemas"]["CropCycleObservationResponse"];
                 };
             };
-            400: components["responses"]["components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["components-responses-NotFound"];
-            415: components["responses"]["UnsupportedMediaType"];
-            503: components["responses"]["ServiceUnavailable"];
+            400: components["responses"]["crop-cycle-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["responses-Forbidden"];
+            404: components["responses"]["crop-cycle-service.v1_components-responses-NotFound"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
+            503: components["responses"]["responses-ServiceUnavailable"];
         };
     };
     listWorkTasks: {
@@ -5502,10 +5487,10 @@ export interface operations {
                 };
             };
             400: components["responses"]["work-service.v1_components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["components-responses-Forbidden"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["work-service.v1_components-responses-Forbidden"];
             404: components["responses"]["work-service.v1_components-responses-NotFound"];
-            503: components["responses"]["responses-ServiceUnavailable"];
+            503: components["responses"]["components-responses-ServiceUnavailable"];
         };
     };
     createWorkTask: {
@@ -5531,13 +5516,13 @@ export interface operations {
                 };
             };
             400: components["responses"]["work-service.v1_components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["components-responses-Forbidden"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["work-service.v1_components-responses-Forbidden"];
             404: components["responses"]["work-service.v1_components-responses-NotFound"];
             409: components["responses"]["work-service.v1_components-responses-Conflict"];
-            415: components["responses"]["responses-UnsupportedMediaType"];
-            500: components["responses"]["responses-InternalServerError"];
-            503: components["responses"]["responses-ServiceUnavailable"];
+            415: components["responses"]["components-responses-UnsupportedMediaType"];
+            500: components["responses"]["components-responses-InternalServerError"];
+            503: components["responses"]["components-responses-ServiceUnavailable"];
         };
     };
     getWorkTask: {
@@ -5561,10 +5546,10 @@ export interface operations {
                 };
             };
             400: components["responses"]["work-service.v1_components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["components-responses-Forbidden"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["work-service.v1_components-responses-Forbidden"];
             404: components["responses"]["work-service.v1_components-responses-NotFound"];
-            503: components["responses"]["responses-ServiceUnavailable"];
+            503: components["responses"]["components-responses-ServiceUnavailable"];
         };
     };
     assignWorkTask: {
@@ -5592,13 +5577,13 @@ export interface operations {
                 };
             };
             400: components["responses"]["work-service.v1_components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["components-responses-Forbidden"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["work-service.v1_components-responses-Forbidden"];
             404: components["responses"]["work-service.v1_components-responses-NotFound"];
             409: components["responses"]["work-service.v1_components-responses-Conflict"];
-            415: components["responses"]["responses-UnsupportedMediaType"];
-            500: components["responses"]["responses-InternalServerError"];
-            503: components["responses"]["responses-ServiceUnavailable"];
+            415: components["responses"]["components-responses-UnsupportedMediaType"];
+            500: components["responses"]["components-responses-InternalServerError"];
+            503: components["responses"]["components-responses-ServiceUnavailable"];
         };
     };
     listWorkTaskAssignments: {
@@ -5627,10 +5612,10 @@ export interface operations {
                 };
             };
             400: components["responses"]["work-service.v1_components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["components-responses-Forbidden"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["work-service.v1_components-responses-Forbidden"];
             404: components["responses"]["work-service.v1_components-responses-NotFound"];
-            503: components["responses"]["responses-ServiceUnavailable"];
+            503: components["responses"]["components-responses-ServiceUnavailable"];
         };
     };
     listTaskExecutions: {
@@ -5659,10 +5644,10 @@ export interface operations {
                 };
             };
             400: components["responses"]["work-service.v1_components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["components-responses-Forbidden"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["work-service.v1_components-responses-Forbidden"];
             404: components["responses"]["work-service.v1_components-responses-NotFound"];
-            503: components["responses"]["responses-ServiceUnavailable"];
+            503: components["responses"]["components-responses-ServiceUnavailable"];
         };
     };
     listTaskAttachments: {
@@ -5686,10 +5671,10 @@ export interface operations {
                 };
             };
             400: components["responses"]["work-service.v1_components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["components-responses-Forbidden"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["work-service.v1_components-responses-Forbidden"];
             404: components["responses"]["work-service.v1_components-responses-NotFound"];
-            503: components["responses"]["responses-ServiceUnavailable"];
+            503: components["responses"]["components-responses-ServiceUnavailable"];
         };
     };
     uploadTaskAttachment: {
@@ -5720,13 +5705,13 @@ export interface operations {
                 };
             };
             400: components["responses"]["work-service.v1_components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["components-responses-Forbidden"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["work-service.v1_components-responses-Forbidden"];
             404: components["responses"]["work-service.v1_components-responses-NotFound"];
             409: components["responses"]["work-service.v1_components-responses-Conflict"];
-            413: components["responses"]["PayloadTooLarge"];
-            415: components["responses"]["responses-UnsupportedMediaType"];
-            503: components["responses"]["responses-ServiceUnavailable"];
+            413: components["responses"]["responses-PayloadTooLarge"];
+            415: components["responses"]["components-responses-UnsupportedMediaType"];
+            503: components["responses"]["components-responses-ServiceUnavailable"];
         };
     };
     downloadTaskAttachment: {
@@ -5750,10 +5735,10 @@ export interface operations {
                 content?: never;
             };
             400: components["responses"]["work-service.v1_components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["components-responses-Forbidden"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["work-service.v1_components-responses-Forbidden"];
             404: components["responses"]["work-service.v1_components-responses-NotFound"];
-            503: components["responses"]["responses-ServiceUnavailable"];
+            503: components["responses"]["components-responses-ServiceUnavailable"];
         };
     };
     startWorkTask: {
@@ -5777,11 +5762,11 @@ export interface operations {
                 };
             };
             400: components["responses"]["work-service.v1_components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["components-responses-Forbidden"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["work-service.v1_components-responses-Forbidden"];
             404: components["responses"]["work-service.v1_components-responses-NotFound"];
             409: components["responses"]["work-service.v1_components-responses-Conflict"];
-            503: components["responses"]["responses-ServiceUnavailable"];
+            503: components["responses"]["components-responses-ServiceUnavailable"];
         };
     };
     completeWorkTask: {
@@ -5809,13 +5794,13 @@ export interface operations {
                 };
             };
             400: components["responses"]["work-service.v1_components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["components-responses-Forbidden"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["work-service.v1_components-responses-Forbidden"];
             404: components["responses"]["work-service.v1_components-responses-NotFound"];
             409: components["responses"]["work-service.v1_components-responses-Conflict"];
-            415: components["responses"]["responses-UnsupportedMediaType"];
-            500: components["responses"]["responses-InternalServerError"];
-            503: components["responses"]["responses-ServiceUnavailable"];
+            415: components["responses"]["components-responses-UnsupportedMediaType"];
+            500: components["responses"]["components-responses-InternalServerError"];
+            503: components["responses"]["components-responses-ServiceUnavailable"];
         };
     };
     cancelWorkTask: {
@@ -5843,12 +5828,12 @@ export interface operations {
                 };
             };
             400: components["responses"]["work-service.v1_components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["components-responses-Forbidden"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["work-service.v1_components-responses-Forbidden"];
             404: components["responses"]["work-service.v1_components-responses-NotFound"];
             409: components["responses"]["work-service.v1_components-responses-Conflict"];
-            415: components["responses"]["responses-UnsupportedMediaType"];
-            503: components["responses"]["responses-ServiceUnavailable"];
+            415: components["responses"]["components-responses-UnsupportedMediaType"];
+            503: components["responses"]["components-responses-ServiceUnavailable"];
         };
     };
     getInventoryHarvestProjectionAcknowledgement: {
@@ -5874,41 +5859,11 @@ export interface operations {
                     "application/json": components["schemas"]["InventoryHarvestProjectionAcknowledgementResponse"];
                 };
             };
-            /** @description Invalid event identifier */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Authentication required */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Harvest workflow role required */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Warehouse not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Farm authorization */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     startHarvestBatch: {
@@ -5934,11 +5889,12 @@ export interface operations {
                 };
             };
             400: components["responses"]["harvest-service.v1_components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
+            401: components["responses"]["responses-Unauthorized"];
             403: components["responses"]["harvest-service.v1_components-responses-Forbidden"];
             404: components["responses"]["harvest-service.v1_components-responses-NotFound"];
             409: components["responses"]["harvest-service.v1_components-responses-Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
+            503: components["responses"]["harvest-service.v1_components-responses-ServiceUnavailable"];
         };
     };
     completeHarvest: {
@@ -5964,13 +5920,13 @@ export interface operations {
                 };
             };
             400: components["responses"]["harvest-service.v1_components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
+            401: components["responses"]["responses-Unauthorized"];
             403: components["responses"]["harvest-service.v1_components-responses-Forbidden"];
             404: components["responses"]["harvest-service.v1_components-responses-NotFound"];
             409: components["responses"]["harvest-service.v1_components-responses-Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
-            500: components["responses"]["responses-InternalServerError"];
-            503: components["responses"]["components-responses-ServiceUnavailable"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
+            500: components["responses"]["components-responses-InternalServerError"];
+            503: components["responses"]["harvest-service.v1_components-responses-ServiceUnavailable"];
         };
     };
     getHarvest: {
@@ -5994,10 +5950,10 @@ export interface operations {
                 };
             };
             400: components["responses"]["harvest-service.v1_components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
+            401: components["responses"]["responses-Unauthorized"];
             403: components["responses"]["harvest-service.v1_components-responses-Forbidden"];
             404: components["responses"]["harvest-service.v1_components-responses-NotFound"];
-            503: components["responses"]["components-responses-ServiceUnavailable"];
+            503: components["responses"]["harvest-service.v1_components-responses-ServiceUnavailable"];
         };
     };
     completeHarvestBatch: {
@@ -6025,13 +5981,13 @@ export interface operations {
                 };
             };
             400: components["responses"]["harvest-service.v1_components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
+            401: components["responses"]["responses-Unauthorized"];
             403: components["responses"]["harvest-service.v1_components-responses-Forbidden"];
             404: components["responses"]["harvest-service.v1_components-responses-NotFound"];
             409: components["responses"]["harvest-service.v1_components-responses-Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
-            500: components["responses"]["responses-InternalServerError"];
-            503: components["responses"]["components-responses-ServiceUnavailable"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
+            500: components["responses"]["components-responses-InternalServerError"];
+            503: components["responses"]["harvest-service.v1_components-responses-ServiceUnavailable"];
         };
     };
     getHarvestCompletionEventStatus: {
@@ -6055,11 +6011,11 @@ export interface operations {
                 };
             };
             400: components["responses"]["harvest-service.v1_components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
+            401: components["responses"]["responses-Unauthorized"];
             403: components["responses"]["harvest-service.v1_components-responses-Forbidden"];
             404: components["responses"]["harvest-service.v1_components-responses-NotFound"];
             409: components["responses"]["harvest-service.v1_components-responses-Conflict"];
-            503: components["responses"]["components-responses-ServiceUnavailable"];
+            503: components["responses"]["harvest-service.v1_components-responses-ServiceUnavailable"];
         };
     };
     republishHarvestCompletionEvent: {
@@ -6083,11 +6039,11 @@ export interface operations {
                 };
             };
             400: components["responses"]["harvest-service.v1_components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
+            401: components["responses"]["responses-Unauthorized"];
             403: components["responses"]["harvest-service.v1_components-responses-Forbidden"];
             404: components["responses"]["harvest-service.v1_components-responses-NotFound"];
             409: components["responses"]["harvest-service.v1_components-responses-Conflict"];
-            503: components["responses"]["components-responses-ServiceUnavailable"];
+            503: components["responses"]["harvest-service.v1_components-responses-ServiceUnavailable"];
         };
     };
     getTraceabilityHarvestProjectionAcknowledgement: {
@@ -6110,27 +6066,9 @@ export interface operations {
                     "application/json": components["schemas"]["TraceabilityHarvestProjectionAcknowledgementResponse"];
                 };
             };
-            /** @description Invalid event identifier */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Authentication required */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Harvest workflow role required */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
     getPublicTraceability: {
@@ -6153,13 +6091,7 @@ export interface operations {
                     "application/json": components["schemas"]["PublicTraceabilityResponse"];
                 };
             };
-            /** @description Traceability code not found or projection not yet available. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
+            404: components["responses"]["NotFound"];
         };
     };
     getPublicTraceabilityQrCode: {
@@ -6183,13 +6115,7 @@ export interface operations {
                     "image/png": string;
                 };
             };
-            /** @description Traceability code not found or projection not yet available. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
+            404: components["responses"]["NotFound"];
         };
     };
     registerIotDevice: {
@@ -6215,11 +6141,11 @@ export interface operations {
                 };
             };
             400: components["responses"]["iot-service.v1_components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
+            401: components["responses"]["responses-Unauthorized"];
             403: components["responses"]["iot-service.v1_components-responses-Forbidden"];
             404: components["responses"]["iot-service.v1_components-responses-NotFound"];
             409: components["responses"]["iot-service.v1_components-responses-Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
             503: components["responses"]["iot-service.v1_components-responses-ServiceUnavailable"];
         };
     };
@@ -6246,10 +6172,10 @@ export interface operations {
                 };
             };
             400: components["responses"]["iot-service.v1_components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
+            401: components["responses"]["responses-Unauthorized"];
             403: components["responses"]["iot-service.v1_components-responses-Forbidden"];
             404: components["responses"]["iot-service.v1_components-responses-NotFound"];
-            415: components["responses"]["UnsupportedMediaType"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
             503: components["responses"]["iot-service.v1_components-responses-ServiceUnavailable"];
         };
     };
@@ -6271,8 +6197,9 @@ export interface operations {
                     "application/json": components["schemas"]["AssistantCapabilitiesResponse"];
                 };
             };
-            401: components["responses"]["Unauthorized"];
-            500: components["responses"]["components-responses-InternalServerError"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["assistant-service.v1_components-responses-Forbidden"];
+            500: components["responses"]["assistant-service.v1_components-responses-InternalServerError"];
         };
     };
     listAssistantConversations: {
@@ -6301,8 +6228,9 @@ export interface operations {
                 };
             };
             400: components["responses"]["assistant-service.v1_components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            500: components["responses"]["components-responses-InternalServerError"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["assistant-service.v1_components-responses-Forbidden"];
+            500: components["responses"]["assistant-service.v1_components-responses-InternalServerError"];
         };
     };
     createAssistantConversation: {
@@ -6328,11 +6256,11 @@ export interface operations {
                 };
             };
             400: components["responses"]["assistant-service.v1_components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
+            401: components["responses"]["responses-Unauthorized"];
             403: components["responses"]["assistant-service.v1_components-responses-Forbidden"];
             404: components["responses"]["assistant-service.v1_components-responses-NotFound"];
-            415: components["responses"]["UnsupportedMediaType"];
-            500: components["responses"]["components-responses-InternalServerError"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
+            500: components["responses"]["assistant-service.v1_components-responses-InternalServerError"];
             503: components["responses"]["assistant-service.v1_components-responses-ServiceUnavailable"];
         };
     };
@@ -6357,9 +6285,10 @@ export interface operations {
                 };
             };
             400: components["responses"]["assistant-service.v1_components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["assistant-service.v1_components-responses-Forbidden"];
             404: components["responses"]["assistant-service.v1_components-responses-NotFound"];
-            500: components["responses"]["components-responses-InternalServerError"];
+            500: components["responses"]["assistant-service.v1_components-responses-InternalServerError"];
         };
     };
     archiveAssistantConversation: {
@@ -6383,9 +6312,10 @@ export interface operations {
                 };
             };
             400: components["responses"]["assistant-service.v1_components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["assistant-service.v1_components-responses-Forbidden"];
             404: components["responses"]["assistant-service.v1_components-responses-NotFound"];
-            500: components["responses"]["components-responses-InternalServerError"];
+            500: components["responses"]["assistant-service.v1_components-responses-InternalServerError"];
         };
     };
     listAssistantMessages: {
@@ -6414,9 +6344,10 @@ export interface operations {
                 };
             };
             400: components["responses"]["assistant-service.v1_components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["assistant-service.v1_components-responses-Forbidden"];
             404: components["responses"]["assistant-service.v1_components-responses-NotFound"];
-            500: components["responses"]["components-responses-InternalServerError"];
+            500: components["responses"]["assistant-service.v1_components-responses-InternalServerError"];
         };
     };
     submitAssistantGeneration: {
@@ -6455,12 +6386,13 @@ export interface operations {
                 };
             };
             400: components["responses"]["assistant-service.v1_components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["assistant-service.v1_components-responses-Forbidden"];
             404: components["responses"]["assistant-service.v1_components-responses-NotFound"];
             409: components["responses"]["assistant-service.v1_components-responses-Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
-            429: components["responses"]["RateLimitExceeded"];
-            500: components["responses"]["components-responses-InternalServerError"];
+            415: components["responses"]["responses-UnsupportedMediaType"];
+            429: components["responses"]["responses-RateLimitExceeded"];
+            500: components["responses"]["assistant-service.v1_components-responses-InternalServerError"];
             503: components["responses"]["assistant-service.v1_components-responses-ServiceUnavailable"];
         };
     };
@@ -6486,9 +6418,10 @@ export interface operations {
                 };
             };
             400: components["responses"]["assistant-service.v1_components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["assistant-service.v1_components-responses-Forbidden"];
             404: components["responses"]["assistant-service.v1_components-responses-NotFound"];
-            500: components["responses"]["components-responses-InternalServerError"];
+            500: components["responses"]["assistant-service.v1_components-responses-InternalServerError"];
         };
     };
     cancelAssistantGeneration: {
@@ -6513,9 +6446,10 @@ export interface operations {
                 };
             };
             400: components["responses"]["assistant-service.v1_components-responses-BadRequest"];
-            401: components["responses"]["Unauthorized"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["assistant-service.v1_components-responses-Forbidden"];
             404: components["responses"]["assistant-service.v1_components-responses-NotFound"];
-            500: components["responses"]["components-responses-InternalServerError"];
+            500: components["responses"]["assistant-service.v1_components-responses-InternalServerError"];
         };
     };
     replayAssistantGenerationEvents: {
@@ -6548,19 +6482,14 @@ export interface operations {
                     "text/event-stream": string;
                 };
             };
-            400: components["responses"]["InvalidEventCursor"];
-            401: components["responses"]["Unauthorized"];
+            400: components["responses"]["assistant-service.v1_components-responses-BadRequest"];
+            401: components["responses"]["responses-Unauthorized"];
+            403: components["responses"]["assistant-service.v1_components-responses-Forbidden"];
             404: components["responses"]["assistant-service.v1_components-responses-NotFound"];
-            /** @description Accept must allow application/json or text/event-stream. */
-            406: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            410: components["responses"]["EventReplayExpired"];
-            500: components["responses"]["components-responses-InternalServerError"];
-            503: components["responses"]["StreamCapacityExceeded"];
+            406: components["responses"]["NotAcceptable"];
+            410: components["responses"]["Gone"];
+            500: components["responses"]["assistant-service.v1_components-responses-InternalServerError"];
+            503: components["responses"]["assistant-service.v1_components-responses-ServiceUnavailable"];
         };
     };
 }

@@ -34,7 +34,6 @@ agricore:
     login-rate-limit-per-minute: 1000
     registration-enabled: true
     rate-limit-fail-open: true
-    trust-forwarded-headers: false
     refresh-cookie-name: agricore_refresh
     refresh-cookie-path: /api/v1/auth/web
     refresh-cookie-secure: false

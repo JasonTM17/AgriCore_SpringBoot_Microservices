@@ -44,6 +44,8 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /api/v1/crops/{cropId}:
     parameters:
       - $ref: '#/components/parameters/CropId'
@@ -60,6 +62,8 @@ paths:
                 $ref: '#/components/schemas/CropResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
   /api/v1/crops/by-code/{code}:
@@ -85,6 +89,8 @@ paths:
                 $ref: '#/components/schemas/CropResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
   /api/v1/crops/{cropId}/varieties:
@@ -114,6 +120,8 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
   /api/v1/crops/{cropId}/care-profile:
@@ -135,6 +143,8 @@ paths:
                 $ref: '#/components/schemas/CropCareProfileResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
   /api/v1/admin/crops/{cropId}/care-profile:
@@ -188,6 +198,8 @@ paths:
                 $ref: '#/components/schemas/CropVarietyResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
 components:
@@ -259,6 +271,54 @@ components:
             $ref: '#/components/schemas/ApiError'
     UnsupportedMediaType:
       description: Content-Type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotAcceptable:
+      description: The requested response media type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Gone:
+      description: The requested resource or replay window is no longer available.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    PayloadTooLarge:
+      description: The request body exceeds the supported size.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Locked:
+      description: The resource is temporarily locked by an in-progress operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    RateLimitExceeded:
+      description: The caller exceeded an enforced request or concurrency limit.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    InternalServerError:
+      description: The service could not complete the request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    BadGateway:
+      description: An upstream dependency returned an invalid response.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    ServiceUnavailable:
+      description: The service or a required dependency is temporarily unavailable.
       content:
         application/json:
           schema:
@@ -477,20 +537,28 @@ components:
         sortOrder: { type: integer, format: int32, minimum: 0 }
     ApiError:
       type: object
-      additionalProperties: false
+      description: |
+        Uniform error body for every AgriCore service, defined by ApiError in common-lib.
+        `code` is the stable machine-readable discriminator and is part of the public contract.
+        Null fields are omitted, so `violations`, `details`, and `traceId` are absent unless set.
       required: [timestamp, status, error, code, message, path]
       properties:
         timestamp: { type: string, format: date-time }
-        status: { type: integer, format: int32, minimum: 400, maximum: 599 }
-        error: { type: string }
-        code: { type: string }
+        status: { type: integer }
+        error: { type: string, description: HTTP reason phrase }
+        code: { type: string, example: DUPLICATE_RESOURCE }
         message: { type: string }
         path: { type: string }
-        traceId: { type: [string, 'null'] }
+        traceId: { type: string }
         violations:
           type: array
+          description: Present only when code is VALIDATION_FAILED.
           items:
-            $ref: '#/components/schemas/FieldViolation'
+            type: object
+            required: [field, message]
+            properties:
+              field: { type: string }
+              message: { type: string }
         details:
           type: object
           additionalProperties: true

@@ -1,6 +1,6 @@
 # AgriCore roadmap
 
-**Last updated:** 2026-07-26
+**Last updated:** 2026-07-27
 
 This roadmap records evidence gates, not delivery dates. A capability moves to
 complete only after code, contract, migration, tests, operations, and docs agree.
@@ -18,12 +18,13 @@ complete only after code, contract, migration, tests, operations, and docs agree
 | Notification | Identity welcome, Sales, Traceability, and IoT consumption implemented with requested/sent/failed truth, SMTP and persisted in-app adapters, administrative inbox endpoints, invalid-payload DLT handling, and source-event idempotency; external automatic delivery is at-most-once and ambiguous attempts fail as `DELIVERY_OUTCOME_UNKNOWN` |
 | Assistant | Persisted read-only boundary, budgets, SSE replay, safe provider-none behavior implemented |
 | Console | Core workflows, assistant, Inventory, Sales, IoT, identity administration, permission-aware navigation, serialized auth/logout transitions, and responsive media variants implemented |
-| Platform | Compose and Helm tenant dependencies, read-only application filesystems, gateway Service alias, configurable egress policy, observability, security workflows, and signed SHA-only dual-registry publishing implemented; final clean-revision and remote execution pending |
+| Platform | Compose and Helm tenant dependencies, read-only application filesystems, gateway Service alias, configurable egress policy, observability, security workflows, durable outbox retry migrations, and SHA-only dual-registry promotion configuration; final clean-revision and remote execution pending |
 | Docs/demo | Repository media/GIF, regional seed, bounded cross-domain dataset, diagrams, ADRs, and platform release docs synchronized; all 13 Spring application READMEs provide service-local orientation and remain part of the final merged-revision accuracy gate |
 
-Current checkpoint: implementation/remediation complete. Final pre-landing
-review, clean-revision gates, GitHub CI, merge, registry publication, and
-post-publication digest verification remain open.
+Current checkpoint: a dirty pre-release integration. Final pre-landing review,
+clean-revision gates, GitHub CI, merge, registry publication, signature/digest
+verification, and production deployment remain open. The dated 2026-07-26
+evidence and SHA `5867b37` are historical snapshots, not a release claim.
 
 ## Post-1.0 candidates
 

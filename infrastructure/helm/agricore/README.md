@@ -2,14 +2,17 @@
 
 ## Immutable images
 
-Set `global.imageTag` to the full 40-character lowercase commit SHA when each
-service `image` value is a repository. The chart fails closed when the value is
-empty or not immutable. For deploy-by-digest, set a service `image` directly to
-`repository@sha256:<64-hex-digest>`; the chart validates and renders that digest
-without appending `global.imageTag`. The `latest` tag is always rejected.
+Production values must set every service `image` directly to
+`repository@sha256:<64-hex-digest>`. `global.requireImageDigest=true` is the
+default and fails closed for tag-based references, preventing a registry tag
+from changing the deployed bytes after review. The chart validates and renders
+the digest without appending `global.imageTag`. The `latest` tag is always
+rejected.
 
-For a local development render only, set `global.allowMutableImages=true` and a
-named non-`latest` tag. Never carry that override into production values.
+CI may set `global.requireImageDigest=false` only while it validates a
+full-40-character commit-SHA candidate tag. For a local development render,
+also set `global.allowMutableImages=true` for a named non-`latest` tag. Never
+carry either override into production values.
 
 ## Required internal Inventory credential
 
@@ -32,9 +35,8 @@ rolling the four consuming Deployments.
 The chart requires an operator-provided `agricore_iot` database with the
 `timescaledb` extension already installed. The default pre-install/pre-upgrade
 hook checks the extension using credentials from
-`iot.timescalePreflight.credentialSecretName`, or
-`postgres.databaseSecretName` when the IoT-specific name is empty. The hook
-only reads `pg_extension`; it never creates or upgrades extensions.
+`iot.timescalePreflight.credentialSecretName`. The hook only reads
+`pg_extension`; it never creates or upgrades extensions.
 
 IoT uses the `Recreate` deployment strategy because Flyway can migrate
 `sensor_readings` into a hypertable. Schedule a maintenance window: existing

@@ -4,7 +4,8 @@
 
 - JDK 21 and the included Maven wrapper.
 - Node.js 22.13.0+ and pnpm 11+ for console work.
-- Docker with Docker Compose.
+- Docker with Docker Compose. The PostgreSQL Testcontainers durable-outbox
+  migration tests require a running Docker daemon.
 - OpenSSL for local JWT key generation.
 
 Create local configuration and JWT keys once:
@@ -13,6 +14,14 @@ Create local configuration and JWT keys once:
 Copy-Item .env.example .env
 .\scripts\generate-jwt-keys.ps1
 ```
+
+Before starting Compose, set a unique `AGRICORE_CLIENT_IP_SIGNING_SECRET` in
+`.env`. The dedicated `client-ip-edge` attaches only Console and Gateway, using
+`172.30.0.2` for Gateway and `172.30.0.3` for Console by default; the
+`172[.]30[.]0[.]3` pattern full-matches only Console. If changing the subnet, keep
+`CLIENT_IP_EDGE_SUBNET`, both fixed IPs, and
+`GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN` aligned. Do not use local values in
+production.
 
 Never commit `.env`, generated private keys, or provider credentials.
 
@@ -180,6 +189,15 @@ pnpm build
 .\scripts\seed-data.ps1
 ```
 
+### Durable outbox migration coverage
+
+`mvnw -B verify` exercises PostgreSQL Testcontainers migrations for Farm,
+Harvest, Identity, Notification, Sales, Traceability, and Work. They verify
+nullable `next_attempt_at`/`quarantined_at` compatibility, concurrent partial
+indexes, due/deferred/quarantined filtering, and `FOR UPDATE SKIP LOCKED`
+claims. Run with Docker available; a non-Docker environment is not complete
+release verification.
+
 ### Deterministic development dataset
 
 The seed tool is deterministic and reuses farms/plots by code. Choose a bounded
@@ -275,7 +293,7 @@ window; expired rows otherwise remain physically stored.
 | SSE reconnect/replay | Reuse the generation ID and `Last-Event-ID`; do not submit a second generation with a new idempotency key. |
 | Provider incident | Set `ASSISTANT_PROVIDER=none`, restart assistant-service, and preserve conversation data. |
 
-For an existing PostgreSQL volume, follow [assistant database provisioning](./assistant-database-provisioning.md). For cluster installs, create the external database Secret before `helm upgrade --install`.
+For an existing PostgreSQL volume, follow [assistant database provisioning](./assistant-database-provisioning.md). For cluster installs, create each enabled non-gateway service database Secret and the Gateway/Identity/Assistant client-IP signing Secret before `helm upgrade --install`; the PostgreSQL provisioning Secret belongs only to the bounded hook Jobs.
 
 ### Inventory warehouse farm-scope upgrade
 

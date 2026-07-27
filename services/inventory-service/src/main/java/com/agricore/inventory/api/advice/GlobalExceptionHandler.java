@@ -1,6 +1,7 @@
 package com.agricore.inventory.api.advice;
 
 import com.agricore.common.api.ApiError;
+import com.agricore.common.persistence.ConstraintViolations;
 import com.agricore.farmaccess.FarmAccessException;
 import com.agricore.inventory.domain.exception.InventoryException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -60,6 +61,16 @@ public class GlobalExceptionHandler {
                     "Conflict",
                     "RESERVATION_REFERENCE_CONFLICT",
                     "Reservation reference is already associated with a different request",
+                    request.getRequestURI(),
+                    null
+            ));
+        }
+        if (ConstraintViolations.isUniqueViolation(ex)) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.of(
+                    409,
+                    "Conflict",
+                    "DUPLICATE_RESOURCE",
+                    "A record with the supplied identifier already exists",
                     request.getRequestURI(),
                     null
             ));

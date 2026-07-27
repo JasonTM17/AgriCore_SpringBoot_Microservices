@@ -17,6 +17,10 @@ COPY assets/media/agricore-showcase assets/media/agricore-showcase
 RUN pnpm --filter @agricore/console build
 
 FROM nginxinc/nginx-unprivileged:1.30.2-alpine3.23@sha256:de3e40ec8b7debd7194fc798d4bbfb102c7f8b012b2c73032816b5f72393acdd
+ARG GIT_SHA=unknown
+LABEL org.opencontainers.image.source="https://github.com/JasonTM17/AgriCore_SpringBoot_Microservices" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.revision="${GIT_SHA}"
 
 USER root
 RUN apk upgrade --no-cache c-ares curl libcurl libexpat

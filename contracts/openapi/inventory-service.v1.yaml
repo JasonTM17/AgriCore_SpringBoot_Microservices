@@ -33,6 +33,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WarehouseResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /api/v1/inventory/items:
     post:
       summary: Create an inventory item in a warehouse
@@ -51,8 +53,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InventoryItemResponse'
-        '404': { description: Warehouse not found }
-        '409': { description: SKU already exists in the warehouse }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /api/v1/inventory/stock-in:
     post:
       summary: Add stock and record the referenced ledger movement
@@ -71,7 +77,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InventoryItemResponse'
-        '404': { description: Inventory item not found }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/inventory/stock-out:
     post:
       summary: Deduct available stock idempotently by business reference
@@ -90,8 +99,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InventoryItemResponse'
-        '404': { description: Inventory item not found }
-        '409': { description: Insufficient available stock or idempotency conflict }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /internal/api/v1/inventory/stock-out:
     post:
       summary: Deduct task material from the authoritative farm inventory
@@ -118,9 +131,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InventoryItemResponse'
-        '403': { description: Internal service authentication failed }
-        '404': { description: Item absent from the authorized farm }
-        '409': { description: Insufficient stock or idempotency conflict }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /internal/api/v1/inventory/warehouses/{warehouseId}/scope:
     get:
       summary: Resolve authoritative warehouse farm scope
@@ -143,9 +159,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InternalWarehouseScopeResponse'
-        '403': { description: Internal service authentication failed }
-        '404': { description: Warehouse not found }
-        '503': { description: Warehouse farm scope is unavailable }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/inventory/reservations:
     post:
       summary: Reserve stock idempotently by business reference
@@ -175,8 +194,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReservationResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '409':
-          description: Insufficient stock or reference conflict
+          $ref: '#/components/responses/Conflict'
   /internal/api/v1/inventory/reservations:
     post:
       summary: Reserve stock for an explicit authoritative farm
@@ -207,9 +228,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReservationResponse'
-        '403': { description: Internal service authentication failed }
-        '404': { description: Item or reservation absent from the supplied farm }
-        '409': { description: Insufficient stock or reference conflict }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /internal/api/v1/inventory/reservations/by-reference:
     get:
       summary: Resolve a reservation only within an explicit farm
@@ -237,8 +261,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReservationResponse'
-        '403': { description: Internal service authentication failed }
-        '404': { description: Reservation absent from the supplied farm }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /internal/api/v1/inventory/reservations/{id}/release:
     post:
       summary: Release a reservation only within an explicit farm
@@ -262,8 +288,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReservationReleaseResponse'
-        '403': { description: Internal service authentication failed }
-        '404': { description: Reservation absent from the supplied farm }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /internal/api/v1/inventory/reservations/{id}/confirm:
     post:
       summary: Confirm a reservation only within an explicit farm
@@ -287,9 +315,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReservationResponse'
-        '403': { description: Internal service authentication failed }
-        '404': { description: Reservation absent from the supplied farm }
-        '409': { description: Reservation is not active or stock is inconsistent }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /api/v1/inventory/reservations/by-reference:
     get:
       summary: Resolve the authoritative reservation for a business reference
@@ -312,9 +343,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ReservationResponse'
         '400':
-          description: Invalid or missing business reference
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
-          description: Reservation not found
+          $ref: '#/components/responses/NotFound'
   /api/v1/inventory/reservations/{id}/release:
     post:
       summary: Release reservation
@@ -334,8 +367,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReservationReleaseResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
-          description: Reservation not found
+          $ref: '#/components/responses/NotFound'
   /api/v1/inventory/reservations/{id}/confirm:
     post:
       summary: Confirm reservation (fulfill - decrement on-hand and reserved)
@@ -354,8 +389,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReservationResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '409':
-          description: Reservation not ACTIVE or insufficient on-hand
+          $ref: '#/components/responses/Conflict'
   /api/v1/inventory/events/harvest-completed:
     post:
       summary: Sync adapter for HarvestCompleted (same path as Kafka consumer)
@@ -374,6 +411,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InventoryItemResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /api/v1/inventory/events/harvest-completed/{eventId}/acknowledgement:
     get:
       operationId: getInventoryHarvestProjectionAcknowledgement
@@ -398,11 +437,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InventoryHarvestProjectionAcknowledgementResponse'
-        '400': { description: Invalid event identifier }
-        '401': { description: Authentication required }
-        '403': { description: Harvest workflow role required }
-        '404': { description: Warehouse not found }
-        '503': { description: Farm authorization, warehouse scope, or legacy acknowledgement scope unavailable }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/inventory/items/{itemId}:
     get:
       summary: Get inventory item
@@ -420,8 +464,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InventoryItemResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
-          description: Inventory item not found
+          $ref: '#/components/responses/NotFound'
   /api/v1/inventory/warehouses/{warehouseId}/items:
     get:
       summary: List inventory items in a warehouse
@@ -451,7 +497,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InventoryItemPage'
-        '404': { description: Warehouse not found }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/inventory/items/{itemId}/movements:
     get:
       summary: List stock movements for an inventory item
@@ -481,13 +530,97 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/StockMovementPage'
-        '404': { description: Inventory item not found }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  responses:
+    BadRequest:
+      description: The request is malformed, invalid, or fails validation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Unauthorized:
+      description: Bearer credential missing, expired, or invalid. The security filter chain may return this response without a body.
+    Forbidden:
+      description: Authenticated, but missing the required role or permission.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotFound:
+      description: The requested resource does not exist or is not visible to the caller.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotAcceptable:
+      description: The requested response media type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Conflict:
+      description: The request conflicts with existing resource or domain state.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Gone:
+      description: The requested resource or replay window is no longer available.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    PayloadTooLarge:
+      description: The request body exceeds the supported size.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    UnsupportedMediaType:
+      description: The request Content-Type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Locked:
+      description: The resource is temporarily locked by an in-progress operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    RateLimitExceeded:
+      description: The caller exceeded an enforced request or concurrency limit.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    InternalServerError:
+      description: The service could not complete the request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    BadGateway:
+      description: An upstream dependency returned an invalid response.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    ServiceUnavailable:
+      description: The service or a required dependency is temporarily unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
   schemas:
     CreateInventoryItemRequest:
       type: object
@@ -679,3 +812,30 @@ components:
         productCode: { type: string, minLength: 1 }
         netWeightKg: { type: number, minimum: 0.001 }
         qualityGrade: { type: [string, 'null'] }
+    ApiError:
+      type: object
+      description: |
+        Uniform error body for every AgriCore service, defined by ApiError in common-lib.
+        `code` is the stable machine-readable discriminator and is part of the public contract.
+        Null fields are omitted, so `violations`, `details`, and `traceId` are absent unless set.
+      required: [timestamp, status, error, code, message, path]
+      properties:
+        timestamp: { type: string, format: date-time }
+        status: { type: integer }
+        error: { type: string, description: HTTP reason phrase }
+        code: { type: string, example: DUPLICATE_RESOURCE }
+        message: { type: string }
+        path: { type: string }
+        traceId: { type: string }
+        violations:
+          type: array
+          description: Present only when code is VALIDATION_FAILED.
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field: { type: string }
+              message: { type: string }
+        details:
+          type: object
+          additionalProperties: true

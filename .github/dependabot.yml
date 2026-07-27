@@ -8,12 +8,26 @@ updates:
     open-pull-requests-limit: 10
     labels: ["dependencies", "maven"]
 
+  # Every Dockerfile lives under services/<name>/. Pointed at "/" this found nothing, so the
+  # builder and runtime base images were never offered an update while the config looked like
+  # coverage. The glob also picks up a new service without another edit here.
   - package-ecosystem: docker
-    directory: "/"
+    directories:
+      - "/services/*"
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
     labels: ["dependencies", "docker"]
+    # The Java line is a deliberate constraint, not staleness: maven.compiler.release=21 and the
+    # runtime is JRE 21. Left unfiltered, Dependabot opens 24 PRs a week (two per service) moving
+    # the runtime to JRE 25 and the builder to JDK 26, all of which have to be closed again.
+    # Patch and minor updates inside the 21 line still come through, which is the security-relevant
+    # part. Changing the Java baseline is a deliberate migration with its own ADR.
+    ignore:
+      - dependency-name: "eclipse-temurin"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "maven"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: "/"

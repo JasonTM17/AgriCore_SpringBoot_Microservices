@@ -22,6 +22,8 @@ jobs:
           cache: maven
       - name: Ensure Maven wrapper is executable
         run: chmod +x mvnw
+      - name: Check OpenAPI contracts against controllers
+        run: python3 tools/check-openapi-contract-drift.py --verbose
       - name: Build and test (all microservices modules)
         run: ./mvnw -B verify
       - name: Upload surefire reports
@@ -157,13 +159,21 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Validate docker compose (microservices stack)
+        env:
+          AGRICORE_CLIENT_IP_SIGNING_SECRET: ci-only-client-ip-signing-secret-not-for-production
+          CLIENT_IP_EDGE_SUBNET: 172.30.0.0/29
+          CLIENT_IP_EDGE_GATEWAY_IP: 172.30.0.2
+          CLIENT_IP_EDGE_CONSOLE_IP: 172.30.0.3
+          GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN: 172[.]30[.]0[.]3
         run: |
           docker compose -f docker-compose.yml config --quiet
           python scripts/verify-compose-runtime-contracts.py
+      - name: Validate docker compose (observability stack)
+        run: docker compose -f docker-compose.observability.yml config --quiet
       - name: Lint and render Helm chart
         run: |
-          docker run --rm -v "$PWD:/workspace" -w /workspace alpine/helm:3.17.3 lint infrastructure/helm/agricore --set "global.imageTag=0000000000000000000000000000000000000000"
-          docker run --rm -v "$PWD:/workspace" -w /workspace alpine/helm:3.17.3 template agricore infrastructure/helm/agricore --set ingress.enabled=true --set "global.imageTag=${GITHUB_SHA}" >/dev/null
+          docker run --rm -v "$PWD:/workspace" -w /workspace alpine/helm:3.17.3 lint infrastructure/helm/agricore --set "global.imageTag=0000000000000000000000000000000000000000" --set global.requireImageDigest=false
+          docker run --rm -v "$PWD:/workspace" -w /workspace alpine/helm:3.17.3 template agricore infrastructure/helm/agricore --set ingress.enabled=true --set gateway.trustedProxyAddressPattern='^10[.]0[.]0[.][0-9]+$' --set "global.imageTag=${GITHUB_SHA}" --set global.requireImageDigest=false >/dev/null
 
   container-build-scan:
     name: build and scan ${{ matrix.image }}
@@ -215,6 +225,8 @@ jobs:
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          build-args: |
+            GIT_SHA=${{ github.sha }}
           cache-from: type=gha,scope=ci-${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=ci-${{ matrix.image }}
       - name: Scan built image

@@ -35,7 +35,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: console
-          image: {{ include "agricore.imageRef" (dict "image" .Values.console.image "tag" .Values.global.imageTag "allowMutable" .Values.global.allowMutableImages) | quote }}
+          image: {{ include "agricore.imageRef" (dict "image" .Values.console.image "tag" .Values.global.imageTag "allowMutable" .Values.global.allowMutableImages "requireDigest" .Values.global.requireImageDigest) | quote }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.console.port }}

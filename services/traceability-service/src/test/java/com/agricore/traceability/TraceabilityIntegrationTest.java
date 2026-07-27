@@ -98,4 +98,20 @@ class TraceabilityIntegrationTest {
         )));
         assertThat(new MultiFormatReader().decode(qrBitmap).getText()).isEqualTo(qrUrl);
     }
+
+    /**
+     * The QR lookup is the one endpoint on the platform an end consumer reaches directly, so a
+     * miss must answer in the documented {@code ApiError} shape rather than Boot's default error
+     * body, which carries neither a code nor a message.
+     */
+    @Test
+    void unknownPublicCode_returnsPlatformErrorContract() throws Exception {
+        mockMvc.perform(get("/public/api/v1/traceability/NOSUCH-CODE"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Traceability code not found"))
+                .andExpect(jsonPath("$.path").value("/public/api/v1/traceability/NOSUCH-CODE"));
+    }
+
 }

@@ -1,5 +1,6 @@
 package com.agricore.inventory;
 
+import com.agricore.common.persistence.ConstraintViolations;
 import com.agricore.inventory.api.request.CreateWarehouseRequest;
 import com.agricore.inventory.api.request.HarvestCompletedCommand;
 import com.agricore.inventory.api.request.ReserveStockRequest;
@@ -7,6 +8,8 @@ import com.agricore.inventory.api.response.InventoryItemResponse;
 import com.agricore.inventory.application.service.InventoryApplicationService;
 import com.agricore.inventory.domain.exception.InventoryException;
 import com.agricore.inventory.infrastructure.persistence.InventoryReservationJpaRepository;
+import com.agricore.inventory.infrastructure.persistence.WarehouseJpaRepository;
+import com.agricore.inventory.infrastructure.persistence.entity.WarehouseEntity;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -23,6 +26,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 
 import java.math.BigDecimal;
 import java.sql.DriverManager;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -34,12 +38,13 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
 /**
  * Real PostgreSQL integration:
  * 1) Prefer compose Postgres on 127.0.0.1:5434 (stable for full-stack verify)
  * 2) Else Testcontainers if Docker API is usable
- * Never silent-skip — either executes 2 tests or fails class init.
+ * Never silent-skip — executes the PostgreSQL tests or fails class initialization.
  */
 @SpringBootTest
 @ActiveProfiles("testcontainers")
@@ -144,7 +149,56 @@ class InventoryPostgresIdempotencyTest {
     private InventoryReservationJpaRepository reservationRepository;
 
     @Autowired
+    private WarehouseJpaRepository warehouseRepository;
+
+    @Autowired
     private MeterRegistry meterRegistry;
+
+    @Test
+    void duplicateWarehouseCode_reportsUniqueViolationSqlState_onPostgres() {
+        String sharedCode = "WH-DUP-" + System.nanoTime();
+        warehouseRepository.saveAndFlush(warehouse(sharedCode));
+
+        DataIntegrityViolationException thrown = catchThrowableOfType(
+                () -> warehouseRepository.saveAndFlush(warehouse(sharedCode)),
+                DataIntegrityViolationException.class
+        );
+
+        assertThat(thrown).as("uk_warehouses_code must reject the second insert").isNotNull();
+        assertThat(ConstraintViolations.sqlState(thrown))
+                .as("PostgreSQL reports unique_violation as SQLState 23505")
+                .isEqualTo("23505");
+        assertThat(ConstraintViolations.isUniqueViolation(thrown)).isTrue();
+        assertThat(ConstraintViolations.isForeignKeyViolation(thrown)).isFalse();
+        assertThat(ConstraintViolations.isNotNullViolation(thrown)).isFalse();
+    }
+
+    @Test
+    void missingRequiredColumn_isNotReportedAsDuplicate_onPostgres() {
+        WarehouseEntity noName = warehouse("WH-NULL-" + System.nanoTime());
+        noName.setName(null);
+
+        DataIntegrityViolationException thrown = catchThrowableOfType(
+                () -> warehouseRepository.saveAndFlush(noName),
+                DataIntegrityViolationException.class
+        );
+
+        assertThat(thrown).isNotNull();
+        assertThat(ConstraintViolations.isUniqueViolation(thrown))
+                .as("a not-null violation is a server fault, not a caller conflict")
+                .isFalse();
+        assertThat(ConstraintViolations.isNotNullViolation(thrown)).isTrue();
+    }
+
+    private static WarehouseEntity warehouse(String code) {
+        WarehouseEntity entity = new WarehouseEntity();
+        entity.setId(UUID.randomUUID());
+        entity.setFarmId(UUID.randomUUID());
+        entity.setCode(code);
+        entity.setName("Constraint Probe WH");
+        entity.setCreatedAt(Instant.now());
+        return entity;
+    }
 
     @Test
     void harvestCompleted_twice_addsStockOnce_onPostgres() {

@@ -38,13 +38,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/NotificationResponse'
         '400':
-          description: Invalid or unbounded request
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Authentication required
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          description: System administrator role and notification administration permission required
+          $ref: '#/components/responses/Forbidden'
         '409':
-          description: Idempotency key is bound to another notification intent
+          $ref: '#/components/responses/Conflict'
   /api/v1/notifications/in-app:
     get:
       summary: List persisted in-app notifications
@@ -86,11 +86,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/InAppNotificationPageResponse'
         '400':
-          description: Invalid paging parameters
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Authentication required
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          description: System administrator role and notification administration permission required
+          $ref: '#/components/responses/Forbidden'
   /api/v1/notifications/in-app/{notificationId}/read:
     patch:
       summary: Mark an in-app notification as read
@@ -114,17 +114,98 @@ paths:
               schema:
                 $ref: '#/components/schemas/InAppNotificationResponse'
         '401':
-          description: Authentication required
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          description: System administrator role and notification administration permission required
+          $ref: '#/components/responses/Forbidden'
         '404':
-          description: In-app notification not found
+          $ref: '#/components/responses/NotFound'
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  responses:
+    BadRequest:
+      description: The request is malformed, invalid, or fails validation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Unauthorized:
+      description: Bearer credential missing, expired, or invalid. The security filter chain may return this response without a body.
+    Forbidden:
+      description: Authenticated, but missing the required role or permission.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotFound:
+      description: The requested resource does not exist or is not visible to the caller.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotAcceptable:
+      description: The requested response media type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Conflict:
+      description: The request conflicts with existing resource or domain state.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Gone:
+      description: The requested resource or replay window is no longer available.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    PayloadTooLarge:
+      description: The request body exceeds the supported size.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    UnsupportedMediaType:
+      description: The request Content-Type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Locked:
+      description: The resource is temporarily locked by an in-progress operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    RateLimitExceeded:
+      description: The caller exceeded an enforced request or concurrency limit.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    InternalServerError:
+      description: The service could not complete the request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    BadGateway:
+      description: An upstream dependency returned an invalid response.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    ServiceUnavailable:
+      description: The service or a required dependency is temporarily unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
   schemas:
     SendNotificationRequest:
       type: object
@@ -188,3 +269,30 @@ components:
         totalPages: { type: integer, format: int32, minimum: 0 }
         first: { type: boolean }
         last: { type: boolean }
+    ApiError:
+      type: object
+      description: |
+        Uniform error body for every AgriCore service, defined by ApiError in common-lib.
+        `code` is the stable machine-readable discriminator and is part of the public contract.
+        Null fields are omitted, so `violations`, `details`, and `traceId` are absent unless set.
+      required: [timestamp, status, error, code, message, path]
+      properties:
+        timestamp: { type: string, format: date-time }
+        status: { type: integer }
+        error: { type: string, description: HTTP reason phrase }
+        code: { type: string, example: DUPLICATE_RESOURCE }
+        message: { type: string }
+        path: { type: string }
+        traceId: { type: string }
+        violations:
+          type: array
+          description: Present only when code is VALIDATION_FAILED.
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field: { type: string }
+              message: { type: string }
+        details:
+          type: object
+          additionalProperties: true

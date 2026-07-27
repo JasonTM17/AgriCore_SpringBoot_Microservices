@@ -21,8 +21,6 @@ public record SecurityProperties(
         boolean registrationEnabled,
         /** When false, Redis errors deny login (fail-closed). Tests may set true. */
         boolean rateLimitFailOpen,
-        /** When true, trust first X-Forwarded-For hop (only behind trusted gateway). */
-        boolean trustForwardedHeaders,
         /** HttpOnly refresh cookie name for browser auth endpoints. */
         String refreshCookieName,
         /** Narrow cookie path so the browser only attaches the credential to web auth routes. */

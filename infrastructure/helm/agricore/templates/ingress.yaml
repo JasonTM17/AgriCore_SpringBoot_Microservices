@@ -1,4 +1,7 @@
 {{- if .Values.ingress.enabled }}
+{{- if empty .Values.gateway.trustedProxyAddressPattern }}
+{{- fail "gateway.trustedProxyAddressPattern must match only the trusted ingress or load-balancer source addresses when ingress.enabled=true" }}
+{{- end }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:

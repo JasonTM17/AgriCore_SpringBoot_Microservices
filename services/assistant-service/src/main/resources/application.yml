@@ -33,6 +33,8 @@ management:
         enabled: true
 
 agricore:
+  client-ip:
+    signing-secret: ${AGRICORE_CLIENT_IP_SIGNING_SECRET:}
   assistant:
     provider:
       type: ${ASSISTANT_PROVIDER:none}
@@ -86,7 +88,6 @@ agricore:
       window: ${ASSISTANT_BUDGET_WINDOW:PT1M}
       max-requests: ${ASSISTANT_BUDGET_MAX_REQUESTS:20}
       max-tokens: ${ASSISTANT_BUDGET_MAX_TOKENS:20000}
-      trust-forwarded-headers: ${ASSISTANT_BUDGET_TRUST_FORWARDED_HEADERS:false}
       key-prefix: ${ASSISTANT_BUDGET_KEY_PREFIX:rl:assistant}
   farm-access:
     base-url: ${FARM_SERVICE_URL:http://localhost:8082}

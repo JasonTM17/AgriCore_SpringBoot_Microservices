@@ -3,6 +3,7 @@ package com.agricore.sales.infrastructure.configuration;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClient;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -17,10 +18,10 @@ class RestClientConfigTest {
 
     @Test
     void rejectsUnboundedOrInvalidTimeouts() {
-        assertThatThrownBy(() -> config.restClientBuilder(Duration.ZERO, Duration.ofSeconds(1)))
+        assertThatThrownBy(() -> config.inventoryClientTimeouts(Duration.ZERO, Duration.ofSeconds(1)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("connect-timeout");
-        assertThatThrownBy(() -> config.restClientBuilder(Duration.ofSeconds(1), Duration.ofSeconds(31)))
+        assertThatThrownBy(() -> config.inventoryClientTimeouts(Duration.ofSeconds(1), Duration.ofSeconds(31)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("read-timeout");
     }
@@ -42,10 +43,12 @@ class RestClientConfigTest {
         server.start();
 
         try {
-            var client = config.restClientBuilder(
-                            Duration.ofMillis(200),
-                            Duration.ofMillis(100)
-                    )
+            var builder = RestClient.builder();
+            config.inventoryClientTimeouts(
+                    Duration.ofMillis(200),
+                    Duration.ofMillis(100)
+            ).customize(builder);
+            var client = builder
                     .baseUrl("http://127.0.0.1:" + server.getAddress().getPort())
                     .build();
 

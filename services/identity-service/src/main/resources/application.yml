@@ -51,6 +51,8 @@ management:
       application: ${spring.application.name}
 
 agricore:
+  client-ip:
+    signing-secret: ${AGRICORE_CLIENT_IP_SIGNING_SECRET:}
   security:
     issuer: ${JWT_ISSUER:https://agricore.local/identity}
     audience: agricore-api
@@ -66,8 +68,6 @@ agricore:
     registration-enabled: ${AGRICORE_REGISTRATION_ENABLED:true}
     # Production fail-closed when Redis is down
     rate-limit-fail-open: ${AGRICORE_RATE_LIMIT_FAIL_OPEN:false}
-    # Only enable behind trusted reverse proxy / gateway
-    trust-forwarded-headers: ${AGRICORE_TRUST_FORWARDED_HEADERS:false}
     # Browser refresh cookie (HttpOnly) — not readable by console JavaScript
     refresh-cookie-name: ${AGRICORE_REFRESH_COOKIE_NAME:agricore_refresh}
     refresh-cookie-path: ${AGRICORE_REFRESH_COOKIE_PATH:/api/v1/auth/web}

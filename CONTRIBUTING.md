@@ -56,6 +56,12 @@ helm template agricore infrastructure/helm/agricore
 Browser journeys use `pnpm --filter @agricore/console e2e`. Full-stack evidence
 uses `scripts/verify-platform.ps1` or `scripts/verify-platform.sh`.
 
+Showcase-media changes also require:
+
+```bash
+node scripts/verify-showcase-media.mjs
+```
+
 ## Commits and pull requests
 
 - Use focused conventional commits: `feat`, `fix`, `refactor`, `test`, `docs`,

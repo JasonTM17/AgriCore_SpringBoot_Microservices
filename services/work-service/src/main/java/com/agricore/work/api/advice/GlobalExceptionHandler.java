@@ -1,10 +1,12 @@
 package com.agricore.work.api.advice;
 
 import com.agricore.common.api.ApiError;
+import com.agricore.common.persistence.ConstraintViolations;
 import com.agricore.farmaccess.FarmAccessException;
 import com.agricore.work.domain.exception.WorkException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -58,6 +60,27 @@ public class GlobalExceptionHandler {
                 request.getRequestURI(),
                 null
         ));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiError> dataIntegrity(
+            DataIntegrityViolationException ex,
+            HttpServletRequest request
+    ) {
+        if (!ConstraintViolations.isUniqueViolation(ex)) {
+            return error(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "DATA_INTEGRITY_ERROR",
+                    "The request could not be persisted",
+                    request
+            );
+        }
+        return error(
+                HttpStatus.CONFLICT,
+                "DUPLICATE_RESOURCE",
+                "A record with the supplied identifier already exists",
+                request
+        );
     }
 
     @ExceptionHandler(AuthorizationDeniedException.class)

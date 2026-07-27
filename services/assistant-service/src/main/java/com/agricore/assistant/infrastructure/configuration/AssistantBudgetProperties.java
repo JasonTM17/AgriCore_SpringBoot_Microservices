@@ -11,7 +11,6 @@ public class AssistantBudgetProperties {
     private Duration window = Duration.ofMinutes(1);
     private int maxRequests = 20;
     private int maxTokens = 20_000;
-    private boolean trustForwardedHeaders;
     private String keyPrefix = "rl:assistant";
 
     public boolean isEnabled() {
@@ -54,14 +53,6 @@ public class AssistantBudgetProperties {
             throw new IllegalArgumentException("budget max tokens must be between 1 and 1000000");
         }
         this.maxTokens = maxTokens;
-    }
-
-    public boolean isTrustForwardedHeaders() {
-        return trustForwardedHeaders;
-    }
-
-    public void setTrustForwardedHeaders(boolean trustForwardedHeaders) {
-        this.trustForwardedHeaders = trustForwardedHeaders;
     }
 
     public String getKeyPrefix() {

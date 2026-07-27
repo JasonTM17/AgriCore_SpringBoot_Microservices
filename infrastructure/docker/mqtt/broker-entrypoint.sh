@@ -21,6 +21,11 @@ fi
 
 password_file=/tmp/agricore-mqtt-passwords
 acl_file=/tmp/agricore-mqtt-acl
+# These files survive a container restart in its writable layer. They are
+# chowned to the broker account below, while `mosquitto_passwd -c` refuses to
+# overwrite a file owned by another account. Removing only these fixed,
+# entrypoint-owned temporary files makes restarts deterministic.
+rm -f "$password_file" "$acl_file"
 mosquitto_passwd -b -c "$password_file" "$service_username" "$service_password"
 printf 'user %s\ntopic read agricore/telemetry/+/reading\ntopic write agricore/health\n' \
   "$service_username" > "$acl_file"

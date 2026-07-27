@@ -14,6 +14,10 @@
     <dependencies>
         <dependency>
             <groupId>com.agricore</groupId>
+            <artifactId>common-lib</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.agricore</groupId>
             <artifactId>common-security</artifactId>
             <exclusions>
                 <!-- Gateway is WebFlux; servlet MVC on classpath fails startup -->

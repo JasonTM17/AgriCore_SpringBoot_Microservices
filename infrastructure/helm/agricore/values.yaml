@@ -6,6 +6,9 @@ global:
   # Development-only escape hatch for a named non-latest tag. Keep false in
   # production and never commit an environment override that enables it.
   allowMutableImages: false
+  # Release values must pin each service image as repository@sha256:<digest>.
+  # CI can set this false only while validating candidate commit-SHA tags.
+  requireImageDigest: true
   imagePullPolicy: IfNotPresent
   outbox:
     retry:
@@ -44,12 +47,12 @@ identity:
   replicaCount: 1
   image: nguyenson1710/agricore-identity
   port: 8081
+  databaseSecretName: agricore-identity-db
   jwtSigningSecretName: agricore-identity-jwt
   jwtPrivateKeyKey: private-key.pem
   jwtPublicKeyKey: public-key.pem
   # Production: public self-register off; create users via admin/invite
   registrationEnabled: false
-  trustForwardedHeaders: true
   resources:
     requests: { cpu: 100m, memory: 256Mi }
     limits: { cpu: 500m, memory: 512Mi }
@@ -59,30 +62,35 @@ farm:
   replicaCount: 1
   image: nguyenson1710/agricore-farm
   port: 8082
+  databaseSecretName: agricore-farm-db
 
 cropCatalog:
   enabled: true
   replicaCount: 1
   image: nguyenson1710/agricore-crop-catalog
   port: 8083
+  databaseSecretName: agricore-crop-catalog-db
 
 cropCycle:
   enabled: true
   replicaCount: 1
   image: nguyenson1710/agricore-crop-cycle
   port: 8084
+  databaseSecretName: agricore-crop-cycle-db
 
 work:
   enabled: true
   replicaCount: 1
   image: nguyenson1710/agricore-work
   port: 8085
+  databaseSecretName: agricore-work-db
 
 inventory:
   enabled: true
   replicaCount: 1
   image: nguyenson1710/agricore-inventory
   port: 8086
+  databaseSecretName: agricore-inventory-db
   internalCredentialSecretName: agricore-inventory-internal
   internalCredentialTokenKey: token
 
@@ -91,6 +99,7 @@ harvest:
   replicaCount: 1
   image: nguyenson1710/agricore-harvest
   port: 8087
+  databaseSecretName: agricore-harvest-db
   inventoryServiceUrl: http://agricore-inventory:8086
   inventoryServiceAllowedHosts: agricore-inventory
   inventoryServiceAllowInsecureHttp: true
@@ -100,6 +109,7 @@ notification:
   replicaCount: 1
   image: nguyenson1710/agricore-notification
   port: 8089
+  databaseSecretName: agricore-notification-db
   deliveryProvider: smtp
   smtp:
     host: smtp.example.invalid
@@ -122,15 +132,17 @@ iot:
   replicaCount: 1
   image: nguyenson1710/agricore-iot
   port: 8090
+  databaseSecretName: agricore-iot-db
   timescalePreflight:
     # Mandatory by default. Set unsafeSkip=true only when an equivalent
     # operator-controlled preflight has already verified the external IoT DB.
     unsafeSkip: false
-    image: postgres:16-alpine
+    # Pinned OCI index for postgres:16.14-alpine3.24 (verified 2026-07-27).
+    image: postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
     imagePullPolicy: IfNotPresent
     database: agricore_iot
-    # Empty reuses postgres.databaseSecretName.
-    credentialSecretName: ""
+    # Least-privilege IoT database role; never reuse the provisioning role.
+    credentialSecretName: agricore-iot-db
     usernameKey: username
     passwordKey: password
     maxAttempts: 30
@@ -159,6 +171,7 @@ sales:
   replicaCount: 1
   image: nguyenson1710/agricore-sales
   port: 8091
+  databaseSecretName: agricore-sales-db
   inventoryServiceUrl: http://agricore-inventory:8086
 
 traceability:
@@ -166,12 +179,14 @@ traceability:
   replicaCount: 1
   image: nguyenson1710/agricore-traceability
   port: 8092
+  databaseSecretName: agricore-traceability-db
 
 assistant:
   enabled: true
   replicaCount: 1
   image: nguyenson1710/agricore-assistant
   port: 8093
+  databaseSecretName: agricore-assistant-db
   provider: none
   providerModel: ""
   providerBaseUrl: ""
@@ -181,7 +196,6 @@ assistant:
   farmToolBaseUrl: http://agricore-farm:8082
   toolAllowedHosts: agricore-farm
   toolAllowInsecureHttp: true
-  trustForwardedHeaders: true
   archivedConversationRetention: P90D
   auditRetention: P365D
   generationEventRetention: PT24H
@@ -206,6 +220,9 @@ gateway:
   replicaCount: 1
   image: nguyenson1710/agricore-gateway
   port: 8080
+  # Required when ingress.enabled=true. Match only the proxy/LB source
+  # addresses permitted to supply a canonical client address.
+  trustedProxyAddressPattern: ""
   identityServiceUrl: http://agricore-identity:8081
   farmServiceUrl: http://agricore-farm:8082
   cropCatalogServiceUrl: http://agricore-crop-catalog:8083
@@ -222,11 +239,26 @@ gateway:
 postgres:
   host: postgres
   port: 5432
-  user: agricore
-  databaseSecretName: agricore-db
-  provisioningEnabled: true
-  provisioningImage: postgres:16-alpine
-  # Credentials come from databaseSecretName; never commit production values.
+  provisioning:
+    enabled: true
+    # Pinned OCI index for postgres:16.14-alpine3.24 (verified 2026-07-27).
+    image: postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+    imagePullPolicy: IfNotPresent
+    # Dedicated role permitted to create databases; do not mount it in apps.
+    credentialSecretName: agricore-postgres-provisioner
+    usernameKey: username
+    passwordKey: password
+    maxAttempts: 30
+    retrySeconds: 2
+    activeDeadlineSeconds: 180
+    backoffLimit: 2
+    ttlSecondsAfterFinished: 300
+
+clientIp:
+  # Shared only by Gateway, Identity, and Assistant to authenticate the
+  # gateway-issued canonical client-IP header. Create this Secret externally.
+  signingSecretName: agricore-client-ip
+  signingSecretKey: signing-secret
 
 redis:
   host: redis

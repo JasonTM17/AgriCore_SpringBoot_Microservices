@@ -46,7 +46,6 @@ class AuthRegistrationGateTest {
                 "",
                 registrationEnabled,
                 true,
-                false,
                 "agricore_refresh",
                 "/api/v1/auth/web",
                 false,

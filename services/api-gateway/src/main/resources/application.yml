@@ -8,6 +8,10 @@ spring:
     gateway:
       server:
         webflux:
+          forwarded:
+            enabled: false
+          x-forwarded:
+            enabled: false
           httpclient:
             connect-timeout: ${GATEWAY_CONNECT_TIMEOUT_MS:5000}
             response-timeout: ${GATEWAY_RESPONSE_TIMEOUT:30m}
@@ -79,13 +83,21 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,prometheus,gateway
+        # 'gateway' deliberately excluded. It is not in the permitAll list, so it fell through to
+        # anyExchange().authenticated() — meaning any valid token, including the self-registered
+        # FIELD_WORKER default, could read every internal upstream URI from /actuator/gateway/routes.
+        # Override per-environment only behind a management port that is not routed externally.
+        include: ${GATEWAY_ACTUATOR_ENDPOINTS:health,info,prometheus}
   endpoint:
     health:
       probes:
         enabled: true
 
 agricore:
+  gateway:
+    client-ip:
+      signing-secret: ${AGRICORE_CLIENT_IP_SIGNING_SECRET:}
+      trusted-proxy-address-pattern: ${GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN:}
   security:
     jwt-enabled: ${GATEWAY_JWT_ENABLED:true}
     jwk-set-uri: ${IDENTITY_JWKS_URI:http://localhost:8081/.well-known/jwks.json}

@@ -143,6 +143,32 @@ class SalesSagaRecoveryJobIntegrationTest {
     }
 
     @Test
+    void compensationFailureAfterRetryBudget_requiresManualReconciliation() {
+        UUID reservationId = UUID.randomUUID();
+        Fixture fixture = persist(
+                OrderStatus.STOCK_RESERVED,
+                "CONFIRM_INVENTORY",
+                "RETRY_SCHEDULED",
+                4,
+                reservationId,
+                Instant.now().minusSeconds(1)
+        );
+        doThrow(new InventoryClient.InventoryReservationException(503, "confirm unavailable"))
+                .when(inventoryClient).confirm(FARM_ID, reservationId);
+        when(inventoryClient.release(FARM_ID, reservationId))
+                .thenThrow(new InventoryClient.InventoryReservationException(503, "release unavailable"));
+
+        recoveryJob.recover();
+
+        assertThat(orderRepository.findById(fixture.orderId()).orElseThrow().getStatus())
+                .isEqualTo(OrderStatus.STOCK_RESERVED);
+        OrderSagaEntity saga = sagaRepository.findBySalesOrderId(fixture.orderId()).orElseThrow();
+        assertThat(saga.getStatus()).isEqualTo("TIMED_OUT");
+        assertThat(saga.getCurrentStep()).isEqualTo("MANUAL_RECONCILIATION_REQUIRED");
+        verify(inventoryClient).release(FARM_ID, reservationId);
+    }
+
+    @Test
     void marksAStuckSagaTimedOutWithoutUnboundedRetries() {
         Fixture fixture = persist(
                 OrderStatus.PENDING_CONFIRMATION,

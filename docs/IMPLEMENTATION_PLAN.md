@@ -1,8 +1,8 @@
 # AgriCore Implementation Plan
 
-**Status:** Implementation complete; final clean-revision verification and external publication remain
+**Status:** Pre-release integration; no final clean-revision verification, merge, publication, signature, or production deployment is claimed
 **Created:** 2026-07-16
-**Last updated:** 2026-07-26
+**Last updated:** 2026-07-27
 
 ## Delivered scope
 
@@ -113,7 +113,9 @@ portable gateway Service alias, configurable external egress, and Farm/Crop-cycl
 Inventory dependency wiring; security review; runbooks; bounded cross-service
 seed profiles; gateway happy path; Gitleaks; CodeQL; filesystem/built-image
 Trivy; Compose runtime-contract validation; and digest-gated dual-registry
-publishing that promotes only full/short SHA tags.
+promotion that can promote only full/short SHA tags. All 14 Dockerfiles pin
+their build and runtime bases by digest and receive `GIT_SHA` as the OCI revision
+label; this is configuration, not registry-publication evidence.
 
 ### M9 — Console and assistant
 
@@ -125,24 +127,32 @@ publishing that promotes only full/short SHA tags.
   geometry, and accessible broken-image fallbacks.
 - Assistant PostgreSQL persistence, replayable SSE, idempotency, redacted read-only tool evidence, provider-absence behavior, output screening, and Redis request/token budgets.
 - Compose and Helm integration, assistant database provisioning, container hardening, and release gates.
+- Gateway authenticates the canonical client-IP value for Identity rate limits
+  and Assistant budgets with a shared HMAC signing secret. It accepts forwarded
+  input only from the configured immediate trusted proxy; services otherwise
+  fall back to their remote peer.
 
 ## Remaining pre-release work
 
-- Re-run the complete backend, frontend, browser, Compose, Helm, media,
-  performance, and security gates from the final clean revision.
+- Create a final clean revision, then re-run the complete backend, frontend,
+  browser, Compose, Helm, media, performance, and security gates. Docker is
+  required for the PostgreSQL Testcontainers migration tests.
 - Push the verified default-branch revision to Docker Hub/GHCR through the gated workflow and publish GitHub package metadata.
 - Re-check production operator inputs (JWT keys, database/Kafka/SMTP credentials, TLS, ACLs, observability backends) before deployment.
 
-Local Compose, JVM, frontend, browser, event-resilience, media, seed, and trace
-checks for revision `5867b37` are recorded in
-[release verification 2026-07-26](evidence/release-verification-2026-07-26.md).
-That historical bundle does not cover the later remediation commits or merged
-dependency upgrades; Phase 11 must refresh the complete gate at the final clean
-revision.
+The immutable [release verification 2026-07-26](evidence/release-verification-2026-07-26.md)
+records local Compose, JVM, frontend, browser, event-resilience, media, seed,
+and trace checks for `5867b37`. It is a historical snapshot, not evidence for
+this dirty worktree or a final merge. Separately, an earlier full Maven reactor
+run reported 969 tests, zero failures/errors, and one optional MQTT integration
+skip; it must be repeated on the final clean revision.
 
 ## Release acceptance criteria
 
 - Maven `verify` passes for the complete reactor.
+- PostgreSQL Testcontainers migration tests verify the durable outbox retry
+  schema, partial indexes, and non-blocking `SKIP LOCKED` claims with Docker
+  available.
 - Generated frontend contracts have no drift; lint, typecheck, unit tests, build, and Playwright journeys pass.
 - Compose configuration validates; Helm chart lints and renders.
 - Gitleaks, CodeQL, and Trivy workflows remain enforced.

@@ -188,6 +188,8 @@ jobs:
             org.opencontainers.image.revision=${{ needs.resolve-sha.outputs.publish_sha }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.version=${{ steps.meta.outputs.full }}
+          build-args: |
+            GIT_SHA=${{ needs.resolve-sha.outputs.publish_sha }}
           sbom: true
           provenance: mode=max
           cache-from: type=gha,scope=publish-${{ matrix.service }}

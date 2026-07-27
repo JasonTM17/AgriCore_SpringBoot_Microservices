@@ -1,6 +1,6 @@
 # AgriCore codebase summary
 
-**Last verified:** 2026-07-26
+**Current source scan:** 2026-07-27 (dirty pre-release worktree)
 
 ## Build roots
 
@@ -56,8 +56,15 @@ Shared modules do not contain service JPA entities.
 ## Important runtime patterns
 
 - RS256 access JWT plus JWKS; opaque rotated refresh tokens.
+- Controller-generated API errors require `timestamp`, `status`, `error`,
+  `code`, `message`, and `path`; nullable trace, detail, and violation fields
+  are omitted. Validation serializes only field/message violations and never
+  echoes rejected input. A gateway/security-chain 401 may have no body.
 - Authenticated REST for immediate decisions and farm access.
 - Transactional outbox for implemented producers.
+- Durable publisher retries use nullable `next_attempt_at` and
+  `quarantined_at`; legacy null rows remain eligible. This is separate from
+  Kafka consumer retry/DLT routing.
 - At-least-once Kafka consumers with persistent idempotency and retry/DLT.
 - Identity registration writes `UserRegistered.v1` in the user transaction;
   Notification validates the Identity producer and bounded payload before it
@@ -73,6 +80,10 @@ Shared modules do not contain service JPA entities.
   plot.
 - MQTT ingress uses per-device token buckets/in-flight quotas before the bounded
   processing queue.
+- Gateway strips/overwrites untrusted forwarding input, accepts
+  `X-Forwarded-For` only from an immediate peer matching its trusted-proxy
+  pattern, and HMAC-signs the canonical client IP. Identity and Assistant use
+  only a valid signed value or fall back to their remote peer.
 - Local public traceability projection; no scan-time cross-service SQL.
 - OpenTelemetry/Micrometer traces, Prometheus metrics, ECS logs, Tempo, Loki,
   Alloy, and Grafana in the local observability stack.
@@ -88,10 +99,17 @@ Shared modules do not contain service JPA entities.
 | `docker compose config --quiet` | Compose interpolation and structure |
 | `scripts/verify-platform.*` | Stack build, health, JWT, and business evidence |
 
-The 2026-07-26 evidence bundle predates the final farm-scope, crop-overlap,
-notification inbox, MQTT admission, Console auth/media, Helm, and dependency
-remediations. Focused tests exist for those changes, but the complete
-clean-revision gate is a pending release step.
+PostgreSQL Testcontainers migration tests cover durable outbox columns, partial
+indexes, due/deferred/quarantined selection, and `FOR UPDATE SKIP LOCKED`
+claims for Farm, Harvest, Identity, Notification, Sales, Traceability, and
+Work. They require Docker.
+
+All 14 Dockerfiles pin build/runtime bases by digest and label images with
+`GIT_SHA` as the OCI revision. The pipeline configures candidate parity, scan,
+signature, and full/short-SHA promotion; no current registry publication is
+asserted. The 2026-07-26 evidence bundle and SHA `5867b37` remain historical
+snapshots. An earlier 969-test Maven reactor result is preliminary; a clean
+revision must repeat all release gates.
 
 Architecture decisions live in [ADRs](adr/README.md); operational detail lives
 in [runbooks](runbooks/).

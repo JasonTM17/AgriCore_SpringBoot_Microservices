@@ -26,7 +26,7 @@ operational path and a public-safe traceability view.
 
 ## Status
 
-Pre-release implementation: the repository contains 13 Spring applications, the React console, local Compose stacks, a Helm application chart, automated quality and security gates, and gated Docker Hub plus GitHub Packages publishing. Implementation and remediation are complete at the current checkpoint; final clean-revision gates, pull-request review/merge, and registry publication remain pending. The implemented event mesh uses versioned contracts, transactional outboxes, idempotent consumers, bounded DLT recovery, and contract checks; this status does not claim a production installation.
+Pre-release integration: the repository contains 13 Spring applications, the React console, local Compose stacks, a Helm application chart, automated quality and security gates, and a configured Docker Hub/GitHub Packages promotion workflow. This dirty worktree is not a final release: the immutable 2026-07-26 evidence, including SHA `5867b37`, is historical only; final clean-revision gates, pull-request review/merge, registry publication, signing verification, and production deployment remain unproven. An earlier full Maven reactor run reported 969 tests with no failures or errors and one optional MQTT integration skip; it is preliminary evidence, not a release gate.
 
 ## Microservices
 
@@ -47,10 +47,10 @@ Pre-release implementation: the repository contains 13 Spring applications, the 
 | Assistant service | 8093, internal | `nguyenson1710/agricore-assistant` |
 | React console | 3000 on host | `nguyenson1710/agricore-console` |
 
-Eligible default-branch releases publish only the seven-character and full
-commit SHA tags to Docker Hub and GitHub Packages. Candidate digests are built
-once, scanned, parity-checked, and signed before those immutable tags are
-promoted. The workflow does not publish `latest`.
+The configured default-branch workflow builds, scans, parity-checks, and signs
+one candidate digest per image before promoting only seven-character and
+full-SHA tags to Docker Hub and GitHub Packages. It never promotes `latest`;
+configuration does not prove that a candidate or release image exists.
 
 ## Architecture
 
@@ -148,12 +148,11 @@ production data or scannable identifiers.
 
 ## Environment variables
 
-Copy [`.env.example`](.env.example) only for local development. It documents
-database, Redis, Kafka, MQTT, SMTP, MinIO, JWT, observability, assistant
-provider, budget, and retention settings. Keep `.env`, RSA private keys,
-registry tokens, database credentials, and provider keys outside Git. Helm
-consumes environment-owned values and pre-created Kubernetes Secrets instead
-of the local template.
+Copy [`.env.example`](.env.example) only for local development. It documents database, Redis, Kafka, MQTT, SMTP, MinIO, JWT, observability, assistant provider, budget, retention,
+required `AGRICORE_CLIENT_IP_SIGNING_SECRET`, and client-IP edge values. Set the secret before Compose starts.
+The local `client-ip-edge` attaches only Console and Gateway at default `172.30.0.2`/`172.30.0.3`; change all four
+`CLIENT_IP_EDGE_*`/`GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN` values together when changing the subnet.
+Keep `.env`, RSA private keys, registry tokens, database credentials, and provider keys outside Git. Helm consumes environment-owned values and pre-created Kubernetes Secrets.
 
 ## Quick start
 
@@ -229,6 +228,8 @@ Backend:
 ```bash
 ./mvnw -B verify
 ```
+
+The durable-outbox PostgreSQL migration tests use Testcontainers, so Docker must be available for a complete Maven verification.
 
 Frontend:
 
@@ -325,7 +326,7 @@ New access tokens include `permissions`, the sorted distinct union granted throu
 
 The chart at `infrastructure/helm/agricore` renders Deployments and Services for all 13 Spring applications and the console, plus an optional same-origin Ingress. Spring containers run with read-only root filesystems and bounded writable `/tmp` volumes; an `api-gateway` Service alias keeps the immutable Console image portable between Compose and Kubernetes. It also includes an idempotent pre-install/pre-upgrade Job for the assistant database.
 
-The chart does not install PostgreSQL, Redis, Kafka, MinIO, Tempo, Prometheus, Loki, Alloy, or Grafana. Operators must provide those dependencies and create the database credential Secret named by `postgres.databaseSecretName`. NetworkPolicy denies unauthorized ingress by default; egress remains open unless `networkPolicy.restrictEgress=true`, in which case operators must supply external dependency rules through `networkPolicy.additionalEgress`. Configure the notification chart's external SMTP host, TLS, and username/password Secret before enabling delivery; SMTP defaults are intentionally placeholders. OTLP trace export is disabled until `observability.otlpTracingEndpoint` is set; the chart's sampling default is `0.1`.
+The chart does not install PostgreSQL, Redis, Kafka, MinIO, Tempo, Prometheus, Loki, Alloy, or Grafana. Operators must provide those dependencies, a separate `databaseSecretName` for each enabled non-gateway service, and the separate `postgres.provisioning` Secret only for bounded hook Jobs. Release values require each image as `repository@sha256:<digest>`; CI temporarily permits full-SHA tags only while linting/rendering the chart. NetworkPolicy denies unauthorized ingress by default; egress remains open unless `networkPolicy.restrictEgress=true`, in which case operators must supply external dependency rules through `networkPolicy.additionalEgress`. Configure the notification chart's external SMTP host, TLS, and username/password Secret before enabling delivery; SMTP defaults are intentionally placeholders. OTLP trace export is disabled until `observability.otlpTracingEndpoint` is set; the chart's sampling default is `0.1`.
 
 ## CI, security, and publishing
 
@@ -333,7 +334,7 @@ GitHub Actions define these release gates:
 
 - `ci.yml`: Maven `verify`; generated contract drift check; frontend lint, typecheck, unit tests, production build, and Playwright journeys; Gitleaks; filesystem Trivy; Java CodeQL; Compose runtime-contract validation; Helm lint/render; and build-plus-Trivy scans for all 14 application images.
 - `codeql.yml` and `trivy.yml`: scheduled and manual defense-in-depth scans in addition to the aggregate pull-request/default-branch gates.
-- `docker-publish.yml`: builds one candidate per image, pushes it to Docker Hub and GitHub Packages, scans and signs the exact candidate digest, then promotes matching full-SHA and short-SHA tags only for an eligible successful default-branch CI revision. It never promotes `latest`.
+- `docker-publish.yml`: is configured to build one candidate per image, scan and sign its exact digest, then promote matching full-SHA and short-SHA tags only for an eligible successful default-branch CI revision. It never promotes `latest`; configuration is not publication evidence.
 
 Docker Hub credentials must be repository secrets named `DOCKERHUB_USERNAME`
 and `DOCKERHUB_TOKEN`; GHCR uses the workflow token with package write

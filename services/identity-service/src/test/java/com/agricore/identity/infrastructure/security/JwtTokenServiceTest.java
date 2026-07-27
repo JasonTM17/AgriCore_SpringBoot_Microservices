@@ -100,7 +100,6 @@ class JwtTokenServiceTest {
                 "",
                 true,
                 false,
-                false,
                 "agricore_refresh",
                 "/api/v1/auth/web",
                 false,

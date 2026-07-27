@@ -118,6 +118,8 @@ class SalesSagaTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("OUT_OF_STOCK"))
                 .andExpect(jsonPath("$.sagaStatus").value("FAILED"));
+
+        verify(inventoryClient, never()).release(any(), any());
     }
 
     @Test

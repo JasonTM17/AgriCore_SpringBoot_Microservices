@@ -23,13 +23,35 @@ backends.
 - RSA signing key Secret, provider key Secret when enabled, and database Secret.
 - Assistant archived-conversation, audit, replay-event, and cleanup retention
   policy approved for the deployment's legal and recovery requirements.
-- Ingress/TLS/DNS policy and trusted proxy configuration.
+- Ingress/TLS/DNS policy; a `GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN` matching
+  only the immediate trusted ingress/load-balancer peer; and a shared client-IP
+  signing Secret.
 - OTLP/metrics/log endpoints, sampling, storage, access, and retention.
 
 Never copy values from `.env.example` into production unchanged.
 Service-local READMEs provide module setup and troubleshooting orientation;
 deployment values, rendered manifests, and versioned contracts remain the
 authority for an actual release.
+
+### Authenticated client-IP propagation
+
+The gateway strips or overwrites untrusted forwarding headers. It reads
+`X-Forwarded-For` only when its immediate remote peer matches
+`GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN`, canonicalizes the chosen IP, and signs
+it with `AGRICORE_CLIENT_IP_SIGNING_SECRET`. Identity and Assistant accept only
+the valid signed client-IP header pair; a missing, malformed, or invalid pair
+falls back to the direct remote peer. This is not a general original-client-IP
+provenance guarantee.
+
+Compose requires the signing secret. Its dedicated `client-ip-edge` network
+attaches only Console and Gateway: by default Gateway is `172.30.0.2`, Console
+is `172.30.0.3`, and `GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN=172[.]30[.]0[.]3`
+full-matches only Console. If the subnet changes, update `CLIENT_IP_EDGE_SUBNET`, `CLIENT_IP_EDGE_GATEWAY_IP`,
+`CLIENT_IP_EDGE_CONSOLE_IP`, and `GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN`
+together. For Helm, create the external Secret named by
+`clientIp.signingSecretName` with key `clientIp.signingSecretKey`; it is mounted
+only by Gateway, Identity, and Assistant. Never enable direct public ingress to
+Identity or Assistant.
 
 ## Local deployment
 
@@ -48,10 +70,9 @@ simulator, seed, verification, log, and cleanup commands.
 
 1. Provision external dependencies and databases.
 2. Create namespace-scoped Secrets outside Git.
-3. Copy `values.yaml` to an environment-owned file and set
-   `global.imageTag` to the full-SHA tag, then configure endpoints, resources,
-   ingress/TLS, and observability. The current chart renders `image:tag`;
-   deploy-by-digest requires an operator-owned manifest overlay.
+3. Copy `values.yaml` to an environment-owned file and set every service image
+   to `repository@sha256:<digest>`, then configure endpoints, resources,
+   ingress/TLS, client-IP Secret/pattern, and observability.
    The chart makes every application root filesystem read-only and supplies a
    bounded writable `/tmp` `emptyDir`. Keep the `api-gateway` Service alias
    because the Console image uses that portable upstream name.
@@ -68,8 +89,12 @@ simulator, seed, verification, log, and cleanup commands.
      -f values-production.yaml > rendered.yaml
    ```
 
-6. Review rendered Secrets, service accounts, security contexts, NetworkPolicies,
-   Jobs, probes, PDBs, HPAs, and Ingress hosts.
+6. Create each enabled non-gateway service's `databaseSecretName` and the
+   Gateway/Identity/Assistant client-IP signing Secret outside Git. The separate
+   `postgres.provisioning.credentialSecretName` is mounted only by bounded hook
+   Jobs, never application Deployments. Review rendered Secrets, service
+   accounts, security contexts, NetworkPolicies, Jobs, probes, PDBs, HPAs, and
+   Ingress hosts.
 7. Deploy with an atomic timeout appropriate to migration duration:
 
    ```bash
@@ -122,15 +147,27 @@ external deliveries manually against provider evidence before any resend.
   constraint over inclusive planned date ranges for `DRAFT` and `ACTIVE` rows.
   Resolve any pre-existing overlapping active rows before migration; otherwise
   PostgreSQL will reject the constraint installation.
+- Durable outbox retry migrations add nullable `next_attempt_at` and
+  `quarantined_at`; legacy null rows remain immediately eligible. Their partial
+  retry/quarantine indexes use `CREATE INDEX CONCURRENTLY` with
+  `executeInTransaction=false`, so follow the service migration order and do
+  not wrap them in an operator transaction.
+- Testcontainers PostgreSQL coverage verifies the column types, valid partial
+  indexes, due/deferred/quarantined filtering, and `FOR UPDATE SKIP LOCKED`
+  non-blocking claims for Farm, Harvest, Identity, Notification, Sales,
+  Traceability, and Work. Docker is required to execute those tests.
 
 ## Image verification
 
-After eligible default-branch CI, the release workflow builds each image once
-and pushes a candidate to Docker Hub and GitHub Packages. It scans the exact
-candidate digest, verifies registry parity, signs the digest in both registries,
-promotes only short-SHA and full-SHA tags, and re-verifies every promoted
-reference. It does not publish `latest`. Production should deploy a full SHA tag
-or digest.
+The repository configures a release workflow that, after eligible
+default-branch CI, builds each image once and pushes a candidate to Docker Hub
+and GitHub Packages. It scans the exact candidate digest, verifies registry
+parity, signs it in both registries, promotes only short-SHA and full-SHA tags,
+and re-verifies each promoted reference. All 14 Dockerfiles pin their build and
+runtime bases by digest and accept `GIT_SHA` for the OCI revision label. It does
+not publish `latest`. This is a configured supply-chain path, not proof that an
+image has been published; production should deploy a verified full SHA tag or
+digest.
 
 ```bash
 docker buildx imagetools inspect IMAGE@sha256:DIGEST

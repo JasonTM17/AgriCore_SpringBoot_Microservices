@@ -1,6 +1,6 @@
 # AgriCore System Architecture
 
-**Last updated:** 2026-07-26
+**Last updated:** 2026-07-27
 **Status:** Active
 
 ## 1. Purpose
@@ -68,6 +68,16 @@ contract failures raise `IllegalArgumentException` and route directly to
 script also republishes a harvest event, publishes a duplicate notification
 event, and injects a wrong-version harvest event to prove idempotency and DLT
 routing on a real broker.
+
+### Durable outbox retry state
+
+Publisher retry state is distinct from Kafka consumer retry/DLT state. Farm,
+Harvest, Identity, Notification, Sales, Traceability, and Work keep nullable
+`next_attempt_at` and `quarantined_at` fields so legacy null rows remain due.
+Their PostgreSQL migrations create retry/quarantine partial indexes
+concurrently outside a Flyway transaction. Testcontainers migration coverage
+checks schema types, indexes, due/deferred/quarantined selection, and
+non-blocking `FOR UPDATE SKIP LOCKED` claims; it requires Docker.
 
 ### Farm-scope upgrade boundary
 
@@ -184,6 +194,11 @@ api → application → domain ← infrastructure
 - Plot resolution masks missing, inaccessible, and mismatched plots as `404`.
 - Farm-access network errors, unexpected statuses, invalid responses, and missing request authentication fail closed as `503 FARM_ACCESS_UNAVAILABLE`.
 - Dev identity headers are accepted only when `agricore.security.dev-mode=true`; Compose and Helm set dev mode off.
+- Gateway removes untrusted forwarding headers, accepts `X-Forwarded-For` only
+  from an immediate peer matching its trusted-proxy pattern, and HMAC-signs a
+  canonical client IP. Identity and Assistant trust only a valid signed header
+  pair, otherwise falling back to their remote peer; neither service has direct
+  public ingress.
 - Passwords use BCrypt. Refresh tokens are opaque, hashed, rotated, and revocable.
 - Secrets come from environment variables or Kubernetes Secrets, not committed configuration.
 
@@ -258,7 +273,7 @@ Alloy discovers only containers carrying this repository's Compose project label
 |---|---|---|
 | Local | `docker-compose.yml` plus `docker-compose.observability.yml` | Infrastructure, Mailpit, MinIO, 13 applications, console, Tempo, Prometheus, Alloy, Loki, Grafana |
 | Cluster | `infrastructure/helm/agricore` | 13 application Deployments/Services, console, gateway Service alias, optional Ingress, assistant database Job |
-| CI | GitHub Actions | Build/test, frontend, secret, Compose, Helm, CodeQL, filesystem and built-image Trivy, plus digest-gated full/short-SHA dual-registry publishing |
+| CI | GitHub Actions | Build/test, frontend, secret, Compose, Helm, CodeQL, filesystem and built-image Trivy, plus configured digest-gated full/short-SHA dual-registry promotion |
 
 All application containers use a read-only root filesystem and a bounded
 writable `/tmp` `emptyDir`. Harvest receives Farm and Crop-cycle access
@@ -274,6 +289,10 @@ deployments must add their external dependency destinations through
 `networkPolicy.additionalEgress`. The chart does not install Tempo, Prometheus,
 Loki, Alloy, Grafana, or MinIO. These repository mechanisms do not prove a
 production cluster is deployed.
+
+All 14 Dockerfiles pin build and runtime base images by digest and apply the
+`GIT_SHA` OCI revision label. Candidate parity, scan, signing, and immutable
+tag promotion are workflow configuration; they do not prove a registry release.
 
 ## 10. Non-goals
 

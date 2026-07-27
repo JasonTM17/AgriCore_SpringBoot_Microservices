@@ -315,17 +315,27 @@ export interface components {
             first: boolean;
             last: boolean;
         };
+        /**
+         * @description Uniform error body for every AgriCore service, defined by ApiError in common-lib.
+         *     `code` is the stable machine-readable discriminator and is part of the public contract.
+         *     Null fields are omitted, so `violations`, `details`, and `traceId` are absent unless set.
+         */
         ApiError: {
             /** Format: date-time */
             timestamp: string;
-            /** Format: int32 */
             status: number;
+            /** @description HTTP reason phrase */
             error: string;
+            /** @example DUPLICATE_RESOURCE */
             code: string;
             message: string;
             path: string;
-            traceId?: string | null;
-            violations?: components["schemas"]["FieldViolation"][];
+            traceId?: string;
+            /** @description Present only when code is VALIDATION_FAILED. */
+            violations?: {
+                field: string;
+                message: string;
+            }[];
             details?: {
                 [key: string]: unknown;
             };
@@ -361,7 +371,7 @@ export interface components {
             };
             content?: never;
         };
-        /** @description The caller lacks authoritative access to the requested farm context. */
+        /** @description The caller lacks the required permission or authorized farm context. */
         Forbidden: {
             headers: {
                 [name: string]: unknown;
@@ -442,6 +452,51 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
+        /** @description The requested response media type is not supported. */
+        NotAcceptable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description The requested resource or replay window is no longer available. */
+        Gone: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description The request body exceeds the supported size. */
+        PayloadTooLarge: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description The resource is temporarily locked by an in-progress operation. */
+        Locked: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
+        /** @description An upstream dependency returned an invalid response. */
+        BadGateway: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiError"];
+            };
+        };
     };
     parameters: {
         ConversationId: string;
@@ -483,6 +538,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -513,6 +569,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -569,6 +626,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             500: components["responses"]["InternalServerError"];
         };
@@ -595,6 +653,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             500: components["responses"]["InternalServerError"];
         };
@@ -626,6 +685,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             500: components["responses"]["InternalServerError"];
         };
@@ -667,6 +727,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             415: components["responses"]["UnsupportedMediaType"];
@@ -698,6 +759,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             500: components["responses"]["InternalServerError"];
         };
@@ -725,6 +787,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             500: components["responses"]["InternalServerError"];
         };
@@ -759,19 +822,14 @@ export interface operations {
                     "text/event-stream": string;
                 };
             };
-            400: components["responses"]["InvalidEventCursor"];
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            /** @description Accept must allow application/json or text/event-stream. */
-            406: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            410: components["responses"]["EventReplayExpired"];
+            406: components["responses"]["NotAcceptable"];
+            410: components["responses"]["Gone"];
             500: components["responses"]["InternalServerError"];
-            503: components["responses"]["StreamCapacityExceeded"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
 }

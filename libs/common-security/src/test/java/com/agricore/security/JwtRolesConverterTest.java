@@ -28,13 +28,47 @@ class JwtRolesConverterTest {
     }
 
     @Test
-    void convertIgnoresMalformedAndBlankClaimEntries() {
+    void convertGrantsNothingWhenClaimsAreAbsent() {
         Jwt jwt = Jwt.withTokenValue("token")
                 .header("alg", "RS256")
-                .claim("roles", List.of("", 42, Map.of("role", "SYSTEM_ADMIN")))
+                .subject("user-1")
+                .build();
+
+        assertThat(converter.convert(jwt)).isEmpty();
+    }
+
+    @Test
+    void convertGrantsNothingForEmptyClaimLists() {
+        Jwt jwt = Jwt.withTokenValue("token")
+                .header("alg", "RS256")
+                .claim("roles", List.of())
+                .claim("permissions", List.of())
+                .build();
+
+        assertThat(converter.convert(jwt)).isEmpty();
+    }
+
+    @Test
+    void convertGrantsNothingWhenClaimsAreStringsInsteadOfLists() {
+        Jwt jwt = Jwt.withTokenValue("token")
+                .header("alg", "RS256")
+                .claim("roles", "SYSTEM_ADMIN,SALES_STAFF")
                 .claim("permissions", "WORK_EXECUTE")
                 .build();
 
         assertThat(converter.convert(jwt)).isEmpty();
+    }
+
+    @Test
+    void convertKeepsValidEntriesAndIgnoresMalformedOrBlankEntries() {
+        Jwt jwt = Jwt.withTokenValue("token")
+                .header("alg", "RS256")
+                .claim("roles", List.of("", 42, Map.of("role", "SYSTEM_ADMIN"), "ADMIN"))
+                .claim("permissions", List.of("WORK_EXECUTE", Map.of("permission", "INVENTORY_VIEW")))
+                .build();
+
+        assertThat(converter.convert(jwt))
+                .extracting(GrantedAuthority::getAuthority)
+                .containsExactly("ROLE_ADMIN", "PERMISSION_WORK_EXECUTE");
     }
 }

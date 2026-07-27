@@ -1,3 +1,6 @@
 agricore:
+  gateway:
+    client-ip:
+      signing-secret: test-client-ip-signing-secret
   security:
     jwt-enabled: false

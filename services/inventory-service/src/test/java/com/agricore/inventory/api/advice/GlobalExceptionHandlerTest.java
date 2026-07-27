@@ -20,7 +20,8 @@ class GlobalExceptionHandlerTest {
     @Test
     void reservationReferenceConstraintMapsToConflictWithoutLeakingSql() {
         DataIntegrityViolationException failure = violation(
-                "uk_inventory_reservations_reference"
+                "uk_inventory_reservations_reference",
+                "23505"
         );
 
         var response = handler.dataIntegrity(failure, request);
@@ -32,8 +33,18 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    void unrelatedConstraintRemainsGenericServerError() {
-        var response = handler.dataIntegrity(violation("unknown_constraint"), request);
+    void unrelatedUniqueConstraintMapsToGenericDuplicateConflict() {
+        var response = handler.dataIntegrity(violation("unknown_constraint", "23505"), request);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(409);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().code()).isEqualTo("DUPLICATE_RESOURCE");
+        assertThat(response.getBody().message()).doesNotContain("unknown_constraint");
+    }
+
+    @Test
+    void nonUniqueConstraintRemainsGenericServerError() {
+        var response = handler.dataIntegrity(violation("unknown_constraint", "23502"), request);
 
         assertThat(response.getStatusCode().value()).isEqualTo(500);
         assertThat(response.getBody()).isNotNull();
@@ -41,10 +52,10 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().message()).doesNotContain("unknown_constraint");
     }
 
-    private static DataIntegrityViolationException violation(String constraintName) {
+    private static DataIntegrityViolationException violation(String constraintName, String sqlState) {
         ConstraintViolationException cause = new ConstraintViolationException(
-                "duplicate key",
-                new SQLException("duplicate key", "23505"),
+                "constraint violation",
+                new SQLException("constraint violation", sqlState),
                 "insert into inventory_reservations",
                 constraintName
         );

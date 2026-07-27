@@ -1,6 +1,6 @@
 package com.agricore.assistant.api.security;
 
-import com.agricore.assistant.infrastructure.configuration.AssistantBudgetProperties;
+import com.agricore.common.security.ClientIpHeaderSigner;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
 
@@ -10,40 +10,34 @@ import static org.mockito.Mockito.when;
 
 class AssistantClientIpResolverTest {
 
-    private final AssistantBudgetProperties properties = new AssistantBudgetProperties();
+    private static final String SECRET = "test-client-ip-signing-secret";
     private final HttpServletRequest request = mock(HttpServletRequest.class);
 
     @Test
-    void usesRemoteAddressByDefaultAndIgnoresSpoofableForwardedHeader() {
+    void rawForwardedHeaderCannotSpoofTheBudgetClientIp() {
         when(request.getRemoteAddr()).thenReturn("10.0.0.4");
         when(request.getHeader("X-Forwarded-For")).thenReturn("203.0.113.10");
 
-        assertThat(new AssistantClientIpResolver(properties).resolve(request)).isEqualTo("10.0.0.4");
+        assertThat(new AssistantClientIpResolver(SECRET).resolve(request)).isEqualTo("10.0.0.4");
     }
 
     @Test
-    void usesFirstForwardedHopOnlyWhenExplicitlyTrusted() {
-        properties.setTrustForwardedHeaders(true);
+    void invalidSignedHeaderFallsBackToImmediateRemoteAddress() {
         when(request.getRemoteAddr()).thenReturn("10.0.0.4");
-        when(request.getHeader("X-Forwarded-For")).thenReturn("203.0.113.10, 10.0.0.4");
+        when(request.getHeader(ClientIpHeaderSigner.CLIENT_IP_HEADER)).thenReturn("203.0.113.10");
+        when(request.getHeader(ClientIpHeaderSigner.CLIENT_IP_SIGNATURE_HEADER))
+                .thenReturn(ClientIpHeaderSigner.sign("203.0.113.11", SECRET));
 
-        assertThat(new AssistantClientIpResolver(properties).resolve(request)).isEqualTo("203.0.113.10");
+        assertThat(new AssistantClientIpResolver(SECRET).resolve(request)).isEqualTo("10.0.0.4");
     }
 
     @Test
-    void rejectsMalformedForwardedAddressEvenWhenForwardingIsTrusted() {
-        properties.setTrustForwardedHeaders(true);
+    void validSignedHeaderResolvesCanonicalClientIp() {
         when(request.getRemoteAddr()).thenReturn("10.0.0.4");
-        when(request.getHeader("X-Forwarded-For")).thenReturn("spoofed-client");
+        when(request.getHeader(ClientIpHeaderSigner.CLIENT_IP_HEADER)).thenReturn("203.0.113.10");
+        when(request.getHeader(ClientIpHeaderSigner.CLIENT_IP_SIGNATURE_HEADER))
+                .thenReturn(ClientIpHeaderSigner.sign("203.000.113.010", SECRET));
 
-        assertThat(new AssistantClientIpResolver(properties).resolve(request)).isEqualTo("10.0.0.4");
-    }
-
-    @Test
-    void canonicalizesForwardedIpv4AddressBeforeBudgetKeying() {
-        properties.setTrustForwardedHeaders(true);
-        when(request.getHeader("X-Forwarded-For")).thenReturn("203.000.113.010");
-
-        assertThat(new AssistantClientIpResolver(properties).resolve(request)).isEqualTo("203.0.113.10");
+        assertThat(new AssistantClientIpResolver(SECRET).resolve(request)).isEqualTo("203.0.113.10");
     }
 }

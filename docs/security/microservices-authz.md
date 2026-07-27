@@ -7,6 +7,24 @@
 - `X-Dev-User` and `X-Dev-Roles` are accepted only when `agricore.security.dev-mode=true`. Compose and Helm defaults set dev mode to false.
 - Unsigned JWT payloads are never trusted.
 
+### Error response contract
+
+Controller-generated API errors contain `timestamp`, `status`, `error`,
+`code`, `message`, and `path`. `traceId`, `violations`, and `details` are
+optional and omitted when null. A validation violation serializes only `field`
+and `message`; rejected input is never returned. Gateway/security-chain
+unauthenticated `401` responses are an exception and may have no body.
+
+### Authenticated client-IP boundary
+
+The gateway removes untrusted forwarding input and reads `X-Forwarded-For` only
+when its immediate remote peer matches
+`agricore.gateway.client-ip.trusted-proxy-address-pattern` (Helm exposes this
+as `gateway.trustedProxyAddressPattern`). It canonicalizes and HMAC-signs the
+selected IP. Identity rate limiting and Assistant budgets accept only the valid
+gateway-signed header pair; otherwise they use their direct remote peer. Direct
+public Identity/Assistant ingress is not supported. See the [deployment guide](../deployment-guide.md#authenticated-client-ip-propagation).
+
 ## Permission plumbing and enforcement boundary
 
 Identity owns the permission catalog and role-to-permission grants in its `permissions` and `role_permissions` tables. Permission codes are unique and the canonical development catalog is seeded by the identity migrations.
@@ -99,7 +117,7 @@ are mapped.
 
 | Status | Meaning |
 |---|---|
-| 401 | Missing or invalid authentication at gateway or service boundary. |
+| 401 | Missing or invalid authentication at gateway or service boundary; gateway/security-chain rejection may have no response body. |
 | 403 | Authenticated caller lacks the required operation role, or a direct farm check denies membership. |
 | 404 | Plot-linked resource is missing, outside the caller's farms, or mismatched. Downstream responses omit protected entity data. |
 | 503 | Farm authorization cannot be trusted because the dependency failed, returned an unexpected status, sent an invalid/oversized response, no forwardable request authentication exists, or a legacy inventory resource has no stored farm scope. |

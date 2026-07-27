@@ -1,9 +1,11 @@
 package com.agricore.sales.api.advice;
 
 import com.agricore.common.api.ApiError;
+import com.agricore.common.persistence.ConstraintViolations;
 import com.agricore.farmaccess.FarmAccessException;
 import com.agricore.sales.domain.exception.SalesException;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -29,6 +31,27 @@ public class GlobalExceptionHandler {
         ));
     }
 
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiError> dataIntegrity(
+            DataIntegrityViolationException ex,
+            HttpServletRequest request
+    ) {
+        if (!ConstraintViolations.isUniqueViolation(ex)) {
+            return error(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "DATA_INTEGRITY_ERROR",
+                    "The request could not be persisted",
+                    request
+            );
+        }
+        return error(
+                HttpStatus.CONFLICT,
+                "DUPLICATE_RESOURCE",
+                "A record with the supplied identifier already exists",
+                request
+        );
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiError> validation(MethodArgumentNotValidException ex, HttpServletRequest request) {
         var violations = ex.getBindingResult().getFieldErrors().stream()
@@ -37,5 +60,21 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(
                 ApiError.validation("Request validation failed", request.getRequestURI(), null, violations)
         );
+    }
+
+    private ResponseEntity<ApiError> error(
+            HttpStatus status,
+            String code,
+            String message,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(status).body(ApiError.of(
+                status.value(),
+                status.getReasonPhrase(),
+                code,
+                message,
+                request.getRequestURI(),
+                null
+        ));
     }
 }

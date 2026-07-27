@@ -7,6 +7,8 @@ target/
 *.jar
 *.war
 *.ear
+__pycache__/
+*.py[cod]
 hs_err_pid*
 
 # IDE
@@ -66,6 +68,7 @@ plans/
 *.private.md
 *.local.md
 PLAN*.md
+*_PLAN.md
 NOTES*.md
 TODO*.md
 ROADMAP*.md

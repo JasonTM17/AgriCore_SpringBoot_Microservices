@@ -132,7 +132,10 @@ services:
       # Local stack needs seed/e2e registration; fail-closed rate limit with Redis up
       AGRICORE_REGISTRATION_ENABLED: "true"
       AGRICORE_RATE_LIMIT_FAIL_OPEN: "false"
-      AGRICORE_TRUST_FORWARDED_HEADERS: "true"
+      # Shared with Gateway and Assistant. Gateway signs the canonical client
+      # address after it validates the immediate proxy source; direct callers
+      # cannot choose Identity rate-limit keys with a forged forwarding header.
+      AGRICORE_CLIENT_IP_SIGNING_SECRET: ${AGRICORE_CLIENT_IP_SIGNING_SECRET:?Set AGRICORE_CLIENT_IP_SIGNING_SECRET in .env}
       AGRICORE_WEB_ALLOWED_ORIGINS: ${AGRICORE_WEB_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173}
     volumes:
       - ./infrastructure/jwt:/keys:ro
@@ -449,7 +452,8 @@ services:
       ASSISTANT_FARM_TOOL_BASE_URL: http://farm-service:8082
       ASSISTANT_TOOL_ALLOWED_HOSTS: farm-service
       ASSISTANT_TOOL_ALLOW_INSECURE_HTTP: "true"
-      ASSISTANT_BUDGET_TRUST_FORWARDED_HEADERS: "true"
+      # Shared with Gateway and Identity for verified budget-key derivation.
+      AGRICORE_CLIENT_IP_SIGNING_SECRET: ${AGRICORE_CLIENT_IP_SIGNING_SECRET:?Set AGRICORE_CLIENT_IP_SIGNING_SECRET in .env}
     expose:
       - "8093"
     read_only: true
@@ -507,6 +511,15 @@ services:
       ASSISTANT_SERVICE_URL: http://assistant-service:8093
       JWT_ISSUER: https://agricore.local/identity
       IDENTITY_JWKS_URI: http://identity-service:8081/.well-known/jwks.json
+      # Trust only the Console's fixed edge-network address. Back-end services
+      # remain on the default network and therefore cannot mint a signed client
+      # identity by sending a forged X-Forwarded-For header to Gateway.
+      GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN: ${GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN:?Set GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN in .env}
+      AGRICORE_CLIENT_IP_SIGNING_SECRET: ${AGRICORE_CLIENT_IP_SIGNING_SECRET:?Set AGRICORE_CLIENT_IP_SIGNING_SECRET in .env}
+    networks:
+      default: {}
+      client-ip-edge:
+        ipv4_address: ${CLIENT_IP_EDGE_GATEWAY_IP:-172.30.0.2}
     expose:
       - "8080"
     healthcheck:
@@ -522,6 +535,11 @@ services:
     depends_on:
       api-gateway:
         condition: service_healthy
+    # Deliberately excluded from the default application network. Its fixed
+    # address is the sole Compose peer Gateway trusts to supply client IP data.
+    networks:
+      client-ip-edge:
+        ipv4_address: ${CLIENT_IP_EDGE_CONSOLE_IP:-172.30.0.3}
     ports:
       - "${AGRICORE_BIND_ADDRESS:-127.0.0.1}:${CONSOLE_PORT:-3000}:8080"
     read_only: true
@@ -533,3 +551,10 @@ services:
       retries: 6
       start_period: 10s
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz | grep -q ok || exit 1"]
+
+networks:
+  client-ip-edge:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${CLIENT_IP_EDGE_SUBNET:-172.30.0.0/29}

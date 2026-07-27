@@ -4,6 +4,7 @@ import com.agricore.assistant.application.service.ConversationApplicationService
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -39,5 +40,22 @@ class AssistantConversationErrorBoundaryIntegrationTest extends AssistantApiInte
                 .andExpect(jsonPath("$.code").value("INTERNAL_ERROR"))
                 .andExpect(jsonPath("$.message").value("An unexpected error occurred"))
                 .andExpect(content().string(not(containsString("provider-secret-value"))));
+    }
+
+    @Test
+    void unsupportedAcceptReturnsNotAcceptableApiErrorInsteadOfGenericServerFailure() throws Exception {
+        mockMvc.perform(authenticated(
+                        get(CONVERSATIONS_PATH
+                                + "/50000000-0000-0000-0000-000000000002/generations/"
+                                + "50000000-0000-0000-0000-000000000003/events")
+                                .accept(MediaType.APPLICATION_XML),
+                        OWNER,
+                        "FIELD_WORKER"
+                ))
+                .andExpect(status().isNotAcceptable())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.status").value(406))
+                .andExpect(jsonPath("$.code").value("NOT_ACCEPTABLE"))
+                .andExpect(jsonPath("$.message").value("Accept header is not supported"));
     }
 }

@@ -1,6 +1,7 @@
 package com.agricore.farm.api.advice;
 
 import com.agricore.common.api.ApiError;
+import com.agricore.common.persistence.ConstraintViolations;
 import com.agricore.farm.domain.exception.FarmException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
@@ -8,11 +9,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -115,16 +118,32 @@ public class GlobalExceptionHandler {
             DataIntegrityViolationException ex,
             HttpServletRequest request
     ) {
+        if (!ConstraintViolations.isUniqueViolation(ex)) {
+            return handleGeneric(ex, request);
+        }
         return error(
                 HttpStatus.CONFLICT,
-                "DATA_CONFLICT",
-                "The requested change conflicts with current farm data",
+                "DUPLICATE_RESOURCE",
+                "A record with the supplied identifier already exists",
                 request
         );
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleGeneric(Exception ex, HttpServletRequest request) {
+        if (ex instanceof ErrorResponse errorResponse) {
+            HttpStatusCode statusCode = errorResponse.getStatusCode();
+            HttpStatus status = HttpStatus.resolve(statusCode.value());
+            String reason = status != null ? status.getReasonPhrase() : "Error";
+            return ResponseEntity.status(statusCode).body(ApiError.of(
+                    statusCode.value(),
+                    reason,
+                    status != null ? status.name() : "HTTP_" + statusCode.value(),
+                    reason,
+                    request.getRequestURI(),
+                    null
+            ));
+        }
         log.error("Unhandled error on {}", request.getRequestURI(), ex);
         return ResponseEntity.internalServerError().body(ApiError.of(
                 500, "Internal Server Error", "INTERNAL_ERROR", "An unexpected error occurred",

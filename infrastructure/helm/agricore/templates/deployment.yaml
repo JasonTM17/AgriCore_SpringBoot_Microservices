@@ -64,7 +64,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: {{ $name }}
-          image: {{ include "agricore.imageRef" (dict "image" $svc.image "tag" $.Values.global.imageTag "allowMutable" $.Values.global.allowMutableImages) | quote }}
+          image: {{ include "agricore.imageRef" (dict "image" $svc.image "tag" $.Values.global.imageTag "allowMutable" $.Values.global.allowMutableImages "requireDigest" $.Values.global.requireImageDigest) | quote }}
           imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
           ports:
             - containerPort: {{ $svc.port }}
@@ -73,16 +73,18 @@ spec:
             - configMapRef:
                 name: agricore-runtime-config
           env:
+            {{- if ne $name "gateway" }}
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
-                  name: {{ $.Values.postgres.databaseSecretName | quote }}
+                  name: {{ required (printf "%s.databaseSecretName is required" $name) $svc.databaseSecretName | quote }}
                   key: username
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ $.Values.postgres.databaseSecretName | quote }}
+                  name: {{ required (printf "%s.databaseSecretName is required" $name) $svc.databaseSecretName | quote }}
                   key: password
+            {{- end }}
             {{- if $.Values.observability.structuredLogging }}
             - name: LOGGING_STRUCTURED_FORMAT_CONSOLE
               value: "ecs"
@@ -135,8 +137,11 @@ spec:
               value: {{ $.Values.identity.registrationEnabled | default false | quote }}
             - name: AGRICORE_RATE_LIMIT_FAIL_OPEN
               value: "false"
-            - name: AGRICORE_TRUST_FORWARDED_HEADERS
-              value: {{ $.Values.identity.trustForwardedHeaders | default true | quote }}
+            - name: AGRICORE_CLIENT_IP_SIGNING_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "clientIp.signingSecretName is required" $.Values.clientIp.signingSecretName | quote }}
+                  key: {{ required "clientIp.signingSecretKey is required" $.Values.clientIp.signingSecretKey | quote }}
             - name: AGRICORE_JWT_PRIVATE_KEY_PATH
               value: /var/run/secrets/agricore/jwt/private-key.pem
             - name: AGRICORE_JWT_PUBLIC_KEY_PATH
@@ -252,8 +257,11 @@ spec:
               value: {{ $svc.toolAllowedHosts | quote }}
             - name: ASSISTANT_TOOL_ALLOW_INSECURE_HTTP
               value: {{ $svc.toolAllowInsecureHttp | default false | quote }}
-            - name: ASSISTANT_BUDGET_TRUST_FORWARDED_HEADERS
-              value: {{ $svc.trustForwardedHeaders | default false | quote }}
+            - name: AGRICORE_CLIENT_IP_SIGNING_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "clientIp.signingSecretName is required" $.Values.clientIp.signingSecretName | quote }}
+                  key: {{ required "clientIp.signingSecretKey is required" $.Values.clientIp.signingSecretKey | quote }}
             - name: ASSISTANT_ARCHIVED_CONVERSATION_RETENTION
               value: {{ $svc.archivedConversationRetention | quote }}
             - name: ASSISTANT_AUDIT_RETENTION
@@ -294,6 +302,13 @@ spec:
               value: {{ $.Values.gateway.assistantServiceUrl | default "http://agricore-assistant:8093" | quote }}
             - name: GATEWAY_PORT
               value: {{ $svc.port | quote }}
+            - name: AGRICORE_CLIENT_IP_SIGNING_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "clientIp.signingSecretName is required" $.Values.clientIp.signingSecretName | quote }}
+                  key: {{ required "clientIp.signingSecretKey is required" $.Values.clientIp.signingSecretKey | quote }}
+            - name: GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN
+              value: {{ $.Values.gateway.trustedProxyAddressPattern | quote }}
             {{- end }}
           securityContext:
             allowPrivilegeEscalation: false
