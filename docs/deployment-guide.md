@@ -35,23 +35,26 @@ authority for an actual release.
 
 ### Authenticated client-IP propagation
 
-The gateway strips or overwrites untrusted forwarding headers. It reads
+The Gateway strips or overwrites untrusted forwarding headers. It reads
 `X-Forwarded-For` only when its immediate remote peer matches
-`GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN`, canonicalizes the chosen IP, and signs
-it with `AGRICORE_CLIENT_IP_SIGNING_SECRET`. Identity and Assistant accept only
-the valid signed client-IP header pair; a missing, malformed, or invalid pair
-falls back to the direct remote peer. This is not a general original-client-IP
-provenance guarantee.
+`GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN`, canonicalizes the chosen IP, and HMAC-signs
+an audience-bound payload with `AGRICORE_CLIENT_IP_SIGNING_SECRET`. It emits the
+signed client-IP header pair only for the `identity-service` and
+`assistant-service` route IDs. Identity verifies the `identity-service`
+audience and Assistant verifies the `assistant-service` audience. A missing,
+malformed, invalid, or cross-audience header pair falls back to the direct peer.
+This is not a general original-client-IP provenance guarantee.
 
-Compose requires the signing secret. Its dedicated `client-ip-edge` network
-attaches only Console and Gateway: by default Gateway is `172.30.0.2`, Console
-is `172.30.0.3`, and `GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN=172[.]30[.]0[.]3`
-full-matches only Console. If the subnet changes, update `CLIENT_IP_EDGE_SUBNET`, `CLIENT_IP_EDGE_GATEWAY_IP`,
-`CLIENT_IP_EDGE_CONSOLE_IP`, and `GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN`
-together. For Helm, create the external Secret named by
-`clientIp.signingSecretName` with key `clientIp.signingSecretKey`; it is mounted
-only by Gateway, Identity, and Assistant. Never enable direct public ingress to
-Identity or Assistant.
+Compose requires the signing secret only for Gateway, Identity, and Assistant.
+Its dedicated `client-ip-edge` network attaches only Console and Gateway: by
+default Gateway is `172.30.0.2`, Console is `172.30.0.3`, and
+`GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN=172[.]30[.]0[.]3` full-matches only
+Console. If the subnet changes, update `CLIENT_IP_EDGE_SUBNET`,
+`CLIENT_IP_EDGE_GATEWAY_IP`, `CLIENT_IP_EDGE_CONSOLE_IP`, and
+`GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN` together. For Helm, create the external
+Secret named by `clientIp.signingSecretName` with key
+`clientIp.signingSecretKey`; it is mounted only by Gateway, Identity, and
+Assistant. Never enable direct public ingress to Identity or Assistant.
 
 ## Local deployment
 
@@ -67,6 +70,15 @@ Use [the local operations runbook](runbooks/local-operations.md) for health,
 simulator, seed, verification, log, and cleanup commands.
 
 ## Helm release
+
+For a production Helm release with `ingress.enabled=true`, browser authentication
+requires `identity.webAllowedOrigins` to exactly equal
+`https://<ingress.host>` and `identity.refreshCookieSecure=true`. Rendering
+rejects a different origin, an HTTP origin, or a non-Secure refresh cookie. The
+local HTTP exception is explicit and non-ingress only: set
+`ingress.enabled=false`, `identity.refreshCookieSecure=false`, and a matching
+HTTP `identity.webAllowedOrigins`; do not carry that override into production
+values.
 
 1. Provision external dependencies and databases.
 2. Create namespace-scoped Secrets outside Git.

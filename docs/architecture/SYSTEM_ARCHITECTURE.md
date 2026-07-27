@@ -195,10 +195,13 @@ api → application → domain ← infrastructure
 - Farm-access network errors, unexpected statuses, invalid responses, and missing request authentication fail closed as `503 FARM_ACCESS_UNAVAILABLE`.
 - Dev identity headers are accepted only when `agricore.security.dev-mode=true`; Compose and Helm set dev mode off.
 - Gateway removes untrusted forwarding headers, accepts `X-Forwarded-For` only
-  from an immediate peer matching its trusted-proxy pattern, and HMAC-signs a
-  canonical client IP. Identity and Assistant trust only a valid signed header
-  pair, otherwise falling back to their remote peer; neither service has direct
-  public ingress.
+  from an immediate peer matching its trusted-proxy pattern, and HMAC-signs an
+  audience-bound canonical client-IP payload only for the `identity-service`
+  and `assistant-service` route IDs. Identity verifies the `identity-service`
+  audience and Assistant verifies the `assistant-service` audience; missing,
+  malformed, invalid, or cross-audience header pairs fall back to the direct
+  peer. The shared signing secret is mounted only by Gateway, Identity, and
+  Assistant; neither consumer has direct public ingress.
 - Passwords use BCrypt. Refresh tokens are opaque, hashed, rotated, and revocable.
 - Secrets come from environment variables or Kubernetes Secrets, not committed configuration.
 

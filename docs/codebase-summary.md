@@ -82,8 +82,12 @@ Shared modules do not contain service JPA entities.
   processing queue.
 - Gateway strips/overwrites untrusted forwarding input, accepts
   `X-Forwarded-For` only from an immediate peer matching its trusted-proxy
-  pattern, and HMAC-signs the canonical client IP. Identity and Assistant use
-  only a valid signed value or fall back to their remote peer.
+  pattern, and HMAC-signs an audience-bound canonical client-IP payload only
+  for the `identity-service` and `assistant-service` route IDs. Identity
+  verifies the `identity-service` audience and Assistant verifies the
+  `assistant-service` audience; missing, malformed, invalid, or cross-audience
+  header pairs fall back to the direct peer. The shared signing secret is used
+  only by Gateway, Identity, and Assistant.
 - Local public traceability projection; no scan-time cross-service SQL.
 - OpenTelemetry/Micrometer traces, Prometheus metrics, ECS logs, Tempo, Loki,
   Alloy, and Grafana in the local observability stack.

@@ -17,13 +17,17 @@ unauthenticated `401` responses are an exception and may have no body.
 
 ### Authenticated client-IP boundary
 
-The gateway removes untrusted forwarding input and reads `X-Forwarded-For` only
+The Gateway removes untrusted forwarding input and reads `X-Forwarded-For` only
 when its immediate remote peer matches
 `agricore.gateway.client-ip.trusted-proxy-address-pattern` (Helm exposes this
-as `gateway.trustedProxyAddressPattern`). It canonicalizes and HMAC-signs the
-selected IP. Identity rate limiting and Assistant budgets accept only the valid
-gateway-signed header pair; otherwise they use their direct remote peer. Direct
-public Identity/Assistant ingress is not supported. See the [deployment guide](../deployment-guide.md#authenticated-client-ip-propagation).
+as `gateway.trustedProxyAddressPattern`). It canonicalizes the selected IP and
+HMAC-signs an audience-bound payload only for the `identity-service` and
+`assistant-service` route IDs. Identity rate limiting verifies the
+`identity-service` audience, and Assistant budgets verify the
+`assistant-service` audience. Missing, malformed, invalid, or cross-audience
+header pairs fall back to the direct peer. The shared signing secret is supplied
+only to Gateway, Identity, and Assistant; direct public Identity/Assistant
+ingress is not supported. See the [deployment guide](../deployment-guide.md#authenticated-client-ip-propagation).
 
 ## Permission plumbing and enforcement boundary
 
