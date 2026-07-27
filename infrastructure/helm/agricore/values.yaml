@@ -51,6 +51,14 @@ identity:
   jwtSigningSecretName: agricore-identity-jwt
   jwtPrivateKeyKey: private-key.pem
   jwtPublicKeyKey: public-key.pem
+  # Exact external browser origin for cookie-backed login, refresh, and logout.
+  # With ingress enabled it must stay synchronized with ingress.host; the chart
+  # rejects a wildcard, extra, or mismatched origin instead of restoring the
+  # application-local development defaults.
+  webAllowedOrigins: "https://agricore.local"
+  # HTTPS browser sessions must keep refresh cookies Secure. This may be false
+  # only for an explicit local HTTP render with ingress disabled.
+  refreshCookieSecure: true
   # Production: public self-register off; create users via admin/invite
   registrationEnabled: false
   resources:

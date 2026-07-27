@@ -14,6 +14,50 @@ full-40-character commit-SHA candidate tag. For a local development render,
 also set `global.allowMutableImages=true` for a named non-`latest` tag. Never
 carry either override into production values.
 
+## Browser authentication origin
+
+The Identity Deployment sets `AGRICORE_WEB_ALLOWED_ORIGINS` only from the
+explicit `identity.webAllowedOrigins` value. This prevents its local
+`localhost` default from being used in a cluster, where the Console reaches
+login, refresh, and logout through the same-origin Ingress and Gateway.
+
+The chart default is the exact origin for its default Ingress host:
+`https://agricore.local`. When `ingress.enabled=true`, rendering fails unless
+`identity.webAllowedOrigins` exactly equals `https://<ingress.host>`. The
+single-origin guard intentionally rejects wildcards, extra origins, an HTTP
+origin, or a different host; configure a dedicated chart release for every
+browser origin.
+
+For example, set both values together in a production values file that pins
+every application image by digest:
+
+```bash
+helm upgrade --install agricore infrastructure/helm/agricore \
+  -f /secure/path/agricore-production-values.yaml \
+  --set ingress.enabled=true \
+  --set ingress.host=console.example.com \
+  --set identity.webAllowedOrigins=https://console.example.com \
+  --set identity.refreshCookieSecure=true \
+  --set gateway.trustedProxyAddressPattern='^10[.]0[.]0[.][0-9]+$'
+```
+
+Use a TLS-terminating Ingress for browser authentication. Do not configure a
+wildcard or a second cross-origin Console as a convenience bypass.
+
+## Refresh-cookie transport security
+
+The Identity Deployment sets `AGRICORE_REFRESH_COOKIE_SECURE` from the explicit
+boolean `identity.refreshCookieSecure` value. It defaults to `true`, and the
+chart rejects `identity.refreshCookieSecure=false` whenever
+`ingress.enabled=true`. This ensures the HTTP-only refresh cookie is sent only
+over HTTPS for an Ingress-backed Console.
+
+For an explicit local HTTP or other non-Ingress render, set
+`ingress.enabled=false` and `identity.refreshCookieSecure=false`; use the
+matching HTTP origin in `identity.webAllowedOrigins`, for example
+`http://localhost:5173`. This exception is only for local development and
+must not be carried into production values.
+
 ## Required internal Inventory credential
 
 Create the Secret named by `inventory.internalCredentialSecretName` before

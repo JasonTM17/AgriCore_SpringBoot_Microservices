@@ -127,6 +127,24 @@ spec:
                   key: {{ $.Values.inventory.internalCredentialTokenKey | default "token" | quote }}
             {{- end }}
             {{- if eq $name "identity" }}
+            {{- $webAllowedOrigins := required "identity.webAllowedOrigins is required" $svc.webAllowedOrigins }}
+            {{- if not (hasKey $svc "refreshCookieSecure") }}
+            {{- fail "identity.refreshCookieSecure is required" }}
+            {{- end }}
+            {{- $refreshCookieSecure := $svc.refreshCookieSecure }}
+            {{- if not (kindIs "bool" $refreshCookieSecure) }}
+            {{- fail "identity.refreshCookieSecure must be a boolean" }}
+            {{- end }}
+            {{- if $.Values.ingress.enabled }}
+            {{- $ingressHost := required "ingress.host is required when ingress.enabled=true" $.Values.ingress.host }}
+            {{- $expectedWebOrigin := printf "https://%s" $ingressHost }}
+            {{- if ne $webAllowedOrigins $expectedWebOrigin }}
+            {{- fail "identity.webAllowedOrigins must exactly equal https://<ingress.host> when ingress.enabled=true" }}
+            {{- end }}
+            {{- if not $refreshCookieSecure }}
+            {{- fail "identity.refreshCookieSecure must be true when ingress.enabled=true" }}
+            {{- end }}
+            {{- end }}
             - name: REDIS_HOST
               value: {{ $.Values.redis.host | default "redis" | quote }}
             - name: REDIS_PORT
@@ -137,6 +155,10 @@ spec:
               value: {{ $.Values.identity.registrationEnabled | default false | quote }}
             - name: AGRICORE_RATE_LIMIT_FAIL_OPEN
               value: "false"
+            - name: AGRICORE_REFRESH_COOKIE_SECURE
+              value: {{ $refreshCookieSecure | quote }}
+            - name: AGRICORE_WEB_ALLOWED_ORIGINS
+              value: {{ $webAllowedOrigins | quote }}
             - name: AGRICORE_CLIENT_IP_SIGNING_SECRET
               valueFrom:
                 secretKeyRef:
