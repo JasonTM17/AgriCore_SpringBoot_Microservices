@@ -40,7 +40,7 @@ authoritative for cross-service behavior.
 | Module | Purpose |
 |---|---|
 | `libs/common-lib` | Shared API error/event primitives and architecture rules |
-| `libs/common-security` | Domain resource-server JWT and authority conversion |
+| `libs/common-security` | Domain resource-server JWT/authority conversion and stateless ambient-cookie mutation rejection |
 | `libs/farm-access-client` | Bearer-forwarding fail-closed farm/plot access adapter |
 
 Shared modules do not contain service JPA entities.
@@ -88,6 +88,10 @@ Shared modules do not contain service JPA entities.
   `assistant-service` audience; missing, malformed, invalid, or cross-audience
   header pairs fall back to the direct peer. The shared signing secret is used
   only by Gateway, Identity, and Assistant.
+- Gateway and servlet domain services fail closed for unsafe ambient-cookie
+  requests without explicit header credentials and persist no CSRF session or
+  cookie state. Gateway delegates its Identity auth prefix to the exact-origin
+  browser policy in Identity.
 - Local public traceability projection; no scan-time cross-service SQL.
 - OpenTelemetry/Micrometer traces, Prometheus metrics, ECS logs, Tempo, Loki,
   Alloy, and Grafana in the local observability stack.

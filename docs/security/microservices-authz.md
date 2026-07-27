@@ -5,6 +5,11 @@
 - The API Gateway validates RS256 access tokens against identity-service JWKS, issuer, and the `agricore-api` audience before proxying protected edge routes.
 - Servlet domain services validate the forwarded bearer token again through `libs/common-security`; they do not trust gateway-only authentication.
 - `X-Dev-User` and `X-Dev-Roles` are accepted only when `agricore.security.dev-mode=true`. Compose and Helm defaults set dev mode to false.
+- Gateway and servlet domain services keep header-authenticated APIs stateless. An unsafe request
+  carrying ambient cookies but no explicit bearer credential fails closed before routing; domain
+  services also recognize their explicit dev/internal headers. Neither boundary persists a CSRF
+  token, session, or cookie. Gateway delegates `/api/v1/auth/**` to Identity, whose browser routes
+  enforce the exact allowed `Origin`/`Referer` before using the path-scoped refresh cookie.
 - Unsigned JWT payloads are never trusted.
 
 ### Error response contract
@@ -12,8 +17,8 @@
 Controller-generated API errors contain `timestamp`, `status`, `error`,
 `code`, `message`, and `path`. `traceId`, `violations`, and `details` are
 optional and omitted when null. A validation violation serializes only `field`
-and `message`; rejected input is never returned. Gateway/security-chain
-unauthenticated `401` responses are an exception and may have no body.
+and `message`; rejected input is never returned. Gateway/security-chain `401`
+and CSRF `403` responses are exceptions and may have no body.
 
 ### Authenticated client-IP boundary
 
@@ -122,7 +127,7 @@ are mapped.
 | Status | Meaning |
 |---|---|
 | 401 | Missing or invalid authentication at gateway or service boundary; gateway/security-chain rejection may have no response body. |
-| 403 | Authenticated caller lacks the required operation role, or a direct farm check denies membership. |
+| 403 | Authenticated caller lacks the required operation role, a direct farm check denies membership, or an unsafe ambient-cookie request lacks an explicit header credential. |
 | 404 | Plot-linked resource is missing, outside the caller's farms, or mismatched. Downstream responses omit protected entity data. |
 | 503 | Farm authorization cannot be trusted because the dependency failed, returned an unexpected status, sent an invalid/oversized response, no forwardable request authentication exists, or a legacy inventory resource has no stored farm scope. |
 

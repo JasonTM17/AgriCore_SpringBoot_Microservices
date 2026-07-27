@@ -194,6 +194,11 @@ api → application → domain ← infrastructure
 - Plot resolution masks missing, inaccessible, and mismatched plots as `404`.
 - Farm-access network errors, unexpected statuses, invalid responses, and missing request authentication fail closed as `503 FARM_ACCESS_UNAVAILABLE`.
 - Dev identity headers are accepted only when `agricore.security.dev-mode=true`; Compose and Helm set dev mode off.
+- Gateway and servlet domain services do not establish browser sessions. Unsafe ambient-cookie
+  mutations without explicit header credentials fail closed through non-persisting CSRF
+  repositories. Gateway exempts only `/api/v1/auth/**` from this edge matcher because Identity's
+  browser endpoints independently require an exact allowed `Origin`/`Referer` before consuming
+  their path-scoped refresh cookie.
 - Gateway removes untrusted forwarding headers, accepts `X-Forwarded-For` only
   from an immediate peer matching its trusted-proxy pattern, and HMAC-signs an
   audience-bound canonical client-IP payload only for the `identity-service`
