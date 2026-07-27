@@ -64,6 +64,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
       - name: Set up pnpm
         uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
         with:
@@ -85,6 +87,8 @@ jobs:
         run: pnpm test
       - name: Build frontend
         run: pnpm build
+      - name: Verify repository showcase media
+        run: pnpm media:check
       - name: Install Playwright Chromium
         run: pnpm --filter @agricore/console exec playwright install --with-deps chromium
       - name: Test critical browser journeys
@@ -175,10 +179,37 @@ jobs:
           python scripts/verify-compose-runtime-contracts.py
       - name: Validate docker compose (observability stack)
         run: docker compose -f docker-compose.observability.yml config --quiet
-      - name: Lint and render Helm chart
+      - name: Lint, render, and verify Helm chart
         run: |
           docker run --rm -v "$PWD:/workspace" -w /workspace alpine/helm:3.17.3 lint infrastructure/helm/agricore --set "global.imageTag=0000000000000000000000000000000000000000" --set global.requireImageDigest=false
           docker run --rm -v "$PWD:/workspace" -w /workspace alpine/helm:3.17.3 template agricore infrastructure/helm/agricore --set ingress.enabled=true --set gateway.trustedProxyAddressPattern='^10[.]0[.]0[.][0-9]+$' --set "global.imageTag=${GITHUB_SHA}" --set global.requireImageDigest=false >/dev/null
+          default_rendered="$(mktemp)"
+          rag_rendered="$(mktemp)"
+          trap 'rm -f "$default_rendered" "$rag_rendered"' EXIT
+          docker run --rm -v "$PWD:/workspace" -w /workspace alpine/helm:3.17.3 template agricore infrastructure/helm/agricore --set "global.imageTag=${GITHUB_SHA}" --set global.requireImageDigest=false > "$default_rendered"
+          docker run --rm -v "$PWD:/workspace" -w /workspace alpine/helm:3.17.3 template agricore infrastructure/helm/agricore --set "global.imageTag=${GITHUB_SHA}" --set global.requireImageDigest=false --set assistant.ragEnabled=true > "$rag_rendered"
+          python3 - "$default_rendered" "$rag_rendered" <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+
+          def assistant_deployment(path: str) -> str:
+              documents = Path(path).read_text(encoding="utf-8").split("\n---\n")
+              for document in documents:
+                  if (re.search(r"^kind: Deployment$", document, re.MULTILINE)
+                          and re.search(r"^  name: agricore-assistant$", document, re.MULTILINE)):
+                      return document
+              raise SystemExit(f"assistant Deployment was not rendered from {path}")
+
+          default = assistant_deployment(sys.argv[1])
+          rag_enabled = assistant_deployment(sys.argv[2])
+          if not re.search(r"^  strategy:\n    type: RollingUpdate$", default, re.MULTILINE):
+              raise SystemExit("assistant must retain RollingUpdate while RAG is disabled")
+          if not re.search(r"^  strategy:\n    type: Recreate$", rag_enabled, re.MULTILINE):
+              raise SystemExit("RAG-enabled assistant must use Recreate to avoid mixed-version KNOWLEDGE evidence")
+          if re.search(r"^    rollingUpdate:$", rag_enabled, re.MULTILINE):
+              raise SystemExit("RAG-enabled assistant must not render rollingUpdate settings")
+          PY
 
   container-build-scan:
     name: build and scan ${{ matrix.image }}

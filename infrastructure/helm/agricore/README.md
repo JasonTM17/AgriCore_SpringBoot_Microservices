@@ -74,6 +74,37 @@ kubectl create secret generic agricore-inventory-internal \
 Do not commit the token in a values file. Rotate it by updating the Secret and
 rolling the four consuming Deployments.
 
+## Optional assistant provider and RAG
+
+The assistant is provider-free by default (`assistant.provider=none`) and RAG
+defaults to `assistant.ragEnabled=false`. If an operator configures a provider,
+they must verify its endpoint and model availability, then create the Secret
+named by `assistant.providerSecretName` with the key selected by
+`assistant.providerApiKeyKey`. The chart never accepts a provider key in
+`values.yaml`.
+
+RAG retrieves only the curated, versioned knowledge installed in the Assistant
+database. Its evidence is persisted with source `KNOWLEDGE`, which Assistant
+binaries before V5 cannot deserialize. This means the setting is a binary
+compatibility boundary, not merely a feature toggle.
+
+Use two phases in production:
+
+1. Deploy the V5-compatible target image with `assistant.ragEnabled=false`.
+   The Assistant Deployment stays `RollingUpdate` (`maxUnavailable: 0` and
+   `maxSurge: 1`). Prove that every Assistant Pod is ready on the target image,
+   no old Assistant Pod remains, and the V5 migration has completed.
+2. Only then deploy that compatible image with `assistant.ragEnabled=true`.
+   The chart selects `Recreate` for Assistant, stopping old readers before the
+   new revision can persist `KNOWLEDGE` evidence. Assistant is intentionally
+   unavailable during this activation; RAG has no zero-downtime activation mode.
+
+Later setting `assistant.ragEnabled=false` on a compatible V5-or-newer image
+stops new retrieval but retains persisted `KNOWLEDGE` evidence. It does not make
+an older binary safe. A pre-V5 downgrade must follow the drain, backup, and SQL
+neutralization procedure in the
+[deployment guide](../../../docs/deployment-guide.md#database-change-and-rollback).
+
 ## IoT TimescaleDB upgrades
 
 The chart requires an operator-provided `agricore_iot` database with the

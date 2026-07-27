@@ -56,14 +56,14 @@ class GenerationToolDecisionIntegrationTest extends AssistantApiIntegrationTestS
     void configureDependencies() {
         when(chatProvider.capabilities())
                 .thenReturn(new ProviderCapabilities("test", true, true, null));
-        when(toolEvidenceCollector.collect(any()))
+        when(toolEvidenceCollector.collect(any(), any()))
                 .thenReturn(ToolEvidenceCollection.skipped("TOOLS_DISABLED"));
     }
 
     @Test
     void auditsScopeDenialBeforeRejectingWithoutGenerationSideEffects() throws Exception {
         UUID conversationId = createEnterpriseConversation(OWNER, "FIELD_WORKER", "Denied");
-        when(toolEvidenceCollector.collect(any()))
+        when(toolEvidenceCollector.collect(any(), any()))
                 .thenReturn(ToolEvidenceCollection.denied("TOOL_SCOPE_UNAVAILABLE", 8));
 
         submit(conversationId, "denied-key", "Private context")
@@ -124,7 +124,7 @@ class GenerationToolDecisionIntegrationTest extends AssistantApiIntegrationTestS
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("GENERATION_ALREADY_ACTIVE"));
 
-        verify(toolEvidenceCollector).collect(any());
+        verify(toolEvidenceCollector).collect(any(), any());
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM assistant_audit_events WHERE action = 'TOOL_EVIDENCE_DECISION'",
                 Integer.class
@@ -148,7 +148,7 @@ class GenerationToolDecisionIntegrationTest extends AssistantApiIntegrationTestS
         CountDownLatch bothCollecting = new CountDownLatch(2);
         CountDownLatch releaseCollection = new CountDownLatch(1);
         AtomicInteger collectionSequence = new AtomicInteger();
-        when(toolEvidenceCollector.collect(any())).thenAnswer(invocation -> {
+        when(toolEvidenceCollector.collect(any(), any())).thenAnswer(invocation -> {
             int sequence = collectionSequence.getAndIncrement();
             bothCollecting.countDown();
             if (!releaseCollection.await(5, TimeUnit.SECONDS)) {
@@ -183,7 +183,7 @@ class GenerationToolDecisionIntegrationTest extends AssistantApiIntegrationTestS
             releaseCollection.countDown();
         }
 
-        verify(toolEvidenceCollector, times(2)).collect(any());
+        verify(toolEvidenceCollector, times(2)).collect(any(), any());
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM chat_generations", Integer.class)).isOne();
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM assistant_audit_events WHERE action = 'TOOL_EVIDENCE_DECISION'",

@@ -37,7 +37,9 @@ class AssistantPersistenceMigrationIntegrationTest {
                 Integer.class
         );
 
-        assertThat(successfulMigrations).isEqualTo(4);
+        assertThat(successfulMigrations).isEqualTo(5);
+        assertThat(count("assistant_knowledge_chunks")).isEqualTo(6);
+        assertThat(count("assistant_knowledge_terms")).isGreaterThan(40);
     }
 
     @Test

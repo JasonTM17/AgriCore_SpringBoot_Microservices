@@ -55,7 +55,7 @@ The browser uses a same-origin edge: Nginx serves `/` and forwards `/api` and `/
 | IoT | Devices, readings, threshold alerts, per-device MQTT admission | Publishes reading, threshold, and offline events through outbox |
 | Sales | Farm-scoped customers, orders, order items, and inventory saga state | Verifies Farm scope; bounded farm-scoped reserve/confirm attempt plus durable retry/timeout recovery; publishes order lifecycle events |
 | Notification | Truthful email/in-app delivery lifecycle, administrative inbox, and event dedupe | Consumes Identity, Sales, Traceability, and IoT events; invalid payloads bypass retries; publishes requested, sent, and failed v2 events |
-| Assistant | Conversations, messages, generations, event replay, redacted tool evidence | No Kafka event path implemented |
+| Assistant | Conversations, messages, generations, event replay, authorized farm facts, curated knowledge retrieval | No Kafka event path implemented; retrieval stays inside its database |
 
 Implemented consumer topology includes `HarvestCompleted.v1` from Harvest to
 Inventory and Traceability. Notification consumes Identity
@@ -98,11 +98,15 @@ non-blocking `FOR UPDATE SKIP LOCKED` claims; it requires Docker.
 - Authenticated generation metadata and fetch-SSE replay through the gateway.
 - Provider `none` by default; provider secrets are deployment inputs only.
 - Current tool access is authenticated, read-only, host-allowlisted farm data with row, byte, and timeout bounds.
+- Optional RAG uses versioned knowledge chunks and an indexed term table in
+  `agricore_assistant`; top-k `KB-*` citations are merged into the persisted
+  evidence snapshot with prepared SQL and existing input/output budgets.
 - Redis-backed request/token budgets fail closed when Redis is unavailable.
 - Expiry timestamps and a bounded cleanup job govern archived conversations,
   audit events, and generation replay events; defaults are 90 days, 365 days,
   and 24 hours respectively.
-- Autonomous writes, arbitrary URLs, RAG ingestion, and cross-service database access are out of scope.
+- Autonomous writes, arbitrary URLs, user-controlled RAG ingestion, and
+  cross-service database access are out of scope.
 
 ### Notification delivery boundary
 

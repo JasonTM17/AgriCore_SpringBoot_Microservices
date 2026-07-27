@@ -14,6 +14,130 @@ const state = {
   conversations: new Map(),
   generations: new Map(),
 };
+const demoFarms = [
+  {
+    id: "20000000-0000-0000-0000-000000000001",
+    code: "FARM-DL-01",
+    enterpriseId: null,
+    name: "Nông trại Đắk Lắk",
+    address: "Buôn Ma Thuột",
+    province: "Đắk Lắk",
+    totalAreaHa: 120.5,
+    latitude: 12.6667,
+    longitude: 108.05,
+    status: "ACTIVE",
+    createdAt: "2026-07-19T00:00:00Z",
+    updatedAt: "2026-07-19T00:00:00Z",
+    version: 0,
+  },
+  {
+    id: "20000000-0000-0000-0000-000000000002",
+    code: "FARM-LD-01",
+    enterpriseId: null,
+    name: "Nông trại Lâm Đồng",
+    address: "Bảo Lộc",
+    province: "Lâm Đồng",
+    totalAreaHa: 80,
+    latitude: 11.94,
+    longitude: 108.44,
+    status: "ACTIVE",
+    createdAt: "2026-07-19T00:00:00Z",
+    updatedAt: "2026-07-19T00:00:00Z",
+    version: 0,
+  },
+  {
+    id: "20000000-0000-0000-0000-000000000003",
+    code: "FARM-BT-01",
+    enterpriseId: null,
+    name: "Nông trại Bình Thuận",
+    address: "Hàm Thuận Nam",
+    province: "Bình Thuận",
+    totalAreaHa: 95,
+    latitude: 10.93,
+    longitude: 108.1,
+    status: "ACTIVE",
+    createdAt: "2026-07-19T00:00:00Z",
+    updatedAt: "2026-07-19T00:00:00Z",
+    version: 0,
+  },
+];
+const demoPlotsByFarm = new Map([
+  [
+    demoFarms[0].id,
+    [
+      {
+        id: "30000000-0000-0000-0000-000000000001",
+        farmId: demoFarms[0].id,
+        areaId: null,
+        code: "DL-A01",
+        name: "Lô cà phê Robusta",
+        areaInHectares: 12.25,
+        soilType: "BASALT",
+        status: "IN_USE",
+        latitude: null,
+        longitude: null,
+        createdAt: "2026-07-19T00:00:00Z",
+        updatedAt: "2026-07-19T00:00:00Z",
+        version: 0,
+      },
+      {
+        id: "30000000-0000-0000-0000-000000000002",
+        farmId: demoFarms[0].id,
+        areaId: null,
+        code: "DL-A02",
+        name: "Lô sầu riêng Ri6",
+        areaInHectares: 9.75,
+        soilType: "BASALT",
+        status: "PREPARING",
+        latitude: null,
+        longitude: null,
+        createdAt: "2026-07-19T00:00:00Z",
+        updatedAt: "2026-07-19T00:00:00Z",
+        version: 0,
+      },
+    ],
+  ],
+  [
+    demoFarms[1].id,
+    [
+      {
+        id: "30000000-0000-0000-0000-000000000003",
+        farmId: demoFarms[1].id,
+        areaId: null,
+        code: "LD-B01",
+        name: "Nhà kính xà lách",
+        areaInHectares: 8,
+        soilType: "LOAM",
+        status: "IN_USE",
+        latitude: null,
+        longitude: null,
+        createdAt: "2026-07-19T00:00:00Z",
+        updatedAt: "2026-07-19T00:00:00Z",
+        version: 0,
+      },
+    ],
+  ],
+  [
+    demoFarms[2].id,
+    [
+      {
+        id: "30000000-0000-0000-0000-000000000004",
+        farmId: demoFarms[2].id,
+        areaId: null,
+        code: "BT-C01",
+        name: "Lô thanh long ruột đỏ",
+        areaInHectares: 16.5,
+        soilType: "SANDY_LOAM",
+        status: "IN_USE",
+        latitude: null,
+        longitude: null,
+        createdAt: "2026-07-19T00:00:00Z",
+        updatedAt: "2026-07-19T00:00:00Z",
+        version: 0,
+      },
+    ],
+  ],
+]);
 
 const securityHeaders = {
   "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
@@ -74,7 +198,21 @@ function userForEmail(email) {
   if (existing) return existing;
   const user = {
     id: randomUUID(), email: key, fullName: "E2E Operator", status: "ACTIVE",
-    roles: ["SYSTEM_ADMIN"], lastLoginAt: null, createdAt: now(), scenario: scenarioForEmail(key),
+    roles: ["SYSTEM_ADMIN"],
+    permissions: [
+      "FARM_READ",
+      "CROP_CATALOG_READ",
+      "CROP_CYCLE_READ",
+      "HARVEST_READ",
+      "INVENTORY_READ",
+      "INVENTORY_USE",
+      "SALES_READ",
+      "IOT_READ",
+      "IOT_WRITE",
+      "IDENTITY_USER_READ",
+      "ASSISTANT_USE",
+    ],
+    lastLoginAt: null, createdAt: now(), scenario: scenarioForEmail(key),
   };
   state.users.set(key, user);
   return user;
@@ -178,7 +316,7 @@ function messagePage(generation) {
       id: generation.assistantMessageId, conversationId: generation.conversationId,
       generationId: generation.id, sequenceNo: 1, role: "ASSISTANT",
       content: generation.scenario === "reconnect"
-        ? "Mock response after reconnect. [Source: https://example.com/operations]"
+        ? "Ưu tiên hôm nay: kiểm tra cảnh báo IoT vượt ngưỡng, đối soát lô sắp thu hoạch với tồn kho bao bì, và xác nhận các phiếu giữ hàng đang mở. [Source: https://example.com/operations]"
         : "Mock response before cancellation.", tokenCount: 12, createdAt: generation.updatedAt,
     });
   }
@@ -274,7 +412,14 @@ async function handleApi(request, response, url) {
   const user = authOrFail(request, response, path);
   if (!user) return;
   if (path === "/api/v1/farms" && request.method === "GET") {
-    return json(response, 200, page([], 20));
+    return json(response, 200, page(demoFarms, 20));
+  }
+  const farmPlotsMatch = path.match(/^\/api\/v1\/farms\/([^/]+)\/plots$/);
+  if (farmPlotsMatch && request.method === "GET") {
+    const farmId = decodeURIComponent(farmPlotsMatch[1]);
+    const plots = demoPlotsByFarm.get(farmId);
+    if (!plots) return apiError(response, 404, "FARM_NOT_FOUND", "Farm not found", path);
+    return json(response, 200, page(plots, 20));
   }
   if (path === "/api/v1/assistant/capabilities" && request.method === "GET") {
     return json(response, 200, { provider: "mock", available: true, streaming: true, reasonCode: null });

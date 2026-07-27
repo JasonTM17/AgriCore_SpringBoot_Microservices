@@ -32,9 +32,14 @@ spec:
   replicas: {{ $svc.replicaCount | default 1 }}
   minReadySeconds: 10
   progressDeadlineSeconds: 600
-  {{- if eq $name "iot" }}
+  {{- if or (eq $name "iot") (and (eq $name "assistant") (default false $svc.ragEnabled)) }}
+  {{- if and (eq $name "assistant") (default false $svc.ragEnabled) }}
+  # Persisted KNOWLEDGE evidence is unreadable by Assistant binaries before V5.
+  # Stop old readers before a RAG-enabled revision can write that evidence.
+  {{- else }}
   # IoT Flyway migrations can rewrite the readings table into a hypertable.
   # Stop old writers before starting the new revision.
+  {{- end }}
   strategy:
     type: Recreate
   {{- else }}
@@ -273,6 +278,16 @@ spec:
                   optional: true
             - name: ASSISTANT_TOOLS_ENABLED
               value: {{ $svc.toolsEnabled | default false | quote }}
+            - name: ASSISTANT_RAG_ENABLED
+              value: {{ $svc.ragEnabled | default false | quote }}
+            - name: ASSISTANT_RAG_MAX_RESULTS
+              value: {{ $svc.ragMaxResults | default 4 | quote }}
+            - name: ASSISTANT_RAG_MAX_QUERY_TERMS
+              value: {{ $svc.ragMaxQueryTerms | default 12 | quote }}
+            - name: ASSISTANT_RAG_MAX_EXCERPT_CHARACTERS
+              value: {{ $svc.ragMaxExcerptCharacters | default 220 | quote }}
+            - name: ASSISTANT_RAG_QUERY_TIMEOUT
+              value: {{ $svc.ragQueryTimeout | default "PT2S" | quote }}
             - name: ASSISTANT_FARM_TOOL_BASE_URL
               value: {{ $svc.farmToolBaseUrl | quote }}
             - name: ASSISTANT_TOOL_ALLOWED_HOSTS

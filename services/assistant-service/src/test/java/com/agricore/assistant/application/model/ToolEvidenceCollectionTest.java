@@ -35,7 +35,18 @@ class ToolEvidenceCollectionTest {
                 .isEqualTo(ToolCollectionOutcome.UNAVAILABLE);
         assertThat(ToolEvidenceCollection.denied("TOOL_SCOPE_UNAVAILABLE", 3).outcome())
                 .isEqualTo(ToolCollectionOutcome.DENIED);
+        ToolEvidenceSnapshot evidence = new ToolEvidenceSnapshot(List.of(
+                new ToolFact("FARM-1", ToolSource.FARM, Map.of("status", "ACTIVE"))
+        ));
+        ToolEvidenceCollection partial = ToolEvidenceCollection.partial(
+                evidence, "RAG_DEPENDENCY_UNAVAILABLE", 7);
+        assertThat(partial.outcome()).isEqualTo(ToolCollectionOutcome.PARTIAL);
+        assertThat(partial.evidence()).isEqualTo(evidence);
+        assertThat(partial.reasonCode()).isEqualTo("RAG_DEPENDENCY_UNAVAILABLE");
         assertThatThrownBy(() -> ToolEvidenceCollection.collected(ToolEvidenceSnapshot.empty(), 0))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> ToolEvidenceCollection.partial(
+                ToolEvidenceSnapshot.empty(), "RAG_DEPENDENCY_UNAVAILABLE", 0))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ToolEvidenceCollection(
                 ToolEvidenceSnapshot.empty(), ToolCollectionOutcome.SKIPPED, "unsafe-reason", 0))

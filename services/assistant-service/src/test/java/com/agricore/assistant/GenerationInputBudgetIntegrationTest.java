@@ -82,9 +82,9 @@ class GenerationInputBudgetIntegrationTest extends AssistantApiIntegrationTestSu
                 ToolSource.FARM,
                 Map.of("description", "x".repeat(256))
         )));
-        when(toolEvidenceCollector.collect(any()))
+        when(toolEvidenceCollector.collect(any(), any()))
                 .thenReturn(ToolEvidenceCollection.collected(evidence, 4));
-        String requestBody = objectMapper.writeValueAsString(Map.of("prompt", "x".repeat(350)));
+        String requestBody = objectMapper.writeValueAsString(Map.of("prompt", "x".repeat(300)));
 
         mockMvc.perform(authenticated(
                         post(CONVERSATIONS_PATH + "/" + conversationId + "/generations")
@@ -97,7 +97,7 @@ class GenerationInputBudgetIntegrationTest extends AssistantApiIntegrationTestSu
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"));
 
-        verify(toolEvidenceCollector).collect(any());
+        verify(toolEvidenceCollector).collect(any(), any());
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM chat_generations", Integer.class)).isZero();
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM assistant_audit_events "

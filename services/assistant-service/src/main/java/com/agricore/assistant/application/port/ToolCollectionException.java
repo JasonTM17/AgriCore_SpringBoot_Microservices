@@ -29,6 +29,10 @@ public final class ToolCollectionException extends RuntimeException {
         return new ToolCollectionException("TOOL_RESPONSE_INVALID");
     }
 
+    public static ToolCollectionException ragUnavailable() {
+        return new ToolCollectionException("RAG_DEPENDENCY_UNAVAILABLE");
+    }
+
     public String reasonCode() {
         return reasonCode;
     }

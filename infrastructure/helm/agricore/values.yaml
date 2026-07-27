@@ -201,6 +201,11 @@ assistant:
   providerSecretName: agricore-assistant-provider
   providerApiKeyKey: api-key
   toolsEnabled: true
+  ragEnabled: false
+  ragMaxResults: 4
+  ragMaxQueryTerms: 12
+  ragMaxExcerptCharacters: 220
+  ragQueryTimeout: PT2S
   farmToolBaseUrl: http://agricore-farm:8082
   toolAllowedHosts: agricore-farm
   toolAllowInsecureHttp: true

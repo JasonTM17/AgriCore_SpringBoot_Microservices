@@ -18,7 +18,7 @@
 | S8 | High | Downstream services trusted caller-supplied farm/plot IDs | Crop-cycle, work, harvest, and IoT verify request or stored resource IDs through farm-service before protected reads or mutations |
 | S9 | Medium | Farm authorization dependency could fail open | `farm-access-client` maps network errors, unexpected statuses, invalid response bodies, and missing request authentication to `503 FARM_ACCESS_UNAVAILABLE` |
 | S10 | Medium | Caller identity could be replaced on the internal hop | The client forwards the current caller's bearer token; farm-service validates it independently through the shared resource-server configuration |
-| S11 | High | Assistant tool/provider egress could become an arbitrary data or network boundary | Farm tool is read-only, host-allowlisted, caller-token forwarding, response/row bounded, and fail-closed; provider configuration is environment/Secret-only and output is bounded plus deterministically screened |
+| S11 | High | Assistant tool/provider/retrieval egress could become an arbitrary data or network boundary | Farm tool is read-only, host-allowlisted, caller-token forwarding, response/row bounded, and fail-closed; curated RAG uses prepared queries and bounded persisted citations in the assistant database; provider configuration is environment/Secret-only and output is bounded plus deterministically screened |
 | S12 | High | Durable generation replay could duplicate work or leak another user's conversation | Owner/farm scope checks, idempotency key and request hash, generation lease/versioning, ordered SSE replay, and redacted tool evidence are persisted in the assistant database |
 | S13 | Medium | Assistant traffic could bypass per-user limits | Redis-backed request/token budgets key by authenticated user and source IP, return explicit 429 errors, and fail closed when Redis is unavailable |
 | S14 | High | Permission catalog or role grants could be changed by a non-admin, duplicated, or partially replaced | Identity restricts all permission administration to `SYSTEM_ADMIN`; permission codes are database-unique; replacement locks the role and validates every requested code before changing grants |
@@ -44,7 +44,7 @@
 - [x] Farm-access denial, masked not-found, and unavailable responses prevent crop-cycle/work/harvest/IoT writes
 - [x] Caller JWT forwarding, destination allowlisting, strict response decoding, and fail-closed client behavior have focused tests
 - [x] Live Compose verification of invalid JWT rejection at both gateway and farm-service; runtime evidence retained on 2026-07-26
-- [x] Assistant output, citation, sensitive-data, refusal, idempotency, replay, tool-allowlist, and budget failure paths have focused tests
+- [x] Assistant output, citation, sensitive-data, refusal, idempotency, replay, tool-allowlist, curated retrieval/query binding, and budget failure paths have focused tests
 - [x] Permission creation and role-grant replacement require `SYSTEM_ADMIN`; duplicate codes and unknown-code atomic failure have focused tests
 - [x] Fine-grained `PERMISSION_*` endpoint enforcement and permission-aware console navigation
 

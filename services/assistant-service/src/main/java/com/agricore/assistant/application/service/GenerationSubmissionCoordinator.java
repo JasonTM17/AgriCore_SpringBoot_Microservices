@@ -118,7 +118,7 @@ public class GenerationSubmissionCoordinator {
         int maxOutputTokens = generationPolicy.maxOutputTokens();
         reserveInitialBudget(
                 actor, conversation, clientIp, budgetReservationId, baseInputTokens + maxOutputTokens);
-        ToolEvidenceCollection collection = toolEvidenceCollector.collect(conversation);
+        ToolEvidenceCollection collection = toolEvidenceCollector.collect(conversation, prompt);
         Instant now = clock.instant();
         if (collection.outcome() == ToolCollectionOutcome.DENIED) {
             submissionAuditService.recordToolDecisionWithoutGeneration(

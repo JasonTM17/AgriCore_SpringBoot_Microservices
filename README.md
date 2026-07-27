@@ -20,7 +20,7 @@ operational path and a public-safe traceability view.
   detection.
 - Durable sales reservation saga, truthful notifications, and compensation.
 - Persisted read-only assistant with replayable SSE, bounded farm tools,
-  budgets, retention, and provider-unavailable behavior.
+  curated cited RAG, budgets, retention, and provider-unavailable behavior.
 - Accessible React console, deterministic cross-service demo data, generated
   media/GIF, observability, Compose, Helm, and supply-chain gates.
 
@@ -130,21 +130,26 @@ in the Maven reactor. The
 [Kafka retry/DLT runbook](docs/runbooks/kafka-dlq.md) describe the implemented
 topology and repair boundary.
 
-## Visual showcase
+## Product walkthrough
 
-The repository includes a small, optimized media set for demos and product
-walkthroughs. These are generated, repository-owned visuals; they contain no
-production data or scannable identifiers.
+The media below is captured from the built React Operations Console running
+against the repository's deterministic browser-test edge. It shows the
+application itself—not concept art—and contains no production credentials,
+tokens, or customer data.
 
-![AgriCore farm at sunrise](assets/media/agricore-showcase/agricore-farm-sunrise.webp)
+![AgriCore Console walkthrough: secure login, farms and plots, and the operations assistant](assets/images/agricore-console/agricore-console-walkthrough.gif)
 
-![AgriCore three-frame farm story](assets/media/agricore-showcase/agricore-farm-story.gif)
+| Farms and plots | Operations assistant |
+|---|---|
+| [![AgriCore farm workspace](assets/images/agricore-console/agricore-console-farms.png)](assets/images/agricore-console/agricore-console-farms.png) | [![AgriCore assistant workspace](assets/images/agricore-console/agricore-console-assistant.png)](assets/images/agricore-console/agricore-console-assistant.png) |
 
-- [Farm sunrise hero](assets/media/agricore-showcase/agricore-farm-sunrise.webp)
-- [Harvest packing workflow](assets/media/agricore-showcase/agricore-harvest-packing.webp)
-- [Public traceability produce](assets/media/agricore-showcase/agricore-traceability-produce.webp)
-- [Three-frame farm story GIF](assets/media/agricore-showcase/agricore-farm-story.gif)
-- [Asset manifest and checksums](assets/media/agricore-showcase/manifest.json)
+[Secure login](assets/images/agricore-console/agricore-console-login.png) ·
+[Dashboard](assets/images/agricore-console/agricore-console-dashboard.png) ·
+[capture provenance](assets/images/agricore-console/README.md)
+
+The optimized farm and produce images under
+[`assets/media/agricore-showcase`](assets/media/agricore-showcase/) are runtime
+dashboard content only; they are not presented as application screenshots.
 
 ## System requirements
 
@@ -388,8 +393,8 @@ AI references or secrets in commit messages or source.
 - The repository does not provision or claim a hosted production cluster.
   Production PostgreSQL, Kafka, Redis, MQTT, object storage, SMTP,
   observability, TLS, backups, and access policy are operator responsibilities.
-- Assistant tools are read-only; autonomous writes, arbitrary URLs, and RAG
-  ingestion are intentionally out of scope.
+- Assistant tools are read-only; autonomous writes, arbitrary URLs, and
+  user-controlled or runtime RAG ingestion are intentionally out of scope.
 - Raw/aggregate telemetry deletion, certification authority, tax/invoice,
   payment, and multi-region disaster-recovery policy require product or
   operations decisions.

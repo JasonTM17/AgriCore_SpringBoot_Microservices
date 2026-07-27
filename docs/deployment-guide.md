@@ -102,11 +102,19 @@ values.
    ```
 
 6. Create each enabled non-gateway service's `databaseSecretName` and the
-   Gateway/Identity/Assistant client-IP signing Secret outside Git. The separate
-   `postgres.provisioning.credentialSecretName` is mounted only by bounded hook
-   Jobs, never application Deployments. Review rendered Secrets, service
-   accounts, security contexts, NetworkPolicies, Jobs, probes, PDBs, HPAs, and
-   Ingress hosts.
+   Gateway/Identity/Assistant client-IP signing Secret outside Git. If an
+   Assistant provider is configured, create its Secret under the name selected
+   by `assistant.providerSecretName`, with the credential key selected by
+   `assistant.providerApiKeyKey` (default `api-key`). Confirm the selected
+   provider endpoint and model are available before enabling it; never put its
+   credential in values. Curated retrieval is off by default
+   (`assistant.ragEnabled=false`); use the rollout procedure below before
+   setting it to `true`. Keep its result, query-term, excerpt, and timeout
+   bounds at the reviewed chart defaults unless load tests justify a change.
+   The separate `postgres.provisioning.credentialSecretName` is mounted only by
+   bounded hook Jobs, never application Deployments. Review rendered Secrets,
+   service accounts, security contexts, NetworkPolicies, Jobs, probes, PDBs,
+   HPAs, and Ingress hosts.
 7. Deploy with an atomic timeout appropriate to migration duration:
 
    ```bash
@@ -117,6 +125,34 @@ values.
 
 8. Verify rollout, migrations, health, metrics, gateway JWT, public traceability,
    Kafka lag/DLT, and object-storage access.
+
+### Assistant RAG rollout safety
+
+`assistant.ragEnabled` defaults to `false`. When enabled, curated retrieval can
+persist evidence with the `KNOWLEDGE` source in `chat_generations.tool_evidence`.
+Assistant binaries before V5 do not recognize that source, so they cannot decode
+such evidence. This is a binary-compatibility boundary, independent of whether
+an external provider is enabled or available.
+
+Use this two-phase production procedure; do not combine the phases:
+
+1. Deploy the V5-compatible target Assistant image with
+   `assistant.ragEnabled=false`. This preserves the Assistant Deployment's
+   `RollingUpdate` strategy (`maxUnavailable: 0`, `maxSurge: 1`). Before the
+   next phase, prove the rollout has completed: every selected Assistant Pod is
+   ready and uses the target image, no older Assistant Pod remains, the service
+   health/readiness checks pass, and the Assistant V5 migration is applied.
+2. Only after recording that evidence, deploy the same compatible image with
+   `assistant.ragEnabled=true`. The chart deliberately changes the Assistant
+   Deployment to `Recreate`, stopping old readers before RAG can persist
+   `KNOWLEDGE` evidence. Assistant service is intentionally unavailable during
+   that replacement; a RAG-enabled activation has no zero-downtime mode.
+
+Turning retrieval off later with `assistant.ragEnabled=false` on a compatible
+V5-or-newer image stops new retrieval but does not remove existing `KNOWLEDGE`
+evidence. It is not a binary downgrade. To run a pre-V5 binary, the drain,
+backup, and SQL neutralization procedure in
+[Database change and rollback](#database-change-and-rollback) remains mandatory.
 
 ## Notification delivery
 
@@ -159,6 +195,38 @@ external deliveries manually against provider evidence before any resend.
   constraint over inclusive planned date ranges for `DRAFT` and `ACTIVE` rows.
   Resolve any pre-existing overlapping active rows before migration; otherwise
   PostgreSQL will reject the constraint installation.
+- The V5 Assistant release can persist the `KNOWLEDGE` evidence source. A
+  binary older than V5 cannot deserialize a generation containing that source.
+  Setting `assistant.ragEnabled=false` only disables retrieval in a compatible
+  image; it neither removes persisted evidence nor makes an older binary safe.
+  Before a binary downgrade, set `assistant.ragEnabled=false` and roll out the
+  current compatible image, then wait until this query returns zero:
+
+  ```sql
+  SELECT COUNT(*)
+  FROM chat_generations
+  WHERE status IN ('QUEUED', 'RUNNING', 'CANCEL_REQUESTED');
+  ```
+
+  Back up `agricore_assistant`, stop Assistant writers, and neutralize affected
+  evidence snapshots inside an operator transaction:
+
+  ```sql
+  BEGIN;
+  UPDATE chat_generations
+  SET tool_evidence = '{"facts":[]}'
+  WHERE tool_evidence LIKE '%"source":"KNOWLEDGE"%';
+
+  SELECT COUNT(*) AS incompatible_evidence
+  FROM chat_generations
+  WHERE tool_evidence LIKE '%"source":"KNOWLEDGE"%';
+  COMMIT;
+  ```
+
+  Require `incompatible_evidence=0` before starting the older image. This
+  intentionally removes the complete evidence snapshot for affected
+  generations while retaining their messages and terminal state; restore the
+  backup instead of continuing if preserving that evidence is mandatory.
 - Durable outbox retry migrations add nullable `next_attempt_at` and
   `quarantined_at`; legacy null rows remain immediately eligible. Their partial
   retry/quarantine indexes use `CREATE INDEX CONCURRENTLY` with

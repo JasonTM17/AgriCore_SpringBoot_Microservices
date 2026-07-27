@@ -6,6 +6,10 @@ built-in image generation workflow on 2026-07-23, then optimized with
 ImageMagick. `agricore-farm-story.gif` is a bounded 960×540, three-frame
 derivative assembled from those images for lightweight previews.
 
+These files are in-app content assets, not screenshots of AgriCore. The
+repository's product evidence is captured from the running React Console under
+[`assets/images/agricore-console`](../../images/agricore-console/).
+
 The images contain no user data, production identifiers, logos, or readable
 labels. The blank tag in the traceability image is intentionally non-scannable;
 runtime QR codes must come from the traceability service.

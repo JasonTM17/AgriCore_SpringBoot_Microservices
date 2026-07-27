@@ -52,7 +52,8 @@ inside an independently owned service and database.
    retryable. Provide an authorized administrative inbox.
 10. Publish a public-safe QR read model without cross-service database queries.
 11. Provide an authenticated, persisted, read-only assistant with replayable SSE,
-    bounded tools, budgets, and safe provider-unavailable behavior.
+    bounded tools, opt-in curated cited retrieval, budgets, and safe
+    provider-unavailable behavior.
 12. Provide an accessible React operations console and reproducible local demo
     data/media.
 
@@ -73,6 +74,10 @@ inside an independently owned service and database.
   and no committed secret.
 - Explicit assistant retention/cleanup controls; telemetry deletion remains
   unset until a product-owned retention horizon and storage budget are approved.
+- Assistant RAG defaults off. Its V5-compatible `KNOWLEDGE` evidence is
+  persisted, so production adoption requires a compatible-image rollout with
+  retrieval disabled before the intentionally unavailable `Recreate` activation.
+  Disabling retrieval later is not a safe binary downgrade.
 - Docker Compose for local evidence and a hardened Helm application chart for
   operator-provided clusters.
 - Focused conventional commits and reproducible verification from a clean
@@ -91,6 +96,11 @@ inside an independently owned service and database.
   boundary.
 - Platform docs, service-local README files, diagrams, generated clients, and
   environment examples match the released revision.
+- RAG activation evidence records the compatible V5-or-newer image rollout with
+  retrieval disabled, absence of old Assistant Pods, healthy readiness, and the
+  completed V5 migration before `assistant.ragEnabled=true` triggers the
+  intentional `Recreate` interruption. Any pre-V5 rollback follows the
+  documented drain, backup, and evidence-neutralization procedure.
 - Docker Hub and GitHub Packages publish immutable SHA images only after default
   branch CI succeeds. Only full and short SHA tags are promoted; signatures,
   SBOM, and provenance are verifiable.
