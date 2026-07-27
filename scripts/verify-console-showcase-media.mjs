@@ -4,6 +4,8 @@ import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { verifyConsoleCaptureProvenance } from "./console-showcase-provenance.mjs";
+
 const repositoryRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const mediaDirectory = join(repositoryRoot, "assets", "images", "agricore-console");
 const manifestPath = join(mediaDirectory, "manifest.json");
@@ -57,6 +59,26 @@ function verifyAnimation(asset, bytes) {
   assert(asset.frames <= 6 && durationSeconds <= 10, `${asset.file}: animation exceeds frame or duration budget`);
   assert(bytes.length <= 512 * 1024, `${asset.file}: GIF exceeds 512 KiB budget`);
 }
+
+verifyConsoleCaptureProvenance(manifest, {
+  resolveTree(reference) {
+    return execFileSync("git", ["rev-parse", reference], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+    }).trim();
+  },
+  isAncestor(ancestor, descendant) {
+    try {
+      execFileSync("git", ["merge-base", "--is-ancestor", ancestor, descendant], {
+        cwd: repositoryRoot,
+        stdio: "ignore",
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  },
+});
 
 const trackedFiles = new Set(
   execFileSync("git", ["ls-files", "assets/images/agricore-console"], {

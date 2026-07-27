@@ -3,7 +3,9 @@
 These files are screenshots of the built React Operations Console, not concept
 art or generated product mockups. The console runs against
 `apps/agricore-console/e2e/mock-edge-server.mjs`, the same deterministic local
-edge used by the Playwright critical-journey suite.
+edge used by the Playwright critical-journey suite. `manifest.json` records the
+capture revision and the exact Git tree of `apps/agricore-console`; the media
+gate rejects a repository revision whose Console tree no longer matches.
 
 ## Files
 

@@ -1,6 +1,17 @@
 {
   "capturedAt": "2026-07-27",
   "source": "Built React Operations Console with deterministic Playwright edge",
+  "captureRevision": "3524d23b39441d251824c82a0865067a2c66fab4",
+  "sourceTree": {
+    "path": "apps/agricore-console",
+    "gitTree": "d8fb322bcc54ebd216a1ad192f3a978751be1e04"
+  },
+  "capture": {
+    "browser": "Chromium",
+    "origin": "http://127.0.0.1:4174",
+    "buildCommand": "pnpm build",
+    "edgeCommand": "node apps/agricore-console/e2e/mock-edge-server.mjs"
+  },
   "viewport": {
     "width": 1440,
     "height": 900
