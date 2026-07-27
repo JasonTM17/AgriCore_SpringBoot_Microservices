@@ -1,4 +1,0 @@
-name: agricore/codeql-alert-suppression-queries
-version: 0.0.1
-dependencies:
-  codeql/java-queries: 1.11.6

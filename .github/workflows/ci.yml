@@ -147,7 +147,6 @@ jobs:
         with:
           languages: java-kotlin
           build-mode: manual
-          queries: ./.github/codeql/queries/alert-suppression-annotations.ql
       - name: Build for CodeQL
         run: ./mvnw -B -DskipTests package
       - name: Perform CodeQL analysis

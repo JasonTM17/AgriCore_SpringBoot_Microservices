@@ -34,7 +34,6 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           build-mode: manual
-          queries: ./.github/codeql/queries/alert-suppression-annotations.ql
 
       - name: Build (Maven, skip tests for SAST compile)
         run: ./mvnw -B -DskipTests package
