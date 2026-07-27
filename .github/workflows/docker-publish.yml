@@ -26,6 +26,7 @@ jobs:
   resolve-sha:
     runs-on: ubuntu-latest
     outputs:
+      candidate_tag: ${{ steps.sha.outputs.candidate_tag }}
       default_branch: ${{ steps.sha.outputs.default_branch }}
       matrix: ${{ steps.sha.outputs.matrix }}
       publish_sha: ${{ steps.sha.outputs.publish_sha }}
@@ -49,6 +50,7 @@ jobs:
           set -euo pipefail
           should=false
           publish_sha=""
+          candidate_tag=""
           default_branch="$(gh api "repos/$THIS_REPO" --jq '.default_branch')"
           matrix="$(
             jq -cn '{
@@ -103,8 +105,12 @@ jobs:
               publish_sha=""
             fi
           fi
+          if [[ "$should" == "true" ]]; then
+            candidate_tag="candidate-$publish_sha-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          fi
 
           {
+            echo "candidate_tag=$candidate_tag"
             echo "default_branch=$default_branch"
             echo "matrix=$matrix"
             echo "should_publish=$should"
@@ -152,6 +158,7 @@ jobs:
         id: meta
         shell: bash
         env:
+          CANDIDATE_TAG: ${{ needs.resolve-sha.outputs.candidate_tag }}
           PUBLISH_SHA: ${{ needs.resolve-sha.outputs.publish_sha }}
         run: |
           set -euo pipefail
@@ -159,7 +166,7 @@ jobs:
           owner="${GITHUB_REPOSITORY_OWNER,,}"
           dockerhub_repository="${{ env.DOCKERHUB_REGISTRY }}/${{ env.DOCKERHUB_NAMESPACE }}/${{ matrix.image }}"
           ghcr_repository="${{ env.GHCR_REGISTRY }}/$owner/${{ matrix.image }}"
-          candidate="candidate-$full-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          candidate="$CANDIDATE_TAG"
           created="$(git show -s --format=%cI "$full")"
           {
             echo "short=${full:0:7}"
@@ -216,40 +223,7 @@ jobs:
           GHCR_SHORT: ${{ steps.meta.outputs.ghcr_repository }}:${{ steps.meta.outputs.short }}
         run: |
           set -euo pipefail
-
-          digest_of() {
-            local output
-            if output="$(docker buildx imagetools inspect "$1" 2>/dev/null)"; then
-              awk '/^Digest:/ { print $2; exit }' <<< "$output"
-            fi
-          }
-
-          require_digest() {
-            local reference="$1"
-            local actual
-            actual="$(digest_of "$reference")"
-            if [[ "$actual" != "$EXPECTED_DIGEST" ]]; then
-              echo "Digest mismatch for $reference: expected=$EXPECTED_DIGEST actual=${actual:-missing}"
-              exit 1
-            fi
-          }
-
-          require_immutable_or_absent() {
-            local reference="$1"
-            local existing
-            existing="$(digest_of "$reference")"
-            if [[ -n "$existing" && "$existing" != "$EXPECTED_DIGEST" ]]; then
-              echo "Immutable SHA tag collision for $reference: expected=$EXPECTED_DIGEST existing=$existing"
-              exit 1
-            fi
-          }
-
-          require_digest "$DOCKERHUB_CANDIDATE"
-          require_digest "$GHCR_CANDIDATE"
-          require_immutable_or_absent "$DOCKERHUB_FULL"
-          require_immutable_or_absent "$DOCKERHUB_SHORT"
-          require_immutable_or_absent "$GHCR_FULL"
-          require_immutable_or_absent "$GHCR_SHORT"
+          bash scripts/verify-candidate-release-tags.sh
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@1aa8e0f2454b781fbf0fbf306a4c9533a0c57409 # v3.7.0
@@ -296,6 +270,11 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.resolve-sha.outputs.matrix) }}
     steps:
+      - name: Checkout verified revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.resolve-sha.outputs.publish_sha }}
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
 
@@ -323,41 +302,12 @@ jobs:
           DEFAULT_BRANCH: ${{ needs.resolve-sha.outputs.default_branch }}
         run: |
           set -euo pipefail
-          full="$PUBLISH_SHA"
-          short="${full:0:7}"
           owner="${GITHUB_REPOSITORY_OWNER,,}"
-          dockerhub_repository="${{ env.DOCKERHUB_REGISTRY }}/${{ env.DOCKERHUB_NAMESPACE }}/${{ matrix.image }}"
-          ghcr_repository="${{ env.GHCR_REGISTRY }}/$owner/${{ matrix.image }}"
-          candidate="candidate-$full-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
-          identity="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/.github/workflows/docker-publish.yml@refs/heads/$DEFAULT_BRANCH"
-
-          digest_of() {
-            docker buildx imagetools inspect "$1" |
-              awk '/^Digest:/ { print $2; exit }'
-          }
-
-          dockerhub_digest="$(digest_of "$dockerhub_repository:$candidate")"
-          ghcr_digest="$(digest_of "$ghcr_repository:$candidate")"
-          if [[ -z "$dockerhub_digest" || "$dockerhub_digest" != "$ghcr_digest" ]]; then
-            echo "Candidate parity failed: dockerhub=$dockerhub_digest ghcr=$ghcr_digest"
-            exit 1
-          fi
-
-          for repository in "$dockerhub_repository" "$ghcr_repository"; do
-            cosign verify \
-              --certificate-identity "$identity" \
-              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-              "$repository@$dockerhub_digest"
-          done
-
-          docker buildx imagetools create \
-            --tag "$dockerhub_repository:$full" \
-            --tag "$dockerhub_repository:$short" \
-            "$dockerhub_repository@$dockerhub_digest"
-          docker buildx imagetools create \
-            --tag "$ghcr_repository:$full" \
-            --tag "$ghcr_repository:$short" \
-            "$ghcr_repository@$dockerhub_digest"
+          export CANDIDATE_TAG="${{ needs.resolve-sha.outputs.candidate_tag }}"
+          export DOCKERHUB_REPOSITORY="${{ env.DOCKERHUB_REGISTRY }}/${{ env.DOCKERHUB_NAMESPACE }}/${{ matrix.image }}"
+          export GHCR_REPOSITORY="${{ env.GHCR_REGISTRY }}/$owner/${{ matrix.image }}"
+          export EXPECTED_CERTIFICATE_IDENTITY="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/.github/workflows/docker-publish.yml@refs/heads/$DEFAULT_BRANCH"
+          bash scripts/promote-release-artifacts.sh
 
   verify-release:
     needs: [resolve-sha, promote]
