@@ -15,6 +15,7 @@ flowchart LR
     kafka[("Kafka")]
     notificationListener["Notification topic-level listener"]
     notification["Notification intent"]
+    readingNoOp["No notification, processed-event marker, or outbox"]
     notificationDlt[("agricore.iot.events.DLT")]
     offline["Scheduled offline detector"]
     deviceStatus[("Device status OFFLINE")]
@@ -28,8 +29,9 @@ flowchart LR
     alerts -->|"new threshold alert"| thresholdOutbox --> kafka
     offline -->|"stale active device"| deviceStatus --> offlineOutbox --> kafka
     kafka --> notificationListener
+    notificationListener -->|"schema-valid SensorReadingReceived.v1: source validate then commit"| readingNoOp
     notificationListener -->|"threshold/offline supported"| notification
-    notificationListener -->|"SensorReadingReceived.v1 unsupported"| notificationDlt
+    notificationListener -->|"wrong reading source, version, or payload schema"| notificationDlt
 ```
 
 HTTP ingestion shares the same application path after authentication. Stable
@@ -42,11 +44,16 @@ each stale active device `OFFLINE` before writing its
 `agricore.iot.events` and are consumed by Notification.
 
 Every accepted reading also writes `SensorReadingReceived.v1` to the same
-topic. The current Notification listener subscribes at topic level but supports
-only threshold and offline events, so it throws `IllegalArgumentException` for
-`SensorReadingReceived.v1`; Spring Kafka bypasses retry and sends that record
-to `agricore.iot.events.DLT`. This is a current shared-topic compatibility gap,
-not an alert notification path. Monitor it as a known DLT source; filtering the
-listener or separating the event topology is a code remediation outside this
-documentation change. Device buckets, in-flight work, and tracked bucket count
-are bounded before shared queue submission.
+topic. When the record is version 1, names `iot-service` as producer, and is
+received on the configured IoT topic, Notification validates that source and
+the published reading payload schema, then ignores the reading. Its successful
+return commits the record without a notification, processed-event marker, or
+outbox write. Threshold and offline events continue to create notification
+intents on that same topic.
+
+A reading with a wrong producer, wrong topic, version, or payload schema is
+rejected with `IllegalArgumentException`; Spring Kafka bypasses retry and sends
+it directly to `agricore.iot.events.DLT`. That DLT is not an expected
+destination for valid source-matched version-1 readings. Device buckets,
+in-flight work, and tracked bucket count are bounded before shared queue
+submission.

@@ -13,8 +13,8 @@ identity-service outbox -> agricore.identity.events (UserRegistered.v1)
 sales-service outbox -> agricore.sales.events -> notification-service
 traceability-service outbox -> agricore.traceability.events -> notification-service
 iot-service outbox -> agricore.iot.events
-  |- SensorThresholdExceeded.v1 / DeviceOfflineDetected.v1 -> notification-service
-  `- SensorReadingReceived.v1 -> notification-service direct DLT (current shared-topic gap)
+  |- SensorReadingReceived.v1 -> notification-service (source-validated no-op; committed)
+  `- SensorThresholdExceeded.v1 / DeviceOfflineDetected.v1 -> notification-service
 notification-service outbox -> agricore.notification.events
 
 consumer failure
@@ -42,12 +42,17 @@ outboxes for identity, farm, crop-cycle, work, inventory, IoT, traceability,
 sales, and notification use polling delivery with retryable publish state.
 
 The IoT producer writes `SensorReadingReceived.v1` for every accepted reading,
-as well as alert/offline events when applicable. Notification's topic-level
-consumer supports only IoT threshold and offline events. It rejects
-`SensorReadingReceived.v1` with `IllegalArgumentException`, which is excluded
-from retry and therefore routes directly to `agricore.iot.events.DLT`. Treat
-that as a known current shared-topic compatibility gap, not a malformed alert;
-monitor it separately until the runtime filters the event or splits the topic.
+as well as alert/offline events when applicable. For a version-1 reading from
+`iot-service` on the configured IoT topic, Notification validates the source
+and published reading payload schema, then ignores and commits the record
+without creating a notification, processed-event marker, or notification outbox
+row. The topic remains shared; this is consumer behavior, not a topology split.
+
+A reading with a wrong producer, wrong topic, version, or payload schema is
+rejected with `IllegalArgumentException`. Notification excludes that exception
+from retries, so the existing recovery policy routes it directly to
+`agricore.iot.events.DLT`. A `SensorReadingReceived.v1` record in that DLT is
+therefore an invalid record to investigate, not expected accepted telemetry.
 
 ## Consumer error handling
 
@@ -185,7 +190,7 @@ scaling to zero does not migrate that state.
 
 ## DLT response procedure
 
-1. Inspect the DLT matching the failed source topic in Kafka UI or with Kafka tooling. For Identity, first confirm the operator has provisioned `agricore.identity.events.DLT`; local broker auto-creation does not establish its required retention policy. For `agricore.iot.events.DLT`, distinguish the current `SensorReadingReceived.v1` shared-topic compatibility gap from malformed alert/offline records.
+1. Inspect the DLT matching the failed source topic in Kafka UI or with Kafka tooling. For Identity, first confirm the operator has provisioned `agricore.identity.events.DLT`; local broker auto-creation does not establish its required retention policy. A valid version-1 `SensorReadingReceived.v1` from `iot-service` on the configured IoT topic is not an expected `agricore.iot.events.DLT` source; check its producer, original topic, event version, and payload schema.
 2. Capture the JSON envelope, original topic/partition/offset headers, and exception headers added by Spring Kafka.
 3. Check `agricore_kafka_dlq_attempts_total` and consumer logs for the affected consumer. Do not infer topic depth from the counter.
 4. Correct the schema, data, or application cause.
