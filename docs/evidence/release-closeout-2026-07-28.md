@@ -12,8 +12,8 @@ At the time of capture, this record proved a verified repository revision and
 immutable package publication. It did not itself establish a SemVer source
 release, hosted production deployment, production TLS/mTLS, Kafka ACLs, backups,
 or operator retention policy. It is now historical evidence; see the
-[v1.0.0 release notes](../releases/v1.0.0.md) for the current source-release
-boundary.
+[v1.0.0 release manifest](../releases/v1.0.0.md) for the current source-release
+criteria.
 
 ## Verified gates
 

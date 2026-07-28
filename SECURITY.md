@@ -2,11 +2,12 @@
 
 ## Supported versions
 
-Security fixes land on `main`; the supported source baseline is the latest
-`1.0.x` source release. [v1.0.0](https://github.com/JasonTM17/AgriCore_SpringBoot_Microservices/releases/tag/v1.0.0)
-is a source tag, not a container tag. After a successful default-branch CI gate,
-the publish workflow may promote matching immutable short- and full-SHA images
-(`nguyenson1710/agricore-*`); it never promotes `latest`.
+Security fixes land on `main`; support begins with the latest published `1.0.x`
+source tag. The [v1.0.0 release manifest](docs/releases/v1.0.0.md) becomes a
+published source release only after its annotated tag passes release-provenance
+validation. It is not a container tag. After a successful default-branch CI
+gate, the publish workflow may promote matching immutable short- and full-SHA
+images (`nguyenson1710/agricore-*`); it never promotes `latest`.
 
 | Version | Supported |
 |---------|-----------|

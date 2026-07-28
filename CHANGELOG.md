@@ -5,16 +5,17 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 intends to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-The [v1.0.0 release record](https://github.com/JasonTM17/AgriCore_SpringBoot_Microservices/releases/tag/v1.0.0)
-identifies the source tag and its exact workflow evidence. It does not create
-SemVer container tags: packages remain immutable short- and full-SHA tags, and
-operators deploy the resolved digest. `latest` is never promoted.
+The [v1.0.0 release manifest](docs/releases/v1.0.0.md) defines the source tag
+and exact workflow evidence required before a GitHub Release is published. It
+does not create SemVer container tags: packages remain immutable short- and
+full-SHA tags, and operators deploy the resolved digest. `latest` is never
+promoted.
 
 ## [Unreleased]
 
 No changes recorded after v1.0.0.
 
-## [1.0.0](https://github.com/JasonTM17/AgriCore_SpringBoot_Microservices/releases/tag/v1.0.0) - 2026-07-28
+## [1.0.0](docs/releases/v1.0.0.md) - 2026-07-28
 
 ### Added
 

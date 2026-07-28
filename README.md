@@ -22,14 +22,15 @@ operational path and a public-safe traceability view.
 
 ## Status
 
-The [v1.0.0 source release](https://github.com/JasonTM17/AgriCore_SpringBoot_Microservices/releases/tag/v1.0.0)
-covers 13 Spring applications, the React console, local Compose stacks, a Helm
-application chart, and automated quality/security gates. Source release identity
-is distinct from package identity: the pipeline promotes only short- and full-SHA
-container tags, never `latest`. Resolve the release record's source target to its
-matching full-SHA image tag, then deploy the registry digest. The release record
-captures the exact target and workflow evidence; package publication is not an
-operator deployment claim.
+The [v1.0.0 release manifest](docs/releases/v1.0.0.md) covers 13 Spring
+applications, the React console, local Compose stacks, a Helm application chart,
+and automated quality/security gates. A source release is published only after
+the release-provenance workflow validates an annotated tag against the exact
+successful default-branch CI and Docker Publish runs. Source release identity is
+distinct from package identity: the pipeline promotes only short- and full-SHA
+container tags, never `latest`. Resolve the published release target to its
+matching full-SHA image tag, then deploy the registry digest. Package publication
+is not an operator deployment claim.
 
 ## Microservices
 

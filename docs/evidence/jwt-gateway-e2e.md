@@ -45,5 +45,5 @@ Script: `scripts/e2e-happy-path.ps1` (gateway/service JWT boundary checks, legal
   [release verification 2026-07-26](./release-verification-2026-07-26.md). It
   predates the final remediation set and does not claim either a current
   clean-revision pass or a continuously deployed production environment. See
-  [v1.0.0 release notes](../releases/v1.0.0.md) for the current source-release
-  boundary.
+  [v1.0.0 release manifest](../releases/v1.0.0.md) for the current
+  source-release criteria.

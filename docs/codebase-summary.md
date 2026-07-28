@@ -114,9 +114,9 @@ Work. They require Docker.
 
 All 14 Dockerfiles pin build/runtime bases by digest and label images with
 `GIT_SHA` as the OCI revision. The pipeline verifies candidate parity, scans,
-signs, and promotes full/short-SHA tags. The [v1.0.0 release notes](releases/v1.0.0.md)
-are the source-release entry point; resolve the source tag to its recorded SHA
-package and deploy its digest. The [2026-07-28 closeout](evidence/release-closeout-2026-07-28.md)
+signs, and promotes full/short-SHA tags. The [v1.0.0 release manifest](releases/v1.0.0.md)
+defines the source-release gate; after publication, resolve the source tag to
+its recorded SHA package and deploy its digest. The [2026-07-28 closeout](evidence/release-closeout-2026-07-28.md)
 for `a7568aec` and the 2026-07-26 evidence bundle / `5867b37` remain historical
 snapshots only.
 

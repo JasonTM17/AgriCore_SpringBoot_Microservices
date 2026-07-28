@@ -14,8 +14,8 @@ and deployed configuration remain authoritative when they differ.
   and runtime checks.
 - [Deployment guide](deployment-guide.md) — operator-owned cluster inputs and
   immutable-image deployment.
-- [v1.0.0 release notes](releases/v1.0.0.md) — source-release scope, package
-  resolution, verification, and operator boundary.
+- [v1.0.0 release manifest](releases/v1.0.0.md) — source-release criteria,
+  package resolution, verification, and operator boundary.
 - [Historical 2026-07-28 closeout](evidence/release-closeout-2026-07-28.md) —
   verified predecessor commit and package evidence.
 

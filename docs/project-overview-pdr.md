@@ -1,9 +1,10 @@
 # AgriCore project overview and product requirements
 
-**Status:** v1.0.0 source release; no hosted production deployment is claimed
+**Status:** v1.0.0 source-release manifest prepared; no hosted production
+deployment is claimed
 
-**Release provenance:** [v1.0.0 release notes](releases/v1.0.0.md) distinguish
-the source tag from immutable SHA packages and operator deployment evidence.
+**Release provenance:** [v1.0.0 release manifest](releases/v1.0.0.md) defines
+the source-tag gate, immutable SHA packages, and operator deployment boundary.
 
 ## Product problem
 

@@ -1,7 +1,7 @@
 # AgriCore Implementation Plan
 
-**Status:** Implementation complete; v1.0.0 source release recorded, with no
-production deployment claim
+**Status:** Implementation complete; v1.0.0 source-release manifest prepared,
+with no production deployment claim
 **Created:** 2026-07-16
 **Last updated:** 2026-07-28
 
@@ -135,9 +135,10 @@ label; this is configuration, not registry-publication evidence.
 
 ## Closeout and operator handoff
 
-The [v1.0.0 release notes](releases/v1.0.0.md) are the canonical source-release
-entry point. They link the annotated source tag to its exact CI/package evidence;
-containers remain full/short SHA tags and deployments remain digest-pinned. The
+The [v1.0.0 release manifest](releases/v1.0.0.md) defines the source-release
+gate. After release-provenance publishes the annotated tag and GitHub Release,
+that record links the exact CI/package evidence; containers remain full/short SHA tags and
+deployments remain digest-pinned. The
 [2026-07-28 closeout](evidence/release-closeout-2026-07-28.md) and earlier
 [2026-07-26 verification](evidence/release-verification-2026-07-26.md) remain
 qualified historical evidence for `a7568aec` and `5867b37`, respectively.
