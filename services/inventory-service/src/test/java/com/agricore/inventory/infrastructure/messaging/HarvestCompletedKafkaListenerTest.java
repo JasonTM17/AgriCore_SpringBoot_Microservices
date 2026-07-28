@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 
@@ -70,6 +71,16 @@ class HarvestCompletedKafkaListenerTest {
         verifyNoInteractions(inventoryService);
     }
 
+    @ParameterizedTest(name = "{index}: {1}")
+    @MethodSource("uncoveredContractViolations")
+    void rejectsUncoveredContractBoundariesAsDirectDltFailures(String raw, String expectedReason) {
+        assertThatThrownBy(() -> listener.onMessage(raw))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(expectedReason);
+
+        verifyNoInteractions(inventoryService);
+    }
+
     @Test
     void wrapsRetryableProjectionFailures() {
         doThrow(new IllegalStateException("database unavailable"))
@@ -96,6 +107,57 @@ class HarvestCompletedKafkaListenerTest {
                 valid.replace("\"producer\":\"harvest-service\"", "\"producer\":\"harvest-service\",\"unknown\":true"),
                 valid.replace("\"productName\":\"Robusta coffee\"", "\"productName\":\"Robusta coffee\",\"unknown\":true"),
                 valid.replace("\"productName\":\"Robusta coffee\"", "\"productName\":\"" + "x".repeat(201) + "\"")
+        );
+    }
+
+    private static Stream<Arguments> uncoveredContractViolations() {
+        UUID eventId = UUID.randomUUID();
+        UUID harvestId = UUID.randomUUID();
+        String valid = validEnvelope(eventId, harvestId, UUID.randomUUID());
+
+        return Stream.of(
+                Arguments.of(
+                        valid.replace("\"productCode\":\"COFFEE-ROBUSTA\",", ""),
+                        "payload.productCode must be a non-blank string"
+                ),
+                Arguments.of(
+                        valid.replace("\"grossWeightKg\":100.0,", ""),
+                        "payload.grossWeightKg must be a number"
+                ),
+                Arguments.of(
+                        valid.replace("\"grossWeightKg\":100.0", "\"grossWeightKg\":0"),
+                        "payload.grossWeightKg must be greater than zero"
+                ),
+                Arguments.of(
+                        valid.replace("\"netWeightKg\":90.5", "\"netWeightKg\":\"90.5\""),
+                        "payload.netWeightKg must be a number"
+                ),
+                Arguments.of(
+                        valid.replace(
+                                "\"harvestBatchId\":\"" + harvestId + "\"",
+                                "\"harvestBatchId\":\"" + UUID.randomUUID() + "\""
+                        ),
+                        "harvestId and harvestBatchId must match"
+                ),
+                Arguments.of(
+                        valid.replace("\"harvestDate\":\"2026-07-22\"", "\"harvestDate\":\"2026-07-22T05:00:00Z\""),
+                        "payload.harvestDate must be an ISO-8601 date"
+                ),
+                Arguments.of(
+                        valid.replace(
+                                "\"productName\":\"Robusta coffee\"",
+                                "\"farmName\":\" \",\"productName\":\"Robusta coffee\""
+                        ),
+                        "payload.farmName must be a non-blank string when present"
+                ),
+                Arguments.of(
+                        valid.replace(
+                                "\"productName\":\"Robusta coffee\"",
+                                "\"careSummary\":\"" + "x".repeat(1001)
+                                        + "\",\"productName\":\"Robusta coffee\""
+                        ),
+                        "payload.careSummary must be at most 1000 characters"
+                )
         );
     }
 

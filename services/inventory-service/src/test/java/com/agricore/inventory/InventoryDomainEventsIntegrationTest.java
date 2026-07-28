@@ -104,6 +104,11 @@ class InventoryDomainEventsIntegrationTest {
         inventoryService.release(releasedReservation.id());
         inventoryService.release(releasedReservation.id());
 
+        InventoryItemResponse afterRepeatedRelease = inventoryService.getItem(item.id());
+        assertThat(afterRepeatedRelease.onHandQuantity()).isEqualByComparingTo("20.000");
+        assertThat(afterRepeatedRelease.reservedQuantity()).isEqualByComparingTo("0.000");
+        assertThat(afterRepeatedRelease.availableQuantity()).isEqualByComparingTo("20.000");
+
         var fulfilledReservation = inventoryService.reserve(new ReserveStockRequest(
                 item.id(), new BigDecimal("6.000"), "SalesOrder", "SO-CONFIRM"
         ));

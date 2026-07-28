@@ -113,7 +113,7 @@ class InventoryIdempotencyTest {
     }
 
     @Test
-    void reserve_insufficientStock_fails() throws Exception {
+    void reserve_exactAvailableQuantitySucceeds_thenOneThousandthMoreFailsWithoutChangingAggregate() throws Exception {
         MvcResult whResult = mockMvc.perform(post("/api/v1/inventory/warehouses")
                         .header("X-Dev-User", "wh")
                         .header("X-Dev-Roles", "WAREHOUSE_MANAGER")
@@ -164,13 +164,44 @@ class InventoryIdempotencyTest {
                         .content("""
                                 {
                                   "inventoryItemId":"%s",
-                                  "quantity":50,
+                                  "quantity":10,
+                                  "referenceType":"SalesOrder",
+                                  "referenceId":"%s"
+                                }
+                                """.formatted(itemId, UUID.randomUUID())))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("ACTIVE"));
+
+        mockMvc.perform(get("/api/v1/inventory/items/" + itemId)
+                        .header("X-Dev-User", "wh")
+                        .header("X-Dev-Roles", "WAREHOUSE_MANAGER"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.onHandQuantity").value(10))
+                .andExpect(jsonPath("$.reservedQuantity").value(10))
+                .andExpect(jsonPath("$.availableQuantity").value(0));
+
+        mockMvc.perform(post("/api/v1/inventory/reservations")
+                        .header("X-Dev-User", "sales")
+                        .header("X-Dev-Roles", "SALES_STAFF")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "inventoryItemId":"%s",
+                                  "quantity":0.001,
                                   "referenceType":"SalesOrder",
                                   "referenceId":"%s"
                                 }
                                 """.formatted(itemId, UUID.randomUUID())))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("INSUFFICIENT_STOCK"));
+
+        mockMvc.perform(get("/api/v1/inventory/items/" + itemId)
+                        .header("X-Dev-User", "wh")
+                        .header("X-Dev-Roles", "WAREHOUSE_MANAGER"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.onHandQuantity").value(10))
+                .andExpect(jsonPath("$.reservedQuantity").value(10))
+                .andExpect(jsonPath("$.availableQuantity").value(0));
     }
 
     @Test
@@ -240,6 +271,12 @@ class InventoryIdempotencyTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("FULFILLED"));
 
+        MvcResult itemAfterFirstConfirm = mockMvc.perform(get("/api/v1/inventory/items/" + itemId)
+                        .header("X-Dev-User", "wh")
+                        .header("X-Dev-Roles", "WAREHOUSE_MANAGER"))
+                .andExpect(status().isOk())
+                .andReturn();
+
         // Second confirm is idempotent
         mockMvc.perform(post("/api/v1/inventory/reservations/" + reservationId + "/confirm")
                         .header("X-Dev-User", "sales")
@@ -247,11 +284,19 @@ class InventoryIdempotencyTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("FULFILLED"));
 
-        mockMvc.perform(get("/api/v1/inventory/items/" + itemId)
+        MvcResult itemAfterSecondConfirm = mockMvc.perform(get("/api/v1/inventory/items/" + itemId)
                         .header("X-Dev-User", "wh")
                         .header("X-Dev-Roles", "WAREHOUSE_MANAGER"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.onHandQuantity").value(60))
-                .andExpect(jsonPath("$.reservedQuantity").value(0));
+                .andExpect(jsonPath("$.reservedQuantity").value(0))
+                .andReturn();
+
+        JsonNode firstConfirmedItem = objectMapper.readTree(itemAfterFirstConfirm.getResponse().getContentAsString());
+        JsonNode secondConfirmedItem = objectMapper.readTree(itemAfterSecondConfirm.getResponse().getContentAsString());
+        assertThat(secondConfirmedItem.get("onHandQuantity").decimalValue())
+                .isEqualByComparingTo(firstConfirmedItem.get("onHandQuantity").decimalValue());
+        assertThat(secondConfirmedItem.get("reservedQuantity").decimalValue())
+                .isEqualByComparingTo(firstConfirmedItem.get("reservedQuantity").decimalValue());
     }
 }
