@@ -61,6 +61,39 @@ full-SHA tags to Docker Hub and GitHub Packages. It never promotes `latest`;
 package existence is established by the successful Docker Publish run for the
 corresponding default-branch commit.
 
+## Demo
+
+One command brings the platform up; one script exercises its critical authenticated and
+event-driven paths against a quiescent stack. The GIF is rendered from captured console output with
+`tools/render-e2e-gif.ps1`; the executable assertions in `scripts/e2e-happy-path.ps1` remain the
+source of truth:
+
+![End-to-end happy path: register, login, farm, crop cycle, work task, harvest, Kafka projection, public QR](docs/images/e2e-happy-path.gif)
+
+What the script verifies, in order: an authenticated JWT issued by Identity; Farm, Plot, Crop Cycle, and
+Work Task operations through the gateway; an **illegal crop-cycle stage transition rejected with
+409**; the legal stage path; a 90 kg net harvest written with its outbox event; Inventory and
+Traceability projections caught up from Kafka; the dynamically generated public traceability code;
+idempotent duplicate handling in Inventory, Traceability, and Notification; and invalid harvest
+events delivered to the DLT.
+
+```bash
+docker compose up -d
+pwsh scripts/e2e-happy-path.ps1     # or: ./scripts/verify-platform.sh
+```
+
+Run the acceptance script without concurrent harvest-producing workloads because its Inventory
+delta assertion observes the shared `COFFEE-ROBUSTA` test SKU.
+
+### The event backbone
+
+Runtime Kafka view showing five event topics and the three idempotent consumer groups:
+
+![Kafka UI showing the five agricore event topics with message counts, and the inventory, notification, and traceability consumer groups all STABLE](docs/images/kafka-event-backbone.png)
+
+Producers write to `outbox_events` in the same transaction as the domain change; a polling publisher
+drains it. Consumers dedupe on `(event_id, consumer_name)` and route poisoned messages to a DLT.
+
 ## Architecture
 
 ```text
