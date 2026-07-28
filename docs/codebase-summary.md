@@ -114,10 +114,11 @@ Work. They require Docker.
 
 All 14 Dockerfiles pin build/runtime bases by digest and label images with
 `GIT_SHA` as the OCI revision. The pipeline verifies candidate parity, scans,
-signs, and promotes full/short-SHA tags. The verified default-branch closeout,
-including package evidence, is recorded in
-[release closeout 2026-07-28](evidence/release-closeout-2026-07-28.md). The
-2026-07-26 evidence bundle and SHA `5867b37` remain historical snapshots only.
+signs, and promotes full/short-SHA tags. The [v1.0.0 release manifest](releases/v1.0.0.md)
+defines the source-release gate; after publication, resolve the source tag to
+its recorded SHA package and deploy its digest. The [2026-07-28 closeout](evidence/release-closeout-2026-07-28.md)
+for `a7568aec` and the 2026-07-26 evidence bundle / `5867b37` remain historical
+snapshots only.
 
 Architecture decisions live in [ADRs](adr/README.md); operational detail lives
 in [runbooks](runbooks/).

@@ -15,7 +15,7 @@ flowchart TB
         ingress["Operator Ingress / TLS"]
         workloads["Application Deployments + Services\nread-only root + bounded /tmp"]
         gatewayAlias["api-gateway Service alias"]
-        policies["NetworkPolicies, configurable external egress,\nHPA, PDB, probes, security contexts"]
+        policies["NetworkPolicies, configurable external egress,\noptional HPA/PDB (disabled by default), probes, security contexts"]
         dbJob["Assistant database provisioning Job"]
         ingress --> workloads
         gatewayAlias --> workloads
@@ -25,7 +25,7 @@ flowchart TB
 
     externalData["Operator-managed PostgreSQL, Redis, Kafka, MQTT, object storage, SMTP"]
     externalObs["Operator-managed OTLP and metrics/log backends"]
-    registry["Docker Hub immutable SHA images"]
+    registry["Docker Hub + GHCR immutable SHA images"]
 
     registry --> workloads
     workloads --> externalData
@@ -34,6 +34,8 @@ flowchart TB
 
 The Helm chart deploys applications, not stateful platform dependencies. Secrets,
 TLS, Kafka authorization, database backups, storage classes, and observability
-retention remain production operator responsibilities. Egress is open by default
-for those external dependencies; restricted deployments must supply explicit
-`additionalEgress` rules.
+retention remain production operator responsibilities. HPA and PDB resources are
+available but disabled by default. Egress is open by default for external
+dependencies; restricted deployments must supply explicit `additionalEgress`
+rules. The ingress policy also allows the matching `ingress-nginx` controller
+namespace/pod labels while denying other non-AgriCore ingress.

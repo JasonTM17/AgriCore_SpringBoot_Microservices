@@ -78,4 +78,5 @@ deterministic retrieval, and operation without an external embedding key.
 
 - [Assistant OpenAPI contract](../../contracts/openapi/assistant-service.v1.yaml)
 - [Assistant database runbook](../runbooks/assistant-database-provisioning.md)
+- [Assistant RAG operations](../runbooks/assistant-rag-operations.md)
 - [API gateway ADR](0014-api-gateway-and-same-origin-edge.md)

@@ -5,14 +5,17 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 intends to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-No SemVer version has been tagged yet, so the entries below remain unreleased.
-The feature-complete default-branch revision is nevertheless published as
-verified immutable short- and full-SHA images; see the
-[release closeout record](docs/evidence/release-closeout-2026-07-28.md).
-`latest` is never promoted and package publication is not a production
-deployment claim.
+The [v1.0.0 release manifest](docs/releases/v1.0.0.md) defines the source tag
+and exact workflow evidence required before a GitHub Release is published. It
+does not create SemVer container tags: packages remain immutable short- and
+full-SHA tags, and operators deploy the resolved digest. `latest` is never
+promoted.
 
 ## [Unreleased]
+
+No changes recorded after v1.0.0.
+
+## [1.0.0](docs/releases/v1.0.0.md) - 2026-07-28
 
 ### Added
 

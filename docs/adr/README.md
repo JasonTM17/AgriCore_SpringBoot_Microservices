@@ -3,23 +3,25 @@
 Accepted decisions are append-only. Supersede an ADR with a new record rather
 than rewriting history.
 
-## Required platform decision map
+## Decision index
 
-| Decision subject | ADR |
-|---|---|
-| Monorepo strategy | [0011](0011-monorepo-strategy.md) |
-| Database per service | [0012](0012-database-per-service.md) |
-| Kafka event communication | [0013](0013-kafka-event-communication.md) |
-| Transactional outbox | [0004](0004-transactional-outbox-polling.md) |
-| Idempotent consumer | [0005](0005-idempotent-consumer.md) |
-| Authentication strategy | [0003](0003-jwt-rs256-jwks.md), [0007](0007-domain-service-jwt-jwks.md) |
-| API gateway | [0014](0014-api-gateway-and-same-origin-edge.md) |
-| Observability stack | [0010](0010-observability-stack.md) |
-| IoT communication with MQTT | [0015](0015-authenticated-mqtt-iot-ingestion.md) |
-| Saga orchestration | [0006](0006-sales-saga-orchestration.md), [0008](0008-authoritative-inventory-reservation-reconciliation.md) |
-
-Other records capture decisions discovered during delivery, including the lack
-of a service registry and the persisted assistant boundary.
+| ADR | Decision | Status | Date |
+|---:|---|---|---|
+| [0001](0001-record-architecture-decisions.md) | Record architecture decisions | Accepted | 2026-07-16 |
+| [0002](0002-no-service-registry.md) | No service registry | Accepted | 2026-07-16 |
+| [0003](0003-jwt-rs256-jwks.md) | RS256 access tokens with JWKS | Accepted | 2026-07-16 |
+| [0004](0004-transactional-outbox-polling.md) | Transactional outbox with polling publishers | Accepted | 2026-07-16 |
+| [0005](0005-idempotent-consumer.md) | Idempotent consumers with processed-event ledgers | Accepted | 2026-07-16 |
+| [0006](0006-sales-saga-orchestration.md) | Sales inventory saga orchestration | Accepted | 2026-07-16 |
+| [0007](0007-domain-service-jwt-jwks.md) | Domain services validate JWT via Identity JWKS | Accepted | 2026-07-16 |
+| [0008](0008-authoritative-inventory-reservation-reconciliation.md) | Authoritative Inventory reservation reconciliation | Accepted | 2026-07-20 |
+| [0009](0009-persisted-assistant-boundary.md) | Persisted assistant and same-origin web boundary | Accepted | 2026-07-22 |
+| [0010](0010-observability-stack.md) | OpenTelemetry observability stack | Accepted | 2026-07-22 |
+| [0011](0011-monorepo-strategy.md) | Maven and pnpm monorepo | Accepted | 2026-07-23 |
+| [0012](0012-database-per-service.md) | Database per service | Accepted | 2026-07-23 |
+| [0013](0013-kafka-event-communication.md) | Kafka for domain event communication | Accepted | 2026-07-23 |
+| [0014](0014-api-gateway-and-same-origin-edge.md) | API gateway and same-origin browser edge | Accepted | 2026-07-23 |
+| [0015](0015-authenticated-mqtt-iot-ingestion.md) | Authenticated MQTT for IoT ingestion | Accepted | 2026-07-23 |
 
 ## Lifecycle
 

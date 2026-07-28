@@ -2,15 +2,17 @@
 
 ## Supported versions
 
-AgriCore has no tagged release yet. Security fixes land on `main`. After a
-successful default-branch CI gate, the publish workflow may promote matching
-immutable short- and full-SHA images (`nguyenson1710/agricore-*`). It never
-promotes `latest`.
+Security fixes land on `main`; support begins with the latest published `1.0.x`
+source tag. The [v1.0.0 release manifest](docs/releases/v1.0.0.md) becomes a
+published source release only after its annotated tag passes release-provenance
+validation. It is not a container tag. After a successful default-branch CI
+gate, the publish workflow may promote matching immutable short- and full-SHA
+images (`nguyenson1710/agricore-*`); it never promotes `latest`.
 
 | Version | Supported |
 |---------|-----------|
-| Current verified `main` commit SHA image | Yes |
-| Older image SHA | No — pull the image matching a current verified commit |
+| Latest `1.0.x` source release | Yes — resolve its release evidence to a full-SHA image tag, then deploy its digest |
+| Superseded source release or older image SHA | No — move to the current supported source release and matching verified package |
 
 ## Reporting a vulnerability
 

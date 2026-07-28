@@ -37,11 +37,13 @@ Script: `scripts/e2e-happy-path.ps1` (gateway/service JWT boundary checks, legal
 
 - Domain services validate RS256 JWT via identity JWKS (`libs/common-security`).
 - Sales→inventory client uses the internal service token for recovery-safe calls and forwards a caller Bearer JWT when present.
-- Current `HarvestCompleted.v1` requires authoritative `farmId` alongside
-  `warehouseId`; public projection fields include `farmName`, `plotCode`,
-  `productName`, and `careSummary` when supplied.
+- Captured `HarvestCompleted.v1` behavior at the 2026-07-26 evidence refresh:
+  authoritative `farmId` accompanies `warehouseId`; public projection fields
+  include `farmName`, `plotCode`, `productName`, and `careSummary` when supplied.
 - The script includes invalid-token checks at both the gateway and direct farm-service boundary.
 - The historical local bundle is summarized in
   [release verification 2026-07-26](./release-verification-2026-07-26.md). It
   predates the final remediation set and does not claim either a current
-  clean-revision pass or a continuously deployed production environment.
+  clean-revision pass or a continuously deployed production environment. See
+  [v1.0.0 release manifest](../releases/v1.0.0.md) for the current
+  source-release criteria.

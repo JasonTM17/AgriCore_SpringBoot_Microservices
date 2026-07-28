@@ -108,9 +108,17 @@ Task completion reuses the authoritative `farmId` returned when farm-service res
 
 Missing items, warehouses without a farm assignment, and cross-farm item IDs all return the same `404 ITEM_NOT_FOUND` response. The check runs before idempotency lookup or quantity mutation, so an unauthorized caller cannot learn whether a referenced item exists and cannot change its stock.
 
-### Public inventory scope boundary
+### Authenticated Inventory scope and acknowledgement boundary
 
-Public inventory reads and mutations resolve the stored warehouse, item, or reservation before calling farm-service. The guard runs before idempotency lookup or side effects. Harvest acknowledgement reads require a caller-supplied `warehouseId`; the warehouse farm is authorized before the processed-event marker is inspected, so pending and acknowledged states share the same boundary. A marker from another farm or warehouse is reported as the same `NOT_ACKNOWLEDGED` state, while legacy markers or warehouses without stored scope fail closed with an explicit `503` until an operator maps the scope.
+Inventory has no anonymous public API. Authenticated Inventory reads and
+mutations resolve the stored warehouse, item, or reservation before calling
+farm-service. The guard runs before idempotency lookup or side effects. Harvest
+acknowledgement reads require a caller-supplied `warehouseId`; the warehouse farm
+is authorized before the processed-event marker is inspected, so pending and
+acknowledged states share the same boundary. A marker from another farm or
+warehouse is reported as the same `NOT_ACKNOWLEDGED` state, while legacy markers
+or warehouses without stored scope fail closed with an explicit `503` until an
+operator maps the scope.
 
 ### Sales-to-Inventory reservation boundary
 
@@ -151,6 +159,8 @@ This is caller-token authorization over configured HTTP(S). The repository does 
 
 - `/public/api/v1/traceability/{code}` is open and returns the documented public traceability projection.
 - Identity `/api/v1/auth/**` and `/.well-known/jwks.json` are open for bootstrap.
+- Inventory routes remain authenticated; an internal Inventory route separately
+  requires its service credential and is not a public business endpoint.
 
 ## References
 

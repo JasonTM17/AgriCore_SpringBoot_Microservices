@@ -1,0 +1,153 @@
+name: release-provenance
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out annotated source tag
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }}
+
+      - name: Verify tag, CI, and package provenance
+        id: evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          tag="$GITHUB_REF_NAME"
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Release tags must use vMAJOR.MINOR.PATCH: $tag" >&2
+            exit 1
+          fi
+          release_version="${tag#v}"
+          export RELEASE_VERSION="$release_version"
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          import sys
+          import xml.etree.ElementTree as xml
+          from pathlib import Path
+
+          expected = os.environ["RELEASE_VERSION"]
+          namespace = {"m": "http://maven.apache.org/POM/4.0.0"}
+          root_pom = Path("pom.xml").resolve()
+          errors = []
+
+          for pom in sorted(Path(".").rglob("pom.xml")):
+              document = xml.parse(pom).getroot()
+              if pom.resolve() == root_pom:
+                  version = document.findtext("m:version", namespaces=namespace)
+              else:
+                  version = document.findtext("m:parent/m:version", namespaces=namespace)
+              if version != expected:
+                  errors.append(f"{pom}: expected Maven version {expected}, found {version}")
+
+          for package in (Path("package.json"), Path("apps/agricore-console/package.json")):
+              version = json.loads(package.read_text(encoding="utf-8"))["version"]
+              if version != expected:
+                  errors.append(f"{package}: expected package version {expected}, found {version}")
+
+          chart = Path("infrastructure/helm/agricore/Chart.yaml").read_text(encoding="utf-8")
+          for key in ("version", "appVersion"):
+              match = re.search(rf"(?m)^{key}:\s*[\"']?([^\"'\s]+)", chart)
+              value = match.group(1) if match else None
+              if value != expected:
+                  errors.append(f"Chart.yaml {key}: expected {expected}, found {value}")
+
+          if errors:
+              print("\\n".join(errors), file=sys.stderr)
+              raise SystemExit(1)
+          PY
+          if [[ "$(git cat-file -t "$tag")" != "tag" ]]; then
+            echo "Release tags must be annotated: $tag" >&2
+            exit 1
+          fi
+
+          target_sha="$(git rev-list -n 1 "$tag")"
+          default_branch="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.default_branch')"
+          default_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/$default_branch" --jq '.sha')"
+          if [[ "$target_sha" != "$default_sha" ]]; then
+            echo "Refusing $tag at $target_sha; $default_branch is $default_sha" >&2
+            exit 1
+          fi
+
+          ci_run="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?branch=$default_branch&event=push&status=completed&head_sha=$target_sha&per_page=100" |
+              jq -c --arg sha "$target_sha" '[.workflow_runs[] | select(.head_sha == $sha and .conclusion == "success")] | sort_by(.updated_at) | last'
+          )"
+          if [[ "$ci_run" == "null" ]]; then
+            echo "No successful ci push run found for $target_sha" >&2
+            exit 1
+          fi
+
+          publish_run="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/workflows/docker-publish.yml/runs?branch=$default_branch&event=workflow_run&status=completed&head_sha=$target_sha&per_page=100" |
+              jq -c --arg sha "$target_sha" '[.workflow_runs[] | select(.head_sha == $sha and .conclusion == "success")] | sort_by(.updated_at) | last'
+          )"
+          if [[ "$publish_run" == "null" ]]; then
+            echo "No successful docker-publish run found for $target_sha" >&2
+            exit 1
+          fi
+
+          echo "target_sha=$target_sha" >> "$GITHUB_OUTPUT"
+          echo "ci_id=$(jq -r '.id' <<<"$ci_run")" >> "$GITHUB_OUTPUT"
+          echo "ci_url=$(jq -r '.html_url' <<<"$ci_run")" >> "$GITHUB_OUTPUT"
+          echo "publish_id=$(jq -r '.id' <<<"$publish_run")" >> "$GITHUB_OUTPUT"
+          echo "publish_url=$(jq -r '.html_url' <<<"$publish_run")" >> "$GITHUB_OUTPUT"
+
+      - name: Create verified GitHub Release
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+          TARGET_SHA: ${{ steps.evidence.outputs.target_sha }}
+          CI_ID: ${{ steps.evidence.outputs.ci_id }}
+          CI_URL: ${{ steps.evidence.outputs.ci_url }}
+          PUBLISH_ID: ${{ steps.evidence.outputs.publish_id }}
+          PUBLISH_URL: ${{ steps.evidence.outputs.publish_url }}
+        run: |
+          set -euo pipefail
+          default_branch="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.default_branch')"
+          current_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/$default_branch" --jq '.sha')"
+          if [[ "$current_sha" != "$TARGET_SHA" ]]; then
+            echo "Refusing release: $default_branch advanced to $current_sha" >&2
+            exit 1
+          fi
+          gh release view "$TAG" >/dev/null 2>&1 && {
+            echo "GitHub Release already exists for $TAG" >&2
+            exit 1
+          }
+
+          notes="$(mktemp)"
+          cat > "$notes" <<EOF
+          ## AgriCore $TAG
+
+          Initial stable source release for the AgriCore agricultural operations platform.
+
+          ### Verified provenance
+
+          - Source target: \`$TARGET_SHA\`
+          - [Default-branch CI run $CI_ID]($CI_URL)
+          - [Docker Publish run $PUBLISH_ID]($PUBLISH_URL)
+          - The Docker Publish workflow verified scans, dual-registry digest parity, and Cosign signatures for all 14 immutable application images.
+
+          ### Deployment boundary
+
+          This is a source release, not a SemVer image tag or a production deployment claim. Resolve immutable full-SHA image tags to registry digests and supply environment-owned infrastructure, secrets, TLS, backups, Kafka authorization, and observability.
+          EOF
+
+          gh release create "$TAG" --verify-tag --title "AgriCore $TAG" --notes-file "$notes" --latest

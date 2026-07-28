@@ -6,6 +6,14 @@ art or generated product mockups. The console runs against
 edge used by the Playwright critical-journey suite. `manifest.json` records the
 capture revision and the exact Git tree of `apps/agricore-console`; the media
 gate rejects a repository revision whose Console tree no longer matches.
+The sole controlled exception is a release-only edit that changes the
+top-level `version` field in `apps/agricore-console/package.json`. The gate
+verifies that it is the only changed Console path and that every other package
+field is identical. It also binds the pnpm lockfile, workspace catalog, media
+manifest, and every public image blob rendered by the Console. Thus a UI,
+dependency, public image, script, or other metadata change still requires a
+fresh capture; the non-rendering media README is intentionally outside this
+runtime input list.
 
 ## Files
 
