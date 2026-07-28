@@ -21,6 +21,9 @@ backends.
 - Private MinIO/S3-compatible object storage and bucket policy.
 - SMTP credentials and sender/domain configuration.
 - RSA signing key Secret, provider key Secret when enabled, and database Secret.
+- Inventory internal credential Secret used by Inventory, Work, Harvest, and
+  Sales (`inventory.internalCredentialSecretName` / token key); create it from
+  a secret manager before installing the chart.
 - Assistant archived-conversation, audit, replay-event, and cleanup retention
   policy approved for the deployment's legal and recovery requirements.
 - Ingress/TLS/DNS policy; a `GATEWAY_TRUSTED_PROXY_ADDRESS_PATTERN` matching
@@ -83,7 +86,8 @@ values.
 1. Provision external dependencies and databases.
 2. Create namespace-scoped Secrets outside Git.
 3. Copy `values.yaml` to an environment-owned file and set every service image
-   to `repository@sha256:<digest>`, then configure endpoints, resources,
+   to `repository@sha256:<digest>`. Locate a package by its verified SHA tag,
+   but deploy the resolved digest. Then configure endpoints, resources,
    ingress/TLS, client-IP Secret/pattern, and observability.
    The chart makes every application root filesystem read-only and supplies a
    bounded writable `/tmp` `emptyDir`. Keep the `api-gateway` Service alias
@@ -101,7 +105,8 @@ values.
      -f values-production.yaml > rendered.yaml
    ```
 
-6. Create each enabled non-gateway service's `databaseSecretName` and the
+6. Create each enabled non-gateway service's `databaseSecretName`, the
+   `inventory.internalCredentialSecretName` token Secret, and the
    Gateway/Identity/Assistant client-IP signing Secret outside Git. If an
    Assistant provider is configured, create its Secret under the name selected
    by `assistant.providerSecretName`, with the credential key selected by
@@ -124,7 +129,19 @@ values.
    ```
 
 8. Verify rollout, migrations, health, metrics, gateway JWT, public traceability,
-   Kafka lag/DLT, and object-storage access.
+   Kafka lag/DLT, and object-storage access:
+
+   ```bash
+   kubectl -n agricore rollout status deployment \
+     -l app.kubernetes.io/part-of=agricore --timeout=10m
+   kubectl -n agricore get pods,svc,ingress
+   helm -n agricore history agricore
+   ```
+
+   If an application rollback is appropriate for the schema compatibility
+   window, first review migration/event effects, then use `helm -n agricore
+   rollback agricore <revision> --wait --timeout 15m`. Flyway migrations and
+   published events are not rolled back automatically.
 
 ### Assistant RAG rollout safety
 
@@ -246,8 +263,9 @@ parity, signs it in both registries, promotes only short-SHA and full-SHA tags,
 and re-verifies each promoted reference. All 14 Dockerfiles pin their build and
 runtime bases by digest and accept `GIT_SHA` for the OCI revision label. It does
 not publish `latest`. This is a configured supply-chain path, not proof that an
-image has been published; production should deploy a verified full SHA tag or
-digest.
+image has been published; production should locate a verified full SHA tag and
+deploy its resolved digest. The Helm chart rejects tag-based production image
+references by default.
 
 ```bash
 docker buildx imagetools inspect IMAGE@sha256:DIGEST

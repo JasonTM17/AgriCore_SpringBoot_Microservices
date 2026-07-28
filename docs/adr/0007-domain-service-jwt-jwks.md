@@ -18,7 +18,10 @@ Introduce `libs/common-security` auto-configuration for servlet domain services:
 - Map string entries in JWT `roles` to `ROLE_*` and `permissions` to `PERMISSION_*`; ignore malformed or blank entries and deduplicate authorities.
 - Dev/test only: `X-Dev-User` / `X-Dev-Roles` when `agricore.security.dev-mode=true`.
 - Never accept unsigned JWT base64 payloads.
-- Public paths remain limited to `/actuator/health/**`, `/actuator/prometheus`, `/public/**`.
+- The shared filter chain permits `/actuator/health/**`, `/actuator/info`,
+  `/actuator/prometheus`, and `/public/**`. It also permits Inventory's internal
+  route at the filter-chain level; that route performs its separate internal
+  credential check and is not a public business API.
 
 Identity and API Gateway keep service-specific security configurations but apply the same role-and-permission mapping. Identity computes the sorted distinct permission union from the user's roles when issuing an access token.
 
@@ -56,5 +59,5 @@ snapshots without requiring a synchronous authorization call on every request.
 
 ## References
 
-- ADR-0003 JWT RS256 JWKS at identity
-- `libs/common-security`
+- [ADR-0003 JWT RS256 JWKS at identity](0003-jwt-rs256-jwks.md)
+- [`libs/common-security`](../../libs/common-security/)

@@ -44,3 +44,9 @@ network ambiguity without holding the HTTP request open.
   separate databases and availability boundaries.
 - **Unbounded synchronous retries:** rejected because downstream failure would
   consume request threads and still leave ambiguous outcomes on timeout.
+
+## References
+
+- [Inventory reservation saga diagram](../diagrams/inventory-reservation-saga.md)
+- [System architecture](../architecture/SYSTEM_ARCHITECTURE.md)
+- [Sales service guide](../../services/sales-service/README.md)

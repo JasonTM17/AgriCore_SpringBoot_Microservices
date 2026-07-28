@@ -14,27 +14,24 @@ operational path and a public-safe traceability view.
 ## Features
 
 - Farm-scoped identity, roles, permissions, plots, crop cycles, and field work.
-- Private image evidence, expiry-aware inventory, harvest projection, and QR
-  traceability.
-- Authenticated MQTT/HTTP telemetry, deduplication, alerts, and offline
-  detection.
+- Private image evidence, expiry-aware inventory, harvest projection, and QR traceability.
+- Authenticated MQTT/HTTP telemetry, deduplication, alerts, and offline detection.
 - Durable sales reservation saga, truthful notifications, and compensation.
-- Persisted read-only assistant with replayable SSE, bounded farm tools,
-  curated cited RAG, budgets, retention, and provider-unavailable behavior.
-- Accessible React console, deterministic cross-service demo data, generated
-  media/GIF, observability, Compose, Helm, and supply-chain gates.
+- Persisted read-only assistant with replayable SSE, bounded farm tools, cited RAG, budgets, and retention.
+- Accessible React console, deterministic demo data/media, observability, Compose, Helm, and supply-chain gates.
 
 ## Status
 
-Release-hardened: the repository contains 13 Spring applications, the React
-console, local Compose stacks, a Helm application chart, automated quality and
-security gates, and SHA-only Docker Hub/GitHub Packages promotion. The merged
-product baseline passed the full Maven reactor with 999 tests, no failures or
-errors, and one optional MQTT integration skip. A revision is release-accepted
-only when the default-branch CI and Docker Publish workflows succeed for that
-exact commit, including image scanning, cross-registry digest equality, and
-Cosign verification. Production deployment remains an explicit operator action
-and is not implied by package publication.
+Feature-complete and release-verified on
+[`a7568aec`](docs/evidence/release-closeout-2026-07-28.md): the repository
+contains 13 Spring applications, the React console, local Compose stacks, a
+Helm application chart, automated quality/security gates, and SHA-only Docker
+Hub/GitHub Packages promotion. A revision is release-accepted only when the
+default-branch CI and Docker Publish workflows succeed for that exact commit,
+including image scanning, cross-registry digest equality, and Cosign
+verification. This repository has no SemVer release tag and does not claim a
+production deployment; package publication is an immutable build artifact, not
+an operator deployment.
 
 ## Microservices
 
@@ -63,10 +60,11 @@ corresponding default-branch commit.
 
 ## Demo
 
-One command brings the platform up; one script exercises its critical authenticated and
-event-driven paths against a quiescent stack. The GIF is rendered from captured console output with
-`tools/render-e2e-gif.ps1`; the executable assertions in `scripts/e2e-happy-path.ps1` remain the
-source of truth:
+After completing [Quick start](#quick-start), the following commands bring the
+platform up and exercise its critical authenticated/event-driven paths against
+a quiescent stack. The GIF is rendered from captured console output with
+`tools/render-e2e-gif.ps1`; executable assertions in
+`scripts/e2e-happy-path.ps1` remain the source of truth:
 
 ![End-to-end happy path: register, login, farm, crop cycle, work task, harvest, Kafka projection, public QR](docs/images/e2e-happy-path.gif)
 
@@ -126,7 +124,7 @@ Sales ── bounded reserve/confirm ── durable recovery
 - PostgreSQL excludes overlapping `DRAFT`/`ACTIVE` crop-cycle date ranges for
   one plot, closing the concurrent-insert race left by application checks alone.
 
-See [System Architecture](docs/architecture/SYSTEM_ARCHITECTURE.md), [ADRs](docs/adr/), and [local operations](docs/runbooks/local-operations.md).
+See the [documentation index](docs/README.md), [System Architecture](docs/architecture/SYSTEM_ARCHITECTURE.md), [ADRs](docs/adr/), and [local operations](docs/runbooks/local-operations.md).
 
 ### Service references
 
@@ -134,7 +132,7 @@ Each Spring application has module-local setup and runbook notes. Versioned
 contracts and the platform docs remain authoritative for cross-service
 behavior.
 
-| | | |
+| Platform and identity | Farm operations | Supply chain and support |
 |---|---|---|
 | [API gateway](services/api-gateway/README.md) | [Identity](services/identity-service/README.md) | [Farm](services/farm-service/README.md) |
 | [Crop catalog](services/crop-catalog-service/README.md) | [Crop cycle](services/crop-cycle-service/README.md) | [Work](services/work-service/README.md) |
@@ -144,24 +142,17 @@ behavior.
 
 ## Technology stack
 
-- Java 21, Spring Boot 3.5.16, Spring Cloud 2025.0.2, Maven, JUnit,
-  Testcontainers, Mockito, AssertJ, and ArchUnit.
-- PostgreSQL 16/TimescaleDB, Flyway, Redis 7, Kafka, MQTT, and
-  MinIO-compatible object storage.
-- React 19, TypeScript 5.9, Vite 8, pnpm 11, Vitest, Testing Library, and
-  Playwright.
-- Docker Compose, Helm, GitHub Actions, Trivy, Gitleaks, CodeQL, Cosign,
-  Prometheus, Tempo, Loki, Alloy, and Grafana.
+Java 21/Spring Boot, PostgreSQL/TimescaleDB, Redis, Kafka, MQTT, MinIO,
+React/TypeScript/Vite, Docker Compose, Helm, GitHub Actions, and the
+Prometheus/Tempo/Loki/Grafana observability stack. See the
+[codebase summary](docs/codebase-summary.md) for versions and boundaries.
 
 ## Event documentation
 
-Async event channels and messages are defined in
-[`contracts/asyncapi`](contracts/asyncapi/), with JSON Schema payloads under
-[`contracts/event-schemas`](contracts/event-schemas/) and compatibility checks
-in the Maven reactor. The
-[service dependency diagram](docs/diagrams/service-dependencies.md) and
-[Kafka retry/DLT runbook](docs/runbooks/kafka-dlq.md) describe the implemented
-topology and repair boundary.
+Async channels live in [`contracts/asyncapi`](contracts/asyncapi/) and immutable
+payload schemas in [`contracts/event-schemas`](contracts/event-schemas/). See
+the [dependency diagram](docs/diagrams/service-dependencies.md) and
+[Kafka retry/DLT runbook](docs/runbooks/kafka-dlq.md) for topology and repair.
 
 ## Product walkthrough
 
@@ -186,12 +177,8 @@ dashboard content only; they are not presented as application screenshots.
 
 ## System requirements
 
-- JDK 21+
-- Maven 3.9+ or the included Maven wrapper
-- Node.js 22.13.0+
-- pnpm 11+
-- Docker with Docker Compose
-- OpenSSL for local JWT key generation
+JDK 21+, Maven 3.9+ (or the wrapper), Node.js 22.13+, pnpm 11+, Docker Compose,
+and OpenSSL for local JWT key generation.
 
 ## Environment variables
 
@@ -270,17 +257,8 @@ For an existing PostgreSQL volume, follow the [assistant database provisioning r
 
 ## Testing
 
-Backend:
-
 ```bash
 ./mvnw -B verify
-```
-
-The durable-outbox PostgreSQL migration tests use Testcontainers, so Docker must be available for a complete Maven verification.
-
-Frontend:
-
-```bash
 pnpm install --frozen-lockfile
 pnpm contracts:check
 pnpm lint
@@ -289,151 +267,33 @@ pnpm test
 pnpm build
 ```
 
-The CI browser gate additionally installs Playwright Chromium and runs `pnpm e2e`.
-
-Full platform verification builds and starts the application stack, runs Maven tests, and executes gateway/service auth negative checks plus the authenticated Kafka resilience path (duplicate projections, notification dedupe, and DLT):
-
-```powershell
-.\scripts\verify-platform.ps1 -EvidenceDir C:\path\to\evidence
-```
-
-```bash
-export EVIDENCE_DIR=./.verify-evidence
-./scripts/verify-platform.sh
-```
-
-For an already-running stack:
-
-```powershell
-.\scripts\e2e-happy-path.ps1 -EvidenceDir C:\path\to\evidence
-```
-
-For a bounded public traceability read profile, install
-[k6](https://grafana.com/docs/k6/latest/set-up/install-k6/) and use a real
-persisted projection code:
-
-```powershell
-$env:TRACEABILITY_CODE = "<persisted-code>"
-k6 run .\scripts\load\public-traceability-read-smoke.js
-Remove-Item Env:TRACEABILITY_CODE
-```
+Docker is required for the Testcontainers migration tests. CI also runs
+Playwright (`pnpm e2e`). For full stack, E2E, and k6 instructions, see the
+[local operations runbook](docs/runbooks/local-operations.md).
 
 ## Observability
 
-```text
-13 Spring applications ── /actuator/prometheus ── Prometheus ── Grafana
-        │
-        └─ Micrometer tracing bridge ── OTLP/HTTP ── Tempo ─────┘
-
-Application logs ── ECS JSON ── container stdout ── Alloy ── Loki ── Grafana
-```
-
-Local Compose exports traces to `http://tempo:4318/v1/traces` with sampling probability `1.0`. Prometheus scrapes the internal gateway and assistant over the Compose network and the 11 development-published services over the host bridge. Grafana provisions Prometheus, Tempo, and Loki datasources plus seven read-only dashboards. Custom meters cover transactional outbox backlog, Kafka dead-letter recovery attempts, harvest processing latency, inventory outcomes, IoT ingestion and alerts, sales sagas, notification delivery, assistant generations, and assistant retention cleanup.
-
-Alloy discovers only this project's Docker containers, enriches their structured stdout, and forwards it to persistent local Loki storage. Loki keeps 72 hours of local logs, while Docker files are independently bounded to three 10 MiB files per container by default. MinIO provides persistent, loopback-bound local object storage; application media integration is documented separately as it is delivered. See [local operations](docs/runbooks/local-operations.md) for verification commands and the exact metric catalog.
+All 13 Spring applications expose Prometheus metrics and trace through
+OTLP/HTTP to Tempo; local logs flow through Alloy to Loki and Grafana. See
+[local operations](docs/runbooks/local-operations.md) for endpoints, retention,
+dashboards, and verification commands.
 
 ## API documentation
 
-Versioned OpenAPI contracts for the gateway and services live in
-[`contracts/openapi`](contracts/openapi/). The console clients are generated
-from those files and `pnpm contracts:check` fails on drift. Protected browser
-requests use the same-origin `/api` path; the public traceability contract uses
-`/public/api`.
+Versioned [OpenAPI contracts](contracts/openapi/) drive the generated console
+client; protected browser requests use `/api` and public traceability uses
+`/public/api`. See the [Identity contract](contracts/openapi/identity-service.v1.yaml)
+and [authorization model](docs/security/microservices-authz.md).
 
-### Authentication example
+## Deployment, security, and contribution
 
-```bash
-curl -s -X POST http://localhost:3000/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"manager@agricore.local","password":"Secret123!","fullName":"Farm Manager"}'
+- [Deployment guide](docs/deployment-guide.md) — digest-pinned Helm releases,
+  operator prerequisites, rollback boundaries, and package verification.
+- [Security policy](SECURITY.md) and [security review](docs/security/SECURITY_REVIEW.md)
+  — reporting, supported immutable artifacts, and threat boundaries.
+- [Project roadmap](docs/project-roadmap.md) — verified scope and post-1.0 work.
+- [CONTRIBUTING.md](CONTRIBUTING.md) — branch, test, contract, and PR rules.
 
-curl -s -X POST http://localhost:3000/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"manager@agricore.local","password":"Secret123!"}'
-```
-
-JWKS: `GET http://localhost:3000/.well-known/jwks.json`
-
-Default roles: `SYSTEM_ADMIN`, `FARM_MANAGER`, `AGRONOMIST`, `FIELD_WORKER`, `WAREHOUSE_MANAGER`, `SALES_STAFF`, and `AUDITOR`. New users receive `FIELD_WORKER`; administrators manage roles through `PATCH /api/v1/admin/users/{id}/roles`.
-
-### Permission administration
-
-Identity owns the permission catalog and role grants. The Identity OpenAPI 1.3.0 contract documents these `SYSTEM_ADMIN`-only routes:
-
-| Route | Behavior |
-|---|---|
-| `GET /api/v1/admin/permissions` | List the permission catalog. |
-| `POST /api/v1/admin/permissions` | Create a uniquely coded permission. |
-| `GET /api/v1/admin/roles/{roleCode}/permissions` | Read a role's grants. |
-| `PUT /api/v1/admin/roles/{roleCode}/permissions` | Atomically replace a role's grants; unknown codes leave existing grants unchanged. |
-
-New access tokens include `permissions`, the sorted distinct union granted through the user's roles. Tokens are snapshots: a grant change appears only in a newly issued access token, such as after login or refresh; the old token keeps its previous claims until it expires (900 seconds by default). Identity, the gateway, and servlet domain services map valid claim entries to `ROLE_*` and `PERMISSION_*` authorities, and domain controllers enforce the canonical permission guards. The console uses the same effective permission snapshot to hide unauthorized navigation. See the [authorization model](docs/security/microservices-authz.md) and [Identity contract](contracts/openapi/identity-service.v1.yaml).
-
-## Kubernetes deployment
-
-The chart at `infrastructure/helm/agricore` renders Deployments and Services for all 13 Spring applications and the console, plus an optional same-origin Ingress. Spring containers run with read-only root filesystems and bounded writable `/tmp` volumes; an `api-gateway` Service alias keeps the immutable Console image portable between Compose and Kubernetes. It also includes an idempotent pre-install/pre-upgrade Job for the assistant database.
-
-The chart does not install PostgreSQL, Redis, Kafka, MinIO, Tempo, Prometheus, Loki, Alloy, or Grafana. Operators must provide those dependencies, a separate `databaseSecretName` for each enabled non-gateway service, and the separate `postgres.provisioning` Secret only for bounded hook Jobs. Release values require each image as `repository@sha256:<digest>`; CI temporarily permits full-SHA tags only while linting/rendering the chart. NetworkPolicy denies unauthorized ingress by default; egress remains open unless `networkPolicy.restrictEgress=true`, in which case operators must supply external dependency rules through `networkPolicy.additionalEgress`. Configure the notification chart's external SMTP host, TLS, and username/password Secret before enabling delivery; SMTP defaults are intentionally placeholders. OTLP trace export is disabled until `observability.otlpTracingEndpoint` is set; the chart's sampling default is `0.1`.
-
-## CI, security, and publishing
-
-GitHub Actions define these release gates:
-
-- `ci.yml`: Maven `verify`; generated contract drift check; frontend lint, typecheck, unit tests, production build, and Playwright journeys; Gitleaks; filesystem Trivy; Java CodeQL; Compose runtime-contract validation; Helm lint/render; and build-plus-Trivy scans for all 14 application images.
-- `codeql.yml` and `trivy.yml`: scheduled and manual defense-in-depth scans in addition to the aggregate pull-request/default-branch gates.
-- `docker-publish.yml`: is configured to build one candidate per image, scan and sign its exact digest, then promote matching full-SHA and short-SHA tags only for an eligible successful default-branch CI revision. It never promotes `latest`; configuration is not publication evidence.
-
-Docker Hub credentials must be repository secrets named `DOCKERHUB_USERNAME`
-and `DOCKERHUB_TOKEN`; GHCR uses the workflow token with package write
-permission. Never put registry credentials in `.env`, Compose, or Helm values.
-
-## Project layout
-
-```text
-apps/agricore-console/      React/Vite console and Nginx edge
-services/                   Spring Boot applications
-libs/                       Shared API, security, and farm-access libraries
-contracts/                  OpenAPI and AsyncAPI contracts
-infrastructure/docker/      Database initialization and local assets
-infrastructure/helm/        Application Helm chart
-infrastructure/monitoring/  Tempo, Prometheus, Loki, Alloy, and Grafana configuration
-docs/                       Architecture, ADRs, evidence, and runbooks
-scripts/                    Local setup, verification, and seed tools
-```
-
-## Security
-
-- Passwords use BCrypt; production cost is 12.
-- Access tokens are short-lived RS256 JWTs.
-- Refresh tokens are opaque, hashed, rotated, and family-revoked on reuse.
-- Login rate limiting uses Redis and fails closed in the local stack.
-- Never commit `.env`, private keys, tokens, provider credentials, or production secrets.
-
-## Project roadmap
-
-See the [evidence-based roadmap](docs/project-roadmap.md) for release status and
-post-1.0 decisions. A capability is complete only when implementation,
-contracts, migrations, tests, operations, and documentation agree.
-
-## Contributing
-
-Follow [CONTRIBUTING.md](CONTRIBUTING.md) for branch, commit, test, contract,
-security, and pull-request expectations. Keep commits focused and never include
-AI references or secrets in commit messages or source.
-
-## Known limitations
-
-- The repository does not provision or claim a hosted production cluster.
-  Production PostgreSQL, Kafka, Redis, MQTT, object storage, SMTP,
-  observability, TLS, backups, and access policy are operator responsibilities.
-- Assistant tools are read-only; autonomous writes, arbitrary URLs, and
-  user-controlled or runtime RAG ingestion are intentionally out of scope.
-- Raw/aggregate telemetry deletion, certification authority, tax/invoice,
-  payment, and multi-region disaster-recovery policy require product or
-  operations decisions.
-- Compose publishes domain service ports for development, but browser traffic
-  is supported only through the same-origin console edge.
-
-## License
-
-[MIT](LICENSE)
+The repository does not provision a hosted production cluster. Operators own
+production infrastructure, secrets, TLS, backups, access policy, and retention;
+assistant tools remain read-only. Released under the [MIT License](LICENSE).

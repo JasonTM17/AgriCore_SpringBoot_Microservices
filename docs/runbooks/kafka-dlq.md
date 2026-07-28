@@ -21,7 +21,7 @@ consumer failure
   -> Kafka retry topic <original-topic>-retry-4000
   -> <original-topic>.DLT on recovery
 
-implemented DLTs
+application DLT destinations
   |- agricore.harvest.events.DLT
   |- agricore.identity.events.DLT
   |- agricore.sales.events.DLT
@@ -29,7 +29,15 @@ implemented DLTs
   `- agricore.iot.events.DLT
 ```
 
-The harvest projection consumers use a fixed Spring Kafka non-blocking retry topology with four total attempts (initial delivery plus three retries). Inventory and traceability disable retry-topic auto-creation, so `agricore.harvest.events`, its three exact retry topics, and its DLT must exist before either service starts. `infrastructure/docker/kafka/create-topics.sh` provisions these names for local Compose; production operators must provision the same topology. Producer outboxes for identity, farm, crop-cycle, work, inventory, IoT, traceability, sales, and notification use polling delivery with retryable publish state.
+The harvest projection consumers use a fixed Spring Kafka non-blocking retry topology with four total attempts (initial delivery plus three retries). Inventory and traceability disable retry-topic auto-creation, so `agricore.harvest.events`, its three exact retry topics, and its DLT must exist before either service starts. `infrastructure/docker/kafka/create-topics.sh` provisions those Harvest names for local Compose; production operators must provision the same topology.
+
+Identity publishes `agricore.identity.events`, but the current topic script does
+not create its main/retry/DLT names. Local Compose can mask this through broker
+auto-creation, without this runbook's bounded retention configuration. Before
+deploying Identity/Notification to a managed broker, operators must explicitly
+create and configure the Identity main, retry, and DLT topology. Producer
+outboxes for identity, farm, crop-cycle, work, inventory, IoT, traceability,
+sales, and notification use polling delivery with retryable publish state.
 
 ## Consumer error handling
 
@@ -57,14 +65,19 @@ For inventory and traceability, `agricore_kafka_dlq_attempts_total` is instrumen
 
 ## Retry and DLT retention
 
-The topic provisioning script applies bounded delete retention to retry and dead-letter topics while leaving main-topic retention to the broker or deployment policy:
+For the retry/DLT topics that `create-topics.sh` actually provisions, the script
+applies bounded delete retention while leaving main-topic retention to the
+broker or deployment policy:
 
 | Topic class | Default `retention.ms` | Override |
 |---|---:|---|
 | `*-retry-1000`, `*-retry-2000`, `*-retry-4000` | 86,400,000 (24 hours) | `KAFKA_RETRY_TOPIC_RETENTION_MS` |
 | `*.DLT` | 604,800,000 (7 days) | `KAFKA_DLT_TOPIC_RETENTION_MS` |
 
-Both overrides must be positive integer milliseconds. Re-running `create-topics.sh` uses `kafka-configs.sh --alter` to reconcile `cleanup.policy=delete` and `retention.ms` on existing retry and DLT topics; it does not only configure newly created topics.
+Both overrides must be positive integer milliseconds. Re-running
+`create-topics.sh` uses `kafka-configs.sh --alter` to reconcile
+`cleanup.policy=delete` and `retention.ms` on its provisioned retry/DLT topics;
+it does not configure the Identity topology described above.
 
 ## Producer outbox path
 
@@ -155,7 +168,7 @@ scaling to zero does not migrate that state.
 
 ## DLT response procedure
 
-1. Inspect the DLT matching the failed source topic in Kafka UI or with Kafka tooling: `agricore.harvest.events.DLT`, `agricore.identity.events.DLT`, `agricore.sales.events.DLT`, `agricore.traceability.events.DLT`, or `agricore.iot.events.DLT`.
+1. Inspect the DLT matching the failed source topic in Kafka UI or with Kafka tooling. For Identity, first confirm the operator has provisioned `agricore.identity.events.DLT`; local broker auto-creation does not establish its required retention policy.
 2. Capture the JSON envelope, original topic/partition/offset headers, and exception headers added by Spring Kafka.
 3. Check `agricore_kafka_dlq_attempts_total` and consumer logs for the affected consumer. Do not infer topic depth from the counter.
 4. Correct the schema, data, or application cause.

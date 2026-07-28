@@ -58,15 +58,18 @@ flowchart TB
     work --> minio
 
     identity --> kafka
-    farm <--> kafka
-    cycle <--> kafka
-    work <--> kafka
-    harvest <--> kafka
-    inventory <--> kafka
-    traceability <--> kafka
-    iot <--> kafka
-    sales <--> kafka
-    notification <--> kafka
+    farm --> kafka
+    cycle --> kafka
+    work --> kafka
+    harvest --> kafka
+    inventory --> kafka
+    traceability --> kafka
+    iot --> kafka
+    sales --> kafka
+    notification --> kafka
+    kafka --> inventory
+    kafka --> traceability
+    kafka --> notification
 ```
 
 The local environment uses one PostgreSQL container with isolated databases.

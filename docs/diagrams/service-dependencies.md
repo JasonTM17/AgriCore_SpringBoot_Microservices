@@ -34,7 +34,9 @@ flowchart LR
     work -->|"Bearer-forwarded plot access check"| farm
     harvest -->|"Bearer-forwarded plot access check"| farm
     harvest -->|"Verify farm/plot crop-cycle scope"| cycle
+    harvest -->|"Verify warehouse farm scope"| inventory
     inventory -->|"Bearer-forwarded farm access check"| farm
+    work -->|"Stock-out materials"| inventory
     iot -->|"Bearer-forwarded plot access check"| farm
     sales -->|"Bearer-forwarded farm access check"| farm
     assistant -->|"Allowlisted read-only farm tools"| farm
