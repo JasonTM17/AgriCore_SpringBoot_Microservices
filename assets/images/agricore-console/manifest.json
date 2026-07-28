@@ -6,6 +6,24 @@
     "path": "apps/agricore-console",
     "gitTree": "d8fb322bcc54ebd216a1ad192f3a978751be1e04"
   },
+  "runtimeInputs": [
+    { "path": "pnpm-lock.yaml", "gitObject": "b17bbc430b075a581df46724829a94b9f6828c2d" },
+    { "path": "pnpm-workspace.yaml", "gitObject": "a4b8c58c2de921cb69eda9a19c87cf0d5f448ff2" },
+    { "path": "assets/media/agricore-showcase/manifest.json", "gitObject": "398b6c22fac59ff15fadab5781ed82aba685ea76" },
+    { "path": "assets/media/agricore-showcase/agricore-farm-story.gif", "gitObject": "1bd8387a5cb76544b2cbdb1688f03001eebefa37" },
+    { "path": "assets/media/agricore-showcase/agricore-farm-sunrise-480w.webp", "gitObject": "89d179e6059f52f741e40abef13162a8f9a3a1ac" },
+    { "path": "assets/media/agricore-showcase/agricore-farm-sunrise-960w.webp", "gitObject": "3917e661d81521efbb95543a4a1b94bffd940dd8" },
+    { "path": "assets/media/agricore-showcase/agricore-farm-sunrise-thumbnail-240w.webp", "gitObject": "21a8b4fbd7643d6d912c6ed3433ffd621d65e2e1" },
+    { "path": "assets/media/agricore-showcase/agricore-farm-sunrise.webp", "gitObject": "70a9c23a9f57439122ec6626da7d87abb31fd5fc" },
+    { "path": "assets/media/agricore-showcase/agricore-harvest-packing-480w.webp", "gitObject": "7d7d5fce01626e3f967d8d9da8dc4cc56dd45528" },
+    { "path": "assets/media/agricore-showcase/agricore-harvest-packing-960w.webp", "gitObject": "ce95eeac83d8311ce00cef9d3dcf06f376e9f531" },
+    { "path": "assets/media/agricore-showcase/agricore-harvest-packing-thumbnail-240w.webp", "gitObject": "9e1c3bf23e2c70e4aa3bac6b6d9f7bc6a030b0f0" },
+    { "path": "assets/media/agricore-showcase/agricore-harvest-packing.webp", "gitObject": "be27309a4f4caa4e7444e8a86908c29d9daedc32" },
+    { "path": "assets/media/agricore-showcase/agricore-traceability-produce-480w.webp", "gitObject": "eac5fba2713bff02b70629a5c6cd7a8aa341e8eb" },
+    { "path": "assets/media/agricore-showcase/agricore-traceability-produce-960w.webp", "gitObject": "c0a314f74d5bf25a6c59bda817918b7e042f1b8c" },
+    { "path": "assets/media/agricore-showcase/agricore-traceability-produce-thumbnail-240w.webp", "gitObject": "00a54da2ca747baf9c6d9a526bb7d66087bf06aa" },
+    { "path": "assets/media/agricore-showcase/agricore-traceability-produce.webp", "gitObject": "8d7849ffd5672c00ea177019fb72790567a30e7d" }
+  ],
   "capture": {
     "browser": "Chromium",
     "origin": "http://127.0.0.1:4174",

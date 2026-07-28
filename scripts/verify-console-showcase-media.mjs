@@ -67,6 +67,12 @@ verifyConsoleCaptureProvenance(manifest, {
       encoding: "utf8",
     }).trim();
   },
+  resolveObject(reference) {
+    return execFileSync("git", ["rev-parse", reference], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+    }).trim();
+  },
   isAncestor(ancestor, descendant) {
     try {
       execFileSync("git", ["merge-base", "--is-ancestor", ancestor, descendant], {
@@ -77,6 +83,21 @@ verifyConsoleCaptureProvenance(manifest, {
     } catch {
       return false;
     }
+  },
+  changedPaths(from, to, path) {
+    return execFileSync("git", ["diff", "--name-only", `${from}..${to}`, "--", path], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+    })
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .map((file) => file.replaceAll("\\", "/"));
+  },
+  readFile(reference) {
+    return execFileSync("git", ["show", reference], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+    });
   },
 });
 

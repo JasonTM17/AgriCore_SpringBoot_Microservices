@@ -1,9 +1,111 @@
 const REVISION_PATTERN = /^[0-9a-f]{40}$/;
 const SOURCE_TREE_PATH = "apps/agricore-console";
+const PACKAGE_METADATA_PATH = `${SOURCE_TREE_PATH}/package.json`;
 const SOURCE_DESCRIPTION = "Built React Operations Console with deterministic Playwright edge";
+const REQUIRED_RUNTIME_INPUT_PATHS = [
+  "pnpm-lock.yaml",
+  "pnpm-workspace.yaml",
+  "assets/media/agricore-showcase/manifest.json",
+  "assets/media/agricore-showcase/agricore-farm-story.gif",
+  "assets/media/agricore-showcase/agricore-farm-sunrise-480w.webp",
+  "assets/media/agricore-showcase/agricore-farm-sunrise-960w.webp",
+  "assets/media/agricore-showcase/agricore-farm-sunrise-thumbnail-240w.webp",
+  "assets/media/agricore-showcase/agricore-farm-sunrise.webp",
+  "assets/media/agricore-showcase/agricore-harvest-packing-480w.webp",
+  "assets/media/agricore-showcase/agricore-harvest-packing-960w.webp",
+  "assets/media/agricore-showcase/agricore-harvest-packing-thumbnail-240w.webp",
+  "assets/media/agricore-showcase/agricore-harvest-packing.webp",
+  "assets/media/agricore-showcase/agricore-traceability-produce-480w.webp",
+  "assets/media/agricore-showcase/agricore-traceability-produce-960w.webp",
+  "assets/media/agricore-showcase/agricore-traceability-produce-thumbnail-240w.webp",
+  "assets/media/agricore-showcase/agricore-traceability-produce.webp",
+];
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
+}
+
+function canonicalizeJson(value) {
+  if (Array.isArray(value)) return value.map(canonicalizeJson);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, nestedValue]) => [key, canonicalizeJson(nestedValue)]),
+    );
+  }
+  return value;
+}
+
+function packageMetadataWithoutVersion(serializedMetadata, reference) {
+  let packageMetadata;
+  try {
+    packageMetadata = JSON.parse(serializedMetadata);
+  } catch {
+    throw new Error(`Console package metadata at ${reference} is not valid JSON`);
+  }
+
+  assert(
+    packageMetadata && typeof packageMetadata === "object" && !Array.isArray(packageMetadata),
+    `Console package metadata at ${reference} must be an object`,
+  );
+  assert(
+    typeof packageMetadata.version === "string" && packageMetadata.version.length > 0,
+    `Console package metadata at ${reference} must declare a version`,
+  );
+
+  const { version, ...metadataWithoutVersion } = packageMetadata;
+  return {
+    version,
+    metadata: JSON.stringify(canonicalizeJson(metadataWithoutVersion)),
+  };
+}
+
+function hasVersionOnlyReleaseMetadataChange(git, captureRevision) {
+  const changedPaths = git.changedPaths(captureRevision, "HEAD", SOURCE_TREE_PATH);
+  if (changedPaths.length !== 1 || changedPaths[0] !== PACKAGE_METADATA_PATH) return false;
+
+  const capturedReference = `${captureRevision}:${PACKAGE_METADATA_PATH}`;
+  const currentReference = `HEAD:${PACKAGE_METADATA_PATH}`;
+  const capturedMetadata = packageMetadataWithoutVersion(git.readFile(capturedReference), capturedReference);
+  const currentMetadata = packageMetadataWithoutVersion(git.readFile(currentReference), currentReference);
+  return capturedMetadata.version !== currentMetadata.version
+    && capturedMetadata.metadata === currentMetadata.metadata;
+}
+
+function verifyRuntimeInputs(manifest, git) {
+  assert(Array.isArray(manifest.runtimeInputs), "Console runtime inputs are missing");
+  const runtimePaths = new Set();
+  for (const input of manifest.runtimeInputs) {
+    assert(input && typeof input === "object", "Console runtime input is invalid");
+    assert(
+      REQUIRED_RUNTIME_INPUT_PATHS.includes(input.path),
+      `Console runtime input path is invalid: ${input.path}`,
+    );
+    assert(!runtimePaths.has(input.path), `Console runtime input is duplicated: ${input.path}`);
+    assert(
+      REVISION_PATTERN.test(input.gitObject),
+      `Console runtime input object is invalid: ${input.path}`,
+    );
+    runtimePaths.add(input.path);
+
+    const capturedReference = `${manifest.captureRevision}:${input.path}`;
+    const capturedObject = git.resolveObject(capturedReference);
+    assert(
+      capturedObject === input.gitObject,
+      `Capture revision runtime input mismatch for ${input.path}: expected ${input.gitObject}, got ${capturedObject}`,
+    );
+
+    const currentObject = git.resolveObject(`HEAD:${input.path}`);
+    assert(
+      currentObject === input.gitObject,
+      `Console runtime input changed after capture: ${input.path}`,
+    );
+  }
+  assert(
+    runtimePaths.size === REQUIRED_RUNTIME_INPUT_PATHS.length,
+    "Console runtime inputs must include every required path exactly once",
+  );
 }
 
 export function verifyConsoleCaptureProvenance(manifest, git) {
@@ -52,10 +154,13 @@ export function verifyConsoleCaptureProvenance(manifest, git) {
     git.isAncestor(manifest.captureRevision, "HEAD"),
     "Console capture revision must be an ancestor of HEAD",
   );
+  verifyRuntimeInputs(manifest, git);
 
   const currentSourceTree = git.resolveTree(`HEAD:${manifest.sourceTree.path}`);
+  if (currentSourceTree === manifest.sourceTree.gitTree) return;
+
   assert(
-    currentSourceTree === manifest.sourceTree.gitTree,
+    hasVersionOnlyReleaseMetadataChange(git, manifest.captureRevision),
     `Console source tree changed after capture: expected ${manifest.sourceTree.gitTree}, got ${currentSourceTree}`,
   );
 }
