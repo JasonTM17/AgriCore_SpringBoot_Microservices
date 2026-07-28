@@ -61,6 +61,33 @@ full-SHA tags to Docker Hub and GitHub Packages. It never promotes `latest`;
 package existence is established by the successful Docker Publish run for the
 corresponding default-branch commit.
 
+## Demo
+
+One command brings the whole platform up; one script drives a real business transaction across
+every service. This is `scripts/e2e-happy-path.ps1` against a clean stack — nothing staged, nothing
+edited afterwards:
+
+![End-to-end happy path: register, login, farm, crop cycle, work task, harvest, Kafka projection, public QR](docs/images/e2e-happy-path.gif)
+
+What it proves, in order: a real RS256 token from identity, a farm and plot through the gateway, an
+**illegal crop-cycle stage transition rejected with 409** and the platform `ApiError` body, the four
+legal stages, a work task, a harvest write that lands in the outbox, the **inventory consumer
+stocking 500 kg from Kafka**, and the **public QR projection** resolving to `CAPHER-70543A22`.
+
+```bash
+docker compose up -d
+pwsh scripts/e2e-happy-path.ps1     # or: ./scripts/verify-platform.sh
+```
+
+### The event backbone
+
+Five outbox topics and the three idempotent consumer groups, from the same run:
+
+![Kafka UI showing the five agricore event topics with message counts, and the inventory, notification, and traceability consumer groups all STABLE](docs/images/kafka-event-backbone.png)
+
+Producers write to `outbox_events` in the same transaction as the domain change; a polling publisher
+drains it. Consumers dedupe on `(event_id, consumer_name)` and route poisoned messages to a DLT.
+
 ## Architecture
 
 ```text
