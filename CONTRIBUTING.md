@@ -47,6 +47,11 @@ pnpm build
 
 Infrastructure changes also require:
 
+Before local Compose validation, complete the root [Quick start](README.md#quick-start):
+copy `.env.example` to `.env`, set a local `AGRICORE_CLIENT_IP_SIGNING_SECRET`,
+and generate the local JWT keys. Do not use a literal secret from documentation
+or commit the resulting local configuration or keys.
+
 ```bash
 docker compose config --quiet
 helm lint infrastructure/helm/agricore \

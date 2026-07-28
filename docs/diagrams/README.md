@@ -16,6 +16,8 @@ configuration, and services.
 | [IoT ingestion](iot-ingestion-flow.md) | MQTT reading, alerting, and notification |
 | [Traceability data flow](traceability-data-flow.md) | Public QR read-model boundary |
 | [Deployment architecture](deployment-architecture.md) | Local Compose and operator-managed cluster scope |
+| [Assistant RAG trust boundary](assistant-rag-trust-boundary.md) | Authorized facts, curated knowledge, budget, and citation boundary |
+| [Release provenance evidence chain](release-provenance.md) | Source, CI, package, and operator deployment evidence boundaries |
 
 Source of truth remains the implementation and versioned contracts. Update a
 diagram in the same change whenever an edge, owner, or trust boundary changes.

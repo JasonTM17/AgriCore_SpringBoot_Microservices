@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="1000" viewBox="0 0 1700 1000" role="img" aria-labelledby="title desc">
+  <title id="title">AgriCore source release provenance and deployment boundary</title>
+  <desc id="desc">A source-backed release evidence chain. It depicts an exact default branch SHA, successful CI and Docker Publish, an annotated semantic source tag, release-provenance validation, a GitHub Release, immutable SHA image tags and resolved digests, then a separately operator-owned Helm deployment boundary.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f8fbff"/>
+      <stop offset="100%" stop-color="#f7f5ff"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#18344a" flood-opacity="0.14"/>
+    </filter>
+    <marker id="arrowBlue" markerWidth="11" markerHeight="11" refX="9" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="11" markerHeight="11" refX="9" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#15803d"/>
+    </marker>
+    <marker id="arrowPurple" markerWidth="11" markerHeight="11" refX="9" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#7c3aed"/>
+    </marker>
+    <style>
+      .title { font-family: Arial, Helvetica, sans-serif; font-size: 38px; font-weight: 700; fill: #123047; }
+      .subtitle { font-family: Arial, Helvetica, sans-serif; font-size: 19px; fill: #4b6474; }
+      .lane { font-family: Arial, Helvetica, sans-serif; font-size: 16px; font-weight: 700; letter-spacing: 1.1px; fill: #2563eb; }
+      .operatorLane { font-family: Arial, Helvetica, sans-serif; font-size: 16px; font-weight: 700; letter-spacing: 1.1px; fill: #7c3aed; }
+      .label { font-family: Arial, Helvetica, sans-serif; font-size: 19px; font-weight: 700; fill: #123047; }
+      .body { font-family: Arial, Helvetica, sans-serif; font-size: 15px; fill: #385263; }
+      .tag { font-family: Arial, Helvetica, sans-serif; font-size: 13px; font-weight: 700; letter-spacing: .4px; fill: #2563eb; }
+      .arrowLabel { font-family: Arial, Helvetica, sans-serif; font-size: 13px; font-weight: 700; fill: #315365; }
+      .note { font-family: Arial, Helvetica, sans-serif; font-size: 15px; font-weight: 700; fill: #9a3412; }
+      .small { font-family: Arial, Helvetica, sans-serif; font-size: 13px; fill: #486171; }
+    </style>
+  </defs>
+
+  <rect width="1700" height="1000" fill="url(#background)"/>
+  <rect x="45" y="36" width="1610" height="920" rx="28" fill="#ffffff" stroke="#dbe4f4" stroke-width="2"/>
+  <text x="92" y="103" class="title">Release provenance and deployment boundary</text>
+  <text x="92" y="137" class="subtitle">A source release is verified evidence; a deployment remains an operator decision with environment-owned controls.</text>
+  <line x1="92" y1="165" x2="1608" y2="165" stroke="#dbe4f4" stroke-width="2"/>
+
+  <text x="92" y="218" class="lane">REPOSITORY-CONTROLLED SOURCE RELEASE</text>
+  <g filter="url(#shadow)">
+    <rect x="92" y="258" width="206" height="155" rx="17" fill="#eff6ff" stroke="#93c5fd" stroke-width="2"/>
+    <rect x="336" y="258" width="206" height="155" rx="17" fill="#eff6ff" stroke="#60a5fa" stroke-width="2"/>
+    <rect x="580" y="258" width="260" height="155" rx="17" fill="#f0fdf4" stroke="#86efac" stroke-width="2"/>
+    <rect x="878" y="258" width="206" height="155" rx="17" fill="#fff7ed" stroke="#fdba74" stroke-width="2"/>
+    <rect x="1122" y="258" width="246" height="155" rx="17" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="2"/>
+    <rect x="1406" y="258" width="202" height="155" rx="17" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="2"/>
+  </g>
+
+  <text x="117" y="300" class="label">Default branch SHA</text>
+  <text x="117" y="331" class="body">Merged source revision</text>
+  <text x="117" y="356" class="body">must remain branch tip</text>
+  <rect x="117" y="374" width="115" height="24" rx="12" fill="#dbeafe"/>
+  <text x="131" y="391" class="tag">EXACT SHA</text>
+
+  <text x="361" y="300" class="label">CI succeeds</text>
+  <text x="361" y="331" class="body">Build, tests, contracts,</text>
+  <text x="361" y="356" class="body">security and runtime gates</text>
+  <rect x="361" y="374" width="118" height="24" rx="12" fill="#dbeafe"/>
+  <text x="375" y="391" class="tag">ci.yml</text>
+
+  <text x="605" y="300" class="label">Docker Publish</text>
+  <text x="605" y="331" class="body">14 candidate images: scan,</text>
+  <text x="605" y="356" class="body">parity, Cosign, SHA promotion</text>
+  <rect x="605" y="374" width="194" height="24" rx="12" fill="#dcfce7"/>
+  <text x="619" y="391" class="tag">DOCKER HUB + GHCR</text>
+
+  <text x="903" y="300" class="label">Annotated source tag</text>
+  <text x="903" y="331" class="body">`vMAJOR.MINOR.PATCH`</text>
+  <text x="903" y="356" class="body">is never an image tag</text>
+  <rect x="903" y="374" width="118" height="24" rx="12" fill="#ffedd5"/>
+  <text x="917" y="391" class="tag">ANNOTATED</text>
+
+  <text x="1147" y="300" class="label">Provenance validates</text>
+  <text x="1147" y="331" class="body">Version files, tag tip,</text>
+  <text x="1147" y="356" class="body">exact successful CI + publish</text>
+  <rect x="1147" y="374" width="144" height="24" rx="12" fill="#ede9fe"/>
+  <text x="1161" y="391" class="tag">NO STALE REF</text>
+
+  <text x="1431" y="300" class="label">GitHub Release</text>
+  <text x="1431" y="331" class="body">Canonical source</text>
+  <text x="1431" y="356" class="body">evidence record</text>
+  <rect x="1431" y="374" width="117" height="24" rx="12" fill="#d1fae5"/>
+  <text x="1445" y="391" class="tag">PUBLISHED</text>
+
+  <path d="M298 336 H324" stroke="#2563eb" stroke-width="4" fill="none" marker-end="url(#arrowBlue)"/>
+  <path d="M542 336 H568" stroke="#2563eb" stroke-width="4" fill="none" marker-end="url(#arrowBlue)"/>
+  <path d="M840 336 H866" stroke="#15803d" stroke-width="4" fill="none" marker-end="url(#arrowGreen)"/>
+  <path d="M1084 336 H1110" stroke="#7c3aed" stroke-width="4" fill="none" marker-end="url(#arrowPurple)"/>
+  <path d="M1368 336 H1394" stroke="#15803d" stroke-width="4" fill="none" marker-end="url(#arrowGreen)"/>
+
+  <rect x="366" y="446" width="968" height="91" rx="16" fill="#fff7ed" stroke="#fdba74" stroke-width="2"/>
+  <text x="399" y="480" class="note">What the provenance gate proves</text>
+  <text x="399" y="509" class="body">The tagged source target is the unchanged default-branch tip, all declared version files agree, and that exact SHA has successful CI and Docker Publish evidence.</text>
+
+  <line x1="92" y1="573" x2="1608" y2="573" stroke="#e5e1f7" stroke-width="2"/>
+  <text x="92" y="622" class="operatorLane">OPERATOR-CONTROLLED DEPLOYMENT</text>
+  <g filter="url(#shadow)">
+    <rect x="92" y="662" width="282" height="145" rx="17" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="2"/>
+    <rect x="422" y="662" width="282" height="145" rx="17" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="2"/>
+    <rect x="752" y="662" width="282" height="145" rx="17" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="2"/>
+    <rect x="1082" y="662" width="282" height="145" rx="17" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="2"/>
+    <rect x="1412" y="662" width="196" height="145" rx="17" fill="#fff7ed" stroke="#fdba74" stroke-width="2"/>
+  </g>
+
+  <text x="121" y="705" class="label">Resolve image digest</text>
+  <text x="121" y="736" class="body">Find the full-SHA tag, then</text>
+  <text x="121" y="761" class="body">select immutable digest</text>
+  <text x="451" y="705" class="label">Verify package</text>
+  <text x="451" y="736" class="body">Inspect digest and signature;</text>
+  <text x="451" y="761" class="body">compare registries as needed</text>
+  <text x="781" y="705" class="label">Environment values</text>
+  <text x="781" y="736" class="body">Secrets, data systems, TLS,</text>
+  <text x="781" y="761" class="body">Kafka, storage, observability</text>
+  <text x="1111" y="705" class="label">Helm render + rollout</text>
+  <text x="1111" y="736" class="body">Digest-pinned values, preflight,</text>
+  <text x="1111" y="761" class="body">atomic install/upgrade</text>
+  <text x="1437" y="705" class="label">Operate</text>
+  <text x="1437" y="736" class="body">Migration, health,</text>
+  <text x="1437" y="761" class="body">DLT, backups, policy</text>
+
+  <path d="M374 735 H410" stroke="#7c3aed" stroke-width="4" fill="none" marker-end="url(#arrowPurple)"/>
+  <path d="M704 735 H740" stroke="#7c3aed" stroke-width="4" fill="none" marker-end="url(#arrowPurple)"/>
+  <path d="M1034 735 H1070" stroke="#7c3aed" stroke-width="4" fill="none" marker-end="url(#arrowPurple)"/>
+  <path d="M1364 735 H1400" stroke="#7c3aed" stroke-width="4" fill="none" marker-end="url(#arrowPurple)"/>
+  <path d="M1507 413 V648 H233" stroke="#15803d" stroke-width="3" fill="none" stroke-dasharray="8 7" marker-end="url(#arrowPurple)"/>
+  <rect x="1153" y="550" width="220" height="24" rx="12" fill="#ffffff" stroke="#d8c8ff"/>
+  <text x="1168" y="567" class="arrowLabel">release evidence guides selection</text>
+
+  <rect x="92" y="848" width="1516" height="61" rx="14" fill="#fff7ed" stroke="#fdba74" stroke-width="2"/>
+  <text x="120" y="883" class="note">Boundary: a GitHub Release, signed package, or successful workflow does not prove a production deployment.</text>
+  <text x="120" y="905" class="small">No SemVer container tags and no `latest`; operator controls include infrastructure, secrets, TLS, backups, access policy, retention, rollout approval, and incident handling.</text>
+</svg>

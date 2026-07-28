@@ -4,8 +4,8 @@ info:
   version: 0.1.0
   description: |
     Kafka contracts for the events currently emitted by AgriCore transactional
-    outbox producers. The implemented scope is 29 events on the farm,
-    crop-cycle, work, inventory, harvest, IoT, traceability, sales, and notification topics. Other constants in EventTypes are not
+    outbox producers. The implemented scope is 31 versioned events on the farm,
+    crop-cycle, work, inventory, harvest, identity, IoT, traceability, sales, and notification topics. Other constants in EventTypes are not
     implemented event flows and are intentionally not documented as messages.
 defaultContentType: application/json
 channels:

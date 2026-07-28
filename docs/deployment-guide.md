@@ -16,7 +16,11 @@ backends.
 - PostgreSQL-compatible databases and application credentials per service.
 - TimescaleDB capability in the IoT database.
 - Redis with authentication and persistence policy.
-- Kafka topics, authorization, retention, and DLT operations.
+- Kafka topics, authorization, retention, and DLT operations. Before a managed
+  deployment, follow the [Kafka retry/DLT topology](runbooks/kafka-dlq.md#implemented-topology),
+  including the Identity main/retry/DLT topology that operators must provision,
+  and use the [DLT response procedure](runbooks/kafka-dlq.md#dlt-response-procedure)
+  for recovery.
 - MQTT TLS, device credential lifecycle, and per-device ACLs.
 - Private MinIO/S3-compatible object storage and bucket policy.
 - SMTP credentials and sender/domain configuration.
@@ -73,6 +77,11 @@ Use [the local operations runbook](runbooks/local-operations.md) for health,
 simulator, seed, verification, log, and cleanup commands.
 
 ## Helm release
+
+Before upgrading stateful behavior, follow [Database change and rollback](#database-change-and-rollback)
+for the expand/backfill/cutover boundary and service-specific migration gates.
+For Assistant RAG evidence compatibility, also follow
+[Assistant RAG rollout safety](#assistant-rag-rollout-safety).
 
 For a production Helm release with `ingress.enabled=true`, browser authentication
 requires `identity.webAllowedOrigins` to exactly equal

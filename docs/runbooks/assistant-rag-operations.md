@@ -5,8 +5,11 @@
 The Assistant is authenticated and read-only. Provider `none` and curated RAG
 disabled are the defaults (`ASSISTANT_PROVIDER=none`,
 `ASSISTANT_RAG_ENABLED=false`). RAG retrieves only curated records from the
-assistant-owned PostgreSQL database; it does not expose arbitrary URL fetch,
-user document upload, embeddings, or cross-service database reads.
+assistant-owned PostgreSQL database through JDBC term-indexed retrieval; it is
+not a vector database. It does not expose arbitrary URL fetch, user document
+upload, embeddings, or cross-service database reads. When tools are enabled,
+Farm evidence is collected with authenticated read requests only after the
+conversation's farm access has been authorized.
 
 Provider credentials are deployment inputs. Set `ASSISTANT_PROVIDER_API_KEY`
 only through an ignored local `.env`, a secret manager, or a Kubernetes Secret;
@@ -28,6 +31,12 @@ The service validates these bounds when RAG is enabled. It normalizes and
 deduplicates query terms, uses prepared SQL, returns at most the configured
 number of citations, and keeps farm facts plus RAG facts within the existing
 25-fact evidence ceiling.
+
+When the request budget is enabled (the default), its Redis-backed reservation
+tracks request and token limits by user and client IP. A Redis error denies the
+request; the budget does not fail open. Retrieved farm and knowledge facts are
+untrusted reference data, and output safety rejects unknown citations and a
+completed evidence-backed response without a citation.
 
 ## Curated knowledge lifecycle
 

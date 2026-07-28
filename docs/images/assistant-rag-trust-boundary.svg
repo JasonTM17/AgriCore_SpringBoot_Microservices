@@ -1,0 +1,156 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="980" viewBox="0 0 1700 980" role="img" aria-labelledby="title desc">
+  <title id="title">AgriCore Assistant trust boundary</title>
+  <desc id="desc">A source-backed diagram of the gateway-routed, authenticated, read-only Assistant. It shows bounded farm facts, curated PostgreSQL knowledge, Redis budgets, an optional provider, citations, and the trust boundaries that exclude autonomous writes, arbitrary URLs, user uploads, and cross-service database access.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f8fbff"/>
+      <stop offset="100%" stop-color="#eef7f5"/>
+    </linearGradient>
+    <linearGradient id="assistantPanel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f1fbf8"/>
+      <stop offset="100%" stop-color="#e0f4ee"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#18344a" flood-opacity="0.14"/>
+    </filter>
+    <marker id="arrowTeal" markerWidth="11" markerHeight="11" refX="9" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#0f766e"/>
+    </marker>
+    <marker id="arrowBlue" markerWidth="11" markerHeight="11" refX="9" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrowOrange" markerWidth="11" markerHeight="11" refX="9" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#c2410c"/>
+    </marker>
+    <style>
+      .title { font-family: Arial, Helvetica, sans-serif; font-size: 38px; font-weight: 700; fill: #123047; }
+      .subtitle { font-family: Arial, Helvetica, sans-serif; font-size: 19px; fill: #4b6474; }
+      .lane { font-family: Arial, Helvetica, sans-serif; font-size: 16px; font-weight: 700; letter-spacing: 1.1px; fill: #0f766e; }
+      .label { font-family: Arial, Helvetica, sans-serif; font-size: 20px; font-weight: 700; fill: #123047; }
+      .body { font-family: Arial, Helvetica, sans-serif; font-size: 16px; fill: #385263; }
+      .small { font-family: Arial, Helvetica, sans-serif; font-size: 14px; fill: #486171; }
+      .tag { font-family: Arial, Helvetica, sans-serif; font-size: 13px; font-weight: 700; fill: #0f766e; letter-spacing: .5px; }
+      .arrowLabel { font-family: Arial, Helvetica, sans-serif; font-size: 13px; font-weight: 700; fill: #315365; }
+      .footer { font-family: Arial, Helvetica, sans-serif; font-size: 15px; font-weight: 700; fill: #87420c; }
+    </style>
+  </defs>
+
+  <rect width="1700" height="980" fill="url(#bg)"/>
+  <rect x="45" y="36" width="1610" height="908" rx="28" fill="#ffffff" stroke="#d8e7e8" stroke-width="2"/>
+
+  <text x="92" y="103" class="title">Assistant trust boundary</text>
+  <text x="92" y="137" class="subtitle">Authenticated, gateway-routed assistance with bounded evidence and deployment-owned provider credentials</text>
+  <line x1="92" y1="165" x2="1608" y2="165" stroke="#d8e7e8" stroke-width="2"/>
+
+  <text x="92" y="225" class="lane">PUBLIC EDGE</text>
+  <g filter="url(#shadow)">
+    <rect x="92" y="270" width="245" height="132" rx="18" fill="#eff6ff" stroke="#93c5fd" stroke-width="2"/>
+  </g>
+  <circle cx="130" cy="311" r="18" fill="#2563eb"/>
+  <path d="M121 308 h18 v11 h-18 z M126 324 h8" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+  <text x="162" y="315" class="label">Browser / Console</text>
+  <text x="117" y="349" class="body">Same-origin edge for browser</text>
+  <text x="117" y="374" class="body">requests and SSE responses</text>
+
+  <g filter="url(#shadow)">
+    <rect x="415" y="270" width="250" height="132" rx="18" fill="#eff6ff" stroke="#60a5fa" stroke-width="2"/>
+  </g>
+  <circle cx="453" cy="311" r="18" fill="#1d4ed8"/>
+  <path d="M445 311 h16 M453 303 v16" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+  <text x="485" y="315" class="label">API Gateway</text>
+  <text x="440" y="349" class="body">JWT boundary and route target</text>
+  <text x="440" y="374" class="body">Caller bearer token preserved</text>
+
+  <path d="M337 336 H405" stroke="#2563eb" stroke-width="4" fill="none" marker-end="url(#arrowBlue)"/>
+  <rect x="341" y="300" width="62" height="24" rx="12" fill="#ffffff" stroke="#c7dffb"/>
+  <text x="351" y="317" class="arrowLabel">/api</text>
+
+  <g filter="url(#shadow)">
+    <rect x="730" y="205" width="850" height="548" rx="26" fill="url(#assistantPanel)" stroke="#0f766e" stroke-width="3" stroke-dasharray="12 8"/>
+  </g>
+  <rect x="757" y="183" width="500" height="43" rx="20" fill="#0f766e"/>
+  <text x="781" y="211" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#ffffff">ASSISTANT SERVICE | INTERNAL GATEWAY TARGET</text>
+  <text x="1300" y="211" class="small">No direct public ingress</text>
+
+  <g filter="url(#shadow)">
+    <rect x="774" y="270" width="270" height="126" rx="16" fill="#ffffff" stroke="#8ad3c4" stroke-width="2"/>
+  </g>
+  <text x="803" y="313" class="label">Request boundary</text>
+  <text x="803" y="344" class="body">Permission check</text>
+  <text x="803" y="369" class="body">Input + request budgets</text>
+  <rect x="803" y="382" width="183" height="23" rx="11" fill="#dff6ee"/>
+  <text x="817" y="399" class="tag">PERMISSION_ASSISTANT_USE</text>
+
+  <g filter="url(#shadow)">
+    <rect x="1113" y="270" width="405" height="126" rx="16" fill="#ffffff" stroke="#8ad3c4" stroke-width="2"/>
+  </g>
+  <text x="1143" y="313" class="label">Conversation + generation</text>
+  <text x="1143" y="344" class="body">Persisted metadata and evidence</text>
+  <text x="1143" y="369" class="body">Replayable SSE generation events</text>
+
+  <path d="M665 336 H763" stroke="#0f766e" stroke-width="4" fill="none" marker-end="url(#arrowTeal)"/>
+  <rect x="679" y="298" width="104" height="24" rx="12" fill="#ffffff" stroke="#bae6de"/>
+  <text x="692" y="315" class="arrowLabel">auth + route</text>
+  <path d="M1044 333 H1102" stroke="#0f766e" stroke-width="4" fill="none" marker-end="url(#arrowTeal)"/>
+
+  <g filter="url(#shadow)">
+    <rect x="774" y="468" width="744" height="137" rx="16" fill="#ffffff" stroke="#8ad3c4" stroke-width="2"/>
+  </g>
+  <text x="803" y="508" class="label">Evidence assembly</text>
+  <text x="803" y="535" class="body">The model receives bounded facts - not authority to take actions.</text>
+  <rect x="802" y="554" width="285" height="31" rx="15" fill="#e8f8f3" stroke="#b6e6d8"/>
+  <text x="821" y="576" class="tag">AUTHORIZED FARM FACTS</text>
+  <rect x="1111" y="554" width="348" height="31" rx="15" fill="#e8f8f3" stroke="#b6e6d8"/>
+  <text x="1127" y="576" class="tag">CURATED JDBC KNOWLEDGE</text>
+
+  <path d="M1315 396 V456" stroke="#0f766e" stroke-width="4" fill="none" marker-end="url(#arrowTeal)"/>
+  <rect x="1330" y="418" width="112" height="23" rx="11" fill="#ffffff" stroke="#bae6de"/>
+  <text x="1343" y="435" class="arrowLabel">assemble</text>
+
+  <g filter="url(#shadow)">
+    <rect x="960" y="654" width="380" height="70" rx="16" fill="#fff7ed" stroke="#fdba74" stroke-width="2"/>
+  </g>
+  <text x="990" y="685" class="label">Safety + cited response</text>
+  <text x="990" y="710" class="body">Output policy observes FARM-* / KB-* citations</text>
+  <path d="M1145 605 V642" stroke="#c2410c" stroke-width="4" fill="none" marker-end="url(#arrowOrange)"/>
+
+  <g>
+    <rect x="774" y="625" width="165" height="73" rx="14" fill="#fff7ed" stroke="#fdba74" stroke-width="2"/>
+    <text x="796" y="653" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" fill="#9a3412">UNTRUSTED TEXT</text>
+    <text x="796" y="677" class="small">Reference data only;</text>
+    <text x="796" y="695" class="small">never instructions</text>
+  </g>
+  <path d="M939 661 H947" stroke="#c2410c" stroke-width="3" fill="none" marker-end="url(#arrowOrange)"/>
+
+  <text x="92" y="797" class="lane">BOUNDED DEPENDENCIES</text>
+  <g filter="url(#shadow)">
+    <rect x="92" y="824" width="250" height="92" rx="16" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="2"/>
+    <rect x="381" y="824" width="250" height="92" rx="16" fill="#f0fdfa" stroke="#5eead4" stroke-width="2"/>
+    <rect x="670" y="824" width="360" height="92" rx="16" fill="#f0fdf4" stroke="#86efac" stroke-width="2"/>
+    <rect x="1069" y="824" width="449" height="92" rx="16" fill="#fff7ed" stroke="#fdba74" stroke-width="2"/>
+  </g>
+  <text x="119" y="858" class="label">Redis budgets</text>
+  <text x="119" y="884" class="body">Request/token ceilings fail closed</text>
+  <text x="408" y="858" class="label">Farm service</text>
+  <text x="408" y="884" class="body">Read-only, host-allowlisted tool</text>
+  <text x="698" y="858" class="label">Assistant PostgreSQL</text>
+  <text x="698" y="884" class="body">Conversations + evidence + term-indexed chunks</text>
+  <text x="1097" y="858" class="label">Configured provider (optional)</text>
+  <text x="1097" y="884" class="body">none by default | deployment-owned configuration</text>
+
+  <path d="M217 824 V463 H774" stroke="#7c3aed" stroke-width="3" fill="none" stroke-dasharray="8 7" marker-end="url(#arrowTeal)"/>
+  <rect x="233" y="596" width="127" height="24" rx="12" fill="#ffffff" stroke="#ddd6fe"/>
+  <text x="247" y="613" class="arrowLabel">fail closed</text>
+  <path d="M506 824 V633 H850 V605" stroke="#0f766e" stroke-width="3" fill="none" marker-end="url(#arrowTeal)"/>
+  <rect x="523" y="684" width="134" height="24" rx="12" fill="#ffffff" stroke="#bae6de"/>
+  <text x="536" y="701" class="arrowLabel">caller context</text>
+  <path d="M850 824 V737 H1280 V405" stroke="#16a34a" stroke-width="3" fill="none" stroke-dasharray="8 7" marker-end="url(#arrowTeal)"/>
+  <rect x="866" y="760" width="146" height="24" rx="12" fill="#ffffff" stroke="#bbf7d0"/>
+  <text x="881" y="777" class="arrowLabel">persist / retrieve</text>
+  <path d="M1294 824 V737" stroke="#c2410c" stroke-width="3" fill="none" stroke-dasharray="8 7" marker-end="url(#arrowOrange)"/>
+  <rect x="1311" y="757" width="137" height="24" rx="12" fill="#ffffff" stroke="#fed7aa"/>
+  <text x="1325" y="774" class="arrowLabel">only if enabled</text>
+
+  <rect x="92" y="928" width="1426" height="1" fill="#d8e7e8"/>
+  <text x="92" y="959" class="footer">Excluded by design: autonomous writes | arbitrary URLs | user uploads | cross-service database access</text>
+</svg>

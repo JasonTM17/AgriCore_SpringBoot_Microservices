@@ -45,7 +45,8 @@ Out of scope:
 
 ## Automated scanning
 
-Every push and pull request runs the release-gating checks in `ci.yml`:
+The `ci.yml` release-gating checks run on pushes to, and pull requests targeting,
+`main` or `master`:
 
 | Check | Workflow | Scope |
 |-------|----------|-------|
