@@ -71,7 +71,9 @@ class CropCycleOutboxContractTest {
         String cycleId = objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asText();
         assertThat(outboxRepository.count()).isEqualTo(before + 1);
 
-        OutboxEventEntity event = findLatestForCycle(cycleId);
+        OutboxEventEntity event = findEvent(cycleId, EventTypes.CROP_CYCLE_CREATED);
+        assertThat(event.getAggregateType()).isEqualTo("CropCycle");
+        assertThat(event.getAggregateId()).isEqualTo(cycleId);
         assertThat(event.getEventType()).isEqualTo(EventTypes.CROP_CYCLE_CREATED);
         assertThat(event.getTopic()).isEqualTo("agricore.crop-cycle.events");
 
@@ -131,7 +133,7 @@ class CropCycleOutboxContractTest {
                 .andExpect(jsonPath("$.stage").value("LAND_PREPARATION"));
 
         assertThat(outboxRepository.count()).isEqualTo(afterCreate + 1);
-        OutboxEventEntity event = findLatestForCycle(cycleId);
+        OutboxEventEntity event = findEvent(cycleId, EventTypes.CROP_CYCLE_STAGE_CHANGED);
         assertThat(event.getEventType()).isEqualTo(EventTypes.CROP_CYCLE_STAGE_CHANGED);
         JsonNode envelope = objectMapper.readTree(event.getPayload());
         assertThat(envelope.get("eventId").asText()).isEqualTo(event.getId().toString());
@@ -180,12 +182,13 @@ class CropCycleOutboxContractTest {
         assertThat(outboxRepository.count()).isEqualTo(afterCreate);
     }
 
-    private OutboxEventEntity findLatestForCycle(String cycleId) {
+    private OutboxEventEntity findEvent(String cycleId, String eventType) {
         List<OutboxEventEntity> all = outboxRepository.findAll();
         return all.stream()
-                .filter(e -> e.getAggregateId() != null && e.getAggregateId().equals(cycleId)
-                        || (e.getPayload() != null && e.getPayload().contains(cycleId)))
-                .reduce((a, b) -> b)
-                .orElseThrow(() -> new AssertionError("no outbox row for cycle " + cycleId));
+                .filter(event -> cycleId.equals(event.getAggregateId()))
+                .filter(event -> eventType.equals(event.getEventType()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError(
+                        "no " + eventType + " outbox row for cycle " + cycleId));
     }
 }
