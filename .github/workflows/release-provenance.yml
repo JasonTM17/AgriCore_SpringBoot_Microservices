@@ -136,7 +136,7 @@ jobs:
           cat > "$notes" <<EOF
           ## AgriCore $TAG
 
-          Initial stable source release for the AgriCore agricultural operations platform.
+          Verified source release for the AgriCore agricultural operations platform.
 
           ### Verified provenance
 
