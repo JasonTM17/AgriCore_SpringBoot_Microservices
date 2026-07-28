@@ -25,4 +25,3 @@ and deployed configuration remain authoritative when they differ.
 - [Security review](security/SECURITY_REVIEW.md)
 - [Codebase summary](codebase-summary.md)
 - [Roadmap](project-roadmap.md)
-

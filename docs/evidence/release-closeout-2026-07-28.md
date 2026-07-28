@@ -41,4 +41,3 @@ The [2026-07-26 evidence](release-verification-2026-07-26.md) remains a
 qualified snapshot for commit `5867b37`; it is useful for local runtime detail
 but is not evidence for the verified revision above. Its disposable host-local
 capture bundle was intentionally cleaned after this closeout.
-
