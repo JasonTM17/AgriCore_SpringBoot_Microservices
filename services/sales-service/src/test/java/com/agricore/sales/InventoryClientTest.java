@@ -8,6 +8,8 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
@@ -21,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.springframework.test.web.client.ExpectedCount.once;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
@@ -38,6 +41,56 @@ class InventoryClientTest {
     @AfterEach
     void clearSecurityContext() {
         SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    void reserve_postsAuthoritativeContractAndForwardsCallerBearerToken() {
+        UUID farmId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        UUID reservationId = UUID.randomUUID();
+        String referenceId = UUID.randomUUID().toString();
+        setBearerToken("sales-caller-token");
+        TestClient fixture = client();
+        fixture.server().expect(once(), requestTo(BASE_URL + INTERNAL_BASE_PATH + "/reservations"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(header("X-Internal-Service-Token", INTERNAL_TOKEN))
+                .andExpect(header("Authorization", "Bearer sales-caller-token"))
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(content().json("""
+                        {
+                          "farmId":"%s",
+                          "inventoryItemId":"%s",
+                          "quantity":12.500,
+                          "referenceType":"SalesOrder",
+                          "referenceId":"%s"
+                        }
+                        """.formatted(farmId, itemId, referenceId)))
+                .andRespond(withSuccess("""
+                        {"id":"%s"}
+                        """.formatted(reservationId), MediaType.APPLICATION_JSON));
+
+        assertThat(fixture.client().reserve(farmId, itemId, new BigDecimal("12.500"), referenceId))
+                .isEqualTo(reservationId);
+        fixture.server().verify();
+    }
+
+    @Test
+    void confirm_postsAuthoritativeContractAndForwardsCallerBearerToken() {
+        UUID farmId = UUID.randomUUID();
+        UUID reservationId = UUID.randomUUID();
+        setBearerToken("sales-caller-token");
+        TestClient fixture = client();
+        fixture.server().expect(once(), requestTo(
+                        BASE_URL + INTERNAL_BASE_PATH + "/reservations/" + reservationId
+                                + "/confirm?farmId=" + farmId))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(header("X-Internal-Service-Token", INTERNAL_TOKEN))
+                .andExpect(header("Authorization", "Bearer sales-caller-token"))
+                .andRespond(withStatus(HttpStatus.NO_CONTENT));
+
+        fixture.client().confirm(farmId, reservationId);
+
+        fixture.server().verify();
     }
 
     @Test
@@ -199,6 +252,62 @@ class InventoryClientTest {
     }
 
     @Test
+    void findByReference_rejectsMalformedReservationPayloadWithoutExposingIt() {
+        UUID farmId = UUID.randomUUID();
+        String orderId = UUID.randomUUID().toString();
+        String sensitiveValue = "inventory-lookup-token=super-secret";
+        TestClient fixture = client();
+        fixture.server().expect(once(), requestTo(
+                        URI.create(BASE_URL + INTERNAL_BASE_PATH + "/reservations/by-reference"
+                                + "?farmId=" + farmId
+                                + "&referenceType=SalesOrder&referenceId=" + orderId)))
+                .andRespond(withSuccess("""
+                        {
+                          "id":"not-a-uuid",
+                          "inventoryItemId":"%s",
+                          "quantity":2.500,
+                          "status":"ACTIVE",
+                          "diagnostic":"%s"
+                        }
+                        """.formatted(UUID.randomUUID(), sensitiveValue), MediaType.APPLICATION_JSON));
+
+        assertThatExceptionOfType(InventoryClient.InventoryReservationException.class)
+                .isThrownBy(() -> fixture.client().findByReference(farmId, "SalesOrder", orderId))
+                .satisfies(exception -> {
+                    assertThat(exception.getStatus()).isEqualTo(502);
+                    assertThat(exception.getMessage())
+                            .isEqualTo("Inventory request failed (status=502, code=INVALID_INVENTORY_RESPONSE)")
+                            .doesNotContain(sensitiveValue);
+                });
+        fixture.server().verify();
+    }
+
+    @Test
+    void findByReference_discardsMalformedDownstreamErrorPayload() {
+        UUID farmId = UUID.randomUUID();
+        String orderId = UUID.randomUUID().toString();
+        String sensitiveValue = "inventory-lookup-token=super-secret";
+        TestClient fixture = client();
+        fixture.server().expect(once(), requestTo(
+                        URI.create(BASE_URL + INTERNAL_BASE_PATH + "/reservations/by-reference"
+                                + "?farmId=" + farmId
+                                + "&referenceType=SalesOrder&referenceId=" + orderId)))
+                .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"code\":\"INSUFFICIENT_STOCK\",\"message\":\"" + sensitiveValue));
+
+        assertThatExceptionOfType(InventoryClient.InventoryReservationException.class)
+                .isThrownBy(() -> fixture.client().findByReference(farmId, "SalesOrder", orderId))
+                .satisfies(exception -> {
+                    assertThat(exception.getStatus()).isEqualTo(503);
+                    assertThat(exception.getMessage())
+                            .isEqualTo(SAFE_DOWNSTREAM_FAILURE)
+                            .doesNotContain(sensitiveValue);
+                });
+        fixture.server().verify();
+    }
+
+    @Test
     void release_returnsAuthoritativeFulfilledOutcome() {
         UUID farmId = UUID.randomUUID();
         UUID reservationId = UUID.randomUUID();
@@ -271,6 +380,14 @@ class InventoryClientTest {
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         InventoryClient client = new InventoryClient(builder, new ObjectMapper(), BASE_URL, INTERNAL_TOKEN);
         return new TestClient(client, server);
+    }
+
+    private static void setBearerToken(String tokenValue) {
+        Jwt token = Jwt.withTokenValue(tokenValue)
+                .header("alg", "none")
+                .claim("sub", "sales-caller")
+                .build();
+        SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(token));
     }
 
     private record TestClient(InventoryClient client, MockRestServiceServer server) {

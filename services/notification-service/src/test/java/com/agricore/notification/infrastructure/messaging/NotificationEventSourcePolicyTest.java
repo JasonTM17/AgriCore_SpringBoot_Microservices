@@ -27,7 +27,7 @@ class NotificationEventSourcePolicyTest {
     );
 
     @Test
-    void acceptsEverySupportedEventOnlyFromItsContractSource() {
+    void acceptsEveryKnownEventOnlyFromItsContractSource() {
         List<EventSourceCase> cases = List.of(
                 new EventSourceCase(EventTypes.USER_REGISTERED, IDENTITY_TOPIC, "identity-service"),
                 new EventSourceCase(EventTypes.SALES_ORDER_CONFIRMED, SALES_TOPIC, "sales-service"),
@@ -37,6 +37,7 @@ class NotificationEventSourcePolicyTest {
                         TRACEABILITY_TOPIC,
                         "traceability-service"
                 ),
+                new EventSourceCase(EventTypes.SENSOR_READING_RECEIVED, IOT_TOPIC, "iot-service"),
                 new EventSourceCase(EventTypes.SENSOR_THRESHOLD_EXCEEDED, IOT_TOPIC, "iot-service"),
                 new EventSourceCase(EventTypes.DEVICE_OFFLINE_DETECTED, IOT_TOPIC, "iot-service")
         );

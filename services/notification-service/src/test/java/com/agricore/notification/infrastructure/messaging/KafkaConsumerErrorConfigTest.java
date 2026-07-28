@@ -39,6 +39,7 @@ class KafkaConsumerErrorConfigTest {
         assertThat(retryableTopic.dltTopicSuffix()).isEqualTo(".DLT");
         assertThat(retryableTopic.autoCreateTopics())
                 .isEqualTo("${AGRICORE_KAFKA_RETRY_AUTO_CREATE_TOPICS:false}");
+        assertThat(retryableTopic.exclude()).containsExactly(IllegalArgumentException.class);
     }
 
     @Test

@@ -99,11 +99,16 @@ public final class DomainEventEnvelopeReader {
 
     private static UUID uuid(JsonNode root, String field) {
         String value = requiredText(root, field);
+        UUID uuid;
         try {
-            return UUID.fromString(value);
+            uuid = UUID.fromString(value);
         } catch (IllegalArgumentException ex) {
             throw invalid(field + " must be a UUID", ex);
         }
+        if (value.length() != uuid.toString().length() || !value.equalsIgnoreCase(uuid.toString())) {
+            throw invalid(field + " must be a UUID");
+        }
+        return uuid;
     }
 
     private static int positiveInteger(JsonNode root, String field) {

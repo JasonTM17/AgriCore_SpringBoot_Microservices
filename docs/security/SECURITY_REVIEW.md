@@ -60,10 +60,12 @@
 - Downstream no-write and data-masking checks: `CropCycleAccessFailureIntegrationTest`, `CropCycleListAccessIntegrationTest`, `WorkAccessFailureIntegrationTest`, `WorkListAccessIntegrationTest`, `HarvestAccessFailureIntegrationTest`, `IotAccessFailureIntegrationTest`.
 - JWT issuer/audience policy: `GatewaySecurityConfig`, `DomainServiceSecurityConfig`, and `AgricoreJwtValidatorsTest`. The 2026-07-26 release evidence also proves live gateway and direct-service invalid-token rejection.
 - Permission persistence, administration, token claims, and authority conversion: `PermissionPersistenceIntegrationTest`, `AdminPermissionIntegrationTest`, `JwtTokenServiceTest`, `JwtAuthenticationFilterTest`, `JwtRolesConverterTest`, and the gateway `ApiGatewayApplicationTest` context load.
-- Current source-release criteria: [v1.0.0 release manifest](../releases/v1.0.0.md).
-  The [2026-07-28 closeout](../evidence/release-closeout-2026-07-28.md) for
-  `a7568aec` and [2026-07-26 evidence](../evidence/release-verification-2026-07-26.md)
-  remain historical context only.
+- Prepared v1.0.1 source-release criteria: [release manifest](../releases/v1.0.1.md).
+  It contains no v1.0.1 target, CI, package, or deployment evidence. The
+  [v1.0.0 manifest](../releases/v1.0.0.md), [2026-07-28
+  closeout](../evidence/release-closeout-2026-07-28.md) for `a7568aec`, and
+  [2026-07-26 evidence](../evidence/release-verification-2026-07-26.md) remain
+  historical context only.
 
 ## Evidence boundary
 

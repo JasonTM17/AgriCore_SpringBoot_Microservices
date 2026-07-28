@@ -19,6 +19,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 
+import java.util.Optional;
 import java.util.UUID;
 
 import static com.agricore.sales.infrastructure.client.InventoryClient.ReleaseOutcome.FULFILLED;
@@ -271,5 +272,112 @@ class SalesSagaTest {
 
         assertThat(sagaRepository.findAll()).anySatisfy(saga ->
                 assertThat(saga.getCurrentStep()).isEqualTo("RESERVATION_OUTCOME_UNKNOWN"));
+    }
+
+    @Test
+    void placeOrder_ambiguousReserveWithFulfilledLookup_confirmsWithoutAnotherInventoryCall() throws Exception {
+        UUID reservationId = UUID.randomUUID();
+        arrangeAmbiguousReserveLookup(reservationId, "FULFILLED", true);
+
+        placeOrder("LOOKUP-FULFILLED", createCustomer("LOOKUP-FULFILLED"), 3)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("CONFIRMED"))
+                .andExpect(jsonPath("$.sagaStatus").value("COMPLETED"))
+                .andExpect(jsonPath("$.reservationId").value(reservationId.toString()));
+
+        verify(inventoryClient, never()).confirm(any(), any());
+        verify(inventoryClient, never()).release(any(), any());
+    }
+
+    @Test
+    void placeOrder_ambiguousReserveWithReleasedLookup_cancelsWithoutAnotherInventoryCall() throws Exception {
+        UUID reservationId = UUID.randomUUID();
+        arrangeAmbiguousReserveLookup(reservationId, "RELEASED", true);
+
+        placeOrder("LOOKUP-RELEASED", createCustomer("LOOKUP-RELEASED"), 3)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.sagaStatus").value("FAILED"))
+                .andExpect(jsonPath("$.sagaStep").value("COMPENSATED"))
+                .andExpect(jsonPath("$.reservationId").value(reservationId.toString()));
+
+        verify(inventoryClient, never()).confirm(any(), any());
+        verify(inventoryClient, never()).release(any(), any());
+    }
+
+    @Test
+    void placeOrder_ambiguousReserveWithActiveLookup_schedulesConfirmationWithoutRelease() throws Exception {
+        UUID reservationId = UUID.randomUUID();
+        arrangeAmbiguousReserveLookup(reservationId, "ACTIVE", true);
+
+        placeOrder("LOOKUP-ACTIVE", createCustomer("LOOKUP-ACTIVE"), 3)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("STOCK_RESERVED"))
+                .andExpect(jsonPath("$.sagaStatus").value("RETRY_SCHEDULED"))
+                .andExpect(jsonPath("$.sagaStep").value("CONFIRM_INVENTORY"))
+                .andExpect(jsonPath("$.reservationId").value(reservationId.toString()));
+
+        verify(inventoryClient, never()).confirm(any(), any());
+        verify(inventoryClient, never()).release(any(), any());
+    }
+
+    @Test
+    void placeOrder_ambiguousReserveWithUnsupportedLookup_remainsRecoverable() throws Exception {
+        UUID reservationId = UUID.randomUUID();
+        arrangeAmbiguousReserveLookup(reservationId, "EXPIRED", true);
+
+        MvcResult result = placeOrder("LOOKUP-UNSUPPORTED", createCustomer("LOOKUP-UNSUPPORTED"), 3)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("PENDING_CONFIRMATION"))
+                .andExpect(jsonPath("$.sagaStatus").value("RETRY_SCHEDULED"))
+                .andExpect(jsonPath("$.sagaStep").value("RESERVATION_OUTCOME_UNKNOWN"))
+                .andReturn();
+
+        UUID orderId = UUID.fromString(objectMapper.readTree(result.getResponse().getContentAsString()).path("id").asText());
+        assertThat(sagaRepository.findBySalesOrderId(orderId).orElseThrow().getLastError())
+                .contains("unsupported reservation status EXPIRED");
+        verify(inventoryClient, never()).confirm(any(), any());
+        verify(inventoryClient, never()).release(any(), any());
+    }
+
+    @Test
+    void placeOrder_ambiguousReserveWithMismatchedLookup_remainsRecoverable() throws Exception {
+        UUID reservationId = UUID.randomUUID();
+        arrangeAmbiguousReserveLookup(reservationId, "ACTIVE", false);
+
+        MvcResult result = placeOrder("LOOKUP-MISMATCH", createCustomer("LOOKUP-MISMATCH"), 3)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("PENDING_CONFIRMATION"))
+                .andExpect(jsonPath("$.sagaStatus").value("RETRY_SCHEDULED"))
+                .andExpect(jsonPath("$.sagaStep").value("RESERVATION_OUTCOME_UNKNOWN"))
+                .andReturn();
+
+        UUID orderId = UUID.fromString(objectMapper.readTree(result.getResponse().getContentAsString()).path("id").asText());
+        assertThat(sagaRepository.findBySalesOrderId(orderId).orElseThrow().getLastError())
+                .contains("reservation lookup failed: Inventory saga failed")
+                .doesNotContain("Inventory reservation does not match the sales order");
+        verify(inventoryClient, never()).confirm(any(), any());
+        verify(inventoryClient, never()).release(any(), any());
+    }
+
+    private void arrangeAmbiguousReserveLookup(
+            UUID reservationId,
+            String reservationStatus,
+            boolean matchesOrder
+    ) {
+        when(inventoryClient.reserve(any(), any(), any(), anyString()))
+                .thenThrow(new InventoryClient.InventoryReservationException(503, "reserve timeout"));
+        when(inventoryClient.findByReference(any(), anyString(), anyString()))
+                .thenAnswer(invocation -> {
+                    UUID orderId = UUID.fromString(invocation.getArgument(2, String.class));
+                    SalesOrderEntity order = orderRepository.findById(orderId).orElseThrow();
+                    UUID inventoryItemId = matchesOrder ? order.getInventoryItemId() : UUID.randomUUID();
+                    return Optional.of(new InventoryClient.ReservationState(
+                            reservationId,
+                            inventoryItemId,
+                            order.getQuantity(),
+                            reservationStatus
+                    ));
+                });
     }
 }
