@@ -1,10 +1,13 @@
 # AgriCore project overview and product requirements
 
-**Status:** v1.0.0 source-release manifest prepared; no hosted production
-deployment is claimed
+**Status:** v1.0.1 source-release preparation manifest; no v1.0.1 tag,
+GitHub Release, package-publication result, or hosted production deployment is
+claimed
 
-**Release provenance:** [v1.0.0 release manifest](releases/v1.0.0.md) defines
-the source-tag gate, immutable SHA packages, and operator deployment boundary.
+**Release provenance:** [Prepared v1.0.1 release manifest](releases/v1.0.1.md)
+defines the required source-tag gate, immutable SHA packages, and operator
+deployment boundary. The [v1.0.0 manifest](releases/v1.0.0.md) is the
+historical predecessor record.
 
 ## Product problem
 
@@ -104,9 +107,10 @@ inside an independently owned service and database.
   intentional `Recreate` interruption. Any pre-V5 rollback follows the
   documented drain, backup, and evidence-neutralization procedure.
 - Docker Hub and GitHub Packages publish immutable SHA images only after default
-  branch CI succeeds. The v1.0.0 source tag is resolved through its release
-  record to full/short SHA tags, signatures, SBOM, and provenance; deployments
-  pin the resulting digest.
+  branch CI succeeds. A v1.0.1 source release must be resolved through its
+  later release record to full/short SHA tags, signatures, SBOM, and
+  provenance; deployments pin the resulting digest. The prepared manifest is
+  not that release record.
 - Production operators explicitly supply secrets, TLS, database backups, Kafka
   authorization, storage, SMTP, and observability retention.
 

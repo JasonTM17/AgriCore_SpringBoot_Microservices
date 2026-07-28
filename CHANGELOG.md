@@ -5,15 +5,36 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 intends to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-The [v1.0.0 release manifest](docs/releases/v1.0.0.md) defines the source tag
-and exact workflow evidence required before a GitHub Release is published. It
-does not create SemVer container tags: packages remain immutable short- and
-full-SHA tags, and operators deploy the resolved digest. `latest` is never
-promoted.
+The [prepared v1.0.1 release manifest](docs/releases/v1.0.1.md) defines the
+next source-tag and workflow-evidence requirements. It is not a tag, GitHub
+Release, CI result, or package-publication record. Packages remain immutable
+short- and full-SHA tags, operators deploy the resolved digest, and `latest` is
+never promoted.
 
 ## [Unreleased]
 
-No changes recorded after v1.0.0.
+### v1.0.1 preparation
+
+These entries describe the next maintenance source-release candidate. They do
+not establish a published source release or successful release evidence.
+
+#### Fixed
+
+- Notification now source- and payload-validates a version-1
+  `SensorReadingReceived.v1` before committing it as a no-op. Valid accepted
+  telemetry no longer enters the IoT DLT; wrong source, topic, version, or
+  payload schema still fails directly to that DLT.
+
+#### Added
+
+- Focused regression coverage for Identity authentication/signing, Inventory
+  stock and harvest boundaries, and Sales saga recovery and Inventory-client
+  behavior.
+
+#### Documentation
+
+- Prepared v1.0.1 provenance, deployment, security, evidence, and current
+  documentation pointers while preserving v1.0.0 as historical.
 
 ## [1.0.0](docs/releases/v1.0.0.md) - 2026-07-28
 

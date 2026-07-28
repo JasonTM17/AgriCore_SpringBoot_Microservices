@@ -21,20 +21,24 @@ complete only after code, contract, migration, tests, operations, and docs agree
 | Platform | Compose and Helm tenant dependencies, read-only application filesystems, gateway Service alias, configurable egress policy, observability, security workflows, durable outbox retry migrations, and SHA-only dual-registry promotion with scan, digest-parity, signature, and bounded registry-retry gates |
 | Docs/demo | Repository media/GIF, regional seed, bounded cross-domain dataset, diagrams, ADRs, and platform release docs synchronized; all 13 Spring application READMEs provide service-local orientation and remain part of the final merged-revision accuracy gate |
 
-Current checkpoint: the [v1.0.0 release manifest](releases/v1.0.0.md) is the
-canonical release boundary. Once publication validates the annotated source
-target, its record associates the exact CI/package evidence; immutable full/short
-SHA tags resolve to one signed digest in both registries. The
-[2026-07-28 closeout](evidence/release-closeout-2026-07-28.md) for `a7568aec`
-remains historical evidence. Production deployment is a separate operator-owned
+Current checkpoint: the [prepared v1.0.1 release manifest](releases/v1.0.1.md)
+is the next source-release checklist. It includes no tag target, workflow run,
+package tag, digest, or GitHub Release evidence. Once publication validates the
+annotated source target, its record associates the exact CI/package evidence;
+immutable full/short SHA tags resolve to one signed digest in both registries.
+The [v1.0.0 manifest](releases/v1.0.0.md) and the [2026-07-28
+closeout](evidence/release-closeout-2026-07-28.md) for `a7568aec` remain
+historical evidence. Production deployment is a separate operator-owned
 decision.
 
-## Verification evidence (2026-07-28)
+## Historical local verification evidence (2026-07-28)
 
 The final `./mvnw -B clean verify` run generated the following JaCoCo reports
 from the closeout branch. Its 13 service suites completed 961 tests with zero
-failures and zero errors. These local reports are release evidence, not a
-waiver for the GitHub checks on the merged revision.
+failures and zero errors. These local reports apply only to that named closeout
+branch. They are not v1.0.1 tag, CI, Docker Publish, package, or deployment
+evidence, and they do not waive the GitHub checks on the eventual merged
+revision.
 
 | Module | Tests | Instructions | Branches |
 |---|---:|---:|---:|

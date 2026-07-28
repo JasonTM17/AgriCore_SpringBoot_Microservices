@@ -1,16 +1,28 @@
 # Evidence register
 
-This register separates current source-release provenance from historical
-records. Repository evidence is useful for source and package verification; it
-does not replace operator deployment evidence.
+This register separates prepared source-release requirements, published
+source-release records, and historical snapshots. Repository evidence is useful
+for source and package verification; it does not replace operator deployment
+evidence.
 
-## Current source-release provenance
+## Prepared v1.0.1 provenance (not publication evidence)
 
 | Record | What it establishes | What to verify |
 |---|---|---|
-| [v1.0.0 release manifest](../releases/v1.0.0.md) | Source-release criteria, image-resolution procedure, and operator boundary | Annotated source tag, matching successful default-branch CI and Docker Publish evidence |
-| [GitHub Releases](https://github.com/JasonTM17/AgriCore_SpringBoot_Microservices/releases) | The canonical release record when `release-provenance` creates it | Release target, linked CI and Docker Publish runs, and matching full-SHA image references |
+| [v1.0.1 release manifest](../releases/v1.0.1.md) | Candidate scope, source-tag preflight, image-resolution procedure, and operator boundary | Annotated tag, matching successful default-branch CI and Docker Publish evidence |
+| [Release provenance workflow](../../.github/workflows/release-provenance.yml) | Enforces the release version, annotated tag, exact default-branch target, and required successful runs before creating a GitHub Release | Exact target and recorded workflow evidence |
 | [Deployment guide](../deployment-guide.md#image-verification) | Digest and signature verification procedure before an operator deploys | Resolved registry digest, signature, and environment-owned Helm values |
+
+The prepared v1.0.1 manifest intentionally carries no source target, workflow
+run, package tag, digest, or GitHub Release URL. It is not evidence that any of
+those artifacts exists or that an operator deployment occurred.
+
+## Published and historical source-release records
+
+| Record | Scope | Qualification |
+|---|---|---|
+| [v1.0.0 release](https://github.com/JasonTM17/AgriCore_SpringBoot_Microservices/releases/tag/v1.0.0) | Prior published source release | Historical predecessor; not evidence for v1.0.1 |
+| [v1.0.0 release manifest](../releases/v1.0.0.md) | Prior source-release scope and verification procedure | Historical predecessor; use the GitHub Release record for its published target/runs |
 
 The release-provenance workflow requires an annotated `vMAJOR.MINOR.PATCH` tag
 at the current default-branch tip. It records the exact successful CI and Docker
@@ -18,7 +30,7 @@ Publish runs before it creates a GitHub Release. Docker Publish promotes
 short- and full-SHA image tags after candidate scanning, registry-parity, and
 signature checks; deployment should use the resolved digest.
 
-## Historical closeout and snapshots
+## Historical closeout and local snapshots
 
 | Record | Scope | Qualification |
 |---|---|---|
