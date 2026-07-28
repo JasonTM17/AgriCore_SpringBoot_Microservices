@@ -29,7 +29,13 @@ param(
     [string]$WorkDir = [System.IO.Path]::GetTempPath(),
 
     [ValidateRange(20, 240)]
-    [int]$WrapAt = 104
+    [int]$WrapAt = 104,
+
+    [ValidateRange(1024, 1048576)]
+    [int]$MaxInputBytes = 262144,
+
+    [ValidateRange(10, 160)]
+    [int]$MaxRenderedLines = 80
 )
 
 $ErrorActionPreference = "Stop"
@@ -38,7 +44,15 @@ if (-not (Get-Command magick -ErrorAction SilentlyContinue)) {
     throw "ImageMagick 7 is required: 'magick' was not found on PATH."
 }
 
-$raw = Get-Content -LiteralPath $InputFile
+if (-not (Test-Path -LiteralPath $InputFile -PathType Leaf)) {
+    throw "Input transcript was not found: $InputFile"
+}
+$inputInfo = Get-Item -LiteralPath $InputFile
+if ($inputInfo.Length -gt $MaxInputBytes) {
+    throw "Input transcript is $($inputInfo.Length) bytes; the limit is $MaxInputBytes bytes."
+}
+
+$raw = Get-Content -LiteralPath $inputInfo.FullName
 foreach ($line in $raw) {
     if ($line -match 'eyJ[A-Za-z0-9_\-\.]{20,}') {
         throw "Refusing to render: a JWT-like string is present in $InputFile."
@@ -55,10 +69,10 @@ if ($relativeFrameDir -ne $frameDirName) {
 
 $OutputGif = [System.IO.Path]::GetFullPath($OutputGif)
 New-Item -ItemType Directory -Path $workRoot -Force | Out-Null
-New-Item -ItemType Directory -Path $frameDir | Out-Null
-New-Item -ItemType Directory -Path (Split-Path -Parent $OutputGif) -Force | Out-Null
 
 try {
+New-Item -ItemType Directory -Path $frameDir | Out-Null
+New-Item -ItemType Directory -Path (Split-Path -Parent $OutputGif) -Force | Out-Null
 
 # Wrap so nothing runs off the canvas; continuation lines are indented.
 $lines = New-Object System.Collections.Generic.List[string]
@@ -73,6 +87,9 @@ foreach ($line in $raw) {
         $lines.Add($chunk)
         $offset += $take
     }
+}
+if ($lines.Count -gt $MaxRenderedLines) {
+    throw "Wrapped transcript has $($lines.Count) lines; the limit is $MaxRenderedLines lines."
 }
 
 # -annotate treats backslash as an escape and strips leading spaces. Double the former, and render

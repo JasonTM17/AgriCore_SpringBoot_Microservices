@@ -64,13 +64,13 @@ corresponding default-branch commit.
 ## Demo
 
 One command brings the platform up; one script exercises its critical authenticated and
-event-driven paths against a clean stack. The GIF is rendered from captured console output with
+event-driven paths against a quiescent stack. The GIF is rendered from captured console output with
 `tools/render-e2e-gif.ps1`; the executable assertions in `scripts/e2e-happy-path.ps1` remain the
 source of truth:
 
 ![End-to-end happy path: register, login, farm, crop cycle, work task, harvest, Kafka projection, public QR](docs/images/e2e-happy-path.gif)
 
-What the script verifies, in order: a real RS256 token from Identity; Farm, Plot, Crop Cycle, and
+What the script verifies, in order: an authenticated JWT issued by Identity; Farm, Plot, Crop Cycle, and
 Work Task operations through the gateway; an **illegal crop-cycle stage transition rejected with
 409**; the legal stage path; a 90 kg net harvest written with its outbox event; Inventory and
 Traceability projections caught up from Kafka; the dynamically generated public traceability code;
@@ -81,6 +81,9 @@ events delivered to the DLT.
 docker compose up -d
 pwsh scripts/e2e-happy-path.ps1     # or: ./scripts/verify-platform.sh
 ```
+
+Run the acceptance script without concurrent harvest-producing workloads because its Inventory
+delta assertion observes the shared `COFFEE-ROBUSTA` test SKU.
 
 ### The event backbone
 
