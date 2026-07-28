@@ -23,16 +23,89 @@ Portfolio-grade **Java 21 / Spring Boot microservices** platform for enterprise 
 
 Tags: `latest`, short git SHA, full commit SHA. Images publish only after successful default-branch `ci`.
 
+## Demo
+
+One command brings the whole platform up; one script drives a real business transaction across
+every service. This is `scripts/e2e-happy-path.ps1` against a clean stack — nothing staged, nothing
+edited afterwards:
+
+![End-to-end happy path: register, login, farm, crop cycle, work task, harvest, Kafka projection, public QR](docs/images/e2e-happy-path.gif)
+
+What it proves, in order: a real RS256 token from identity, a farm and plot through the gateway, an
+**illegal crop-cycle stage transition rejected with 409** and the platform `ApiError` body, the four
+legal stages, a work task, a harvest write that lands in the outbox, the **inventory consumer
+stocking 500 kg from Kafka**, and the **public QR projection** resolving to `CAPHER-70543A22`.
+
+```bash
+docker compose up -d
+pwsh scripts/e2e-happy-path.ps1     # or: ./scripts/verify-platform.sh
+```
+
+### The event backbone
+
+Five outbox topics and the three idempotent consumer groups, from the same run:
+
+![Kafka UI showing the five agricore event topics with message counts, and the inventory, notification, and traceability consumer groups all STABLE](docs/images/kafka-event-backbone.png)
+
+Producers write to `outbox_events` in the same transaction as the domain change; a polling publisher
+drains it. Consumers dedupe on `(event_id, consumer_name)` and route poisoned messages to a DLT.
+
 ## Architecture
 
-```text
-Client → API Gateway (:8080)  JWT RS256 / JWKS
-            ├─ Identity (outbox) → Kafka → Notification
-            ├─ Farm, Crop Catalog, Crop Cycle, Work
-            ├─ Harvest (outbox) → Kafka → Inventory + Traceability
-            ├─ Sales (HTTP saga reserve→confirm inventory)
-            └─ IoT
+```mermaid
+flowchart LR
+    client([Operations client]):::ext
+    qr([QR scan · no auth]):::ext
+
+    gw["**API Gateway** :8080<br/>JWT RS256 via JWKS"]:::gw
+
+    subgraph writers["Event producers · transactional outbox"]
+        identity["identity :8081<br/>JWKS issuer"]:::svc
+        farm["farm :8082"]:::svc
+        cycle["crop-cycle :8084"]:::svc
+        work["work :8085"]:::svc
+        harvest["harvest :8087"]:::svc
+    end
+
+    subgraph plain["Request/response"]
+        catalog["crop-catalog :8083"]:::svc
+        iot["iot :8090"]:::svc
+        sales["sales :8091<br/>reserve→confirm saga"]:::svc
+    end
+
+    subgraph readers["Idempotent consumers · processed_events + DLT"]
+        inventory["inventory :8086"]:::svc
+        notification["notification :8089"]:::svc
+        traceability["traceability :8092<br/>public QR read model"]:::svc
+    end
+
+    kafka{{"Kafka :9092"}}:::infra
+    pg[("PostgreSQL :5434<br/>database per service")]:::infra
+    redis[("Redis :6380<br/>login rate limit")]:::infra
+
+    client --> gw
+    gw --> identity & farm & catalog & cycle & work & harvest & inventory & iot & sales & notification & traceability
+    qr -->|"GET /public/api/v1/traceability/{code}"| traceability
+
+    identity -.->|"UserRegistered.v1"| kafka
+    harvest -.->|"HarvestCompleted.v1"| kafka
+    farm & cycle & work -.-> kafka
+    kafka -.-> inventory & notification & traceability
+
+    sales ==>|"HTTP reserve / confirm / release"| inventory
+    identity --- redis
+    writers --- pg
+    plain --- pg
+    readers --- pg
+
+    classDef svc fill:#1f6f43,stroke:#0d3b23,color:#fff
+    classDef gw fill:#0f5132,stroke:#08301e,color:#fff
+    classDef infra fill:#37474f,stroke:#1c262b,color:#fff
+    classDef ext fill:#e9ecef,stroke:#adb5bd,color:#212529
 ```
+
+Solid arrows are synchronous HTTP; dotted arrows are Kafka events; the thick arrow is the sales
+saga's inbound call to inventory.
 
 - **Database per service** (PostgreSQL)
 - **Transactional outbox** on identity / farm / crop-cycle / work / harvest

@@ -58,6 +58,7 @@ coverage/
 .gemini/
 .grok/
 mcps/
+.playwright-mcp/
 
 .claude/worktrees/
 .claude-private/
