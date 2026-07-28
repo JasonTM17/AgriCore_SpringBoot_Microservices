@@ -1,6 +1,6 @@
 # AgriCore System Architecture
 
-**Last updated:** 2026-07-27
+**Last updated:** 2026-07-28
 **Status:** Active
 
 ## 1. Purpose
@@ -31,7 +31,7 @@ Identity Farm   Domain services     Assistant
   |       |        |                    |
   +-------+--- Kafka -------------------+
               |
-       Inventory + Traceability
+   Inventory + Traceability + Notification
 
 [PostgreSQL databases] [Redis] [Kafka]
 [Prometheus] [Tempo] [Grafana]
@@ -301,9 +301,11 @@ and Kubernetes.
 
 The chart expects external PostgreSQL, Redis, Kafka, MinIO-compatible object
 storage, SMTP, and observability services plus pre-created database and SMTP
-credential Secrets. NetworkPolicy denies non-AgriCore ingress by default.
-Egress is unrestricted unless `networkPolicy.restrictEgress=true`; restricted
-deployments must add their external dependency destinations through
+credential Secrets. NetworkPolicy permits AgriCore pods and the `ingress-nginx`
+controller only when it matches both the `ingress-nginx` namespace and
+`app.kubernetes.io/name=ingress-nginx` label; other non-AgriCore ingress is
+denied. Egress is unrestricted unless `networkPolicy.restrictEgress=true`;
+restricted deployments must add their external dependency destinations through
 `networkPolicy.additionalEgress`. The chart does not install Tempo, Prometheus,
 Loki, Alloy, Grafana, or MinIO. These repository mechanisms do not prove a
 production cluster is deployed.

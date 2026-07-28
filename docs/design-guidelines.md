@@ -148,7 +148,7 @@ Top bar contains breadcrumb, environment badge, global search affordance only wh
 - Error messages state what happened, the affected object, and the safe next step.
 - Preserve agricultural terms consistently: `Trang trại`, `Lô canh tác`, `Vụ canh tác`, `Công việc`, `Thu hoạch`, `Tồn kho`, `Giữ hàng`, `Truy xuất nguồn gốc`.
 
-## API-Dependent Future Views
+## Intentionally unsupported v1 views
 
 Do not implement authoritative list/history views for harvest, inventory items,
 reservations, customers, orders, IoT devices/readings/alerts, or projection

@@ -20,8 +20,11 @@ behind an Nginx same-origin edge.
   gateway.
 - The gateway validates RS256 JWT issuer/audience/signature and forwards the
   caller bearer token.
-- Public traceability routes are explicitly allowlisted; all other application
-  routes require authentication.
+- Public business access is limited to the explicitly allowlisted traceability
+  routes. Identity `/api/v1/auth/**` and `/.well-known/jwks.json` are separately
+  unauthenticated bootstrap endpoints for login/refresh and token verification;
+  they are not public operational APIs. All other application routes require
+  authentication.
 - Domain services independently validate JWTs and enforce roles, permissions,
   and farm membership. The gateway is not the final authorization boundary.
 - The assistant is reachable through the gateway but is not directly
