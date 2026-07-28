@@ -24,15 +24,20 @@
 | S14 | High | Permission catalog or role grants could be changed by a non-admin, duplicated, or partially replaced | Identity restricts all permission administration to `SYSTEM_ADMIN`; permission codes are database-unique; replacement locks the role and validates every requested code before changing grants |
 | S15 | Medium | Live gateway-to-service JWT enforcement was not exercised | The full Compose release gate now proves invalid-token rejection at both gateway and direct farm-service boundaries before running the authenticated E2E path |
 
-## Open / deferred
+## Addressed follow-ups
+
+| ID | Severity | Finding | Resolution |
+|----|----------|---------|------------|
+| O3 | Low | File upload was not present in the original review | Work attachments are private, size/type/hash validated, object-storage-host allowlisted, and covered by integration tests. |
+| O6 | Medium | Permission authorities existed before endpoint enforcement was completed | Canonical permission catalog, controller guards, identity administration UI, and permission-aware console navigation are implemented and covered by focused tests. |
+
+## Remaining operator decisions
 
 | ID | Severity | Finding | Plan |
 |----|----------|---------|------|
 | O2 | Medium | Kafka ACLs not configured in compose | Define and verify production Kafka authentication/authorization before deployment; none is claimed here |
-| O3 | Low | File upload was not present in the original review | Work attachments are now private, size/type/hash validated, object-storage-host allowlisted, and covered by integration tests |
 | O4 | Medium | Provider egress TLS/Kafka ACLs remain deployment controls | Configure TLS/ACL policy in the target environment; local Compose intentionally uses an internal network and no provider by default |
 | O5 | Medium | Role-grant changes do not invalidate permission snapshots in already-issued access tokens | Updated grants appear only in a newly issued token, such as after login or refresh; the old token remains valid until expiry. Default access-token TTL is 900 seconds. Evaluate immediate revocation if incident-response requirements demand it. |
-| O6 | Medium | Permission authorities existed before endpoint enforcement was completed | Resolved: canonical permission catalog, controller guards, identity administration UI, and permission-aware console navigation are implemented and covered by focused tests |
 
 ## Red-team checklist (sample)
 
@@ -55,7 +60,7 @@
 - Downstream no-write and data-masking checks: `CropCycleAccessFailureIntegrationTest`, `CropCycleListAccessIntegrationTest`, `WorkAccessFailureIntegrationTest`, `WorkListAccessIntegrationTest`, `HarvestAccessFailureIntegrationTest`, `IotAccessFailureIntegrationTest`.
 - JWT issuer/audience policy: `GatewaySecurityConfig`, `DomainServiceSecurityConfig`, and `AgricoreJwtValidatorsTest`. The 2026-07-26 release evidence also proves live gateway and direct-service invalid-token rejection.
 - Permission persistence, administration, token claims, and authority conversion: `PermissionPersistenceIntegrationTest`, `AdminPermissionIntegrationTest`, `JwtTokenServiceTest`, `JwtAuthenticationFilterTest`, `JwtRolesConverterTest`, and the gateway `ApiGatewayApplicationTest` context load.
-- Consolidated local evidence: [release verification 2026-07-26](../evidence/release-verification-2026-07-26.md).
+- Verified closeout: [release closeout 2026-07-28](../evidence/release-closeout-2026-07-28.md); the [2026-07-26 evidence](../evidence/release-verification-2026-07-26.md) remains historical context only.
 
 ## Evidence boundary
 

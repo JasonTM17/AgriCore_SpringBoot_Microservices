@@ -1,8 +1,10 @@
 # AgriCore project overview and product requirements
 
-**Status:** Release 1.0 implementation complete
+**Status:** Feature-complete, verified default-branch revision; no SemVer or
+production deployment is claimed
 
-**Last verified:** 2026-07-27
+**Last verified:** 2026-07-28 — see the
+[release closeout](evidence/release-closeout-2026-07-28.md)
 
 ## Product problem
 

@@ -1,8 +1,9 @@
 # AgriCore Implementation Plan
 
-**Status:** Pre-release integration; no final clean-revision verification, merge, publication, signature, or production deployment is claimed
+**Status:** Implementation complete; verified default-branch closeout recorded,
+without a SemVer release or production deployment claim
 **Created:** 2026-07-16
-**Last updated:** 2026-07-27
+**Last updated:** 2026-07-28
 
 ## Delivered scope
 
@@ -132,20 +133,17 @@ label; this is configuration, not registry-publication evidence.
   input only from the configured immediate trusted proxy; services otherwise
   fall back to their remote peer.
 
-## Remaining pre-release work
+## Closeout and operator handoff
 
-- Create a final clean revision, then re-run the complete backend, frontend,
-  browser, Compose, Helm, media, performance, and security gates. Docker is
-  required for the PostgreSQL Testcontainers migration tests.
-- Push the verified default-branch revision to Docker Hub/GHCR through the gated workflow and publish GitHub package metadata.
-- Re-check production operator inputs (JWT keys, database/Kafka/SMTP credentials, TLS, ACLs, observability backends) before deployment.
+The completed default-branch verification, merge, immutable package publication,
+and registry digest parity are recorded in the
+[release closeout](evidence/release-closeout-2026-07-28.md). The earlier
+[2026-07-26 verification](evidence/release-verification-2026-07-26.md) remains
+a qualified historical runtime snapshot for `5867b37` only.
 
-The immutable [release verification 2026-07-26](evidence/release-verification-2026-07-26.md)
-records local Compose, JVM, frontend, browser, event-resilience, media, seed,
-and trace checks for `5867b37`. It is a historical snapshot, not evidence for
-this dirty worktree or a final merge. Separately, an earlier full Maven reactor
-run reported 969 tests, zero failures/errors, and one optional MQTT integration
-skip; it must be repeated on the final clean revision.
+Before a production deployment, operators must re-check environment-owned JWT,
+database, Kafka, SMTP, provider, TLS, ACL, backup, and observability inputs.
+Those are deployment responsibilities, not incomplete repository features.
 
 ## Release acceptance criteria
 

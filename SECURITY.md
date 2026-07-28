@@ -2,13 +2,15 @@
 
 ## Supported versions
 
-AgriCore has no tagged release yet. Security fixes land on `main`, and published images
-(`nguyenson1710/agricore-*`) are rebuilt from `main` on every push.
+AgriCore has no tagged release yet. Security fixes land on `main`. After a
+successful default-branch CI gate, the publish workflow may promote matching
+immutable short- and full-SHA images (`nguyenson1710/agricore-*`). It never
+promotes `latest`.
 
 | Version | Supported |
 |---------|-----------|
-| `main` / `latest` images | Yes |
-| Any older image SHA | No — pull `latest` or the current commit SHA |
+| Current verified `main` commit SHA image | Yes |
+| Older image SHA | No — pull the image matching a current verified commit |
 
 ## Reporting a vulnerability
 
@@ -41,14 +43,17 @@ Out of scope:
 
 ## Automated scanning
 
-Every push and pull request runs:
+Every push and pull request runs the release-gating checks in `ci.yml`:
 
 | Check | Workflow | Scope |
 |-------|----------|-------|
 | Secret scan | `.github/workflows/ci.yml` (Gitleaks) | Full history diff |
-| SAST | `.github/workflows/codeql.yml` (CodeQL) | Java sources |
-| Vulnerability scan | `.github/workflows/trivy.yml` (Trivy) | Filesystem + dependencies |
+| SAST | `.github/workflows/ci.yml` (CodeQL) | Java sources |
+| Vulnerability scan | `.github/workflows/ci.yml` (Trivy) | Filesystem + dependencies |
 | Dependency updates | `.github/dependabot.yml` | Maven, GitHub Actions, Docker |
+
+`codeql.yml` and `trivy.yml` provide scheduled/manual defense-in-depth scans;
+they are not the push/PR release gate. Dependabot checks for updates weekly.
 
 Image publication is gated on `ci` succeeding on the default branch, so a failing security check
 blocks the release of a new image.

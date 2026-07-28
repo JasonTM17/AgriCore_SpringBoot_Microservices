@@ -22,8 +22,10 @@ Use Kafka for implemented cross-service domain events.
   markers with side effects, and route exhausted or invalid records to a DLT.
   Contract-invalid records are non-retryable and skip retry-topic churn; only
   transient failures traverse the bounded retry stages.
-- Topic creation, retry topology, and local broker configuration remain explicit
-  infrastructure assets.
+- Provisioned topic creation, retry topology, and local broker configuration
+  remain explicit infrastructure assets. The current Identity main/retry/DLT
+  topology is broker-autocreated in local Compose and must be explicitly
+  provisioned with retention/ACL policy by a managed-broker operator.
 - REST remains appropriate for synchronous authorization and reservation
   decisions that require an immediate caller result.
 

@@ -1,6 +1,6 @@
 # AgriCore roadmap
 
-**Last updated:** 2026-07-27
+**Last updated:** 2026-07-28
 
 This roadmap records evidence gates, not delivery dates. A capability moves to
 complete only after code, contract, migration, tests, operations, and docs agree.
@@ -21,11 +21,12 @@ complete only after code, contract, migration, tests, operations, and docs agree
 | Platform | Compose and Helm tenant dependencies, read-only application filesystems, gateway Service alias, configurable egress policy, observability, security workflows, durable outbox retry migrations, and SHA-only dual-registry promotion with scan, digest-parity, signature, and bounded registry-retry gates |
 | Docs/demo | Repository media/GIF, regional seed, bounded cross-domain dataset, diagrams, ADRs, and platform release docs synchronized; all 13 Spring application READMEs provide service-local orientation and remain part of the final merged-revision accuracy gate |
 
-Current checkpoint: Release 1.0 implementation complete. Acceptance evidence is
-the latest successful default-branch CI and Docker Publish workflow for the same
-commit; immutable full/short SHA tags must resolve to one signed digest in both
-registries. Production deployment remains a separate operator-owned decision
-and is not claimed by this repository.
+Current checkpoint: feature-complete default branch verified at
+[`a7568aec`](evidence/release-closeout-2026-07-28.md). Acceptance evidence is
+the successful default-branch CI and Docker Publish workflow for that same
+commit; immutable full/short SHA tags resolve to one signed digest in both
+registries. The project remains untagged, and production deployment is a
+separate operator-owned decision.
 
 ## Post-1.0 candidates
 

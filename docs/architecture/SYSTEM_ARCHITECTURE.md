@@ -69,12 +69,18 @@ script also republishes a harvest event, publishes a duplicate notification
 event, and injects a wrong-version harvest event to prove idempotency and DLT
 routing on a real broker.
 
+The local topic script explicitly provisions the Harvest projection topology.
+Identity's main/retry/DLT topic family is broker-autocreated in local Compose;
+a managed-broker operator must provision that family with the required
+retention and authorization policy before enabling Identity/Notification.
+
 ### Durable outbox retry state
 
-Publisher retry state is distinct from Kafka consumer retry/DLT state. Farm,
-Harvest, Identity, Notification, Sales, Traceability, and Work keep nullable
-`next_attempt_at` and `quarantined_at` fields so legacy null rows remain due.
-Their PostgreSQL migrations create retry/quarantine partial indexes
+Publisher retry state is distinct from Kafka consumer retry/DLT state. Identity,
+Farm, Crop Cycle, Work, Harvest, Inventory, IoT, Traceability, Sales, and
+Notification keep nullable `next_attempt_at` and `quarantined_at` fields so
+legacy null rows remain due. Their PostgreSQL migrations create
+retry/quarantine partial indexes
 concurrently outside a Flyway transaction. Testcontainers migration coverage
 checks schema types, indexes, due/deferred/quarantined selection, and
 non-blocking `FOR UPDATE SKIP LOCKED` claims; it requires Docker.

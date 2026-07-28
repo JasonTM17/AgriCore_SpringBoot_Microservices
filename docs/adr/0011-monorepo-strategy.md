@@ -22,8 +22,8 @@ one Git repository.
   and image names.
 - Shared libraries contain only cross-cutting contracts or adapters; no service
   shares JPA entities or another service's database model.
-- CI detects changed artifacts but retains a complete release gate for the
-  repository revision.
+- CI runs complete repository gates for each eligible revision; it does not
+  claim path-based changed-artifact detection.
 
 ## Consequences
 

@@ -300,7 +300,7 @@ window; expired rows otherwise remain physically stored.
 | SSE reconnect/replay | Reuse the generation ID and `Last-Event-ID`; do not submit a second generation with a new idempotency key. |
 | Provider incident | Set `ASSISTANT_PROVIDER=none`, restart assistant-service, and preserve conversation data. |
 
-For an existing PostgreSQL volume, follow [assistant database provisioning](./assistant-database-provisioning.md). For cluster installs, create each enabled non-gateway service database Secret and the Gateway/Identity/Assistant client-IP signing Secret before `helm upgrade --install`; the PostgreSQL provisioning Secret belongs only to the bounded hook Jobs.
+For an existing PostgreSQL volume, follow [assistant database provisioning](./assistant-database-provisioning.md). For cluster installs, create each enabled non-gateway service database Secret, the `inventory.internalCredentialSecretName` token Secret, and the Gateway/Identity/Assistant client-IP signing Secret before `helm upgrade --install`; the PostgreSQL provisioning Secret belongs only to the bounded hook Jobs.
 
 ### Inventory warehouse farm-scope upgrade
 

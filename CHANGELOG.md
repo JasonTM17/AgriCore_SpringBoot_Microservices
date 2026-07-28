@@ -5,9 +5,12 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 intends to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-No version has been tagged yet. Everything below is unreleased. The repository
-configures short- and full-SHA-only image promotion; it does not assert that an
-image, signature, or registry release is currently published.
+No SemVer version has been tagged yet, so the entries below remain unreleased.
+The feature-complete default-branch revision is nevertheless published as
+verified immutable short- and full-SHA images; see the
+[release closeout record](docs/evidence/release-closeout-2026-07-28.md).
+`latest` is never promoted and package publication is not a production
+deployment claim.
 
 ## [Unreleased]
 
@@ -88,7 +91,7 @@ image, signature, or registry release is currently published.
 - **The Spring Cloud Gateway actuator endpoint is no longer exposed.** It was reachable with any
   valid token and lists every internal upstream URI.
 - Access tokens with a wrong or missing `aud` claim are rejected.
-- Spring Boot pinned to 3.5.12 and PostgreSQL driver upgraded, for Actuator and driver CVEs.
+- Spring Boot pinned to 3.5.16 and PostgreSQL driver upgraded, for Actuator and driver CVEs.
 - spring-kafka pinned to 3.3.16 for a deserialization CVE.
 
 Both pins are deliberate. Dependabot proposals to move to Spring Boot 4 / Spring Cloud 2025.1 /

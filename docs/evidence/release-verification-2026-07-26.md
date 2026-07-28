@@ -9,8 +9,9 @@
 - Runtime image content revision: `2c8c339`; the later `5867b37` commit
   changes only the GitHub Actions frontend toolchain.
 - Environment: Windows host, Docker Desktop 29.5.3, local Compose network.
-- Runtime evidence: `D:\agricore-evidence\final-5867b37`.
-- Security evidence: `D:\agricore-evidence\security`.
+- Runtime and security captures were disposable host-local artifacts. Their
+  qualified findings are preserved in this document; the capture bundle was
+  cleaned after the later release closeout.
 
 This is local release-candidate evidence. It does not claim a production
 deployment, production TLS/mTLS, Kafka ACL enforcement, external persistence,
@@ -135,17 +136,10 @@ was run because other user projects share the engine. Docker still reports
 reclaimable shared images, volumes, and build cache; those were intentionally
 left untouched.
 
-## Remaining release boundary
+## Historical release boundary
 
-- Run the complete backend, frontend, browser, Compose, Helm, workflow,
-  contract, migration, security, and image gates from the final clean revision.
-- Reproduce the new PostgreSQL overlap/farm-scope, MQTT quota, Notification
-  inbox/invalid-payload, Console auth/media, and tenant dependency behaviors in
-  that evidence.
-- Push the feature branch and require all GitHub checks, including CodeQL,
-  Gitleaks, Trivy, container matrix, Compose/Helm, frontend, and Maven.
-- Merge the focused commit history after review.
-- Verify Docker Hub and GHCR packages by tag and digest after publication.
-- Verify GitHub About, topics, homepage, license, and package links.
+- The actions listed here were the next steps for the historical candidate, not
+  current work. The integrated revision and package verification are recorded
+  in [release closeout 2026-07-28](release-closeout-2026-07-28.md).
 - Production operators must provide rotated secrets, TLS/mTLS, Kafka
   authentication/ACLs, external persistence, backups, and retention policy.

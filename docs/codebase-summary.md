@@ -1,6 +1,6 @@
 # AgriCore codebase summary
 
-**Current source scan:** 2026-07-27 (release-hardened source tree)
+**Current source scan:** 2026-07-28 (verified default-branch source tree)
 
 ## Build roots
 
@@ -113,11 +113,11 @@ claims for Farm, Harvest, Identity, Notification, Sales, Traceability, and
 Work. They require Docker.
 
 All 14 Dockerfiles pin build/runtime bases by digest and label images with
-`GIT_SHA` as the OCI revision. The pipeline configures candidate parity, scan,
-signature, and full/short-SHA promotion; no current registry publication is
-asserted. The 2026-07-26 evidence bundle and SHA `5867b37` remain historical
-snapshots. An earlier 969-test Maven reactor result is preliminary; a clean
-revision must repeat all release gates.
+`GIT_SHA` as the OCI revision. The pipeline verifies candidate parity, scans,
+signs, and promotes full/short-SHA tags. The verified default-branch closeout,
+including package evidence, is recorded in
+[release closeout 2026-07-28](evidence/release-closeout-2026-07-28.md). The
+2026-07-26 evidence bundle and SHA `5867b37` remain historical snapshots only.
 
 Architecture decisions live in [ADRs](adr/README.md); operational detail lives
 in [runbooks](runbooks/).

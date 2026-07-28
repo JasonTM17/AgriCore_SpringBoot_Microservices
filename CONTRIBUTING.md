@@ -49,9 +49,19 @@ Infrastructure changes also require:
 
 ```bash
 docker compose config --quiet
-helm lint infrastructure/helm/agricore
-helm template agricore infrastructure/helm/agricore
+helm lint infrastructure/helm/agricore \
+  --set global.imageTag=0000000000000000000000000000000000000000 \
+  --set global.requireImageDigest=false
+helm template agricore infrastructure/helm/agricore \
+  --set global.imageTag=0000000000000000000000000000000000000000 \
+  --set global.requireImageDigest=false > /dev/null
 ```
+
+The chart deliberately rejects unpinned production images. A real installation
+also requires the Inventory internal credential Secret; see the
+[chart README](infrastructure/helm/agricore/README.md) for the full values
+contract. The commands above use CI-safe placeholder values for lint/render
+only.
 
 Browser journeys use `pnpm --filter @agricore/console e2e`. Full-stack evidence
 uses `scripts/verify-platform.ps1` or `scripts/verify-platform.sh`.
