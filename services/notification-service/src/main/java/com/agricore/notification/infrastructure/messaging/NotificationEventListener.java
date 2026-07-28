@@ -41,6 +41,21 @@ public class NotificationEventListener {
             EventTypes.DEVICE_OFFLINE_DETECTED
     );
 
+    private static final Set<String> IGNORED_EVENTS = Set.of(
+            EventTypes.SENSOR_READING_RECEIVED
+    );
+
+    private static final Set<String> SENSOR_READING_FIELDS = Set.of(
+            "readingId",
+            "deviceId",
+            "deviceCode",
+            "plotId",
+            "metricType",
+            "metricValue",
+            "unit",
+            "recordedAt"
+    );
+
     private final NotificationApplicationService notificationService;
     private final ObjectMapper objectMapper;
     private final NotificationEventSourcePolicy eventSourcePolicy;
@@ -78,12 +93,20 @@ public class NotificationEventListener {
     )
     public void onMessage(ConsumerRecord<String, String> record) {
         String raw = record.value();
-        JsonNode root = readRoot(raw);
         DomainEventEnvelopeReader.Envelope envelope = DomainEventEnvelopeReader.read(objectMapper, raw);
-        if (!SUPPORTED_EVENTS.contains(envelope.eventType()) || envelope.eventVersion() != 1) {
+        if (envelope.eventVersion() != 1) {
+            throw new IllegalArgumentException("Unsupported notification event: " + envelope.eventType());
+        }
+        if (IGNORED_EVENTS.contains(envelope.eventType())) {
+            eventSourcePolicy.validate(record.topic(), envelope);
+            validateSensorReadingPayload(envelope.payload());
+            return;
+        }
+        if (!SUPPORTED_EVENTS.contains(envelope.eventType())) {
             throw new IllegalArgumentException("Unsupported notification event: " + envelope.eventType());
         }
         eventSourcePolicy.validate(record.topic(), envelope);
+        JsonNode root = readRoot(raw);
         notificationService.consume(toCommand(root, envelope));
     }
 
@@ -162,6 +185,18 @@ public class NotificationEventListener {
                         + String.join(", ", roles) + ". User ID: " + userId + ".",
                 correlationId
         );
+    }
+
+    private static void validateSensorReadingPayload(JsonNode payload) {
+        requireOnlyFields(payload, SENSOR_READING_FIELDS);
+        requiredUuid(payload, "readingId");
+        requiredUuid(payload, "deviceId");
+        requiredSchemaText(payload, "deviceCode", 64);
+        requiredUuid(payload, "plotId");
+        requiredSchemaText(payload, "metricType", 64);
+        requiredNumber(payload, "metricValue");
+        requiredSchemaText(payload, "unit", 16);
+        requiredInstant(payload, "recordedAt");
     }
 
     private JsonNode readRoot(String raw) {
@@ -245,6 +280,20 @@ public class NotificationEventListener {
                     "Notification event payload requires date-time " + field,
                     exception
             );
+        }
+    }
+
+    private static void requiredNumber(JsonNode payload, String field) {
+        JsonNode value = payload.path(field);
+        if (!value.isNumber()) {
+            throw new IllegalArgumentException("Notification event payload requires numeric " + field);
+        }
+    }
+
+    private static void requiredSchemaText(JsonNode payload, String field, int maxLength) {
+        JsonNode value = payload.path(field);
+        if (!value.isTextual() || value.textValue().isEmpty() || value.textValue().length() > maxLength) {
+            throw new IllegalArgumentException("Notification event payload requires " + field);
         }
     }
 

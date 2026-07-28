@@ -24,6 +24,7 @@ public class NotificationEventSourcePolicy {
                 EventTypes.SALES_ORDER_CANCELLED, new EventSource(salesTopic, "sales-service"),
                 EventTypes.TRACEABILITY_CODE_GENERATED,
                 new EventSource(traceabilityTopic, "traceability-service"),
+                EventTypes.SENSOR_READING_RECEIVED, new EventSource(iotTopic, "iot-service"),
                 EventTypes.SENSOR_THRESHOLD_EXCEEDED, new EventSource(iotTopic, "iot-service"),
                 EventTypes.DEVICE_OFFLINE_DETECTED, new EventSource(iotTopic, "iot-service")
         );
