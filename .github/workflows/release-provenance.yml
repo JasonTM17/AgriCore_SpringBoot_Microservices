@@ -33,6 +33,46 @@ jobs:
             echo "Release tags must use vMAJOR.MINOR.PATCH: $tag" >&2
             exit 1
           fi
+          release_version="${tag#v}"
+          export RELEASE_VERSION="$release_version"
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          import sys
+          import xml.etree.ElementTree as xml
+          from pathlib import Path
+
+          expected = os.environ["RELEASE_VERSION"]
+          namespace = {"m": "http://maven.apache.org/POM/4.0.0"}
+          root_pom = Path("pom.xml").resolve()
+          errors = []
+
+          for pom in sorted(Path(".").rglob("pom.xml")):
+              document = xml.parse(pom).getroot()
+              if pom.resolve() == root_pom:
+                  version = document.findtext("m:version", namespaces=namespace)
+              else:
+                  version = document.findtext("m:parent/m:version", namespaces=namespace)
+              if version != expected:
+                  errors.append(f"{pom}: expected Maven version {expected}, found {version}")
+
+          for package in (Path("package.json"), Path("apps/agricore-console/package.json")):
+              version = json.loads(package.read_text(encoding="utf-8"))["version"]
+              if version != expected:
+                  errors.append(f"{package}: expected package version {expected}, found {version}")
+
+          chart = Path("infrastructure/helm/agricore/Chart.yaml").read_text(encoding="utf-8")
+          for key in ("version", "appVersion"):
+              match = re.search(rf"(?m)^{key}:\s*[\"']?([^\"'\s]+)", chart)
+              value = match.group(1) if match else None
+              if value != expected:
+                  errors.append(f"Chart.yaml {key}: expected {expected}, found {value}")
+
+          if errors:
+              print("\\n".join(errors), file=sys.stderr)
+              raise SystemExit(1)
+          PY
           if [[ "$(git cat-file -t "$tag")" != "tag" ]]; then
             echo "Release tags must be annotated: $tag" >&2
             exit 1
@@ -81,6 +121,12 @@ jobs:
           PUBLISH_URL: ${{ steps.evidence.outputs.publish_url }}
         run: |
           set -euo pipefail
+          default_branch="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.default_branch')"
+          current_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/$default_branch" --jq '.sha')"
+          if [[ "$current_sha" != "$TARGET_SHA" ]]; then
+            echo "Refusing release: $default_branch advanced to $current_sha" >&2
+            exit 1
+          fi
           gh release view "$TAG" >/dev/null 2>&1 && {
             echo "GitHub Release already exists for $TAG" >&2
             exit 1
