@@ -16,10 +16,12 @@ and deployed configuration remain authoritative when they differ.
   console, service, contract, and full-stack changes.
 - [Deployment guide](deployment-guide.md) — operator-owned cluster inputs and
   immutable-image deployment.
-- [v1.0.0 release manifest](releases/v1.0.0.md) — source-release criteria,
-  package resolution, verification, and operator boundary.
-- [Evidence register](evidence/README.md) — current source-release provenance
-  and qualified historical records.
+- [Prepared v1.0.1 release manifest](releases/v1.0.1.md) — next
+  source-release scope and provenance checklist; not publication evidence.
+- [v1.0.0 release manifest](releases/v1.0.0.md) — historical predecessor
+  source-release scope and record.
+- [Evidence register](evidence/README.md) — v1.0.1 preparation requirements,
+  published-source references, and qualified historical records.
 
 ## Reference
 

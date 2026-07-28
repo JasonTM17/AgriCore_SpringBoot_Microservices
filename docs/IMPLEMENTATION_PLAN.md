@@ -1,7 +1,8 @@
 # AgriCore Implementation Plan
 
-**Status:** Implementation complete; v1.0.0 source-release manifest prepared,
-with no production deployment claim
+**Status:** Implementation complete; v1.0.1 source-release preparation in
+progress, with no v1.0.1 tag, GitHub Release, package-publication result, or
+production deployment claim
 **Created:** 2026-07-16
 **Last updated:** 2026-07-28
 
@@ -135,11 +136,13 @@ label; this is configuration, not registry-publication evidence.
 
 ## Closeout and operator handoff
 
-The [v1.0.0 release manifest](releases/v1.0.0.md) defines the source-release
-gate. After release-provenance publishes the annotated tag and GitHub Release,
-that record links the exact CI/package evidence; containers remain full/short SHA tags and
-deployments remain digest-pinned. The
-[2026-07-28 closeout](evidence/release-closeout-2026-07-28.md) and earlier
+The [prepared v1.0.1 release manifest](releases/v1.0.1.md) defines the next
+source-release gate. It records no tag, CI, Docker Publish, package, or GitHub
+Release result. After release-provenance validates an annotated tag at the
+current default-branch tip, its GitHub Release record links the exact
+CI/package evidence; containers remain full/short SHA tags and deployments
+remain digest-pinned. The [v1.0.0 manifest](releases/v1.0.0.md),
+[2026-07-28 closeout](evidence/release-closeout-2026-07-28.md), and earlier
 [2026-07-26 verification](evidence/release-verification-2026-07-26.md) remain
 qualified historical evidence for `a7568aec` and `5867b37`, respectively.
 

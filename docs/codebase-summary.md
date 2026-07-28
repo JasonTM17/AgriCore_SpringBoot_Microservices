@@ -1,6 +1,7 @@
 # AgriCore codebase summary
 
-**Current source scan:** 2026-07-28 (verified default-branch source tree)
+**Current source scan:** 2026-07-28 (release-preparation source tree; not
+source-release or deployment evidence)
 
 ## Build roots
 
@@ -114,11 +115,13 @@ Work. They require Docker.
 
 All 14 Dockerfiles pin build/runtime bases by digest and label images with
 `GIT_SHA` as the OCI revision. The pipeline verifies candidate parity, scans,
-signs, and promotes full/short-SHA tags. The [v1.0.0 release manifest](releases/v1.0.0.md)
-defines the source-release gate; after publication, resolve the source tag to
-its recorded SHA package and deploy its digest. The [2026-07-28 closeout](evidence/release-closeout-2026-07-28.md)
-for `a7568aec` and the 2026-07-26 evidence bundle / `5867b37` remain historical
-snapshots only.
+signs, and promotes full/short-SHA tags. The [prepared v1.0.1 release
+manifest](releases/v1.0.1.md) defines the next source-release gate but carries
+no tag, run, package, or digest evidence. After publication, resolve the source
+tag to its recorded SHA package and deploy its digest. The [v1.0.0
+manifest](releases/v1.0.0.md), [2026-07-28 closeout](evidence/release-closeout-2026-07-28.md)
+for `a7568aec`, and the 2026-07-26 evidence bundle / `5867b37` remain
+historical snapshots only.
 
 Architecture decisions live in [ADRs](adr/README.md); operational detail lives
 in [runbooks](runbooks/).
