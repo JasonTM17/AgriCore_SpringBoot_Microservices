@@ -6,7 +6,7 @@
 
     <groupId>com.agricore</groupId>
     <artifactId>agricore-parent</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>1.0.0</version>
     <packaging>pom</packaging>
     <name>AgriCore Parent</name>
     <description>Agricultural Enterprise Management Platform — monorepo aggregator</description>
