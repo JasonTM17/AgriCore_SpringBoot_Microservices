@@ -84,9 +84,11 @@ delta assertion observes the shared `COFFEE-ROBUSTA` test SKU.
 
 ### The event backbone
 
-Runtime Kafka view showing five event topics and the three idempotent consumer groups:
+Runtime Kafka UI showing a selected local view of event topics and idempotent
+consumer groups; the local topology also includes additional main, retry, and
+dead-letter topics:
 
-![Kafka UI showing the five agricore event topics with message counts, and the inventory, notification, and traceability consumer groups all STABLE](docs/images/kafka-event-backbone.png)
+![Kafka UI showing selected AgriCore event topics with message counts and stable consumer groups](docs/images/kafka-event-backbone.png)
 
 Producers write to `outbox_events` in the same transaction as the domain change; a polling publisher
 drains it. Consumers dedupe on `(event_id, consumer_name)` and route poisoned messages to a DLT.
@@ -124,6 +126,22 @@ Sales ── bounded reserve/confirm ── durable recovery
   one plot, closing the concurrent-insert race left by application checks alone.
 
 See the [documentation index](docs/README.md), [System Architecture](docs/architecture/SYSTEM_ARCHITECTURE.md), [ADRs](docs/adr/), and [local operations](docs/runbooks/local-operations.md).
+
+## Project layout
+
+| Path | Responsibility |
+|---|---|
+| `apps/agricore-console/` | React/TypeScript operations console |
+| `services/` | Independently deployable Spring Boot applications; stateful services own their Flyway histories |
+| `libs/` | Shared Java contracts and cross-cutting adapters; no shared service data model |
+| `contracts/` | Versioned OpenAPI, AsyncAPI, and event-schema source |
+| `infrastructure/` | Docker/Compose assets and the Helm application chart |
+| `docs/` | Architecture, ADRs, diagrams, runbooks, release records, and evidence |
+| `scripts/` and `tools/` | Repository setup, verification, generation, and validation helpers |
+
+For a task-first route through these areas, see the
+[developer workflows](docs/developer-workflows.md) and the
+[documentation index](docs/README.md).
 
 ### Service references
 
