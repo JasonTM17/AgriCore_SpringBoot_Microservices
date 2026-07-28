@@ -3,9 +3,9 @@
     Renders captured e2e-happy-path output into the animated terminal GIF used by the README.
 
 .DESCRIPTION
-    The GIF in docs/images is generated from a real run, never hand-authored. This script exists so
-    the asset can be regenerated after the flow changes, and so a reviewer can confirm it was not
-    staged.
+    The GIF in docs/images is rendered from a saved console transcript. This utility renders the
+    supplied text; it does not attest how that transcript was captured. Review
+    scripts/e2e-happy-path.ps1 and its CI execution for the executable assertions.
 
     Refuses to render if anything resembling a JWT appears in the captured output. The e2e script
     logs only the token's length, but an artifact published to a public repository is the wrong
@@ -25,8 +25,10 @@ param(
 
     [string]$OutputGif = (Join-Path $PSScriptRoot "..\docs\images\e2e-happy-path.gif"),
 
-    [string]$WorkDir = (Join-Path ([System.IO.Path]::GetTempPath()) "agricore-gif-frames"),
+    # Parent for a unique, script-owned frame directory. The parent itself is never deleted.
+    [string]$WorkDir = [System.IO.Path]::GetTempPath(),
 
+    [ValidateRange(20, 240)]
     [int]$WrapAt = 104
 )
 
@@ -43,9 +45,20 @@ foreach ($line in $raw) {
     }
 }
 
-Remove-Item -Recurse -Force $WorkDir -ErrorAction SilentlyContinue
-New-Item -ItemType Directory -Path $WorkDir -Force | Out-Null
+$workRoot = [System.IO.Path]::GetFullPath($WorkDir)
+$frameDirName = "agricore-gif-frames-$([guid]::NewGuid().ToString('N'))"
+$frameDir = [System.IO.Path]::GetFullPath((Join-Path $workRoot $frameDirName))
+$relativeFrameDir = [System.IO.Path]::GetRelativePath($workRoot, $frameDir)
+if ($relativeFrameDir -ne $frameDirName) {
+    throw "Refusing unsafe frame directory outside the configured work root: $frameDir"
+}
+
+$OutputGif = [System.IO.Path]::GetFullPath($OutputGif)
+New-Item -ItemType Directory -Path $workRoot -Force | Out-Null
+New-Item -ItemType Directory -Path $frameDir | Out-Null
 New-Item -ItemType Directory -Path (Split-Path -Parent $OutputGif) -Force | Out-Null
+
+try {
 
 # Wrap so nothing runs off the canvas; continuation lines are indented.
 $lines = New-Object System.Collections.Generic.List[string]
@@ -105,18 +118,29 @@ for ($n = 0; $n -le $lines.Count; $n++) {
         $argv += @("-fill", (Get-LineColour $lines[$i]), "-annotate", "+$padX+$y", (ConvertTo-AnnotateText $lines[$i]))
     }
 
-    $argv += (Join-Path $WorkDir ("frame_{0:D3}.png" -f $n))
+    $argv += (Join-Path $frameDir ("frame_{0:D3}.png" -f $n))
     & magick @argv
+    if ($LASTEXITCODE -ne 0) {
+        throw "ImageMagick failed while rendering frame $n (exit code $LASTEXITCODE)."
+    }
 }
 
 # Hold the finished screen so the loop stays readable.
-$final = Join-Path $WorkDir ("frame_{0:D3}.png" -f $lines.Count)
+$final = Join-Path $frameDir ("frame_{0:D3}.png" -f $lines.Count)
 for ($hold = 1; $hold -le 12; $hold++) {
-    Copy-Item $final (Join-Path $WorkDir ("frame_{0:D3}.png" -f ($lines.Count + $hold)))
+    Copy-Item $final (Join-Path $frameDir ("frame_{0:D3}.png" -f ($lines.Count + $hold)))
 }
 
-& magick -delay 22 -loop 0 (Join-Path $WorkDir "frame_*.png") -layers Optimize -colors 64 $OutputGif
-Remove-Item -Recurse -Force $WorkDir -ErrorAction SilentlyContinue
+& magick -delay 22 -loop 0 (Join-Path $frameDir "frame_*.png") -layers Optimize -colors 64 $OutputGif
+if ($LASTEXITCODE -ne 0) {
+    throw "ImageMagick failed while assembling the GIF (exit code $LASTEXITCODE)."
+}
+} finally {
+    $cleanupRelative = [System.IO.Path]::GetRelativePath($workRoot, $frameDir)
+    if ($cleanupRelative -eq $frameDirName -and (Test-Path -LiteralPath $frameDir -PathType Container)) {
+        Remove-Item -LiteralPath $frameDir -Recurse -Force
+    }
+}
 
 $kb = [math]::Round((Get-Item $OutputGif).Length / 1KB, 1)
 Write-Output "Rendered $($lines.Count) lines into $OutputGif (${kb} KB)"

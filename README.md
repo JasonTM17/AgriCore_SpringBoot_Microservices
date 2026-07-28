@@ -63,16 +63,19 @@ corresponding default-branch commit.
 
 ## Demo
 
-One command brings the whole platform up; one script drives a real business transaction across
-every service. This is `scripts/e2e-happy-path.ps1` against a clean stack — nothing staged, nothing
-edited afterwards:
+One command brings the platform up; one script exercises its critical authenticated and
+event-driven paths against a clean stack. The GIF is rendered from captured console output with
+`tools/render-e2e-gif.ps1`; the executable assertions in `scripts/e2e-happy-path.ps1` remain the
+source of truth:
 
 ![End-to-end happy path: register, login, farm, crop cycle, work task, harvest, Kafka projection, public QR](docs/images/e2e-happy-path.gif)
 
-What it proves, in order: a real RS256 token from identity, a farm and plot through the gateway, an
-**illegal crop-cycle stage transition rejected with 409** and the platform `ApiError` body, the four
-legal stages, a work task, a harvest write that lands in the outbox, the **inventory consumer
-stocking 500 kg from Kafka**, and the **public QR projection** resolving to `CAPHER-70543A22`.
+What the script verifies, in order: a real RS256 token from Identity; Farm, Plot, Crop Cycle, and
+Work Task operations through the gateway; an **illegal crop-cycle stage transition rejected with
+409**; the legal stage path; a 90 kg net harvest written with its outbox event; Inventory and
+Traceability projections caught up from Kafka; the dynamically generated public traceability code;
+idempotent duplicate handling in Inventory, Traceability, and Notification; and invalid harvest
+events delivered to the DLT.
 
 ```bash
 docker compose up -d
@@ -81,7 +84,7 @@ pwsh scripts/e2e-happy-path.ps1     # or: ./scripts/verify-platform.sh
 
 ### The event backbone
 
-Five outbox topics and the three idempotent consumer groups, from the same run:
+Runtime Kafka view showing five event topics and the three idempotent consumer groups:
 
 ![Kafka UI showing the five agricore event topics with message counts, and the inventory, notification, and traceability consumer groups all STABLE](docs/images/kafka-event-backbone.png)
 
