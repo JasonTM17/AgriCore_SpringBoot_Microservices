@@ -97,6 +97,31 @@ class NotificationIotReadingEventListenerTest {
     }
 
     @Test
+    void sourceMatchedReadingWithAbbreviatedUuidIsRejectedWithoutSideEffects() {
+        String abbreviatedUuidReading = reading("iot-service", 1, "1-1-1-1-1");
+
+        assertThatThrownBy(() -> listener.onMessage(record("agricore.iot.events", abbreviatedUuidReading)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("UUID readingId");
+
+        assertThat(notificationRepository.count()).isZero();
+        assertThat(processedEventRepository.count()).isZero();
+        assertThat(outboxRepository.count()).isZero();
+    }
+
+    @Test
+    void sourceMatchedReadingWithUppercaseCanonicalUuidIsIgnoredWithoutSideEffects() {
+        String uppercaseUuidReading = reading("iot-service", 1, "ABCDEFAB-CDEF-CDEF-CDEF-ABCDEFABCDEF");
+
+        assertThatCode(() -> listener.onMessage(record("agricore.iot.events", uppercaseUuidReading)))
+                .doesNotThrowAnyException();
+
+        assertThat(notificationRepository.count()).isZero();
+        assertThat(processedEventRepository.count()).isZero();
+        assertThat(outboxRepository.count()).isZero();
+    }
+
+    @Test
     void sourceMatchedSchemaValidBoundaryReadingIsIgnoredWithoutSideEffects() {
         String schemaValidReading = reading("iot-service", 1)
                 .replace("\"deviceCode\":\"SENSOR-001\"", "\"deviceCode\":\"sensor / field\"")
@@ -111,6 +136,10 @@ class NotificationIotReadingEventListenerTest {
     }
 
     private static String reading(String producer, int eventVersion) {
+        return reading(producer, eventVersion, UUID.randomUUID().toString());
+    }
+
+    private static String reading(String producer, int eventVersion, String readingId) {
         return """
                 {
                   "eventId":"%s",
@@ -133,7 +162,7 @@ class NotificationIotReadingEventListenerTest {
                 UUID.randomUUID(),
                 eventVersion,
                 producer,
-                UUID.randomUUID(),
+                readingId,
                 UUID.randomUUID(),
                 UUID.randomUUID(),
                 UUID.randomUUID()

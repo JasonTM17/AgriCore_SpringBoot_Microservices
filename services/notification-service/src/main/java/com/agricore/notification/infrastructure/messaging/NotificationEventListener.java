@@ -148,14 +148,14 @@ public class NotificationEventListener {
             );
             case EventTypes.SENSOR_THRESHOLD_EXCEEDED -> new NotificationEventCommand(
                     envelope.eventId(), envelope.eventType(), "IN_APP",
-                    prefixed(payload, "plotId", "operations", "plot:"),
+                    prefixedUuid(payload, "plotId", "plot:"),
                     "Sensor threshold exceeded",
                     "Metric " + required(payload, "metricType", 64) + " exceeded its configured threshold.",
                     correlationId
             );
             case EventTypes.DEVICE_OFFLINE_DETECTED -> new NotificationEventCommand(
                     envelope.eventId(), envelope.eventType(), "IN_APP",
-                    prefixed(payload, "plotId", "operations", "plot:"),
+                    prefixedUuid(payload, "plotId", "plot:"),
                     "IoT device offline",
                     "Device " + required(payload, "deviceCode", 64) + " is offline.",
                     correlationId
@@ -223,12 +223,20 @@ public class NotificationEventListener {
     }
 
     private static String requiredUuid(JsonNode payload, String field) {
-        String value = required(payload, field, 36);
+        return canonicalUuid(required(payload, field, 36), field);
+    }
+
+    private static String canonicalUuid(String value, String field) {
+        String canonicalUuid;
         try {
-            return UUID.fromString(value).toString();
+            canonicalUuid = UUID.fromString(value).toString();
         } catch (IllegalArgumentException exception) {
             throw new IllegalArgumentException("Notification event payload requires UUID " + field, exception);
         }
+        if (value.length() != canonicalUuid.length() || !value.equalsIgnoreCase(canonicalUuid)) {
+            throw new IllegalArgumentException("Notification event payload requires UUID " + field);
+        }
+        return canonicalUuid;
     }
 
     private static String requiredEmail(JsonNode payload, String field) {
@@ -310,16 +318,8 @@ public class NotificationEventListener {
         });
     }
 
-    private static String prefixed(JsonNode payload, String field, String fallback, String prefix) {
-        JsonNode value = payload.path(field);
-        if (!value.isTextual() || value.textValue().isBlank()) {
-            return fallback;
-        }
-        try {
-            return prefix + UUID.fromString(value.textValue().trim());
-        } catch (IllegalArgumentException exception) {
-            throw new IllegalArgumentException("Notification event payload requires UUID " + field, exception);
-        }
+    private static String prefixedUuid(JsonNode payload, String field, String prefix) {
+        return prefix + requiredUuid(payload, field);
     }
 
     private static String textOrNull(JsonNode value, int maxLength) {
