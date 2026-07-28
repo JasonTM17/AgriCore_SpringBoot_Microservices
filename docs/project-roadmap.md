@@ -29,6 +29,16 @@ SHA tags resolve to one signed digest in both registries. The
 remains historical evidence. Production deployment is a separate operator-owned
 decision.
 
+## Known runtime remediation
+
+- **Notification IoT topic filtering.** Every accepted IoT reading emits
+  `SensorReadingReceived.v1` on `agricore.iot.events`, while Notification's
+  topic-level listener currently supports only threshold and offline events.
+  It rejects reading events and Spring Kafka routes them directly to the IoT
+  DLT. Filter the listener or split the event topology before treating that DLT
+  as only malformed alert/offline traffic; see the
+  [IoT ingestion diagram](diagrams/iot-ingestion-flow.md).
+
 ## Post-1.0 candidates
 
 These items require a product or operations decision before implementation:

@@ -12,7 +12,9 @@ identity-service outbox -> agricore.identity.events (UserRegistered.v1)
   -> notification-service (durable welcome EMAIL delivery)
 sales-service outbox -> agricore.sales.events -> notification-service
 traceability-service outbox -> agricore.traceability.events -> notification-service
-iot-service outbox -> agricore.iot.events -> notification-service
+iot-service outbox -> agricore.iot.events
+  |- SensorThresholdExceeded.v1 / DeviceOfflineDetected.v1 -> notification-service
+  `- SensorReadingReceived.v1 -> notification-service direct DLT (current shared-topic gap)
 notification-service outbox -> agricore.notification.events
 
 consumer failure
@@ -38,6 +40,14 @@ deploying Identity/Notification to a managed broker, operators must explicitly
 create and configure the Identity main, retry, and DLT topology. Producer
 outboxes for identity, farm, crop-cycle, work, inventory, IoT, traceability,
 sales, and notification use polling delivery with retryable publish state.
+
+The IoT producer writes `SensorReadingReceived.v1` for every accepted reading,
+as well as alert/offline events when applicable. Notification's topic-level
+consumer supports only IoT threshold and offline events. It rejects
+`SensorReadingReceived.v1` with `IllegalArgumentException`, which is excluded
+from retry and therefore routes directly to `agricore.iot.events.DLT`. Treat
+that as a known current shared-topic compatibility gap, not a malformed alert;
+monitor it separately until the runtime filters the event or splits the topic.
 
 ## Consumer error handling
 
@@ -71,13 +81,20 @@ broker or deployment policy:
 
 | Topic class | Default `retention.ms` | Override |
 |---|---:|---|
-| `*-retry-1000`, `*-retry-2000`, `*-retry-4000` | 86,400,000 (24 hours) | `KAFKA_RETRY_TOPIC_RETENTION_MS` |
-| `*.DLT` | 604,800,000 (7 days) | `KAFKA_DLT_TOPIC_RETENTION_MS` |
+| `*-retry-1000`, `*-retry-2000`, `*-retry-4000` | 86,400,000 (24 hours) | `KAFKA_RETRY_TOPIC_RETENTION_MS` accepted by the initializer script |
+| `*.DLT` | 604,800,000 (7 days) | `KAFKA_DLT_TOPIC_RETENTION_MS` accepted by the initializer script |
 
 Both overrides must be positive integer milliseconds. Re-running
 `create-topics.sh` uses `kafka-configs.sh --alter` to reconcile
 `cleanup.policy=delete` and `retention.ms` on its provisioned retry/DLT topics;
 it does not configure the Identity topology described above.
+
+The root `docker-compose.yml` passes only `KAFKA_BOOTSTRAP_SERVERS` to
+`kafka-topics-init`, and `.env.example` does not declare either retention
+variable. Normal local Compose startup therefore uses the defaults above.
+Putting either retention variable in `.env` alone does not override this
+initializer; run the initializer with those variables explicitly when a local
+retention override is needed.
 
 ## Producer outbox path
 
@@ -168,7 +185,7 @@ scaling to zero does not migrate that state.
 
 ## DLT response procedure
 
-1. Inspect the DLT matching the failed source topic in Kafka UI or with Kafka tooling. For Identity, first confirm the operator has provisioned `agricore.identity.events.DLT`; local broker auto-creation does not establish its required retention policy.
+1. Inspect the DLT matching the failed source topic in Kafka UI or with Kafka tooling. For Identity, first confirm the operator has provisioned `agricore.identity.events.DLT`; local broker auto-creation does not establish its required retention policy. For `agricore.iot.events.DLT`, distinguish the current `SensorReadingReceived.v1` shared-topic compatibility gap from malformed alert/offline records.
 2. Capture the JSON envelope, original topic/partition/offset headers, and exception headers added by Spring Kafka.
 3. Check `agricore_kafka_dlq_attempts_total` and consumer logs for the affected consumer. Do not infer topic depth from the counter.
 4. Correct the schema, data, or application cause.
