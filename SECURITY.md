@@ -2,15 +2,16 @@
 
 ## Supported versions
 
-AgriCore has no tagged release yet. Security fixes land on `main`. After a
-successful default-branch CI gate, the publish workflow may promote matching
-immutable short- and full-SHA images (`nguyenson1710/agricore-*`). It never
-promotes `latest`.
+Security fixes land on `main`; the supported source baseline is the latest
+`1.0.x` source release. [v1.0.0](https://github.com/JasonTM17/AgriCore_SpringBoot_Microservices/releases/tag/v1.0.0)
+is a source tag, not a container tag. After a successful default-branch CI gate,
+the publish workflow may promote matching immutable short- and full-SHA images
+(`nguyenson1710/agricore-*`); it never promotes `latest`.
 
 | Version | Supported |
 |---------|-----------|
-| Current verified `main` commit SHA image | Yes |
-| Older image SHA | No — pull the image matching a current verified commit |
+| Latest `1.0.x` source release | Yes — resolve its release evidence to a full-SHA image tag, then deploy its digest |
+| Superseded source release or older image SHA | No — move to the current supported source release and matching verified package |
 
 ## Reporting a vulnerability
 

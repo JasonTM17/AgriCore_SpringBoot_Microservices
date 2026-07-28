@@ -84,6 +84,14 @@ node scripts/verify-showcase-media.mjs
 - A pull request is ready only when required CI, security, contract, Compose, and
   Helm checks pass with no hidden failures.
 
+## Release provenance
+
+Version releases use an annotated source tag and a GitHub Release only after the
+merged target's required workflows finish. Do not create a SemVer container tag:
+the publish workflow promotes immutable short- and full-SHA image tags and the
+operator deploys a resolved digest. A release record links the source target to
+the matching CI/package evidence; it does not represent a production deployment.
+
 ## Reporting security issues
 
 Do not open a public issue containing an exploitable vulnerability, credential,

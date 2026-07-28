@@ -1,10 +1,9 @@
 # AgriCore project overview and product requirements
 
-**Status:** Feature-complete, verified default-branch revision; no SemVer or
-production deployment is claimed
+**Status:** v1.0.0 source release; no hosted production deployment is claimed
 
-**Last verified:** 2026-07-28 — see the
-[release closeout](evidence/release-closeout-2026-07-28.md)
+**Release provenance:** [v1.0.0 release notes](releases/v1.0.0.md) distinguish
+the source tag from immutable SHA packages and operator deployment evidence.
 
 ## Product problem
 
@@ -104,8 +103,9 @@ inside an independently owned service and database.
   intentional `Recreate` interruption. Any pre-V5 rollback follows the
   documented drain, backup, and evidence-neutralization procedure.
 - Docker Hub and GitHub Packages publish immutable SHA images only after default
-  branch CI succeeds. Only full and short SHA tags are promoted; signatures,
-  SBOM, and provenance are verifiable.
+  branch CI succeeds. The v1.0.0 source tag is resolved through its release
+  record to full/short SHA tags, signatures, SBOM, and provenance; deployments
+  pin the resulting digest.
 - Production operators explicitly supply secrets, TLS, database backups, Kafka
   authorization, storage, SMTP, and observability retention.
 

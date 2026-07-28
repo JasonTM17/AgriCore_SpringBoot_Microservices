@@ -256,16 +256,19 @@ external deliveries manually against provider evidence before any resend.
 
 ## Image verification
 
-The repository configures a release workflow that, after eligible
-default-branch CI, builds each image once and pushes a candidate to Docker Hub
-and GitHub Packages. It scans the exact candidate digest, verifies registry
-parity, signs it in both registries, promotes only short-SHA and full-SHA tags,
-and re-verifies each promoted reference. All 14 Dockerfiles pin their build and
-runtime bases by digest and accept `GIT_SHA` for the OCI revision label. It does
-not publish `latest`. This is a configured supply-chain path, not proof that an
-image has been published; production should locate a verified full SHA tag and
-deploy its resolved digest. The Helm chart rejects tag-based production image
-references by default.
+The [v1.0.0 source release](releases/v1.0.0.md) identifies the source tag; it is
+not a container tag. After eligible default-branch CI, the release workflow
+builds each image once and pushes a candidate to Docker Hub and GitHub Packages.
+It scans the exact candidate digest, verifies registry parity, signs it in both
+registries, promotes only short-SHA and full-SHA tags, and re-verifies each
+promoted reference. All 14 Dockerfiles pin build/runtime bases by digest and
+accept `GIT_SHA` for the OCI revision label. It never publishes `latest`.
+
+Use the GitHub Release record to map its source target to the exact CI and Docker
+Publish evidence. Locate a package by that verified full-SHA tag, resolve its
+digest, and deploy the digest. The Helm chart rejects tag-based production image
+references by default. This supply-chain record is not proof of a deployed
+production environment.
 
 ```bash
 docker buildx imagetools inspect IMAGE@sha256:DIGEST

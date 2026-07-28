@@ -22,16 +22,14 @@ operational path and a public-safe traceability view.
 
 ## Status
 
-Feature-complete and release-verified on
-[`a7568aec`](docs/evidence/release-closeout-2026-07-28.md): the repository
-contains 13 Spring applications, the React console, local Compose stacks, a
-Helm application chart, automated quality/security gates, and SHA-only Docker
-Hub/GitHub Packages promotion. A revision is release-accepted only when the
-default-branch CI and Docker Publish workflows succeed for that exact commit,
-including image scanning, cross-registry digest equality, and Cosign
-verification. This repository has no SemVer release tag and does not claim a
-production deployment; package publication is an immutable build artifact, not
-an operator deployment.
+The [v1.0.0 source release](https://github.com/JasonTM17/AgriCore_SpringBoot_Microservices/releases/tag/v1.0.0)
+covers 13 Spring applications, the React console, local Compose stacks, a Helm
+application chart, and automated quality/security gates. Source release identity
+is distinct from package identity: the pipeline promotes only short- and full-SHA
+container tags, never `latest`. Resolve the release record's source target to its
+matching full-SHA image tag, then deploy the registry digest. The release record
+captures the exact target and workflow evidence; package publication is not an
+operator deployment claim.
 
 ## Microservices
 
