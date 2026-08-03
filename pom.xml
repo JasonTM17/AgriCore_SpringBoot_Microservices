@@ -51,7 +51,7 @@
         <!-- Override Boot-managed 3.3.14 (CVE-2026-41731 insecure deserialization) -->
         <spring-kafka.version>3.3.16</spring-kafka.version>
         <zxing.version>3.5.4</zxing.version>
-        <minio.version>9.0.1</minio.version>
+        <minio.version>9.0.3</minio.version>
         <jacoco.version>0.8.15</jacoco.version>
     </properties>
 
