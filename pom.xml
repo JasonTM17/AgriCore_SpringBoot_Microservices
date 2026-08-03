@@ -46,7 +46,7 @@
         <!-- Override Boot-managed Netty 4.1.135 for the patched 4.1 line. -->
         <netty.version>4.1.136.Final</netty.version>
         <!-- Override Spring Cloud-managed 1.80 for CVE-2025-14813. -->
-        <bouncycastle.version>1.84</bouncycastle.version>
+        <bouncycastle.version>1.85</bouncycastle.version>
         <postgresql.version>42.7.13</postgresql.version>
         <!-- Override Boot-managed 3.3.14 (CVE-2026-41731 insecure deserialization) -->
         <spring-kafka.version>3.3.16</spring-kafka.version>
