@@ -44,7 +44,7 @@
         <!-- Align Jackson modules on the patched line for CVE-2026-54512/54513. -->
         <jackson-bom.version>2.21.4</jackson-bom.version>
         <!-- Override Boot-managed Netty 4.1.135 for the patched 4.1 line. -->
-        <netty.version>4.1.136.Final</netty.version>
+        <netty.version>4.2.16.Final</netty.version>
         <!-- Override Spring Cloud-managed 1.80 for CVE-2025-14813. -->
         <bouncycastle.version>1.84</bouncycastle.version>
         <postgresql.version>42.7.13</postgresql.version>
